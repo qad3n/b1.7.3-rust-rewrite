@@ -134,33 +134,45 @@ pub fn clickOverlays(target: &str, x: i32, y: i32, button: i32) -> bool
     })
 }
 
-// key and wheel input reach only mods built against api 1.2 or later, older guests cannot decode them
-const INPUT_API_MINOR: u32 = 2;
+// the api minor that added an op, older guests cannot decode it
+fn since(op: &OverlayOp) -> u32
+{
+    match op
+    {
+        OverlayOp::Draw { .. } | OverlayOp::Mouse { .. } => 0,
+        OverlayOp::Key { .. } | OverlayOp::Scroll { .. } => 2,
+        OverlayOp::Cover { .. } => 5,
+    }
+}
 
-fn inputOverlay(owner: usize, handler: Handle, op: OverlayOp) -> bool
+fn askOverlay(owner: usize, handler: Handle, op: OverlayOp) -> bool
 {
     let Some(runtime) = state::modAt(owner)
     else
     {
         return false;
     };
-    runtime.apiMinor() >= INPUT_API_MINOR
+    runtime.apiMinor() >= since(&op)
         && matches!(runtime.call(&GuestCall::Overlay { handler, op }), Some(GuestReply::Bool(true)))
 }
 
 // the first overlay to take a key keeps it from the screen under it
 pub fn keyOverlays(target: &str, character: u32, key: i32, hovered: Option<StackData>) -> bool
 {
-    overlaysOn(target).into_iter().any(|(owner, handler)| {
-        inputOverlay(owner, handler, OverlayOp::Key { character, key, hovered: hovered.clone() })
-    })
+    overlaysOn(target)
+        .into_iter()
+        .any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Key { character, key, hovered: hovered.clone() }))
 }
 
 pub fn scrollOverlays(target: &str, x: i32, y: i32, delta: i32) -> bool
 {
-    overlaysOn(target)
-        .into_iter()
-        .any(|(owner, handler)| inputOverlay(owner, handler, OverlayOp::Scroll { x, y, delta }))
+    overlaysOn(target).into_iter().any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Scroll { x, y, delta }))
+}
+
+// whether any overlay covers the point, so the vanilla slot under it is not hovered
+pub fn coverOverlays(target: &str, x: i32, y: i32) -> bool
+{
+    overlaysOn(target).into_iter().any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Cover { x, y }))
 }
 
 pub fn registerPlayerLayer(modIndex: usize, handler: Handle)

@@ -107,6 +107,11 @@ fn hoveredStack(this: &GuiScreen) -> Option<Rc<ItemStack>>
     let mc: Rc<Minecraft> = this.mc();
     let x: i32 = Mouse::getX() * this.m_width.get() / mc.m_displayWidth.get();
     let y: i32 = this.m_height.get() - Mouse::getY() * this.m_height.get() / mc.m_displayHeight.get() - 1;
+    let (left, top): (i32, i32) = origin(this);
+    if crate::modded::overlayCovered(this, x - left, y - top)
+    {
+        return None;
+    }
     getSlotAtPosition(this, x, y).and_then(|slot| slot.getStack())
 }
 
@@ -147,13 +152,15 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
     GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
     GL11::glEnable(32826);
     let mut slot: Option<Rc<Slot>> = None;
+    // rewrite: a mod overlay over the container hides the slot under the mouse from hover and tooltip
+    let covered: bool = crate::modded::overlayCovered(this, mouseX - i, mouseY - j);
     let slots: &jvm::array_list::JArrayList<Rc<Slot>> = &fields(this).m_inventorySlots.m_slots;
     let mut k: i32 = 0;
     while k < slots.size()
     {
         let slot1: Rc<Slot> = slots.get(k);
         drawSlotInventory(this, &slot1);
-        if getIsMouseOverSlot(this, &slot1, mouseX, mouseY)
+        if !covered && getIsMouseOverSlot(this, &slot1, mouseX, mouseY)
         {
             GL11::glDisable(2896);
             GL11::glDisable(2929);

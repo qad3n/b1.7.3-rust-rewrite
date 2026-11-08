@@ -194,6 +194,12 @@ pub fn overlayKey(screen: &GuiScreen, character: u16, key: i32, hovered: Option<
     modloader::play::active() && modloader::screens::keyOverlays(screen.className(), u32::from(character), key, hovered)
 }
 
+// whether a mod overlay covers the point on a vanilla container screen, positions from the container's corner
+pub fn overlayCovered(screen: &GuiScreen, x: i32, y: i32) -> bool
+{
+    modloader::play::active() && modloader::screens::coverOverlays(screen.className(), x, y)
+}
+
 // the mouse wheel on a vanilla container screen, positions from the container's corner
 pub fn overlayScroll(screen: &GuiScreen, x: i32, y: i32, delta: i32) -> bool
 {
