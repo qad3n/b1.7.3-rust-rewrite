@@ -174,11 +174,135 @@ pub fn screenOpening(screen: Option<&Rc<GuiScreen>>) -> bool
     modloader::play::screenOpen(&name)
 }
 
+fn devToolsEnabled() -> bool
+{
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| std::env::var_os("B173_DEVSHOT").is_some())
+}
+
+// with B173_DEVSHOT set, a devcmd.request file in the game folder runs test lines on the main thread and answers in
+// devcmd.done: world <save> [seed], quit, set <x> <y> <z> <id>, hold <item> [count], held, use, and /<mod command> such as /loader column 0 8 8
+pub fn devCommands(mc: &Minecraft)
+{
+    if !devToolsEnabled()
+    {
+        return;
+    }
+    let Some(dir) = Minecraft::minecraftDir()
+    else
+    {
+        return;
+    };
+    let Ok(text) = std::fs::read_to_string(dir.join("devcmd.request"))
+    else
+    {
+        return;
+    };
+    if let Err(error) = std::fs::remove_file(dir.join("devcmd.request"))
+    {
+        modloader::log::warn(modloader::log::LOADER, &format!("devcmd request not removed: {error}"));
+        return;
+    }
+    let replies: Vec<String> =
+        text.lines().filter(|line| !line.trim().is_empty()).map(|line| devCommand(mc, line.trim())).collect();
+    if let Err(error) = std::fs::write(dir.join("devcmd.done"), replies.join("\n"))
+    {
+        modloader::log::warn(modloader::log::LOADER, &format!("devcmd result not written: {error}"));
+    }
+}
+
+fn devCommand(mc: &Minecraft, line: &str) -> String
+{
+    let words: Vec<&str> = line.split_whitespace().collect();
+    match words.as_slice()
+    {
+        ["world", save, rest @ ..] =>
+        {
+            let seed: i64 = rest.first().and_then(|seed| seed.parse().ok()).unwrap_or(0);
+            // as GuiSelectWorld and GuiCreateWorld do before a single player world starts
+            mc.m_playerController.set(Some(crate::controller::player_controller_sp::new(&mc.rc())));
+            mc.startWorld(save, save, seed);
+            format!("opened {save}")
+        }
+        ["quit"] =>
+        {
+            mc.changeWorld1(None);
+            mc.displayGuiScreen(Some(crate::gui::GuiMainMenu::new()));
+            "quit to title".to_owned()
+        }
+        ["hold", item, rest @ ..] =>
+        {
+            let count: i32 = rest.first().and_then(|count| count.parse().ok()).unwrap_or(1);
+            let Some(player) = mc.m_thePlayer.get()
+            else
+            {
+                return "no player".to_owned();
+            };
+            let Some(id) = itemByName(item)
+            else
+            {
+                return format!("no item {item}");
+            };
+            let inventory = entity_player::inventory(&player);
+            inventory.setInventorySlotContents(
+                inventory.m_currentItem.get(),
+                Some(game::item::ItemStack::withDamage(id, count, 0)),
+            );
+            format!("holding {count} {item}")
+        }
+        ["set", x, y, z, block] =>
+        {
+            let Some(world) = mc.m_theWorld.get()
+            else
+            {
+                return "no world".to_owned();
+            };
+            let numbers: Option<Vec<i32>> = [x, y, z, block].iter().map(|text| text.parse().ok()).collect();
+            let Some([x, y, z, block]) =
+                numbers.as_deref().map(|numbers| [numbers[0], numbers[1], numbers[2], numbers[3]])
+            else
+            {
+                return format!("set takes numbers: {line}");
+            };
+            world.setBlockWithNotify(x, y, z, block);
+            format!("set {x} {y} {z} to {block}")
+        }
+        ["held"] =>
+        {
+            let held = mc.m_thePlayer.get().and_then(|player| entity_player::inventory(&player).getCurrentItem());
+            held.map_or("empty hand".to_owned(), |stack| {
+                format!(
+                    "{} x{} components {:?}",
+                    stack.m_itemID.get(),
+                    stack.m_stackSize.get(),
+                    stack.m_components.borrow()
+                )
+            })
+        }
+        ["use"] =>
+        {
+            mc.clickMouse(1);
+            "used held item".to_owned()
+        }
+        _ => match line.strip_prefix('/')
+        {
+            Some(command) => modloader::play::command(command, mc.m_thePlayer.get().as_ref(), true)
+                .unwrap_or_else(|| format!("unknown command {command}")),
+            None => format!("unknown dev line {line}"),
+        },
+    }
+}
+
+fn itemByName(name: &str) -> Option<i32>
+{
+    let id: modloader::Identifier = modloader::Identifier::parse(name).ok()?;
+    modloader::registry::with(|registries| registries.itemId(&id))
+}
+
 // with B173_DEVSHOT set, a devshot.request file in the game folder takes one screenshot of the game window
 pub fn devShot(width: i32, height: i32)
 {
-    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    if !*ENABLED.get_or_init(|| std::env::var_os("B173_DEVSHOT").is_some())
+    if !devToolsEnabled()
     {
         return;
     }

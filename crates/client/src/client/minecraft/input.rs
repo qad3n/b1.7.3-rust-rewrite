@@ -143,7 +143,7 @@ impl Minecraft
         }
     }
 
-    fn clickMouse(&self, button: i32)
+    pub(crate) fn clickMouse(&self, button: i32)
     {
         if button == 0 && self.m_leftClickCounter.get() > 0
         {
