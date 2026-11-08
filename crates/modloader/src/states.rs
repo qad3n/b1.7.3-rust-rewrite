@@ -233,7 +233,10 @@ pub fn mismatches(server: Option<&BTreeMap<Identifier, i32>>) -> Vec<String>
     let local: BTreeMap<Identifier, i32> = counts();
     let mut ids: BTreeSet<&Identifier> = server.keys().collect();
     ids.extend(local.keys());
-    ids.into_iter().filter(|id| server.get(*id) != local.get(*id)).map(|id| format!("{SNAPSHOT_KEY} {id}")).collect()
+    ids.into_iter()
+        .filter(|id| server.get(*id) != local.get(*id))
+        .map(|id| format!("{id} has different block states than the server"))
+        .collect()
 }
 
 // blocks without named states, vanilla ones included, report their metadata under this property

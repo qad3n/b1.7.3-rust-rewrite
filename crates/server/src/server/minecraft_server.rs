@@ -178,6 +178,8 @@ impl MinecraftServer
             );
             logger().warning("To change this, set \"online-mode\" to \"true\" in the server.settings file.");
         }
+        // rewrite: the level's saved mod id map applies before the per dimension trackers and player managers exist
+        modloader::remap::preload(Path::new(&self.propertyManager().getStringProperty("level-name", "world")));
         self.m_configManager.set(Some(ServerConfigurationManager::new(&this)));
         let trackers: Vec<Option<Rc<EntityTracker>>> = modloader::dimensions::serverDimensions()
             .iter()

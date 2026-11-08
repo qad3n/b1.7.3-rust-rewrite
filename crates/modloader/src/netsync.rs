@@ -343,7 +343,7 @@ impl ServerSession
                 send(sender, &Control::Done);
                 Outcome::Done
             }
-            (_, Control::Refused(entries)) => Outcome::Kick(format!("Missing content: {}", entries.join(", "))),
+            (_, Control::Refused(entries)) => Outcome::Kick(format!("Content mismatch: {}", entries.join(", "))),
             (step, other) => Outcome::Kick(format!("unexpected loader message {other:?} in step {step:?}")),
         }
     }

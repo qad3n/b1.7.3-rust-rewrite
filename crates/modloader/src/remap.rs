@@ -21,6 +21,8 @@ thread_local! {
     // identifier and numeric id of every placeholder, kept in the snapshot so reinstalling restores content
     static MISSING_ROWS: RefCell<BTreeMap<String, BTreeMap<Identifier, i32>>> = const { RefCell::new(BTreeMap::new()) };
     static PLACEHOLDERS: RefCell<BTreeSet<(String, i32)>> = const { RefCell::new(BTreeSet::new()) };
+    // the map a dedicated server already applied before its worlds existed, the overworld load then skips it
+    static PRELOADED: RefCell<Option<RegistrySnapshot>> = const { RefCell::new(None) };
 }
 
 pub fn snapshot() -> RegistrySnapshot
@@ -109,6 +111,8 @@ fn placeholders(missing: &BTreeMap<String, BTreeMap<Identifier, i32>>)
         if Block::byId(*numeric).is_none()
         {
             Block::basic(*numeric, MISSING_SPRITE, Material::rock()).setHardness(1.0).setBlockName("loader.missing");
+            // a removed mod's tile entity stays on its placeholder, the chunk refuses tiles on non container blocks
+            Block::setIsBlockContainerEntry(*numeric, true);
             game::item::item_block::create(numeric - 256);
             PLACEHOLDERS.with(|set| set.borrow_mut().insert(("block".to_owned(), *numeric)));
         }
@@ -190,6 +194,48 @@ pub fn apply(snapshot: &RegistrySnapshot) -> Vec<String>
     missing.iter().flat_map(|(name, rows)| rows.keys().map(move |id| format!("{name} {id}"))).collect()
 }
 
+// a dedicated server builds a tracker and player manager per dimension before any world exists, so the level's
+// saved map applies first and mod dimensions keep their saved numbers when another mod was added
+pub fn preload(worldDir: &std::path::Path)
+{
+    if !crate::state::hasMods()
+    {
+        return;
+    }
+    let path: std::path::PathBuf = worldDir.join(persist::LOADER_DIR).join(REGISTRY_FILE);
+    let Some(saved) = std::fs::read(&path).ok().and_then(|bytes| wire::decode::<RegistrySnapshot>(&bytes).ok())
+    else
+    {
+        return;
+    };
+    if saved != snapshot()
+    {
+        applySaved(Some(worldDir), &saved);
+    }
+    PRELOADED.with(|preloaded| *preloaded.borrow_mut() = Some(saved));
+}
+
+// the first load that meets content of a removed mod backs the world up once and names what became placeholders
+fn applySaved(worldDir: Option<&std::path::Path>, saved: &RegistrySnapshot)
+{
+    let missing: Vec<String> = registry::with(|registries| missingRows(registries, saved))
+        .iter()
+        .flat_map(|(name, rows)| rows.keys().map(move |id| format!("{name} {id}")))
+        .collect();
+    if !missing.is_empty()
+    {
+        if let Some(dir) = worldDir
+        {
+            backup(dir);
+        }
+        crate::log::warn(
+            crate::log::LOADER,
+            &format!("this world has content from removed mods, kept as placeholders: {}", missing.join(", ")),
+        );
+    }
+    apply(saved);
+}
+
 // every authoritative world load applies its saved map and writes the merged one back
 pub fn onWorldLoad(world: &Rc<World>)
 {
@@ -197,21 +243,10 @@ pub fn onWorldLoad(world: &Rc<World>)
     let saved: Option<RegistrySnapshot> =
         persist::read(world, REGISTRY_FILE).and_then(|bytes| wire::decode(&bytes).ok());
     // the same map, as on a nether trip, needs no rebuild
-    if let Some(saved) = saved.as_ref().filter(|saved| **saved != snapshot())
+    let preloaded: Option<RegistrySnapshot> = PRELOADED.with(|preloaded| preloaded.borrow_mut().take());
+    if let Some(saved) = saved.as_ref().filter(|saved| **saved != snapshot() && Some(*saved) != preloaded.as_ref())
     {
-        let missing: Vec<String> = registry::with(|registries| missingRows(registries, saved))
-            .iter()
-            .flat_map(|(name, rows)| rows.keys().map(move |id| format!("{name} {id}")))
-            .collect();
-        if !missing.is_empty()
-        {
-            backup(world);
-            crate::log::warn(
-                crate::log::LOADER,
-                &format!("this world has content from removed mods, kept as placeholders: {}", missing.join(", ")),
-            );
-        }
-        apply(saved);
+        applySaved(persist::worldDir(world).as_deref(), saved);
     }
     if let Err(error) = persist::write(world, REGISTRY_FILE, &wire::encode(&snapshot()))
     {
@@ -238,13 +273,8 @@ fn copyTree(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()>
 }
 
 // one copy of the world before the first load that holds content of a removed mod
-fn backup(world: &World)
+fn backup(dir: &std::path::Path)
 {
-    let Some(dir) = persist::worldDir(world)
-    else
-    {
-        return;
-    };
     let marker: std::path::PathBuf = dir.join(persist::LOADER_DIR).join("backed_up");
     if marker.exists()
     {
@@ -255,7 +285,7 @@ fn backup(world: &World)
         "{}_backup_{stamp}",
         dir.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default()
     ));
-    match copyTree(&dir, &target)
+    match copyTree(dir, &target)
     {
         Ok(()) =>
         {
