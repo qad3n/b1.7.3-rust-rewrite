@@ -30,6 +30,7 @@ impl ButtonRect
 
 // the light rotation GuiContainer sets before its slots
 const ITEM_LIGHT_TILT: f32 = 120.0;
+const OPAQUE_WHITE: u32 = 0xFFFFFFFF;
 
 thread_local! {
     static ITEMS: OnceCell<Rc<RenderItem>> = const { OnceCell::new() };
@@ -40,6 +41,27 @@ fn itemRenderer() -> Rc<RenderItem> { ITEMS.with(|items| Rc::clone(items.get_or_
 fn texturePath(texture: &str) -> String
 {
     modloader::entities::modTexturePath(texture).unwrap_or_else(|| texture.to_owned())
+}
+
+// a whole texture stretched over the rectangle, blended by its alpha times the tint's
+fn drawImage(engine: &Rc<RenderEngine>, texture: &str, rect: [i32; 4], color: u32)
+{
+    let [alpha, red, green, blue] = color.to_be_bytes().map(|channel| f32::from(channel) / 255.0);
+    GL11::glColor4f(red, green, blue, alpha);
+    GL11::glEnable(GL11::GL_BLEND);
+    GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
+    engine.bindTexture(engine.getTexture(&texturePath(texture)));
+    let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
+    let [left, top] = [rect[0] as f64, rect[1] as f64];
+    let [right, bottom] = [left + rect[2] as f64, top + rect[3] as f64];
+    tessellator.startDrawingQuads();
+    tessellator.addVertexWithUV(left, bottom, 0.0, 0.0, 1.0);
+    tessellator.addVertexWithUV(right, bottom, 0.0, 1.0, 1.0);
+    tessellator.addVertexWithUV(right, top, 0.0, 1.0, 0.0);
+    tessellator.addVertexWithUV(left, top, 0.0, 0.0, 0.0);
+    tessellator.draw();
+    GL11::glDisable(GL11::GL_BLEND);
+    GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
 }
 
 // lit and depth tested as GuiContainer slots, then back to the flat state later ops expect
@@ -113,20 +135,11 @@ pub fn draw(mc: &Rc<Minecraft>, list: &DrawList, originX: i32, originY: i32, mou
             }
             DrawOp::Image { texture, x, y, w, h } =>
             {
-                GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
-                GL11::glEnable(GL11::GL_BLEND);
-                GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
-                engine.bindTexture(engine.getTexture(&texturePath(texture)));
-                let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
-                let [left, top] = [(originX + x) as f64, (originY + y) as f64];
-                let [right, bottom] = [left + *w as f64, top + *h as f64];
-                tessellator.startDrawingQuads();
-                tessellator.addVertexWithUV(left, bottom, 0.0, 0.0, 1.0);
-                tessellator.addVertexWithUV(right, bottom, 0.0, 1.0, 1.0);
-                tessellator.addVertexWithUV(right, top, 0.0, 1.0, 0.0);
-                tessellator.addVertexWithUV(left, top, 0.0, 0.0, 0.0);
-                tessellator.draw();
-                GL11::glDisable(GL11::GL_BLEND);
+                drawImage(&engine, texture, [originX + x, originY + y, *w, *h], OPAQUE_WHITE)
+            }
+            DrawOp::TintedImage { texture, x, y, w, h, color } =>
+            {
+                drawImage(&engine, texture, [originX + x, originY + y, *w, *h], *color)
             }
             DrawOp::Region { texture, x, y, w, h, uv, size } =>
             {
