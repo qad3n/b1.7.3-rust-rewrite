@@ -95,11 +95,14 @@ pub fn serverCheck(server: &Hello, client: &Hello) -> Vec<String>
     }
 }
 
+// only a shared mod can be needed on the other side, a client or server only mod never is whatever its flag says
+fn needsPeer(entry: &ModEntry) -> bool { entry.required && entry.side == ModSide::Both }
+
 // client only and extra mods pass, shared mods that carry content or channels must match
 fn requiredCheck(server: &Hello, client: &Hello) -> Vec<String>
 {
     let mut problems: Vec<String> = Vec::new();
-    for needed in server.mods.iter().filter(|entry| entry.required)
+    for needed in server.mods.iter().filter(|entry| needsPeer(entry))
     {
         match client.mods.iter().find(|entry| entry.id == needed.id)
         {
@@ -149,7 +152,7 @@ pub fn clientCheck(server: &Hello, client: &Hello) -> Vec<String>
     client
         .mods
         .iter()
-        .filter(|entry| entry.required)
+        .filter(|entry| needsPeer(entry))
         .filter(|entry| !server.mods.iter().any(|found| found.id == entry.id))
         .map(|entry| format!("the server lacks {} {}, which this client requires", entry.id, entry.version))
         .collect()
