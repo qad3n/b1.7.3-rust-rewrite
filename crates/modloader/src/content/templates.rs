@@ -56,7 +56,7 @@ pub const BLOCK_TEMPLATES: [BlockTemplate; 29] = [
     BlockTemplate { m_name: "brown_mushroom", m_create: |id, sprite, _| blocks::block_mushroom::create(id, sprite) },
     BlockTemplate { m_name: "ladder", m_create: |id, sprite, _| blocks::block_ladder::create(id, sprite) },
     BlockTemplate { m_name: "fence", m_create: |id, sprite, _| blocks::block_fence::create(id, sprite) },
-    BlockTemplate { m_name: "leaves", m_create: |id, sprite, _| blocks::block_leaves::create(id, sprite) },
+    BlockTemplate { m_name: "leaves", m_create: |id, sprite, _| fancyLeaves(id, sprite) },
     BlockTemplate { m_name: "cactus", m_create: |id, sprite, _| blocks::block_cactus::create(id, sprite) },
     BlockTemplate { m_name: "stone_button", m_create: |id, sprite, _| blocks::block_button::create(id, sprite) },
     BlockTemplate { m_name: "lever", m_create: |id, sprite, _| blocks::block_lever::create(id, sprite) },
@@ -68,6 +68,14 @@ pub const BLOCK_TEMPLATES: [BlockTemplate; 29] = [
     BlockTemplate { m_name: "portal", m_create: |id, sprite, _| blocks::block_portal::create(id, sprite) },
     BlockTemplate { m_name: "bed", m_create: |id, _, _| blocks::block_bed::create(id) },
 ];
+
+// mod leaves have no opaque fast texture so they draw fancy in both graphics modes, never as culled opaque cubes
+fn fancyLeaves(id: i32, sprite: i32) -> Rc<Block>
+{
+    let block: Rc<Block> = blocks::block_leaves::create(id, sprite);
+    blocks::block_leaves::setGraphicsLevel(&block, true);
+    block
+}
 
 pub struct ItemTemplate
 {
