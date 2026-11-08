@@ -159,6 +159,8 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             this.m_height.get() - 10,
             16777215,
         );
+        // rewrite: the loaded mod count sits one line above the copyright
+        crate::modded::drawModCount(this, &font);
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
     },
     ..GUI_SCREEN

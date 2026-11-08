@@ -15,7 +15,7 @@ use game::inventory::IInventory;
 use game::item::ItemStack;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
-pub use menu::{MODS_BUTTON, addModsButton, modsScreen, startScreen};
+pub use menu::{MODS_BUTTON, addModsButton, drawModCount, modsScreen, startScreen};
 pub use model::renderModel;
 use modloader::mod_protocol::abi::StackData;
 use modloader::screens::OpenRequest;

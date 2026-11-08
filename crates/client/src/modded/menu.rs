@@ -443,6 +443,22 @@ pub fn addModsButton(screen: &GuiScreen, x: i32, y: i32)
     }
 }
 
+// the title screen line above the copyright, how many mods loaded
+pub fn drawModCount(screen: &GuiScreen, font: &FontRenderer)
+{
+    if !modloader::play::present()
+    {
+        return;
+    }
+    // GuiMainMenu draws the copyright 10 from the bottom and 2 from the right edge
+    const BOTTOM: i32 = 20;
+    const RIGHT: i32 = 2;
+    let count: usize = state::mods().len();
+    let text: String = format!("{count} {} loaded", if count == 1 { "mod" } else { "mods" });
+    let x: i32 = screen.m_width.get() - font.getStringWidth(&text) - RIGHT;
+    screen.m_gui.drawString(font, &text, x, screen.m_height.get() - BOTTOM, WHITE);
+}
+
 // load problems show before the title screen, every one of them at once
 pub fn startScreen(main: Rc<GuiScreen>) -> Rc<GuiScreen>
 {
