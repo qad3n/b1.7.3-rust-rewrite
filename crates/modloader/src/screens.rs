@@ -1,6 +1,6 @@
 use crate::state;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{BlockPos, DrawList, GuestCall, GuestReply, Handle, ScreenOp, ScreenSpec};
+use mod_protocol::abi::{BlockPos, DrawList, GuestCall, GuestReply, Handle, OverlayOp, ScreenOp, ScreenSpec};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -29,6 +29,8 @@ struct Screens
 {
     m_types: BTreeMap<Identifier, Rc<ScreenType>>,
     m_huds: Vec<(usize, Handle)>,
+    m_overlays: Vec<(usize, String, Handle)>,
+    m_layers: Vec<(usize, Handle)>,
     // set by the client, absent on the dedicated server
     m_opener: Option<Opener>,
 }
@@ -62,6 +64,80 @@ pub fn byNumeric(numeric: i32) -> Option<Rc<ScreenType>>
 pub fn registerHud(modIndex: usize, handler: Handle)
 {
     SCREENS.with(|screens| screens.borrow_mut().m_huds.push((modIndex, handler)));
+}
+
+pub fn registerOverlay(modIndex: usize, target: String, handler: Handle)
+{
+    SCREENS.with(|screens| screens.borrow_mut().m_overlays.push((modIndex, target, handler)));
+}
+
+fn overlaysOn(target: &str) -> Vec<(usize, Handle)>
+{
+    SCREENS.with(|screens| {
+        screens
+            .borrow()
+            .m_overlays
+            .iter()
+            .filter(|(_, on, _)| on == target)
+            .map(|(owner, _, handler)| (*owner, *handler))
+            .collect()
+    })
+}
+
+fn callOverlay(owner: usize, handler: Handle, op: OverlayOp) -> Option<GuestReply>
+{
+    state::modAt(owner)?.call(&GuestCall::Overlay { handler, op })
+}
+
+pub fn drawOverlays(target: &str, size: [i32; 2], mouse: [i32; 2]) -> Vec<DrawList>
+{
+    overlaysOn(target)
+        .into_iter()
+        .filter_map(|(owner, handler)| match callOverlay(owner, handler, OverlayOp::Draw { size, mouse })?
+        {
+            GuestReply::Draw(list) => Some(list),
+            _ => None,
+        })
+        .collect()
+}
+
+// the first overlay to take a click keeps it from the screen under it
+pub fn clickOverlays(target: &str, x: i32, y: i32, button: i32) -> bool
+{
+    overlaysOn(target).into_iter().any(|(owner, handler)| {
+        matches!(callOverlay(owner, handler, OverlayOp::Mouse { x, y, button }), Some(GuestReply::Bool(true)))
+    })
+}
+
+pub fn registerPlayerLayer(modIndex: usize, handler: Handle)
+{
+    SCREENS.with(|screens| screens.borrow_mut().m_layers.push((modIndex, handler)));
+}
+
+pub fn playerLayers(player: &Rc<game::entity::Entity>) -> Vec<mod_protocol::abi::PlayerLayer>
+{
+    let layers: Vec<(usize, Handle)> = SCREENS.with(|screens| screens.borrow().m_layers.clone());
+    if layers.is_empty()
+    {
+        return Vec::new();
+    }
+    let info = crate::host::context::entityInfo(player);
+    let synced: Vec<u8> = crate::entities::synced(player);
+    layers
+        .into_iter()
+        .filter_map(|(owner, handler)| {
+            match state::modAt(owner)?.call(&GuestCall::PlayerLayers {
+                handler,
+                player: info.clone(),
+                synced: synced.clone(),
+            })?
+            {
+                GuestReply::Layers(list) => Some(list),
+                _ => None,
+            }
+        })
+        .flatten()
+        .collect()
 }
 
 pub fn hasHuds() -> bool { SCREENS.with(|screens| !screens.borrow().m_huds.is_empty()) }

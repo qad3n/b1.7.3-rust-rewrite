@@ -265,6 +265,8 @@ impl Minecraft
 
     fn screenshotListener(&self)
     {
+        // rewrite: test tools ask for a screenshot of the game alone through a request file
+        crate::modded::devShot(self.m_displayWidth.get(), self.m_displayHeight.get());
         if Keyboard::isKeyDown(60)
         {
             if !self.m_isTakingScreenshot.get()

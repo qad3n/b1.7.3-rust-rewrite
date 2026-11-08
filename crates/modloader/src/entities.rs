@@ -12,6 +12,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 pub const MOD_DATA: &str = "ModData";
+// the ModData key holding the bytes mirrored to clients, saved with the entity like any other mod data
+const SYNCED_KEY: &str = "loader:synced";
 const PATH_RANGE: f32 = 16.0;
 
 type Constructor = fn(Option<Rc<World>>) -> Rc<Entity>;
@@ -25,7 +27,65 @@ pub struct EntityTemplate
     pub m_create: Constructor,
 }
 
-pub const ENTITY_TEMPLATES: [EntityTemplate; 8] = [
+// a thrown or shot entity the mod drives: the loader moves it by its motion and faces it along its flight,
+// the mod's tick handles gravity, drag and impacts
+fn projectileUpdate(this: &Rc<Entity>)
+{
+    this.onEntityUpdate();
+    let [x, y, z] = [this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get()];
+    this.setPosition(this.m_posX.get() + x, this.m_posY.get() + y, this.m_posZ.get() + z);
+    let horizontal: f64 = (x * x + z * z).sqrt();
+    if horizontal > 0.0 || y != 0.0
+    {
+        this.m_rotationYaw.set((x.atan2(z) as f32).to_degrees());
+        this.m_rotationPitch.set((y.atan2(horizontal) as f32).to_degrees());
+    }
+}
+
+pub const PROJECTILE: EntityClass = EntityClass {
+    m_name: "EntityModProjectile",
+    m_parent: Some(&game::entity::entity_snowball::CLASS),
+    onUpdate: projectileUpdate,
+    ..game::entity::entity_snowball::CLASS
+};
+
+// a block in flight the mod steers, drawn like falling sand, moved by its motion with no gravity or landing
+pub const MOVING_BLOCK: EntityClass = EntityClass {
+    m_name: "EntityModBlock",
+    m_parent: Some(&game::entity::entity_falling_sand::CLASS),
+    onUpdate: projectileUpdate,
+    ..game::entity::entity_falling_sand::CLASS
+};
+
+// falling sand's shape with its position at the block's center
+fn createMovingBlock(world: Option<Rc<World>>) -> Rc<Entity>
+{
+    const SIZE: f32 = 0.98;
+    let entity: Rc<Entity> = game::entity::entity_falling_sand::new(world);
+    entity.m_preventEntitySpawning.set(true);
+    entity.setSize(SIZE, SIZE);
+    entity.m_yOffset.set(SIZE / 2.0);
+    entity
+}
+
+// EntityMob that never looks for a target and only fights whoever hurts it, the pig zombie's anger without the zombie
+pub const NEUTRAL_MONSTER: EntityClass = EntityClass {
+    m_name: "EntityModNeutralMob",
+    m_parent: Some(&game::entity::entity_mob::CLASS),
+    findPlayerToAttack: |_| None,
+    ..game::entity::entity_mob::CLASS
+};
+
+pub const ENTITY_TEMPLATES: [EntityTemplate; 17] = [
+    EntityTemplate { m_name: "projectile", m_class: &PROJECTILE, m_create: game::entity::entity_snowball::new },
+    EntityTemplate { m_name: "moving_block", m_class: &MOVING_BLOCK, m_create: createMovingBlock },
+    // EntityMob itself: hunts players in sight, melee, gone on peaceful, never burns
+    EntityTemplate {
+        m_name: "monster",
+        m_class: &game::entity::entity_mob::CLASS,
+        m_create: game::entity::entity_mob::new,
+    },
+    EntityTemplate { m_name: "neutral_monster", m_class: &NEUTRAL_MONSTER, m_create: game::entity::entity_mob::new },
     EntityTemplate {
         m_name: "pig",
         m_class: &game::entity::entity_pig::CLASS,
@@ -66,6 +126,31 @@ pub const ENTITY_TEMPLATES: [EntityTemplate; 8] = [
         m_class: &game::entity::entity_creeper::CLASS,
         m_create: game::entity::entity_creeper::new,
     },
+    EntityTemplate {
+        m_name: "sheep",
+        m_class: &game::entity::entity_sheep::CLASS,
+        m_create: game::entity::entity_sheep::new,
+    },
+    EntityTemplate {
+        m_name: "ghast",
+        m_class: &game::entity::entity_ghast::CLASS,
+        m_create: game::entity::entity_ghast::new,
+    },
+    EntityTemplate {
+        m_name: "slime",
+        m_class: &game::entity::entity_slime::CLASS,
+        m_create: game::entity::entity_slime::new,
+    },
+    EntityTemplate {
+        m_name: "wolf",
+        m_class: &game::entity::entity_wolf::CLASS,
+        m_create: game::entity::entity_wolf::new,
+    },
+    EntityTemplate {
+        m_name: "zombie_pigman",
+        m_class: &game::entity::entity_pig_zombie::CLASS,
+        m_create: game::entity::entity_pig_zombie::new,
+    },
 ];
 
 pub struct EntityType
@@ -79,6 +164,8 @@ pub struct EntityType
 }
 
 thread_local! {
+    // synced bytes that reached a client before the entity they belong to
+    static STASHED: RefCell<HashMap<i32, Vec<u8>>> = RefCell::new(HashMap::new());
     static TYPES: RefCell<HashMap<Identifier, Rc<EntityType>>> = RefCell::new(HashMap::new());
     // per entity mod bytes by entity id, saved under ModData for every entity that has them
     static DATA: RefCell<HashMap<i32, BTreeMap<String, Vec<u8>>>> = RefCell::new(HashMap::new());
@@ -99,7 +186,15 @@ pub fn modTexturePath(texture: &str) -> Option<String>
     let id: Identifier = Identifier::parse(texture).ok()?;
     if id.isVanilla()
     {
-        Some(format!("/{}", id.path()))
+        let extension: &str = if id.path().ends_with(".png")
+        {
+            ""
+        }
+        else
+        {
+            ".png"
+        };
+        Some(format!("/{}{extension}", id.path()))
     }
     else
     {
@@ -210,6 +305,41 @@ fn canSpawn(this: &Rc<Entity>) -> bool
     }
 }
 
+fn sound(this: &Entity, pick: fn(&mod_protocol::spec::EntitySounds) -> &Option<String>) -> Option<Option<String>>
+{
+    let entityType: Rc<EntityType> = typeOf(this)?;
+    let chosen: &Option<String> = pick(entityType.m_spec.sounds.as_ref()?);
+    chosen.as_ref().map(|name| Some(name.clone()).filter(|name| !name.is_empty()))
+}
+
+fn livingSound(this: &Rc<Entity>) -> Option<String>
+{
+    sound(this, |sounds| &sounds.living).unwrap_or_else(|| (parentClass(this).getLivingSound)(this))
+}
+
+fn hurtSound(this: &Rc<Entity>) -> Option<String>
+{
+    sound(this, |sounds| &sounds.hurt).unwrap_or_else(|| (parentClass(this).getHurtSound)(this))
+}
+
+fn deathSound(this: &Rc<Entity>) -> Option<String>
+{
+    sound(this, |sounds| &sounds.death).unwrap_or_else(|| (parentClass(this).getDeathSound)(this))
+}
+
+// an Ai behavior replaces the template's AI tick entirely
+fn ai(this: &Rc<Entity>) { callEntity(this, EntityCall::Ai { entity: entityInfo(this) }); }
+
+fn steeredMove(this: &Rc<Entity>, strafe: f32, forward: f32)
+{
+    let steering: Option<mod_protocol::spec::SteeringSpec> =
+        typeOf(this).and_then(|entityType| entityType.m_spec.steering);
+    if !steering.is_some_and(|steering| crate::steering::travel(this, &steering))
+    {
+        (parentClass(this).moveEntityWithHeading)(this, strafe, forward);
+    }
+}
+
 fn texture(this: &Rc<Entity>) -> Option<JString>
 {
     typeOf(this)
@@ -265,13 +395,33 @@ fn classFor(entityType: &Rc<EntityType>) -> &'static EntityClass
         crate::classes::deriveEntityClass(entityType.m_template.m_class, &entityType.m_id.to_string(), |class| {
             class.getEntityTexture = texture;
             class.dropFewItems = dropItems;
-            let methods: [ClassPatch; 6] = [
+            if entityType.m_spec.steering.is_some()
+            {
+                class.moveEntityWithHeading = steeredMove;
+            }
+            if entityType.m_spec.persistent
+            {
+                class.canDespawn = |_| false;
+            }
+            if entityType.m_spec.immovable
+            {
+                class.canBePushed = |_| false;
+                class.addVelocity = |_, _, _, _| {};
+            }
+            if entityType.m_spec.sounds.is_some()
+            {
+                class.getLivingSound = livingSound;
+                class.getHurtSound = hurtSound;
+                class.getDeathSound = deathSound;
+            }
+            let methods: [ClassPatch; 7] = [
                 (EntityMethod::Tick, |class| class.onUpdate = tick),
                 (EntityMethod::LivingUpdate, |class| class.onLivingUpdate = livingUpdate),
                 (EntityMethod::Interact, |class| class.interact = interact),
                 (EntityMethod::Hurt, |class| class.attackEntityFrom = hurt),
                 (EntityMethod::Death, |class| class.onDeath = death),
                 (EntityMethod::CanSpawn, |class| class.getCanSpawnHere = canSpawn),
+                (EntityMethod::Ai, |class| class.updatePlayerActionState = ai),
             ];
             for (method, apply) in methods
             {
@@ -301,6 +451,10 @@ pub fn create(entityType: &Rc<EntityType>, world: Option<Rc<World>>) -> Rc<Entit
         && entity.instanceOf("EntityLiving")
     {
         entity_living::fields(&entity).m_moveSpeed.set(speed);
+    }
+    if entityType.m_spec.fire_immune
+    {
+        entity.m_isImmuneToFire.set(true);
     }
     entity
 }
@@ -346,6 +500,68 @@ pub fn data(entity: &Entity, key: &str) -> Vec<u8>
 pub fn setData(entity: &Entity, key: &str, bytes: Vec<u8>)
 {
     DATA.with(|data| data.borrow_mut().entry(entity.m_entityId.get()).or_default().insert(key.to_owned(), bytes));
+}
+
+pub fn synced(entity: &Entity) -> Vec<u8> { data(entity, SYNCED_KEY) }
+
+pub fn setSynced(entity: &Entity, bytes: Vec<u8>) { setData(entity, SYNCED_KEY, bytes); }
+
+// the server keeps the bytes and mirrors them to the players near the entity
+pub fn publishSynced(entity: &Rc<Entity>, bytes: Vec<u8>)
+{
+    setSynced(entity, bytes.clone());
+    if let Some(world) = entity.m_worldObj.get()
+    {
+        let message = crate::network::loader::EntitySynced { id: entity.m_entityId.get(), data: bytes };
+        let pos: [f64; 3] = [entity.m_posX.get(), entity.m_posY.get(), entity.m_posZ.get()];
+        crate::network::loader::broadcastNear(crate::network::loader::ENTITY_SYNCED, &world, pos, &message);
+    }
+}
+
+pub fn stashSynced(id: i32, bytes: Vec<u8>) { STASHED.with(|stash| stash.borrow_mut().insert(id, bytes)); }
+
+pub fn claimStashedSynced(entity: &Entity)
+{
+    if let Some(bytes) = STASHED.with(|stash| stash.borrow_mut().remove(&entity.m_entityId.get()))
+    {
+        setSynced(entity, bytes);
+    }
+}
+
+// living entities draw through RenderLiving, projectiles through the plain model renderer
+pub fn isLivingClass(className: &str) -> bool
+{
+    TYPES.with(|types| {
+        types
+            .borrow()
+            .values()
+            .find(|entityType| entityType.m_id.to_string() == className)
+            .is_some_and(|entityType| entityType.m_template.m_name != "projectile")
+    })
+}
+
+pub fn model(entity: &Entity) -> Option<mod_protocol::spec::EntityModelSpec> { typeOf(entity)?.m_spec.model.clone() }
+
+pub fn modelByClass(className: &str) -> Option<mod_protocol::spec::EntityModelSpec>
+{
+    TYPES
+        .with(|types| types.borrow().values().find(|entityType| entityType.m_id.to_string() == className).cloned())
+        .and_then(|entityType| entityType.m_spec.model.clone())
+}
+
+// the guest's draw program for this frame, None draws the spec at rest
+pub fn pose(entity: &Rc<Entity>, input: mod_protocol::abi::PoseInput) -> Option<mod_protocol::abi::Pose>
+{
+    let entityType: Rc<EntityType> = typeOf(entity)?;
+    if !wants(&entityType, EntityMethod::Pose)
+    {
+        return None;
+    }
+    match callEntity(entity, EntityCall::Pose { input })
+    {
+        Some(GuestReply::Pose(pose)) => Some(pose),
+        _ => None,
+    }
 }
 
 pub fn forget(entity: &Entity) { DATA.with(|data| data.borrow_mut().remove(&entity.m_entityId.get())); }
@@ -434,25 +650,40 @@ fn biomesFor(spawn: &mod_protocol::spec::SpawnSpec) -> Vec<Rc<game::worldgen::Bi
 }
 
 // natural spawning finds mod entities by their identifier, which the spawner hands to the loader
+fn addSpawn(biome: &game::worldgen::BiomeGenBase, entityType: &EntityType, spawn: &mod_protocol::spec::SpawnSpec)
+{
+    let className: &'static str = Box::leak(entityType.m_id.to_string().into_boxed_str());
+    let entry: game::worldgen::SpawnListEntry = game::worldgen::SpawnListEntry::new(className, spawn.weight);
+    match spawn.kind
+    {
+        mod_protocol::spec::CreatureKind::Monster => biome.m_spawnableMonsterList.add(entry),
+        mod_protocol::spec::CreatureKind::Creature => biome.m_spawnableCreatureList.add(entry),
+        mod_protocol::spec::CreatureKind::Water => biome.m_spawnableWaterCreatureList.add(entry),
+    };
+}
+
 pub fn registerSpawns()
 {
     for entityType in types()
     {
-        let Some(spawn) = &entityType.m_spec.spawn
-        else
+        if let Some(spawn) = &entityType.m_spec.spawn
         {
-            continue;
-        };
-        let className: &'static str = Box::leak(entityType.m_id.to_string().into_boxed_str());
-        for biome in biomesFor(spawn)
-        {
-            let entry: game::worldgen::SpawnListEntry = game::worldgen::SpawnListEntry::new(className, spawn.weight);
-            match spawn.kind
+            for biome in biomesFor(spawn)
             {
-                mod_protocol::spec::CreatureKind::Monster => biome.m_spawnableMonsterList.add(entry),
-                mod_protocol::spec::CreatureKind::Creature => biome.m_spawnableCreatureList.add(entry),
-                mod_protocol::spec::CreatureKind::Water => biome.m_spawnableWaterCreatureList.add(entry),
-            };
+                addSpawn(&biome, &entityType, spawn);
+            }
+        }
+    }
+}
+
+// spawn entries naming a mod biome join it when its biome object is built
+pub fn addSpawns(biome: &game::worldgen::BiomeGenBase, id: &Identifier)
+{
+    for entityType in types()
+    {
+        if let Some(spawn) = entityType.m_spec.spawn.as_ref().filter(|spawn| spawn.biomes.contains(id))
+        {
+            addSpawn(biome, &entityType, spawn);
         }
     }
 }
@@ -487,6 +718,15 @@ pub fn tracking(entity: &Entity) -> Option<(i32, i32, bool)>
     ))
 }
 
+// a mod entity waits for the player's mod handshake, a spawn sent before it would be dropped and never resent
+pub fn canTrack(entity: &Entity, player: &Entity) -> bool
+{
+    let channel: Identifier = crate::network::loader::id(crate::network::loader::SPAWN_ENTITY);
+    typeOf(entity).is_none()
+        || crate::network::isLoopbackClient()
+        || crate::netsync::peerHasChannel(player.m_entityId.get(), &channel)
+}
+
 // true when the loader handled the spawn, a vanilla client simply never sees mod entities
 pub fn sendSpawn(entity: &Rc<Entity>, player: &Rc<Entity>) -> bool
 {
@@ -505,5 +745,18 @@ pub fn sendSpawn(entity: &Rc<Entity>, player: &Rc<Entity>) -> bool
     };
     let channel: Identifier = crate::network::loader::id(crate::network::loader::SPAWN_ENTITY);
     crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&message));
+    sendSynced(entity, player);
     true
+}
+
+// the synced bytes of any entity, players included, for a player who just started seeing it
+pub fn sendSynced(entity: &Rc<Entity>, player: &Rc<Entity>)
+{
+    let bytes: Vec<u8> = synced(entity);
+    if !bytes.is_empty()
+    {
+        let update = crate::network::loader::EntitySynced { id: entity.m_entityId.get(), data: bytes };
+        let channel: Identifier = crate::network::loader::id(crate::network::loader::ENTITY_SYNCED);
+        crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&update));
+    }
 }

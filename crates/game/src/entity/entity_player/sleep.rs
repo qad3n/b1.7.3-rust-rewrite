@@ -131,7 +131,8 @@ pub fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSl
 pub(super) fn isInBed(this: &Rc<Entity>) -> bool
 {
     let bed: ChunkCoordinates = jvm::throwable::OrNpe::orNpe(fields(this).m_bedChunkCoordinates.get());
-    this.world().getBlockId(bed.m_x, bed.m_y, bed.m_z) == Block::blockBed().m_blockID
+    // rewrite: any bed block counts, mod beds share BlockBed's class
+    Block::byId(this.world().getBlockId(bed.m_x, bed.m_y, bed.m_z)).is_some_and(|block| block.instanceOf("BlockBed"))
 }
 
 pub fn loadSpawnPoint(world: &Rc<World>, pos: &ChunkCoordinates) -> Option<ChunkCoordinates>
@@ -141,7 +142,8 @@ pub fn loadSpawnPoint(world: &Rc<World>, pos: &ChunkCoordinates) -> Option<Chunk
     ichunkprovider.prepareChunk((pos.m_x + 3) >> 4, (pos.m_z - 3) >> 4);
     ichunkprovider.prepareChunk((pos.m_x - 3) >> 4, (pos.m_z + 3) >> 4);
     ichunkprovider.prepareChunk((pos.m_x + 3) >> 4, (pos.m_z + 3) >> 4);
-    if world.getBlockId(pos.m_x, pos.m_y, pos.m_z) != Block::blockBed().m_blockID
+    // rewrite: any bed block keeps a spawn point, mod beds share BlockBed's class
+    if !Block::byId(world.getBlockId(pos.m_x, pos.m_y, pos.m_z)).is_some_and(|block| block.instanceOf("BlockBed"))
     {
         return None;
     }

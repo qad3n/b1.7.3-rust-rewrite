@@ -1,6 +1,9 @@
+mod config_menu;
 mod draw;
+pub mod entity_model;
 mod menu;
 mod model;
+pub mod player_layers;
 mod screen;
 
 use crate::client::Minecraft;
@@ -51,6 +54,11 @@ impl modloader::netplay::Platform for ClientPlatform
         let resolution: ScaledResolution =
             ScaledResolution::new(&mc.m_gameSettings.get()?, mc.m_displayWidth.get(), mc.m_displayHeight.get());
         Some((resolution.getScaledWidth(), resolution.getScaledHeight()))
+    }
+
+    fn textWidth(&self, text: &str) -> i32
+    {
+        self.mc().ok().and_then(|mc| mc.m_fontRenderer.get()).map_or(0, |font| font.getStringWidth(text))
     }
 
     fn addClientEntity(&self, id: i32, entity: Rc<Entity>) -> Result<(), String>
@@ -128,6 +136,20 @@ pub fn install(mc: &Rc<Minecraft>)
     }));
 }
 
+// mod overlays on a vanilla container screen, drawn in screen space from the container's corner
+pub fn drawOverlays(screen: &Rc<crate::gui::GuiScreen>, origin: (i32, i32), size: [i32; 2], mouse: [i32; 2])
+{
+    if !modloader::play::active()
+    {
+        return;
+    }
+    let relative: [i32; 2] = [mouse[0] - origin.0, mouse[1] - origin.1];
+    for list in modloader::screens::drawOverlays(screen.className(), size, relative)
+    {
+        draw::draw(&screen.mc(), &list, origin.0, origin.1, mouse);
+    }
+}
+
 // mod huds draw over the vanilla overlay, render_hud listeners see the same frame
 pub fn drawHud(mc: &Rc<Minecraft>, partial: f32)
 {
@@ -152,4 +174,28 @@ pub fn screenOpening(screen: Option<&Rc<GuiScreen>>) -> bool
 {
     let name: String = screen.map_or_else(String::new, |screen| screen.className().to_owned());
     modloader::play::screenOpen(&name)
+}
+
+// with B173_DEVSHOT set, a devshot.request file in the game folder takes one screenshot of the game window
+pub fn devShot(width: i32, height: i32)
+{
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if !*ENABLED.get_or_init(|| std::env::var_os("B173_DEVSHOT").is_some())
+    {
+        return;
+    }
+    let Some(dir) = Minecraft::minecraftDir()
+    else
+    {
+        return;
+    };
+    let request: std::path::PathBuf = dir.join("devshot.request");
+    if std::fs::remove_file(&request).is_ok()
+    {
+        let message: String = crate::client::ScreenShotHelper::saveScreenshot(Some(&dir), width, height);
+        if let Err(error) = std::fs::write(dir.join("devshot.done"), message)
+        {
+            modloader::log::warn(modloader::log::LOADER, &format!("devshot result not written: {error}"));
+        }
+    }
 }

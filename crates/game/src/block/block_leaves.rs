@@ -54,7 +54,8 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
             for l in -b0..=b0
             {
                 let i1: i32 = world.getBlockId(x + j, y + k, z + l);
-                if i1 == Block::leaves().m_blockID
+                // rewrite: mod leaves are flagged for decay like vanilla leaves
+                if crate::hooks::isLeaves(i1)
                 {
                     let j1: i32 = world.getBlockMetadata(x + j, y + k, z + l);
                     world.setBlockMetadata(x + j, y + k, z + l, j1 | 8);
@@ -93,11 +94,12 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
                 for n9 in -n3..=n3
                 {
                     let n8: i32 = world.getBlockId(x + n2, y + n10, z + n9);
-                    blocks[at(n2, n10, n9)] = if n8 == Block::wood().m_blockID
+                    // rewrite: mod logs keep leaves alive and mod leaves carry the distance
+                    blocks[at(n2, n10, n9)] = if crate::hooks::sustainsLeaves(n8)
                     {
                         0
                     }
-                    else if n8 == Block::leaves().m_blockID
+                    else if crate::hooks::isLeaves(n8)
                     {
                         -2
                     }

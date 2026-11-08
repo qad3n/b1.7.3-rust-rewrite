@@ -85,6 +85,11 @@ pub fn execute(line: &str, sender: Sender) -> Option<String>
 {
     let mut parts = line.split_whitespace();
     let name: &str = parts.next()?;
+    if name == crate::devtools::COMMAND
+    {
+        let args: Vec<String> = parts.map(str::to_owned).collect();
+        return Some(crate::devtools::execute(&args, &sender));
+    }
     let command: Command = COMMANDS.with(|commands| commands.borrow().get(name).cloned())?;
     if !allowed(&command, &sender)
     {

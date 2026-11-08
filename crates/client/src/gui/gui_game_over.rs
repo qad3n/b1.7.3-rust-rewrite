@@ -47,6 +47,14 @@ pub const GUI_GAME_OVER: GuiScreenClass = GuiScreenClass {
         this.m_gui.drawCenteredString(&this.fontRenderer(), &format!("Score: &e{score}"), width / 2, 100, 0xFFFFFF);
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
     },
+    // rewrite: a dead player stops ticking, so a multiplayer client went silent and the server dropped it after 30 seconds
+    updateScreen: |this| {
+        let mc: Rc<Minecraft> = this.mc();
+        if mc.isMultiplayerWorld()
+        {
+            mc.getSendQueue().addToSendQueue(Box::new(game::network::packets::Packet0KeepAlive::default()));
+        }
+    },
     doesGuiPauseGame: |_| false,
     ..GUI_SCREEN
 };

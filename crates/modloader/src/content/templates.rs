@@ -28,7 +28,7 @@ fn vanillaBlock(name: &str) -> Option<Rc<Block>>
     crate::registry::with(|registries| registries.blockId(&id)).and_then(Block::byId)
 }
 
-pub const BLOCK_TEMPLATES: [BlockTemplate; 27] = [
+pub const BLOCK_TEMPLATES: [BlockTemplate; 29] = [
     BlockTemplate { m_name: "block", m_create: |id, sprite, material| Block::basic(id, sprite, material) },
     BlockTemplate { m_name: "stone", m_create: |id, sprite, _| blocks::block_stone::create(id, sprite) },
     BlockTemplate { m_name: "cobblestone", m_create: |id, sprite, _| Block::basic(id, sprite, Material::rock()) },
@@ -65,6 +65,8 @@ pub const BLOCK_TEMPLATES: [BlockTemplate; 27] = [
         m_create: |id, sprite, _| blocks::block_pressure_plate::create(id, sprite, EnumMobType::Mobs, Material::rock()),
     },
     BlockTemplate { m_name: "tnt", m_create: |id, sprite, _| blocks::block_tnt::create(id, sprite) },
+    BlockTemplate { m_name: "portal", m_create: |id, sprite, _| blocks::block_portal::create(id, sprite) },
+    BlockTemplate { m_name: "bed", m_create: |id, _, _| blocks::block_bed::create(id) },
 ];
 
 pub struct ItemTemplate

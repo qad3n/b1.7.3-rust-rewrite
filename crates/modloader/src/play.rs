@@ -59,6 +59,10 @@ pub fn tick(pre: bool) -> bool
     {
         return false;
     }
+    if !pre
+    {
+        crate::netplay::flushTeleports();
+    }
     events::post(
         if pre
         {
@@ -77,6 +81,7 @@ pub fn clientTick()
 {
     if active()
     {
+        crate::network::loader::flushPendingSpawns();
         events::post(EventKind::ClientTick, EventData::Empty);
     }
 }
@@ -297,4 +302,4 @@ pub fn itemUseFirst(
     withWorld(world, || events::post(EventKind::ItemUseFirst, data)).canceled
 }
 
-pub fn present() -> bool { active() || !state::problems().is_empty() }
+pub fn present() -> bool { active() || !state::problems().is_empty() || !state::skipped().is_empty() }

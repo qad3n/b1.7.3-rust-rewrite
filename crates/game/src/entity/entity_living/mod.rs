@@ -11,7 +11,7 @@ use jvm::math;
 use jvm::string::JString;
 use std::cell::Cell;
 use std::rc::Rc;
-pub use update::canEntityBeSeen;
+pub use update::{canEntityBeSeen, groundSlipperiness};
 
 #[derive(Default)]
 pub struct LivingFields

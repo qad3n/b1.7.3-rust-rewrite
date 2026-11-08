@@ -38,6 +38,8 @@ fn template(this: &Item) -> &'static ItemClass
     this.m_class.m_parent.expect("a derived item class keeps its template")
 }
 
+fn iconColor(this: &Rc<Item>, _metadata: i32) -> i32 { data(this).m_spec.color.map_or(0xFFFFFF, |color| color as i32) }
+
 // blocks without a tool component get the vanilla answer of the template tool at the same tier
 fn toolSpeed(this: &Rc<Item>, stack: &Rc<ItemStack>, block: &Rc<Block>) -> f32
 {
@@ -76,6 +78,10 @@ fn toolDamage(this: &Rc<Item>, _target: Option<&Rc<game::entity::Entity>>) -> i3
 
 fn patch(class: &mut ItemClass, spec: &ItemSpec)
 {
+    if spec.color.is_some()
+    {
+        class.getColorFromDamage = iconColor;
+    }
     if spec.tool.is_some()
     {
         class.getStrVsBlock = toolSpeed;

@@ -67,6 +67,13 @@ fn shouldRenderPass(this: &Rc<Render>, entity: &Rc<Entity>, layer: i32, _tickDel
             if layer == 2 { 2 } else { 1 }
         )),
     }
+    // rewrite: mod armor may tint a shared sheet, every other piece draws white
+    let tint: u32 = modloader::content::armorColor(item.m_shiftedIndex);
+    GL11::glColor3f(
+        (tint >> 16 & 0xFF) as f32 / 255.0,
+        (tint >> 8 & 0xFF) as f32 / 255.0,
+        (tint & 0xFF) as f32 / 255.0,
+    );
     let modelbiped: &Rc<ModelBiped> = if layer == 2
     {
         &ext(this).m_modelArmor
@@ -187,6 +194,13 @@ fn renderEars(this: &Render, entity: &Rc<Entity>, tickDelta: f32)
 
 fn renderCloak(this: &Render, entity: &Rc<Entity>, tickDelta: f32)
 {
+    renderCloakWith(this, entity, tickDelta, modelBipedMain(this));
+}
+
+// rewrite: the cloak swing for any biped's cloak, so mod capes hang like vanilla ones
+fn renderCloakWith(this: &Render, entity: &Rc<Entity>, tickDelta: f32, model: &crate::model::ModelBiped)
+{
+    let _ = this;
     let player: &entity_player::PlayerFields = entity_player::fields(entity);
     let living: &entity_living::LivingFields = entity_living::fields(entity);
     GL11::glPushMatrix();
@@ -220,12 +234,16 @@ fn renderCloak(this: &Render, entity: &Rc<Entity>, tickDelta: f32)
     GL11::glRotatef(f7 / 2.0, 0.0, 0.0, 1.0);
     GL11::glRotatef(-f7 / 2.0, 0.0, 1.0, 0.0);
     GL11::glRotatef(180.0, 0.0, 1.0, 0.0);
-    modelBipedMain(this).renderCloak(MODEL_SCALE);
+    model.renderCloak(MODEL_SCALE);
     GL11::glPopMatrix();
 }
 
 fn renderEquippedItems(this: &Rc<Render>, entity: &Rc<Entity>, tickDelta: f32)
 {
+    // rewrite: mod layers, as Aether gloves, pendants and capes, follow the player model's pose
+    crate::modded::player_layers::render(modelBipedMain(this), entity, |cloak| {
+        renderCloakWith(this, entity, tickDelta, cloak);
+    });
     if let Some(itemstack) = entity_player::inventory(entity).armorItemInSlot(HELMET_SLOT)
         && itemstack.getItem().m_shiftedIndex < BLOCK_ITEM_LIMIT
     {

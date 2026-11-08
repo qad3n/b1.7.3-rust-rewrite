@@ -30,6 +30,8 @@ pub struct BlockData
     pub m_spec: BlockSpec,
     // bottom, top, then the four sides, the front face is side index 3
     pub m_faces: [i32; 6],
+    // top head, top foot, side head, side foot, end head, end foot and bottom sprites of a bed
+    pub m_bed: Option<[i32; 7]>,
     pub m_drops: Vec<ResolvedDrop>,
     pub m_tool: Option<ToolSpec>,
 }
@@ -110,6 +112,12 @@ pub fn reset()
 }
 
 // mod armor textures are <texture>_1.png and <texture>_2.png, like the vanilla armor sheets
+// white for vanilla armor and untinted mod armor
+pub fn armorColor(item: i32) -> u32
+{
+    itemData(item).and_then(|data| data.m_spec.armor.as_ref().and_then(|armor| armor.color)).unwrap_or(0xFFFFFF)
+}
+
 pub fn armorTexture(item: i32, layer: i32) -> Option<String>
 {
     let data: Rc<ItemData> = itemData(item)?;

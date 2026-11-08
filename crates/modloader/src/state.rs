@@ -93,7 +93,11 @@ thread_local! {
     static MODS: RefCell<Vec<Rc<ModRuntime>>> = const { RefCell::new(Vec::new()) };
     static PHASE: Cell<Phase> = const { Cell::new(Phase::Bootstrap) };
     static PROBLEMS: RefCell<Vec<Problem>> = const { RefCell::new(Vec::new()) };
+    static SKIPPED: RefCell<Vec<(String, String)>> = const { RefCell::new(Vec::new()) };
 }
+
+// a problem raised before the file has a mod id
+pub const UNKNOWN_MOD: &str = "?";
 
 pub fn setMods(mods: Vec<Rc<ModRuntime>>) { MODS.with(|list| *list.borrow_mut() = mods); }
 
@@ -131,3 +135,7 @@ pub fn problem(modId: &str, file: &str, reason: &str)
 pub fn problems() -> Vec<Problem> { PROBLEMS.with(|list| list.borrow().clone()) }
 
 pub fn addProblems(found: Vec<Problem>) { PROBLEMS.with(|list| list.borrow_mut().extend(found)); }
+
+pub fn setSkipped(skipped: Vec<(String, String)>) { SKIPPED.with(|list| *list.borrow_mut() = skipped); }
+
+pub fn skipped() -> Vec<(String, String)> { SKIPPED.with(|list| list.borrow().clone()) }

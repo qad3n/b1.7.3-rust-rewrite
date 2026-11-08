@@ -2,6 +2,7 @@ use jvm::image::BufferedImage;
 use mod_protocol::Identifier;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum Atlas
@@ -30,6 +31,7 @@ const ITEMS_FREE: [i32; 120] = [
 pub const TERRAIN_PATH: &str = "/terrain.png";
 pub const ITEMS_PATH: &str = "/gui/items.png";
 const SHEET_TILES: i32 = 16;
+const VANILLA_TILES: i32 = 256;
 
 struct Sprite
 {
@@ -59,41 +61,57 @@ pub fn request(atlas: Atlas, texture: &str)
 }
 
 // slots go out in sorted identifier order, so every side and every run agrees without syncing them
-pub fn assign() -> Result<(), String>
+// the vanilla placeholder slots fill first, then whole rows grow below the 256 vanilla tiles
+pub fn assign()
 {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         let requested: Vec<(Atlas, Identifier)> = state.m_requested.iter().cloned().collect();
-        let mut terrain = TERRAIN_FREE.iter();
-        let mut items = ITEMS_FREE.iter();
+        let mut terrain = TERRAIN_FREE.iter().copied().chain(VANILLA_TILES..);
+        let mut items = ITEMS_FREE.iter().copied().chain(VANILLA_TILES..);
         for key in requested
         {
-            let next: Option<&i32> = match key.0
+            let slot: Option<i32> = match key.0
             {
                 Atlas::Terrain => terrain.next(),
                 Atlas::Items => items.next(),
             };
-            match next
+            if let Some(slot) = slot
             {
-                Some(slot) => state.m_slots.insert(key, *slot),
-                None =>
-                {
-                    return Err(format!(
-                        "no free {:?} texture slot left for {}, the sheet holds {} mod textures",
-                        key.0,
-                        key.1,
-                        match key.0
-                        {
-                            Atlas::Terrain => TERRAIN_FREE.len(),
-                            Atlas::Items => ITEMS_FREE.len(),
-                        }
-                    ));
-                }
-            };
+                state.m_slots.insert(key, slot);
+            }
         }
-        Ok(())
+    });
+}
+
+// tile rows of a sheet, 16 for vanilla and more once mod sprites spill past slot 255
+pub fn rows(atlas: Atlas) -> i32
+{
+    STATE.with(|state| {
+        let last: i32 = state
+            .borrow()
+            .m_slots
+            .iter()
+            .filter(|((sheet, _), _)| *sheet == atlas)
+            .map(|(_, slot)| *slot)
+            .max()
+            .unwrap_or(0);
+        (last / SHEET_TILES + 1).max(SHEET_TILES)
     })
 }
+
+fn atlasOf(path: &str) -> Option<Atlas>
+{
+    match path
+    {
+        TERRAIN_PATH => Some(Atlas::Terrain),
+        ITEMS_PATH => Some(Atlas::Items),
+        _ => None,
+    }
+}
+
+// v scale the texture matrix applies to a sheet, 1 for every texture that is not a grown sheet
+pub fn vScale(path: &str) -> f32 { atlasOf(path).map_or(1.0, |atlas| SHEET_TILES as f32 / rows(atlas) as f32) }
 
 pub fn slotOf(atlas: Atlas, id: &Identifier) -> Option<i32>
 {
@@ -152,19 +170,32 @@ pub fn loadSprites(read: &dyn Fn(&Identifier) -> Option<Vec<u8>>) -> Vec<String>
 }
 
 // paints mod sprites into a freshly loaded vanilla sheet, scaled to the tile size of the active texture pack
-pub fn stitch(path: &str, image: &BufferedImage)
+// a sheet that needs more rows is copied into a taller image first
+pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
 {
-    let atlas: Atlas = match path
+    let Some(atlas) = atlasOf(path)
+    else
     {
-        TERRAIN_PATH => Atlas::Terrain,
-        ITEMS_PATH => Atlas::Items,
-        _ => return,
+        return image;
     };
     let tile: i32 = image.getWidth() / SHEET_TILES;
     if tile <= 0
     {
-        return;
+        return image;
     }
+    let rows: i32 = rows(atlas);
+    let image: Rc<BufferedImage> = if rows * tile > image.getHeight()
+    {
+        let grown: BufferedImage = BufferedImage::new(image.getWidth(), rows * tile, image.getType());
+        let source = image.rasterData();
+        grown.rasterData()[..source.len()].copy_from_slice(&source);
+        drop(source);
+        Rc::new(grown)
+    }
+    else
+    {
+        image
+    };
     STATE.with(|state| {
         let state = state.borrow();
         for ((sheet, id), sprite) in &state.m_sprites
@@ -192,4 +223,5 @@ pub fn stitch(path: &str, image: &BufferedImage)
             }
         }
     });
+    image
 }

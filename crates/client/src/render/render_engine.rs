@@ -6,7 +6,7 @@ use jvm::io::{InputStream, IoResult};
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use lwjgl::buffers::{ByteBuffer, IntBuffer};
-use lwjgl::opengl::GL11;
+use lwjgl::opengl::{GL11, TextureScale};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -187,7 +187,7 @@ impl RenderEngine
                     None => readTextureImage(None),
                 },
                 None if missingFallback => Ok(Rc::clone(&self.m_missingTextureImage)),
-                stream => readTextureImage(stream).inspect(|image| modloader::atlas::stitch(rest, image)),
+                stream => readTextureImage(stream).map(|image| modloader::atlas::stitch(rest, image)),
             },
         }
     }
@@ -255,6 +255,8 @@ impl RenderEngine
             Ok(image) =>
             {
                 self.setupTexture(&image, j);
+                // rewrite: grown mod sheets squeeze v back into the vanilla tile math
+                TextureScale::set(j, modloader::atlas::vScale(path));
                 self.resetFilter(path);
                 j
             }
@@ -621,6 +623,8 @@ impl RenderEngine
                 Ok(image) =>
                 {
                     self.setupTexture(&image, id);
+                    // rewrite: a texture pack change keeps the grown sheet scale
+                    TextureScale::set(id, modloader::atlas::vScale(&path.to_string()));
                     self.resetFilters();
                 }
                 Err(error) => error.printStackTrace(),

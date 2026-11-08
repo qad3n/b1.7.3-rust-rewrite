@@ -113,11 +113,9 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
             data::registerWorldgen(&owner, spec);
             HostReply::Unit
         }
-        HostCall::DefineConfig { entries } =>
-        {
-            let result: std::io::Result<()> = runtime.m_config.borrow_mut().define(entries);
-            unit(result.map_err(|error| format!("config/{owner}.toml: {error}")))
-        }
+        HostCall::DefineConfig { entries } => unit(runtime.m_config.borrow_mut().define(entries)),
+        HostCall::DefineConfigOptions { options } => unit(runtime.m_config.borrow_mut().defineOptions(options)),
+        HostCall::SetConfigValue { key, value } => unit(runtime.m_config.borrow_mut().set(&key, &value).map(|_| ())),
         HostCall::ConfigValue { key } => HostReply::Text(runtime.m_config.borrow().value(&key).unwrap_or_default()),
         HostCall::Translate { key } => HostReply::Text(game::locale::StatCollector::translateToLocal(&key)),
         HostCall::Resolve { registry, id } =>

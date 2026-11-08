@@ -27,6 +27,8 @@ struct Tables
     m_biomes: BTreeMap<Identifier, ModBiome>,
     // dimension id to the guest generator that fills its chunks, a vanilla dimension may also get one
     m_generators: BTreeMap<Identifier, (usize, Handle)>,
+    // dimension id to the guest that fills each new chunk, absent means flat terrain from the spec
+    m_terrains: BTreeMap<Identifier, (usize, Handle)>,
 }
 
 thread_local! {
@@ -66,6 +68,16 @@ pub fn registerBiome(modIndex: usize, id: Identifier, spec: BiomeSpec) -> Result
 pub fn registerGenerator(modIndex: usize, dimension: Identifier, handler: Handle)
 {
     TABLES.with(|tables| tables.borrow_mut().m_generators.insert(dimension, (modIndex, handler)));
+}
+
+pub fn registerTerrain(modIndex: usize, dimension: Identifier, handler: Handle)
+{
+    TABLES.with(|tables| tables.borrow_mut().m_terrains.insert(dimension, (modIndex, handler)));
+}
+
+pub fn terrain(dimension: &Identifier) -> Option<(usize, Handle)>
+{
+    TABLES.with(|tables| tables.borrow().m_terrains.get(dimension).copied())
 }
 
 // numeric dimension ids come from the frozen registry

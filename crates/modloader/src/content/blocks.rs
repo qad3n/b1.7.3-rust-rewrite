@@ -6,7 +6,7 @@ use game::math::AxisAlignedBB;
 use game::world::{IBlockAccess, World};
 use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
-use mod_protocol::spec::{BlockSpec, DropSpec, FaceTextures};
+use mod_protocol::spec::{BlockSpec, Cuboid, DropSpec, FaceTextures};
 use std::rc::Rc;
 
 pub const FACES: usize = 6;
@@ -20,7 +20,79 @@ fn data(this: &Block) -> Rc<BlockData>
     super::blockData(this.m_blockID).expect("a data driven block class only runs for registered mod blocks")
 }
 
-fn faceTexture(this: &Rc<Block>, face: i32, _metadata: i32) -> i32 { data(this).m_faces[face.clamp(0, 5) as usize] }
+fn faceTexture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
+{
+    let data: Rc<BlockData> = data(this);
+    match data.m_bed
+    {
+        Some(bed) => bedTexture(&bed, face, metadata),
+        None => data.m_faces[face.clamp(0, 5) as usize],
+    }
+}
+
+// BlockBed.getBlockTextureFromSideAndMetadata with the bed's own sprites instead of offsets on the terrain sheet
+fn bedTexture(bed: &[i32; 7], face: i32, metadata: i32) -> i32
+{
+    let [topHead, topFoot, sideHead, sideFoot, endHead, endFoot, bottom] = *bed;
+    if face == 0
+    {
+        return bottom;
+    }
+    let direction: usize = game::block::block_bed::getDirectionFromMetadata(metadata) as usize;
+    let along: i32 = game::block::model_bed::BED_DIRECTION[direction][face.clamp(0, 5) as usize];
+    let head: bool = game::block::block_bed::isBlockFootOfBed(metadata);
+    match (head, along)
+    {
+        (true, 2) => endHead,
+        (true, 4 | 5) => sideHead,
+        (true, _) => topHead,
+        (false, 3) => endFoot,
+        (false, 4 | 5) => sideFoot,
+        (false, _) => topFoot,
+    }
+}
+
+// the side offsets of faces 2 to 5, as Facing.offsetsXForSide and offsetsZForSide
+const SIDE_OFFSETS: [[i32; 2]; 6] = [[0, 0], [0, 0], [0, -1], [0, 1], [-1, 0], [1, 0]];
+
+fn connects(spec: &BlockSpec, world: &dyn IBlockAccess, own: i32, x: i32, y: i32, z: i32) -> bool
+{
+    let neighbor: i32 = world.getBlockId(x, y, z);
+    if neighbor == own || (neighbor != 0 && Block::opaqueCubeLookup(neighbor))
+    {
+        return true;
+    }
+    let listed = spec.model.as_ref().map(|model| model.connects_to.as_slice()).unwrap_or_default();
+    listed.iter().any(|id| crate::registry::with(|registries| registries.blockId(id)) == Some(neighbor))
+}
+
+// the cuboids of a model that show at a spot, by its metadata and its neighbors
+pub fn activeCuboids(blockId: i32, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> Vec<Cuboid>
+{
+    let Some(data) = super::blockData(blockId)
+    else
+    {
+        return Vec::new();
+    };
+    let Some(model) = data.m_spec.model.as_ref()
+    else
+    {
+        return Vec::new();
+    };
+    let meta: i32 = world.getBlockMetadata(x, y, z);
+    model
+        .cuboids
+        .iter()
+        .filter(|cuboid| cuboid.metas.is_empty() || cuboid.metas.contains(&meta))
+        .filter(|cuboid| {
+            cuboid.connect.is_none_or(|face| {
+                let [dx, dz] = SIDE_OFFSETS[face.clamp(0, 5) as usize];
+                connects(&data.m_spec, world, blockId, x + dx, y, z + dz)
+            })
+        })
+        .cloned()
+        .collect()
+}
 
 fn color(this: &Rc<Block>, _metadata: i32) -> i32 { data(this).m_spec.color.map_or(0xFFFFFF, |color| color as i32) }
 
@@ -35,10 +107,13 @@ fn notOpaque(_this: &Rc<Block>) -> bool { false }
 
 fn modelRenderType(_this: &Rc<Block>) -> i32 { MODEL_RENDER_TYPE }
 
-fn cuboidBoxes(this: &Block, x: i32, y: i32, z: i32) -> Vec<Rc<AxisAlignedBB>>
+fn cuboidBoxes(this: &Block, world: &World, x: i32, y: i32, z: i32) -> Vec<Rc<AxisAlignedBB>>
 {
-    let data: Rc<BlockData> = data(this);
-    let cuboids = data.m_spec.model.as_ref().map(|model| model.cuboids.clone()).unwrap_or_default();
+    boxesAt(&activeCuboids(this.m_blockID, world, x, y, z), x, y, z)
+}
+
+fn boxesAt(cuboids: &[Cuboid], x: i32, y: i32, z: i32) -> Vec<Rc<AxisAlignedBB>>
+{
     cuboids
         .iter()
         .map(|cuboid| {
@@ -57,7 +132,7 @@ fn cuboidBoxes(this: &Block, x: i32, y: i32, z: i32) -> Vec<Rc<AxisAlignedBB>>
 // collision comes from the model cuboids as data, never a wasm call, entities test it every tick
 fn modelCollisions(
     this: &Rc<Block>,
-    _world: &Rc<World>,
+    world: &Rc<World>,
     x: i32,
     y: i32,
     z: i32,
@@ -65,7 +140,7 @@ fn modelCollisions(
     collisions: &JArrayList<Rc<AxisAlignedBB>>,
 )
 {
-    for bounds in cuboidBoxes(this, x, y, z)
+    for bounds in cuboidBoxes(this, world, x, y, z)
     {
         if shape.intersectsWith(&bounds)
         {
@@ -74,9 +149,29 @@ fn modelCollisions(
     }
 }
 
-fn modelSelection(this: &Rc<Block>, _world: &Rc<World>, x: i32, y: i32, z: i32) -> Rc<AxisAlignedBB>
+fn specCollisions(
+    this: &Rc<Block>,
+    _world: &Rc<World>,
+    x: i32,
+    y: i32,
+    z: i32,
+    shape: &AxisAlignedBB,
+    collisions: &JArrayList<Rc<AxisAlignedBB>>,
+)
 {
-    let boxes: Vec<Rc<AxisAlignedBB>> = cuboidBoxes(this, x, y, z);
+    let data: Rc<BlockData> = data(this);
+    for bounds in boxesAt(data.m_spec.collision.as_deref().unwrap_or_default(), x, y, z)
+    {
+        if shape.intersectsWith(&bounds)
+        {
+            collisions.add(bounds);
+        }
+    }
+}
+
+fn modelSelection(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> Rc<AxisAlignedBB>
+{
+    let boxes: Vec<Rc<AxisAlignedBB>> = cuboidBoxes(this, world, x, y, z);
     let fold = |pick: fn(&AxisAlignedBB) -> f64, min: bool| -> f64 {
         boxes
             .iter()
@@ -182,11 +277,12 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
 pub fn requestTextures(spec: &BlockSpec)
 {
     let faces: Option<&FaceTextures> = spec.textures.as_ref();
+    let bed = spec.bed.iter().flat_map(|bed| [&bed.top_head, &bed.top_foot, &bed.side_head, &bed.side_foot, &bed.end_head, &bed.end_foot, &bed.bottom]);
     let all = spec.texture.iter().chain(
         faces
             .into_iter()
             .flat_map(|faces| [&faces.top, &faces.bottom, &faces.side, &faces.front].into_iter().flatten()),
-    );
+    ).chain(bed);
     for texture in all
     {
         crate::atlas::request(Atlas::Terrain, texture);
@@ -236,7 +332,7 @@ fn resolveDrops(drops: &[DropSpec]) -> Result<Vec<ResolvedDrop>, String>
 
 fn patch(class: &mut BlockClass, spec: &BlockSpec)
 {
-    if spec.textures.is_some()
+    if spec.textures.is_some() || spec.bed.is_some()
     {
         class.getBlockTextureFromSideAndMetadata = faceTexture;
     }
@@ -271,6 +367,10 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec)
             class.isOpaqueCube = notOpaque;
         }
     }
+    if spec.collision.is_some()
+    {
+        class.getCollidingBoundingBoxes = specCollisions;
+    }
     if let Some(behavior) = &spec.behavior
     {
         crate::behavior::patchBlock(class, behavior);
@@ -298,6 +398,10 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
             m_id: row.m_id.clone(),
             m_owner: owner,
             m_faces: faces(&spec, sprite),
+            m_bed: spec.bed.as_ref().map(|bed| {
+                [&bed.top_head, &bed.top_foot, &bed.side_head, &bed.side_foot, &bed.end_head, &bed.end_foot, &bed.bottom]
+                    .map(|texture| slot(Some(texture), sprite))
+            }),
             m_drops: drops,
             m_tool: spec.tool.clone(),
             m_spec: spec.clone(),
@@ -320,6 +424,10 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     if let Some(light) = spec.light
     {
         block = block.setLightValue(light);
+    }
+    if let Some(slipperiness) = spec.slipperiness
+    {
+        block.m_slipperiness.set(slipperiness);
     }
     if let Some(opacity) = spec.opacity
     {

@@ -86,6 +86,23 @@ pub fn draw(mc: &Rc<Minecraft>, list: &DrawList, originX: i32, originY: i32, mou
                 engine.bindTexture(engine.getTexture(&texturePath(texture)));
                 gui.drawTexturedModalRect(originX + x, originY + y, *u, *v, *w, *h);
             }
+            DrawOp::Image { texture, x, y, w, h } =>
+            {
+                GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+                GL11::glEnable(GL11::GL_BLEND);
+                GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
+                engine.bindTexture(engine.getTexture(&texturePath(texture)));
+                let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
+                let [left, top] = [(originX + x) as f64, (originY + y) as f64];
+                let [right, bottom] = [left + *w as f64, top + *h as f64];
+                tessellator.startDrawingQuads();
+                tessellator.addVertexWithUV(left, bottom, 0.0, 0.0, 1.0);
+                tessellator.addVertexWithUV(right, bottom, 0.0, 1.0, 1.0);
+                tessellator.addVertexWithUV(right, top, 0.0, 1.0, 0.0);
+                tessellator.addVertexWithUV(left, top, 0.0, 0.0, 0.0);
+                tessellator.draw();
+                GL11::glDisable(GL11::GL_BLEND);
+            }
             DrawOp::Item { x, y, stack } =>
             {
                 if let Some(stack) = stackFrom(stack)

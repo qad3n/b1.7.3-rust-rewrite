@@ -3,6 +3,7 @@ mod bindings;
 mod display;
 mod display_mode;
 mod gl11;
+mod texture_scale;
 
 pub use arb::{ARBOcclusionQuery, ARBVertexBufferObject, NVFogDistance};
 pub use display::Display;
@@ -10,6 +11,7 @@ pub use display_mode::DisplayMode;
 pub use gl11::{GL11, GL12};
 use std::cell::RefCell;
 use std::rc::Rc;
+pub use texture_scale::TextureScale;
 
 thread_local! {
     static GL: RefCell<Option<Rc<bindings::Gl>>> = const { RefCell::new(None) };

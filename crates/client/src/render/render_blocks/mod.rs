@@ -94,7 +94,8 @@ pub struct RenderBlocks
     m_ambientOcclusionLevel: i32,
 }
 
-pub(super) fn spriteOrigin(sprite: i32) -> (i32, i32) { ((sprite & 0xF) << 4, sprite & 0xF0) }
+// rewrite: the row keeps every bit so sprites past slot 255 land in the grown terrain sheet
+pub(super) fn spriteOrigin(sprite: i32) -> (i32, i32) { ((sprite & 0xF) << 4, sprite & !0xF) }
 
 impl RenderBlocks
 {
@@ -126,7 +127,7 @@ impl RenderBlocks
 
     pub fn setFancyGrass(value: bool) { FANCY_GRASS.with(|fancy| fancy.set(value)); }
 
-    pub(super) fn world(&self) -> Rc<dyn IBlockAccess> { self.m_blockAccess.clone().orNpe() }
+    pub(crate) fn world(&self) -> Rc<dyn IBlockAccess> { self.m_blockAccess.clone().orNpe() }
 
     pub fn renderBlockUsingTexture(&mut self, block: &Rc<Block>, x: i32, y: i32, z: i32, sprite: i32)
     {

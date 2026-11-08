@@ -13,6 +13,14 @@ pub const OPEN_SCREEN: &str = "loader:open_screen";
 pub const SOUND: &str = "loader:sound";
 pub const PARTICLE: &str = "loader:particle";
 pub const BLOCK_EVENT: &str = "loader:block_event";
+pub const ENTITY_SYNCED: &str = "loader:entity_synced";
+
+#[derive(Serialize, Deserialize)]
+pub struct EntitySynced
+{
+    pub id: i32,
+    pub data: Vec<u8>,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct SpawnEntity
@@ -73,11 +81,29 @@ fn clientHandler<T: for<'de> Deserialize<'de> + 'static>(apply: fn(T)) -> Handle
     })
 }
 
+thread_local! {
+    // spawns that reached a client still joining its world, replayed once the world is there
+    static PENDING_SPAWNS: std::cell::RefCell<Vec<SpawnEntity>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+pub fn flushPendingSpawns()
+{
+    if crate::network::localPlayer().and_then(|player| player.m_worldObj.get()).is_none()
+    {
+        return;
+    }
+    for message in PENDING_SPAWNS.with(|pending| std::mem::take(&mut *pending.borrow_mut()))
+    {
+        spawnEntity(message);
+    }
+}
+
 fn spawnEntity(message: SpawnEntity)
 {
     let Some(world) = crate::network::localPlayer().and_then(|player| player.m_worldObj.get())
     else
     {
+        PENDING_SPAWNS.with(|pending| pending.borrow_mut().push(message));
         return;
     };
     let Some(entity) = crate::entities::createByNumeric(message.kind, &world)
@@ -106,9 +132,23 @@ fn spawnEntity(message: SpawnEntity)
     {
         crate::entities::setData(&entity, &crate::entities::kindNamespace(&entity), message.data);
     }
+    crate::entities::claimStashedSynced(&entity);
     if let Err(reason) = crate::netplay::addClientEntity(message.id, entity)
     {
         crate::log::warn(crate::log::LOADER, &reason);
+    }
+}
+
+// a synced entity update can beat the spawn of a fresh entity, the spawn handler then applies the stored copy
+fn entitySynced(message: EntitySynced)
+{
+    let entity = crate::network::localPlayer()
+        .and_then(|player| player.m_worldObj.get())
+        .and_then(|world| context::entityById(&world, message.id));
+    match entity
+    {
+        Some(entity) => crate::entities::setSynced(&entity, message.data),
+        None => crate::entities::stashSynced(message.id, message.data),
     }
 }
 
@@ -188,13 +228,14 @@ fn blockEvent(message: BlockEvent)
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 6] = [
+    let channels: [(&str, Handler); 7] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
         (SOUND, clientHandler(sound)),
         (PARTICLE, clientHandler(particle)),
         (BLOCK_EVENT, clientHandler(blockEvent)),
+        (ENTITY_SYNCED, clientHandler(entitySynced)),
     ];
     for (name, handler) in channels
     {

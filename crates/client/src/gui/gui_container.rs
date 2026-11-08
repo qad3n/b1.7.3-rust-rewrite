@@ -196,12 +196,25 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
     }
     GL11::glPopMatrix();
     (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
+    // rewrite: mod overlays draw over the finished screen at the container's corner
+    crate::modded::drawOverlays(
+        this,
+        origin(this),
+        [fields(this).m_xSize.get(), fields(this).m_ySize.get()],
+        [mouseX, mouseY],
+    );
     GL11::glEnable(2896);
     GL11::glEnable(2929);
 }
 
 fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
 {
+    // rewrite: a mod overlay may take the click before the container sees it
+    let (left, top): (i32, i32) = origin(this);
+    if modloader::screens::clickOverlays(this.className(), mouseX - left, mouseY - top, button)
+    {
+        return;
+    }
     (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button);
     if button != 0 && button != 1
     {

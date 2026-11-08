@@ -75,8 +75,11 @@ const PLAIN: GuiScreenClass = GuiScreenClass {
     m_interfaces: &[],
     initGui: |this| init(plainState(this), this.m_width.get(), this.m_height.get()),
     drawScreen: |this, mouseX, mouseY, partial| {
-        this.drawDefaultBackground();
         let screen: &ModScreen = plainState(this);
+        if !screen.m_screen.m_spec.transparent
+        {
+            this.drawDefaultBackground();
+        }
         let spec = &screen.m_screen.m_spec;
         let origin: (i32, i32) = ((this.m_width.get() - spec.width) / 2, (this.m_height.get() - spec.height) / 2);
         paint(&this.mc(), screen, origin, [mouseX, mouseY], partial);

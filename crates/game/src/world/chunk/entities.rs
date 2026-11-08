@@ -101,7 +101,8 @@ pub fn setChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i3
     blockEntity.m_yCoord.set(y);
     blockEntity.m_zCoord.set(this.m_zPosition * 16 + localZ);
     let id: i32 = this.getBlockID(localX, y, localZ);
-    if id == 0 || !Block::byId(id).is_some_and(|block| block.instanceOf("BlockContainer"))
+    // rewrite: the isBlockContainer table BlockContainer fills, so mod blocks with tile entities on any template pass
+    if id == 0 || !Block::isBlockContainer(id)
     {
         jvm::system::println("Attempted to place a tile entity where there was no entity tile!");
         return;

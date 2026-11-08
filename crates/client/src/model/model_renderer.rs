@@ -21,6 +21,8 @@ pub struct ModelRenderer
     pub m_mirror: bool,
     pub m_showModel: Cell<bool>,
     pub m_invisible: Cell<bool>,
+    // rewrite: sheet size the uvs divide by, vanilla is 64 by 32
+    m_textureSize: (f32, f32),
 }
 
 impl ModelRenderer
@@ -42,7 +44,17 @@ impl ModelRenderer
             m_mirror: false,
             m_showModel: Cell::new(true),
             m_invisible: Cell::new(false),
+            m_textureSize: (64.0, 32.0),
         }
+    }
+
+    // rewrite: a part of a mod model on a sheet of any size
+    pub fn sized(u: i32, v: i32, width: i32, height: i32, mirror: bool) -> ModelRenderer
+    {
+        let mut renderer: ModelRenderer = Self::new(u, v);
+        renderer.m_textureSize = (width as f32, height as f32);
+        renderer.m_mirror = mirror;
+        renderer
     }
 
     pub fn mirrored(u: i32, v: i32) -> ModelRenderer
@@ -78,8 +90,9 @@ impl ModelRenderer
         let v8: PositionTextureVertex = PositionTextureVertex::new(x, f2, f3, 8.0, 0.0);
         let u: i32 = self.m_textureOffsetX;
         let v: i32 = self.m_textureOffsetY;
+        let (width, height): (f32, f32) = self.m_textureSize;
         let quad = |corners: [&PositionTextureVertex; 4], u1: i32, v1: i32, u2: i32, v2: i32| -> TexturedQuad {
-            TexturedQuad::withTexture(corners.map(Clone::clone).to_vec(), u1, v1, u2, v2)
+            TexturedQuad::withTextureSized(corners.map(Clone::clone).to_vec(), [u1, v1, u2, v2], width, height)
         };
         self.m_faces = vec![
             quad([&v6, &v2, &v3, &v7], u + sizeZ + sizeX, v + sizeZ, u + sizeZ + sizeX + sizeZ, v + sizeZ + sizeY),

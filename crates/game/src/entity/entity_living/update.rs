@@ -198,7 +198,7 @@ pub fn onUpdate(this: &Rc<Entity>)
     living.m_totalWalkDistance.set(living.m_totalWalkDistance.get() + f2);
 }
 
-pub(crate) fn groundSlipperiness(this: &Rc<Entity>, world: &World) -> f32
+pub fn groundSlipperiness(this: &Rc<Entity>, world: &World) -> f32
 {
     let mut f: f32 = 0.91;
     if this.m_onGround.get()

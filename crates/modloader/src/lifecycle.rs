@@ -306,7 +306,7 @@ pub fn load(paths: &LoaderPaths)
     let (found, errors) = discovery::discover(&paths.m_mods);
     for error in errors
     {
-        state::problem("?", &error.m_path.display().to_string(), &error.m_reason);
+        state::problem(state::UNKNOWN_MOD, &error.m_path.display().to_string(), &error.m_reason);
     }
     let candidates: Vec<Candidate> = found
         .iter()
@@ -314,6 +314,7 @@ pub fn load(paths: &LoaderPaths)
         .collect();
     let resolution: Resolution = resolver::resolve(&candidates, physicalSide());
     state::addProblems(resolution.m_problems.clone());
+    state::setSkipped(resolution.m_skipped.clone());
     let mut found: Vec<Option<Discovered>> = found.into_iter().map(Some).collect();
     let mut runtimes: Vec<ModRuntime> = Vec::new();
     for (index, candidateIndex) in resolution.m_order.iter().enumerate()
@@ -355,10 +356,7 @@ pub fn load(paths: &LoaderPaths)
     {
         runtime.call(&GuestCall::Lifecycle(Lifecycle::Register(runtime.id().to_owned())));
     }
-    if let Err(reason) = atlas::assign()
-    {
-        state::problem(log::LOADER, "", &reason);
-    }
+    atlas::assign();
     if let Err(error) = freezeRegistries()
     {
         state::problem(log::LOADER, "", &error.to_string());

@@ -70,10 +70,10 @@ impl ItemStack
 
     pub fn useItem(self: &Rc<Self>, player: &Rc<Entity>, world: &Rc<World>, x: i32, y: i32, z: i32, face: i32) -> bool
     {
-        // mods may take the use before the item does
+        // mods may take the use before the item does, a canceled use counts as used so the right click stops here
         if crate::hooks::fire(crate::hooks::GameEvent::ItemUseOnBlock { world, player, stack: self, x, y, z, face })
         {
-            return false;
+            return true;
         }
         let bl: bool = self.getItem().onItemUse(self, player, world, x, y, z, face);
         if bl

@@ -114,6 +114,8 @@ impl GL11
     pub fn glBindTexture(target: i32, texture: i32)
     {
         glCall!(BindTexture(target as GLenum, texture as u32));
+        // rewrite: tall mod texture sheets rescale v through the texture matrix
+        super::texture_scale::TextureScale::bound(texture);
     }
 
     pub fn glBlendFunc(sfactor: i32, dfactor: i32)
@@ -304,6 +306,8 @@ impl GL11
     pub fn glMatrixMode(mode: i32)
     {
         glCall!(MatrixMode(mode as GLenum));
+        // rewrite: remembered so a texture bind can restore the caller's matrix mode
+        super::texture_scale::TextureScale::matrixMode(mode);
     }
 
     pub fn glMultMatrix(m: &FloatBuffer)

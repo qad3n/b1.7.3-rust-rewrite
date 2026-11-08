@@ -14,6 +14,12 @@ pub trait Platform
 
     fn screenSize(&self) -> Option<(i32, i32)> { None }
 
+    // tells the player's client what it holds on the cursor after a mod changed it
+    fn syncCursor(&self, _player: &Rc<Entity>) {}
+
+    // FontRenderer.getStringWidth on a client, nothing to measure on a server
+    fn textWidth(&self, _text: &str) -> i32 { 0 }
+
     // a multiplayer client adds server spawned mod entities under the server's entity id
     fn addClientEntity(&self, _id: i32, _entity: Rc<Entity>) -> Result<(), String>
     {
@@ -23,6 +29,7 @@ pub trait Platform
 
 thread_local! {
     static PLATFORM: RefCell<Option<Rc<dyn Platform>>> = const { RefCell::new(None) };
+    static TELEPORTS: RefCell<Vec<(i32, i32, [f64; 3])>> = const { RefCell::new(Vec::new()) };
 }
 
 pub fn install(platform: Rc<dyn Platform>) { PLATFORM.with(|slot| *slot.borrow_mut() = Some(platform)); }
@@ -44,12 +51,39 @@ pub fn openScreen(player: i32, screen: &Identifier, pos: Option<BlockPos>, data:
     platform()?.openScreen(&player, OpenRequest { m_screen: screenType, m_pos: pos, m_data: data, m_window: 0 })
 }
 
+// a guest asks from inside a world tick or a block callback, so the move waits for the end of the tick
 pub fn teleport(player: i32, dimension: i32, pos: [f64; 3]) -> Result<(), String>
 {
-    let player: Rc<Entity> = crate::host::worldPlayer(player)?;
-    platform()?.teleport(&player, dimension, pos)
+    crate::host::worldPlayer(player)?;
+    platform()?;
+    TELEPORTS.with(|queue| queue.borrow_mut().push((player, dimension, pos)));
+    Ok(())
+}
+
+pub fn flushTeleports()
+{
+    let queued: Vec<(i32, i32, [f64; 3])> = TELEPORTS.with(|queue| std::mem::take(&mut *queue.borrow_mut()));
+    for (id, dimension, pos) in queued
+    {
+        let moved: Result<(), String> = crate::host::worldPlayer(id)
+            .and_then(|player| platform().and_then(|platform| platform.teleport(&player, dimension, pos)));
+        if let Err(reason) = moved
+        {
+            crate::log::warn(crate::log::LOADER, &format!("teleport of player {id} failed: {reason}"));
+        }
+    }
 }
 
 pub fn screenSize() -> Option<(i32, i32)> { platform().ok()?.screenSize() }
+
+pub fn syncCursor(player: &Rc<Entity>)
+{
+    if let Ok(platform) = platform()
+    {
+        platform.syncCursor(player);
+    }
+}
+
+pub fn textWidth(text: &str) -> i32 { platform().map_or(0, |platform| platform.textWidth(text)) }
 
 pub fn addClientEntity(id: i32, entity: Rc<Entity>) -> Result<(), String> { platform()?.addClientEntity(id, entity) }

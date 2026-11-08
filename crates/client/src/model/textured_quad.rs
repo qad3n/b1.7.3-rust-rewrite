@@ -22,14 +22,26 @@ impl TexturedQuad
         TexturedQuad { m_vertexPositions: vertices, m_nVertices: count }
     }
 
-    pub fn withTexture(mut vertices: Vec<PositionTextureVertex>, u1: i32, v1: i32, u2: i32, v2: i32) -> TexturedQuad
+    pub fn withTexture(vertices: Vec<PositionTextureVertex>, u1: i32, v1: i32, u2: i32, v2: i32) -> TexturedQuad
     {
+        Self::withTextureSized(vertices, [u1, v1, u2, v2], TEXTURE_WIDTH, TEXTURE_HEIGHT)
+    }
+
+    // rewrite: mod models name their sheet size, vanilla models keep 64 by 32
+    pub fn withTextureSized(
+        mut vertices: Vec<PositionTextureVertex>,
+        uv: [i32; 4],
+        width: f32,
+        height: f32,
+    ) -> TexturedQuad
+    {
+        let [u1, v1, u2, v2] = uv;
         let f: f32 = U_INSET;
         let f2: f32 = V_INSET;
-        vertices[0] = vertices[0].setTexturePosition(u2 as f32 / TEXTURE_WIDTH - f, v1 as f32 / TEXTURE_HEIGHT + f2);
-        vertices[1] = vertices[1].setTexturePosition(u1 as f32 / TEXTURE_WIDTH + f, v1 as f32 / TEXTURE_HEIGHT + f2);
-        vertices[2] = vertices[2].setTexturePosition(u1 as f32 / TEXTURE_WIDTH + f, v2 as f32 / TEXTURE_HEIGHT - f2);
-        vertices[3] = vertices[3].setTexturePosition(u2 as f32 / TEXTURE_WIDTH - f, v2 as f32 / TEXTURE_HEIGHT - f2);
+        vertices[0] = vertices[0].setTexturePosition(u2 as f32 / width - f, v1 as f32 / height + f2);
+        vertices[1] = vertices[1].setTexturePosition(u1 as f32 / width + f, v1 as f32 / height + f2);
+        vertices[2] = vertices[2].setTexturePosition(u1 as f32 / width + f, v2 as f32 / height - f2);
+        vertices[3] = vertices[3].setTexturePosition(u2 as f32 / width - f, v2 as f32 / height - f2);
         Self::new(vertices)
     }
 

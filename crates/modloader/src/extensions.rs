@@ -146,6 +146,16 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         {
             unit(own(runtime, &name).map(|id| screens::register(index, id, spec, handler)))
         }
+        HostCall::RegisterPlayerLayer { handler } =>
+        {
+            screens::registerPlayerLayer(index, handler);
+            HostReply::Unit
+        }
+        HostCall::RegisterOverlay { target, handler } =>
+        {
+            screens::registerOverlay(index, target, handler);
+            HostReply::Unit
+        }
         HostCall::RegisterHud { handler } =>
         {
             screens::registerHud(index, handler);
@@ -203,6 +213,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         HostCall::RegisterGenerator { dimension, handler } =>
         {
             dimensions::registerGenerator(index, dimension, handler);
+            HostReply::Unit
+        }
+        HostCall::RegisterTerrain { dimension, handler } =>
+        {
+            dimensions::registerTerrain(index, dimension, handler);
             HostReply::Unit
         }
         HostCall::WorldData { key } => HostReply::Bytes(persist::worldData(runtime.id(), &key)),

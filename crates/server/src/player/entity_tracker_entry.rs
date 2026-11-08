@@ -254,7 +254,9 @@ impl EntityTrackerEntry
         let threshold: f64 = self.m_trackingDistanceThreshold as f64;
         if d0 >= -threshold && d0 <= threshold && d1 >= -threshold && d1 <= threshold
         {
+            // rewrite: a mod entity is not tracked for a player until its mod handshake is done
             if !self.m_trackedPlayers.with(|set| set.contains(player))
+                && modloader::entities::canTrack(&self.m_trackedEntity, player)
             {
                 self.m_trackedPlayers.update(|set| set.add(Rc::clone(player)));
                 let handler: Rc<crate::network::NetServerHandler> = entity_player_mp::netServerHandler(player);
@@ -262,6 +264,8 @@ impl EntityTrackerEntry
                 if !modloader::entities::sendSpawn(&self.m_trackedEntity, player)
                 {
                     handler.sendPacket(self.getSpawnPacket());
+                    // rewrite: mod data synced on vanilla entities, as players' equipment, follows their spawn
+                    modloader::entities::sendSynced(&self.m_trackedEntity, player);
                 }
                 let tracked: &Rc<Entity> = &self.m_trackedEntity;
                 if self.m_shouldSendMotionUpdates

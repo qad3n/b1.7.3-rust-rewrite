@@ -36,6 +36,8 @@ impl modloader::netplay::Platform for ServerPlatform
     {
         crate::modded::teleport(player, dimension, pos)
     }
+
+    fn syncCursor(&self, player: &Rc<Entity>) { entity_player_mp::updateHeldItem(player); }
 }
 
 mod properties

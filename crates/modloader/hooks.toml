@@ -37,6 +37,24 @@ result = true
 fires_in = "EntityLiving::isOnLadder"
 
 [[hook]]
+name = "leaves"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "BlockLeaves::updateTick and BlockLog::onBlockRemoval"
+
+[[hook]]
+name = "sustains_leaves"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "BlockLeaves::updateTick"
+
+[[hook]]
 name = "redstone_connect"
 version = 1
 kind = "component"
@@ -584,3 +602,30 @@ side = "client"
 cancellable = false
 result = false
 fires_in = "Minecraft::runTick"
+
+[[hook]]
+name = "screen_overlay"
+version = 1
+kind = "component"
+side = "client"
+cancellable = true
+result = false
+fires_in = "GuiContainer::drawScreen and GuiContainer::mouseClicked, overlays registered on a screen class name"
+
+[[hook]]
+name = "player_layer"
+version = 1
+kind = "component"
+side = "client"
+cancellable = false
+result = true
+fires_in = "RenderPlayer::renderEquippedItems, mod biped layers and capes over every player"
+
+[[hook]]
+name = "entity_tracking"
+version = 1
+kind = "component"
+side = "server"
+cancellable = false
+result = true
+fires_in = "EntityTrackerEntry::updatePlayerEntity, mod entities wait for the player's handshake and synced data follows vanilla spawns"

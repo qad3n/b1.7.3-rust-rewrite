@@ -105,6 +105,12 @@ impl RenderManager
         {
             return None;
         }
+        // rewrite: a mod entity with a model spec gets its own renderer instead of its template's
+        if let Some(render) = crate::modded::entity_model::rendererFor(class.m_name)
+        {
+            self.m_entityRenderMap.borrow_mut().insert(class.m_name, Some(Rc::clone(&render)));
+            return Some(render);
+        }
         let render: Option<Rc<Render>> = class.m_parent.and_then(|parent| self.getEntityClassRenderObject(parent));
         self.m_entityRenderMap.borrow_mut().insert(class.m_name, render.clone());
         render

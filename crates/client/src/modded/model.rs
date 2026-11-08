@@ -8,12 +8,7 @@ const MODEL_UNITS: f32 = 16.0;
 // each cuboid renders as a standard block with its bounds, then the block gets its full bounds back
 pub fn renderModel(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y: i32, z: i32) -> bool
 {
-    let Some(data) = modloader::content::blockData(block.m_blockID)
-    else
-    {
-        return false;
-    };
-    let cuboids = data.m_spec.model.as_ref().map(|model| model.cuboids.clone()).unwrap_or_default();
+    let cuboids = modloader::content::blocks::activeCuboids(block.m_blockID, &*renderer.world(), x, y, z);
     let mut drawn: bool = false;
     for cuboid in &cuboids
     {

@@ -17,7 +17,8 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
             for l in -b0..=b0
             {
                 let i1: i32 = world.getBlockId(x + j, y + k, z + l);
-                if i1 == Block::leaves().m_blockID
+                // rewrite: mod leaves decay around a broken log too
+                if crate::hooks::isLeaves(i1)
                 {
                     let j1: i32 = world.getBlockMetadata(x + j, y + k, z + l);
                     if (j1 & 8) == 0
