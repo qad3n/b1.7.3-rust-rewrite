@@ -186,34 +186,43 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
     GL11::glDisable(2896);
     GL11::glDisable(2929);
     this.drawGuiContainerForegroundLayer();
-    if inventoryplayer.getItemStack().is_none()
-        && let Some(slot) = slot
-        && slot.getHasStack()
-    {
-        let name: Option<String> = slot.getStack().orNpe().getItemName();
-        let translated: String = StringTranslate::getInstance().translateNamedKey(name.as_deref().unwrap_or("null"));
-        // port trim strips chars up to space like java String.trim
-        let s: String = text::trim(&JString::from(translated.as_str())).to_string();
-        if !s.is_empty()
-        {
-            let k1: i32 = mouseX - i + 12;
-            let l1: i32 = mouseY - j - 12;
-            let j1: i32 = fontRenderer.getStringWidth(&s);
-            this.m_gui.drawGradientRect(k1 - 3, l1 - 3, k1 + j1 + 3, l1 + 8 + 3, -1073741824, -1073741824);
-            fontRenderer.drawStringWithShadow(&s, k1, l1, -1);
-        }
-    }
+    let tooltip: Option<Rc<Slot>> = slot.filter(|slot| inventoryplayer.getItemStack().is_none() && slot.getHasStack());
     GL11::glPopMatrix();
     (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
-    // rewrite: mod overlays draw over the finished screen at the container's corner
+    // rewrite: mod overlays draw over the finished screen at the container's corner, under the slot tooltip
     crate::modded::drawOverlays(
         this,
         origin(this),
         [fields(this).m_xSize.get(), fields(this).m_ySize.get()],
         [mouseX, mouseY],
     );
+    if let Some(slot) = tooltip
+    {
+        GL11::glPushMatrix();
+        GL11::glTranslatef(i as f32, j as f32, 0.0);
+        drawTooltip(this, &slot, mouseX - i, mouseY - j);
+        GL11::glPopMatrix();
+    }
     GL11::glEnable(2896);
     GL11::glEnable(2929);
+}
+
+fn drawTooltip(this: &GuiScreen, slot: &Slot, x: i32, y: i32)
+{
+    let name: Option<String> = slot.getStack().orNpe().getItemName();
+    let translated: String = StringTranslate::getInstance().translateNamedKey(name.as_deref().unwrap_or("null"));
+    // port trim strips chars up to space like java String.trim
+    let s: String = text::trim(&JString::from(translated.as_str())).to_string();
+    if s.is_empty()
+    {
+        return;
+    }
+    let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
+    let k1: i32 = x + 12;
+    let l1: i32 = y - 12;
+    let j1: i32 = fontRenderer.getStringWidth(&s);
+    this.m_gui.drawGradientRect(k1 - 3, l1 - 3, k1 + j1 + 3, l1 + 8 + 3, -1073741824, -1073741824);
+    fontRenderer.drawStringWithShadow(&s, k1, l1, -1);
 }
 
 fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
