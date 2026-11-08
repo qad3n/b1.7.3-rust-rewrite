@@ -1,3 +1,6 @@
 [submodule "vendor/pudscode"]
 	path = vendor/pudscode
 	url = https://github.com/qad3n/pudscode.git
+[submodule "vendor/b1.7.3-modding-sdk"]
+	path = vendor/b1.7.3-modding-sdk
+	url = https://github.com/qad3n/b1.7.3-modding-sdk.git
