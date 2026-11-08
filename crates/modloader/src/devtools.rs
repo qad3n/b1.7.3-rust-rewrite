@@ -8,7 +8,7 @@ use std::time::Instant;
 
 // console and op tools for checking ported content without a client: generate terrain, map it, read columns
 pub const COMMAND: &str = "loader";
-const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player>";
+const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player>";
 
 mod map
 {
@@ -159,18 +159,15 @@ fn column(world: &World, x: i32, z: i32) -> String
     let mut y: i32 = map::HEIGHT - 1;
     while y >= 0
     {
-        let id: i32 = world.getBlockId(x, y, z);
+        let (id, meta): (i32, i32) = (world.getBlockId(x, y, z), world.getBlockMetadata(x, y, z));
         let top: i32 = y;
-        while y >= 0 && world.getBlockId(x, y, z) == id
+        while y >= 0 && world.getBlockId(x, y, z) == id && world.getBlockMetadata(x, y, z) == meta
         {
             y -= 1;
         }
         if id != 0
         {
-            let name: String = crate::registry::with(|registries| {
-                registries.m_blocks.byNumeric(id).map_or(id.to_string(), |row| row.m_id.to_string())
-            });
-            runs.push(format!("{name} {}..{top}", y + 1));
+            runs.push(format!("{} {}..{top}", stateName(id, meta), y + 1));
         }
     }
     if runs.is_empty()
@@ -181,6 +178,36 @@ fn column(world: &World, x: i32, z: i32) -> String
     {
         runs.join(", ")
     }
+}
+
+// a block by name with its named state, the numeric id when nothing names it
+fn stateName(id: i32, meta: i32) -> String
+{
+    let Some(state) = crate::states::describe(id, meta)
+    else
+    {
+        return format!("{id}:{meta}");
+    };
+    let values: Vec<String> = state.properties.iter().map(|(key, value)| format!("{key}={value}")).collect();
+    format!("{}[{}]", state.block, values.join(","))
+}
+
+// ns:path or ns:path[key=value,...], the state syntax the column listing prints
+fn parseState(text: &str) -> Result<mod_protocol::abi::StateData, String>
+{
+    let (name, values): (&str, &str) = match text.split_once('[')
+    {
+        Some((name, rest)) => (name, rest.strip_suffix(']').ok_or_else(|| format!("{text} misses its ]"))?),
+        None => (text, ""),
+    };
+    let block: mod_protocol::Identifier = mod_protocol::Identifier::parse(name).map_err(|error| error.to_string())?;
+    let properties: std::collections::BTreeMap<String, String> = values
+        .split(',')
+        .filter(|pair| !pair.is_empty())
+        .map(|pair| pair.split_once('=').map(|(key, value)| (key.to_owned(), value.to_owned())))
+        .collect::<Option<_>>()
+        .ok_or_else(|| format!("{text}: properties are key=value"))?;
+    Ok(mod_protocol::abi::StateData { block, properties })
 }
 
 fn namedPlayer(name: &str) -> Result<Rc<game::entity::Entity>, String>
@@ -257,14 +284,14 @@ fn fill(world: &Rc<World>, args: &[String]) -> Result<String, String>
 {
     let corners: Vec<i32> = (2..8).map(|index| number(args, index)).collect::<Result<_, _>>()?;
     let name: &String = args.get(8).ok_or(USAGE)?;
-    let id: mod_protocol::Identifier = mod_protocol::Identifier::parse(name).map_err(|error| error.to_string())?;
-    let block: i32 = if id == mod_protocol::Identifier::minecraft("air")
+    let state: mod_protocol::abi::StateData = parseState(name)?;
+    let (block, meta): (i32, i32) = if state.block == mod_protocol::Identifier::minecraft("air")
     {
-        0
+        (0, 0)
     }
     else
     {
-        crate::registry::with(|registries| registries.blockId(&id)).ok_or_else(|| format!("no block {id}"))?
+        crate::states::resolve(&state).ok_or_else(|| format!("no block {}", state.block))?
     };
     let mut count: i32 = 0;
     for x in corners[0].min(corners[3])..=corners[0].max(corners[3])
@@ -273,12 +300,12 @@ fn fill(world: &Rc<World>, args: &[String]) -> Result<String, String>
         {
             for z in corners[2].min(corners[5])..=corners[2].max(corners[5])
             {
-                world.setBlockWithNotify(x, y, z, block);
+                world.setBlockAndMetadataWithNotify(x, y, z, block, meta);
                 count += 1;
             }
         }
     }
-    Ok(format!("placed {count} {id}"))
+    Ok(format!("placed {count} {name}"))
 }
 
 fn itemId(name: &str) -> Result<i32, String>
@@ -293,19 +320,19 @@ fn itemName(id: i32) -> String
         .unwrap_or_else(|| id.to_string())
 }
 
-fn modTile(world: &World, args: &[String]) -> Result<Rc<game::tileentity::TileEntity>, String>
+fn inventoryTile(world: &World, args: &[String]) -> Result<Rc<game::tileentity::TileEntity>, String>
 {
     let [x, y, z]: [i32; 3] = [number(args, 2)?, number(args, 3)?, number(args, 4)?];
     world
         .getBlockTileEntity(x, y, z)
-        .filter(|tile| tile.tryExt::<crate::tiles::ModTileExt>().is_some())
-        .ok_or_else(|| format!("no mod tile entity at {x} {y} {z}"))
+        .filter(|tile| tile.instanceOf("IInventory"))
+        .ok_or_else(|| format!("no inventory at {x} {y} {z}"))
 }
 
 // fills one slot of a mod tile entity, for feeding machines from the console
 fn slot(world: &World, args: &[String]) -> Result<String, String>
 {
-    let tile: Rc<game::tileentity::TileEntity> = modTile(world, args)?;
+    let tile: Rc<game::tileentity::TileEntity> = inventoryTile(world, args)?;
     let index: i32 = number(args, 5)?;
     let name: &String = args.get(6).ok_or(USAGE)?;
     let count: i32 = number(args, 7).unwrap_or(1);
@@ -322,23 +349,27 @@ fn slot(world: &World, args: &[String]) -> Result<String, String>
     Ok(format!("slot {index} set to {count} {name}"))
 }
 
-// lists a mod tile entity's slots and the size of its mod data
+// lists an inventory's slots with their components, and mod data and attachments
 fn tile(world: &World, args: &[String]) -> Result<String, String>
 {
-    let tile: Rc<game::tileentity::TileEntity> = modTile(world, args)?;
-    let ext: &crate::tiles::ModTileExt = crate::tiles::ext(&tile);
-    let slots: Vec<String> = ext
-        .m_slots
-        .borrow()
-        .iter()
-        .map(|stack| {
-            stack.as_ref().map_or("empty".to_owned(), |stack| {
-                format!("{} {}@{}", stack.m_stackSize.get(), itemName(stack.m_itemID.get()), stack.getItemDamage())
+    let tile: Rc<game::tileentity::TileEntity> = inventoryTile(world, args)?;
+    let slots: Vec<String> = (0..tile.getSizeInventory())
+        .map(|slot| {
+            tile.getStackInSlot(slot).map_or("empty".to_owned(), |stack| {
+                let components: Vec<String> = stack.m_components.borrow().keys().cloned().collect();
+                format!(
+                    "{} {}@{} {components:?}",
+                    stack.m_stackSize.get(),
+                    itemName(stack.m_itemID.get()),
+                    stack.getItemDamage()
+                )
             })
         })
         .collect();
-    let [x, y, z]: [i32; 3] = [number(args, 2)?, number(args, 3)?, number(args, 4)?];
-    Ok(format!("slots [{}] data {:?} meta {}", slots.join(", "), ext.m_data.borrow(), world.getBlockMetadata(x, y, z)))
+    let data: Vec<u8> =
+        tile.tryExt::<crate::tiles::ModTileExt>().map(|ext| ext.m_data.borrow().clone()).unwrap_or_default();
+    let attachments: Vec<String> = tile.m_attachments.borrow().keys().cloned().collect();
+    Ok(format!("slots [{}] data {data:?} attachments {attachments:?}", slots.join(", ")))
 }
 
 fn entities(world: &World) -> String
