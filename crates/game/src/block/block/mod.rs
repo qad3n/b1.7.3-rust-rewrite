@@ -7,7 +7,7 @@ use crate::block::Material;
 pub use class::{BLOCK, BlockClass};
 use jvm::field::Field;
 use jvm::object::JavaObject;
-pub use registry::BLOCK_IDS;
+pub use registry::{BLOCK_IDS, BREAK_EVENT, packBreak, unpackBreak};
 use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;

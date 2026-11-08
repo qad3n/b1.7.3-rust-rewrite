@@ -161,12 +161,12 @@ impl IWorldAccess for RenderGlobal
             1000 => world.playSoundEffect(x as f64, y as f64, z as f64, "random.click", 1.0, 1.0),
             1002 => world.playSoundEffect(x as f64, y as f64, z as f64, "random.bow", 1.0, 1.2),
             2000 => self.smokeBurst(random, x, y, z, data),
-            2001 =>
+            game::block::BREAK_EVENT =>
             {
-                let n: i32 = data & 0xFF;
-                if n > 0
+                let (id, meta): (i32, i32) = game::block::unpackBreak(data);
+                if id > 0
                 {
-                    let block: Rc<Block> = Block::byId(n).orNpe();
+                    let block: Rc<Block> = Block::byId(id).orNpe();
                     let stepSound: Rc<StepSound> = block.m_stepSound.get();
                     self.m_mc.m_sndManager.get().orNpe().playSound(
                         &stepSound.stepSoundDir(),
@@ -177,7 +177,7 @@ impl IWorldAccess for RenderGlobal
                         stepSound.getPitch() * 0.8,
                     );
                 }
-                self.m_mc.m_effectRenderer.get().orNpe().addBlockDestroyEffects(x, y, z, data & 0xFF, data >> 8 & 0xFF);
+                self.m_mc.m_effectRenderer.get().orNpe().addBlockDestroyEffects(x, y, z, id, meta);
             }
             1003 =>
             {

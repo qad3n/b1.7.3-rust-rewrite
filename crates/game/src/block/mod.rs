@@ -75,6 +75,6 @@ pub mod map_color;
 pub mod material;
 pub mod model_bed;
 
-pub use block::{BLOCK, BLOCK_IDS, Block, BlockClass, StepSound};
+pub use block::{BLOCK, BLOCK_IDS, BREAK_EVENT, Block, BlockClass, StepSound, packBreak, unpackBreak};
 pub use map_color::MapColor;
 pub use material::Material;

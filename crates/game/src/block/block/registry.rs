@@ -7,6 +7,15 @@ use std::rc::Rc;
 // 12-bit block ids, vanilla only fills the first 256
 pub const BLOCK_IDS: usize = 4096;
 
+pub const BREAK_EVENT: i32 = 2001;
+// the break event packs metadata above the 12-bit block id where vanilla shifted by 8
+const BREAK_META_SHIFT: i32 = 12;
+const META_MASK: i32 = 0xF;
+
+pub fn packBreak(id: i32, meta: i32) -> i32 { id | (meta & META_MASK) << BREAK_META_SHIFT }
+
+pub fn unpackBreak(data: i32) -> (i32, i32) { (data & (BLOCK_IDS as i32 - 1), data >> BREAK_META_SHIFT & META_MASK) }
+
 thread_local! {
     static INIT: Cell<u8> = const { Cell::new(0) };
     static BLOCKS_LIST: RefCell<Vec<Option<Rc<Block>>>> = RefCell::new(vec![None; BLOCK_IDS]);

@@ -132,10 +132,6 @@ fn mob(entity: &Entity) -> Option<&game::entity::entity_mob::MobFields>
     entity.instanceOf("EntityMob").then(|| game::entity::entity_mob::fields(entity))
 }
 
-// World.doEvent 2001 packs the block id and its metadata times 256
-const BLOCK_BREAK_EVENT: i32 = 2001;
-const META_SHIFT: i32 = 256;
-
 fn movingBlock(entity: &Entity) -> Option<&game::entity::entity_falling_sand::FallingSandFields>
 {
     entity.instanceOf("EntityFallingSand").then(|| game::entity::entity_falling_sand::fields(entity))
@@ -417,7 +413,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         }
         HostCall::BlockEffect { world: dimension, pos, block, meta } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
-            world.doEvent(BLOCK_BREAK_EVENT, pos.x, pos.y, pos.z, block + meta * META_SHIFT);
+            world.doEvent(game::block::BREAK_EVENT, pos.x, pos.y, pos.z, game::block::packBreak(block, meta));
             Ok(())
         })),
         HostCall::DropBlockItems { world: dimension, pos, block, meta } => unit(world(dimension).and_then(|world| {

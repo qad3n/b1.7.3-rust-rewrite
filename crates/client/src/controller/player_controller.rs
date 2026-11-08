@@ -38,7 +38,13 @@ fn sendBlockRemoved(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, _face: 
 {
     let world: Rc<World> = this.theWorld();
     let block: Option<Rc<Block>> = Block::byId(world.getBlockId(x, y, z));
-    world.doEvent(2001, x, y, z, block.as_ref().orNpe().m_blockID + world.getBlockMetadata(x, y, z) * 256);
+    world.doEvent(
+        game::block::BREAK_EVENT,
+        x,
+        y,
+        z,
+        game::block::packBreak(block.as_ref().orNpe().m_blockID, world.getBlockMetadata(x, y, z)),
+    );
     let n: i32 = world.getBlockMetadata(x, y, z);
     let bl: bool = world.setBlockWithNotify(x, y, z, 0);
     if let Some(block) = block

@@ -1,5 +1,5 @@
 use crate::player::entity_player_mp;
-use game::block::Block;
+use game::block::{self, Block};
 use game::entity::{Entity, entity_player};
 use game::item::ItemStack;
 use game::network::packets::Packet53BlockChange;
@@ -147,14 +147,7 @@ impl ItemInWorldManager
     {
         let n: i32 = self.m_thisWorld.getBlockId(x, y, z);
         let n2: i32 = self.m_thisWorld.getBlockMetadata(x, y, z);
-        self.m_thisWorld.doEventFrom(
-            Some(&self.thisPlayer()),
-            2001,
-            x,
-            y,
-            z,
-            n + self.m_thisWorld.getBlockMetadata(x, y, z) * 256,
-        );
+        self.m_thisWorld.doEventFrom(Some(&self.thisPlayer()), block::BREAK_EVENT, x, y, z, block::packBreak(n, n2));
         let bl: bool = self.removeBlock(x, y, z);
         let itemStack: Option<Rc<ItemStack>> = entity_player::getCurrentEquippedItem(&self.thisPlayer());
         if let Some(itemStack) = itemStack
