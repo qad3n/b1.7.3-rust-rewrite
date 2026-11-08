@@ -375,14 +375,12 @@ impl CraftingManager
             &["###", "XXX"],
             &[('#', Ingredient::Block(Block::cloth())), ('X', Ingredient::Block(Block::planks()))],
         );
-        let mut recipes: Vec<Rc<dyn IRecipe>> = manager.m_recipes.toVec();
-        jvm::sort::sort(&mut recipes, &mut compareRecipes);
-        manager.m_recipes.replaceAll(recipes);
+        manager.sortRecipes();
         jvm::system::println(&format!("{} recipes", manager.m_recipes.size()));
         manager
     }
 
-    pub(super) fn addRecipe(&self, result: Rc<ItemStack>, pattern: &[&str], keys: &[(char, Ingredient)])
+    pub fn addRecipe(&self, result: Rc<ItemStack>, pattern: &[&str], keys: &[(char, Ingredient)])
     {
         let mut s: String = String::new();
         let mut width: i32 = 0;
@@ -418,7 +416,7 @@ impl CraftingManager
         self.m_recipes.add(Rc::new(ShapedRecipes::new(width, height, ingredients, result)));
     }
 
-    pub(super) fn addShapelessRecipe(&self, result: Rc<ItemStack>, args: &[Ingredient])
+    pub fn addShapelessRecipe(&self, result: Rc<ItemStack>, args: &[Ingredient])
     {
         let mut ingredients: Vec<Rc<ItemStack>> = Vec::new();
         for o in args
@@ -433,6 +431,14 @@ impl CraftingManager
         }
 
         self.m_recipes.add(Rc::new(ShapelessRecipes::new(result, ingredients)));
+    }
+
+    // stable, so recipes added later lose ties against earlier ones
+    pub fn sortRecipes(&self)
+    {
+        let mut recipes: Vec<Rc<dyn IRecipe>> = self.m_recipes.toVec();
+        jvm::sort::sort(&mut recipes, &mut compareRecipes);
+        self.m_recipes.replaceAll(recipes);
     }
 
     pub fn findMatchingRecipe(&self, inventory: &dyn CraftingGrid) -> Option<Rc<ItemStack>>

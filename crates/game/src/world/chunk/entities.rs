@@ -124,6 +124,8 @@ pub fn onChunkLoad(this: &Rc<Chunk>)
 {
     this.m_isChunkLoaded.set(true);
     let world: Rc<World> = this.world();
+    // mods observe chunk loads
+    crate::hooks::fire(crate::hooks::GameEvent::ChunkLoad { world: &world, x: this.m_xPosition, z: this.m_zPosition });
     world.loadBlockEntities(&this.m_chunkTileEntityMap.with(JHashMap::values));
     for list in &this.m_entities
     {
@@ -134,6 +136,15 @@ pub fn onChunkLoad(this: &Rc<Chunk>)
 pub fn onChunkUnload(this: &Rc<Chunk>)
 {
     this.m_isChunkLoaded.set(false);
+    // mods observe chunk unloads
+    if let Some(world) = this.m_worldObj.get()
+    {
+        crate::hooks::fire(crate::hooks::GameEvent::ChunkUnload {
+            world: &world,
+            x: this.m_xPosition,
+            z: this.m_zPosition,
+        });
+    }
     for tileentity in this.m_chunkTileEntityMap.with(JHashMap::values)
     {
         tileentity.markRemoved();

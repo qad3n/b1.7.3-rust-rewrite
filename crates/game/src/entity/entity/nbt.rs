@@ -29,6 +29,8 @@ impl Entity
         nbt.setShort("Air", self.m_air.get() as i16);
         nbt.setBoolean("OnGround", self.m_onGround.get());
         self.writeEntityToNBT(nbt);
+        // per entity mod data rides in a ModData compound
+        crate::hooks::writeEntityData(self, nbt);
     }
 
     pub fn readFromNBT(self: &Rc<Self>, nbt: &NBTTagCompound)
@@ -80,6 +82,8 @@ impl Entity
         self.setPosition(self.posX(), self.posY(), self.posZ());
         self.setRotation(self.m_rotationYaw.get(), self.m_rotationPitch.get());
         self.readEntityFromNBT(nbt);
+        // per entity mod data rides in a ModData compound
+        crate::hooks::readEntityData(self, nbt);
     }
 
     pub fn newDoubleNBTList(&self, values: &[f64]) -> Rc<NBTBase>

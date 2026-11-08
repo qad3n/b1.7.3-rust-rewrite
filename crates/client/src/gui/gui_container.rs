@@ -46,6 +46,11 @@ pub enum ContainerScreen
         m_xSize_lo: Cell<f32>,
         m_ySize_lo: Cell<f32>,
     },
+    // a mod container screen, its state belongs to the mod loader glue
+    Mod
+    {
+        m_state: Rc<dyn std::any::Any>,
+    },
 }
 
 pub struct GuiContainer
@@ -58,7 +63,7 @@ pub struct GuiContainer
 
 pub fn fields(this: &GuiScreen) -> &GuiContainer { this.ext::<GuiContainer>() }
 
-fn construct(class: &'static GuiScreenClass, menu: Rc<Container>, screen: ContainerScreen) -> Rc<GuiScreen>
+pub fn construct(class: &'static GuiScreenClass, menu: Rc<Container>, screen: ContainerScreen) -> Rc<GuiScreen>
 {
     GuiScreen::construct(
         class,
@@ -71,7 +76,7 @@ fn construct(class: &'static GuiScreenClass, menu: Rc<Container>, screen: Contai
     )
 }
 
-fn origin(this: &GuiScreen) -> (i32, i32)
+pub fn origin(this: &GuiScreen) -> (i32, i32)
 {
     let container: &GuiContainer = fields(this);
     ((this.m_width.get() - container.m_xSize.get()) / 2, (this.m_height.get() - container.m_ySize.get()) / 2)

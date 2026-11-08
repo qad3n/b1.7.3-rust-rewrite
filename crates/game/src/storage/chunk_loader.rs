@@ -81,6 +81,11 @@ impl ChunkLoader
         nbt.setInteger("zPos", chunk.m_zPosition);
         nbt.setLong("LastUpdate", world.getWorldTime());
         nbt.setByteArray("Blocks", Rc::new(chunk.m_blocks.get()));
+        // 12-bit block ids store their high nibbles under Add, which vanilla readers ignore
+        if let Some(add) = chunk.m_addBlocks.get()
+        {
+            nbt.setByteArray("Add", Rc::new(add.iter().map(|byte| *byte as i8).collect()));
+        }
         nbt.setByteArray("Data", Rc::new(chunk.data().m_data.get()));
         nbt.setByteArray("SkyLight", Rc::new(chunk.skylight().m_data.get()));
         nbt.setByteArray("BlockLight", Rc::new(chunk.blocklight().m_data.get()));
@@ -118,6 +123,10 @@ impl ChunkLoader
         let j: i32 = nbt.getInteger("zPos");
         let chunk: Rc<Chunk> = Chunk::new(world, i, j);
         chunk.m_blocks.set((*nbt.getByteArray("Blocks").orNpe()).clone());
+        if nbt.hasKey("Add")
+        {
+            chunk.m_addBlocks.set(nbt.getByteArray("Add").map(|add| add.iter().map(|byte| *byte as u8).collect()));
+        }
         chunk.m_data.set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("Data").orNpe()).clone()))));
         chunk.m_skylightMap.set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("SkyLight").orNpe()).clone()))));
         chunk

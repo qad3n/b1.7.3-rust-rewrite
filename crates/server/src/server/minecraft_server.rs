@@ -1,8 +1,7 @@
 use crate::network::NetworkListenThread;
 use crate::player::EntityTracker;
 use crate::server::{
-    ConsoleCommandHandler, ConsoleLogManager, ICommandListener, PropertyManager, ServerCommand,
-    ServerConfigurationManager,
+    ConsoleCommandHandler, ICommandListener, PropertyManager, ServerCommand, ServerConfigurationManager,
 };
 use crate::world::{IUpdatePlayerListBox, WorldManager, world_server, world_server_multi};
 use common::world::IProgressUpdate;
@@ -47,7 +46,8 @@ pub struct MinecraftServer
     m_tickables: JArrayList<Rc<dyn IUpdatePlayerListBox>>,
     m_commands: RefCell<Vec<ServerCommand>>,
     m_consoleLines: Arc<Mutex<Vec<String>>>,
-    pub m_entityTracker: Field<[Option<Rc<EntityTracker>>; 2]>,
+    // one tracker per dimension, vanilla dimensions first and mod dimensions after them
+    pub m_entityTracker: Field<Vec<Option<Rc<EntityTracker>>>>,
     pub m_onlineMode: Cell<bool>,
     pub m_spawnPeacefulMobs: Cell<bool>,
     pub m_pvpOn: Cell<bool>,
@@ -94,7 +94,7 @@ impl MinecraftServer
             m_tickables: JArrayList::new(),
             m_commands: RefCell::new(Vec::new()),
             m_consoleLines: Arc::new(Mutex::new(Vec::new())),
-            m_entityTracker: Field::new([None, None]),
+            m_entityTracker: Field::new(Vec::new()),
             m_onlineMode: Cell::new(false),
             m_spawnPeacefulMobs: Cell::new(false),
             m_pvpOn: Cell::new(false),
@@ -141,10 +141,11 @@ impl MinecraftServer
         {
             jvm::io::fromStd(&error).printStackTrace();
         }
-        ConsoleLogManager::init();
         logger().info("Starting minecraft server version Beta 1.7.3");
         logger().info("Loading properties");
         self.m_propertyManagerObj.set(Some(Rc::new(PropertyManager::new(Path::new("server.properties")))));
+        // the built in mod loader reads its server.properties switches and loads mods next to that file
+        crate::modded::start(&self.propertyManager());
         let s: String = self.propertyManager().getStringProperty("server-ip", "");
         self.m_onlineMode.set(self.propertyManager().getBooleanProperty("online-mode", true));
         self.m_spawnPeacefulMobs.set(self.propertyManager().getBooleanProperty("spawn-animals", true));
@@ -178,9 +179,11 @@ impl MinecraftServer
             logger().warning("To change this, set \"online-mode\" to \"true\" in the server.settings file.");
         }
         self.m_configManager.set(Some(ServerConfigurationManager::new(&this)));
-        let tracker0: Rc<EntityTracker> = EntityTracker::new(&this, 0);
-        let tracker1: Rc<EntityTracker> = EntityTracker::new(&this, -1);
-        self.m_entityTracker.set([Some(tracker0), Some(tracker1)]);
+        let trackers: Vec<Option<Rc<EntityTracker>>> = modloader::dimensions::serverDimensions()
+            .iter()
+            .map(|dimension| Some(EntityTracker::new(&this, *dimension)))
+            .collect();
+        self.m_entityTracker.set(trackers);
         let j: i64 = jvm::system::nanoTime();
         let s1: String = self.propertyManager().getStringProperty("level-name", "world");
         let s2: String = self.propertyManager().getStringProperty("level-seed", "");
@@ -214,11 +217,12 @@ impl MinecraftServer
                 &ConvertProgress { m_lastTimeMillis: Cell::new(jvm::system::currentTimeMillis()) },
             );
         }
-        self.m_worldMngr.set(Some(vec![None, None]));
+        // mod dimensions get worlds after the overworld and the nether
+        let dimensions: Vec<i32> = modloader::dimensions::serverDimensions();
+        self.m_worldMngr.set(Some(vec![None; dimensions.len()]));
         let saveolddir: Rc<dyn ISaveHandler> = Rc::new(SaveOldDir::new(Path::new("."), saveName, true));
-        for i in 0..2
+        for (i, dimension) in dimensions.iter().copied().enumerate()
         {
-            let dimension: i32 = if i == 0 { 0 } else { -1 };
             let world: Rc<World> = if i == 0
             {
                 world_server::new(&this, Rc::clone(&saveolddir), saveName, dimension, seed)
@@ -229,6 +233,8 @@ impl MinecraftServer
                 world_server_multi::new(&this, Rc::clone(&saveolddir), saveName, dimension, seed, &delegate)
             };
             self.m_worldMngr.update(|worlds| worlds.as_mut().orNpe()[i] = Some(Rc::clone(&world)));
+            // mods apply the saved id map and load world data before the start region loads
+            modloader::play::worldLoaded(&world);
             world.addWorldAccess(Rc::new(WorldManager::new(&this, &world)));
             world.m_difficultySetting.set(
                 if self.propertyManager().getBooleanProperty("spawn-monsters", true)
@@ -313,6 +319,7 @@ impl MinecraftServer
     fn stopServer(&self)
     {
         logger().info("Stopping server");
+        modloader::play::lifecycle(modloader::EventKind::ServerStopping);
         if let Some(configManager) = self.m_configManager.get()
         {
             configManager.savePlayerStates();
@@ -332,6 +339,7 @@ impl MinecraftServer
     {
         if self.startServer()?
         {
+            modloader::play::lifecycle(modloader::EventKind::ServerStarted);
             let mut i: i64 = jvm::system::currentTimeMillis();
             let mut j: i64 = 0;
             while self.m_serverRunning.load(Ordering::Relaxed)
@@ -404,6 +412,9 @@ impl MinecraftServer
 
     fn doTick(&self)
     {
+        // mod tick listeners run around the server tick, serverbound mod traffic budgets reset each tick
+        modloader::netsync::resetBudgets();
+        modloader::play::tick(true);
         let mut arraylist: Vec<JString> = Vec::new();
         GIVE_COMMANDS_COOLDOWNS.with(|cooldowns| {
             let mut cooldowns: std::cell::RefMut<'_, JHashMap<JString, i32>> = cooldowns.borrow_mut();
@@ -427,9 +438,9 @@ impl MinecraftServer
         AxisAlignedBB::clearBoundingBoxPool();
         Vec3D::initialize();
         self.m_deathTime.set(self.m_deathTime.get() + 1);
-        for k in 0..2
+        for k in 0..self.worldMngr().len()
         {
-            if k == 0 || self.propertyManager().getBooleanProperty("allow-nether", true)
+            if k != 1 || self.propertyManager().getBooleanProperty("allow-nether", true)
             {
                 let worldserver: Rc<World> = self.worldMngr()[k].clone();
                 if self.m_deathTime.get() % 20 == 0
@@ -462,6 +473,11 @@ impl MinecraftServer
         if let Err(exception) = result
         {
             logger().log(Level::WARNING, "Unexpected exception while parsing console command", Some(exception));
+        }
+        // the mod watchdog may stop the server when a mod keeps blowing its tick budget
+        if modloader::play::tick(false)
+        {
+            self.initiateShutdown();
         }
     }
 
@@ -512,29 +528,16 @@ impl MinecraftServer
 
     pub fn logWarning(&self, message: &str) { logger().warning(message); }
 
+    // dimensions are keyed through the loader's map, without mods it is overworld then nether
     pub fn getWorldManager(&self, dimension: i32) -> Rc<World>
     {
-        if dimension == -1
-        {
-            self.worldMngr()[1].clone()
-        }
-        else
-        {
-            self.worldMngr()[0].clone()
-        }
+        self.worldMngr()[modloader::dimensions::serverSlot(dimension)].clone()
     }
 
     pub fn getEntityTracker(&self, dimension: i32) -> Rc<EntityTracker>
     {
-        let trackers: [Option<Rc<EntityTracker>>; 2] = self.m_entityTracker.get();
-        if dimension == -1
-        {
-            trackers[1].clone().orNpe()
-        }
-        else
-        {
-            trackers[0].clone().orNpe()
-        }
+        let trackers: Vec<Option<Rc<EntityTracker>>> = self.m_entityTracker.get();
+        trackers[modloader::dimensions::serverSlot(dimension)].clone().orNpe()
     }
 }
 

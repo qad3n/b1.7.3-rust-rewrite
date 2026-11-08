@@ -88,6 +88,14 @@ impl NetClientHandler
         });
         let handler: Weak<dyn NetHandler> = Rc::downgrade(&this) as Weak<dyn NetHandler>;
         this.m_netManager.set(Some(NetworkManager::new(socket, "Client", handler, false)?));
+        // mod traffic to the server goes out through this connection
+        let weak: Weak<NetClientHandler> = Rc::downgrade(&this);
+        modloader::netsync::clientConnected(Rc::new(move |channel: u32, body: Vec<u8>| {
+            if let Some(handler) = weak.upgrade()
+            {
+                handler.addToSendQueue(Box::new(Packet250ModPayload::new(channel, body)));
+            }
+        }));
         Ok(this)
     }
 
@@ -131,6 +139,7 @@ impl NetClientHandler
 
     pub fn disconnect(&self)
     {
+        modloader::netsync::clientDisconnected();
         self.m_disconnected.set(true);
         self.netManager().wakeThreads();
         self.netManager().networkShutdown("disconnect.closed", Vec::new());
@@ -178,7 +187,8 @@ impl NetClientHandler
             Ok((_, true)) =>
             {
                 let username: Option<String> = session.m_username.get();
-                self.addToSendQueue(Box::new(Packet1Login::new(JString::from(username.orNpe().as_str()), 14)));
+                let login: Packet1Login = Packet1Login::new(JString::from(username.orNpe().as_str()), 14);
+                self.addToSendQueue(Box::new(modloader::netsync::loginPacket(login)));
             }
             Ok((string, false)) => self.netManager().networkShutdown("disconnect.loginFailedInfo", vec![string]),
             Err(exception) =>
@@ -204,8 +214,24 @@ impl NetHandler for NetClientHandler
 {
     fn isServerHandler(&self) -> bool { false }
 
+    fn handleModPayload(&self, packet: &Packet250ModPayload)
+    {
+        if let Some(reason) = modloader::netsync::clientPayload(packet.m_channel, &packet.m_data)
+        {
+            self.netManager().networkShutdown("disconnect.genericReason", vec![JString::from(reason.as_str())]);
+            self.m_disconnected.set(true);
+        }
+    }
+
     fn handleLogin(&self, packet: &Packet1Login)
     {
+        // a client with required mods leaves a server that never spoke the loader protocol
+        if let Some(reason) = modloader::netsync::clientLoggedIn()
+        {
+            self.netManager().networkShutdown("disconnect.genericReason", vec![JString::from(reason.as_str())]);
+            self.m_disconnected.set(true);
+            return;
+        }
         let this: Rc<NetClientHandler> = self.rc();
         let mc: &Rc<Minecraft> = &self.m_mc;
         mc.m_playerController.set(Some(player_controller_mp::new(mc, &this)));
@@ -545,6 +571,8 @@ impl NetHandler for NetClientHandler
 
     fn handleKickDisconnect(&self, packet: &Packet255KickDisconnect)
     {
+        // rewrite: the kick reason goes to client.log so refused joins can be traced
+        modloader::netsync::clientKicked(&jvm::string::JString::display(packet.m_reason.as_ref()));
         self.netManager().networkShutdown("disconnect.kicked", Vec::new());
         self.m_disconnected.set(true);
         self.m_mc.changeWorld1(None);
@@ -557,6 +585,7 @@ impl NetHandler for NetClientHandler
 
     fn handleErrorMessage(&self, reason: &JString, args: &[JString])
     {
+        modloader::netsync::clientDisconnected();
         if self.m_disconnected.get()
         {
             return;
@@ -647,7 +676,8 @@ impl NetHandler for NetClientHandler
         if *serverId == JString::from("-")
         {
             let username: Option<String> = self.m_mc.m_session.get().orNpe().m_username.get();
-            self.addToSendQueue(Box::new(Packet1Login::new(JString::from(username.orNpe().as_str()), 14)));
+            let login: Packet1Login = Packet1Login::new(JString::from(username.orNpe().as_str()), 14);
+            self.addToSendQueue(Box::new(modloader::netsync::loginPacket(login)));
         }
         else
         {

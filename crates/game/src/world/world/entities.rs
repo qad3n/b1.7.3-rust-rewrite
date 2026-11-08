@@ -12,6 +12,11 @@ fn isPlayer(entity: &Entity) -> bool { entity.instanceOf("EntityPlayer") }
 
 pub fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
 {
+    // mods may refuse an entity before it joins
+    if crate::hooks::fire(crate::hooks::GameEvent::EntityJoinWorld { world: this, entity })
+    {
+        return false;
+    }
     let i: i32 = floor_double(entity.posX() / 16.0);
     let j: i32 = floor_double(entity.posZ() / 16.0);
     let flag: bool = isPlayer(entity);
@@ -865,6 +870,8 @@ pub fn addWeatherEffect(this: &Rc<World>, entity: Rc<Entity>) -> bool
 
 pub fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requireLoaded: bool)
 {
+    // mods observe each entity tick
+    crate::hooks::fire(crate::hooks::GameEvent::EntityTick { entity });
     let i: i32 = floor_double(entity.posX());
     let j: i32 = floor_double(entity.posZ());
     let b0: i32 = 32;

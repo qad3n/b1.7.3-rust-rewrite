@@ -18,6 +18,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 common = { path = "../common" }
 game = { path = "../game" }
 jvm = { path = "../jvm" }
+modloader = { path = "../modloader" }
 lwjgl = { path = "../lwjgl" }
 paulscode = { package = "pudscode", path = "../../vendor/pudscode" }
 serde_json = "1"

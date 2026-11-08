@@ -33,6 +33,12 @@ impl ConsoleCommandHandler
 
     pub fn handleCommand(&self, command: &ServerCommand)
     {
+        // mod commands registered for the console run before the vanilla list
+        if let Some(reply) = modloader::play::command(&command.m_command, None, true)
+        {
+            command.m_commandListener.log(&reply);
+            return;
+        }
         let mut string: JString = JString::from(command.m_command.as_str());
         let iCommandListener: &Rc<dyn ICommandListener> = &command.m_commandListener;
         let string2: String = iCommandListener.getUsername();

@@ -167,6 +167,9 @@ impl Item
 
     pub fn byIdOrNpe(id: i32) -> Rc<Item> { Item::byId(id).orNpe() }
 
+    // the mod loader rebuilds mod items when a world or server maps them to other ids
+    pub fn unregister(id: i32) { ITEMS_LIST.with(|list| list.borrow_mut()[index(id)] = None); }
+
     pub fn itemRand() -> Rc<Random>
     {
         ensureInit();

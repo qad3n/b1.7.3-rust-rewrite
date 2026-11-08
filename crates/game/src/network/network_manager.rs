@@ -458,6 +458,12 @@ impl NetworkManager
             {
                 break;
             }
+            // rewrite: packets queued behind a shutdown are dropped, a refused login would run world packets with no world
+            if shared.m_isTerminating.load(Ordering::Relaxed)
+            {
+                lock(&shared.m_readPackets).clear();
+                break;
+            }
             let packet: Box<dyn Packet> = lock(&shared.m_readPackets).remove(0);
             packet.processPacket(self.netHandler().as_ref());
         }

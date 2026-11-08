@@ -179,8 +179,15 @@ impl RenderEngine
             }
             TextureKind::Plain(rest) => match pack.getResourceAsStream(rest)
             {
+                // mod textures under /mods/ come from the mod files, terrain and item sheets get mod sprites painted in
+                None if rest.starts_with("/mods/") => match modloader::play::modAsset(rest)
+                {
+                    Some(bytes) => readTextureImage(Some(Box::new(jvm::io::ByteArrayInputStream::new(bytes)))),
+                    None if missingFallback => Ok(Rc::clone(&self.m_missingTextureImage)),
+                    None => readTextureImage(None),
+                },
                 None if missingFallback => Ok(Rc::clone(&self.m_missingTextureImage)),
-                stream => readTextureImage(stream),
+                stream => readTextureImage(stream).inspect(|image| modloader::atlas::stitch(rest, image)),
             },
         }
     }

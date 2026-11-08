@@ -166,6 +166,14 @@ impl ISaveHandler for SaveHandler
 
     fn getChunkLoader(&self, provider: &Rc<WorldProvider>) -> Rc<dyn IChunkLoader>
     {
+        // mod dimensions use ids from 2 up and save beside the nether in their own DIM folder
+        let dimension: i32 = provider.m_worldType.get();
+        if dimension >= 2
+        {
+            let folder: PathBuf = self.m_saveDirectory.join(format!("DIM{dimension}"));
+            file::mkdirs(&folder);
+            return Rc::new(ChunkLoader::new(&folder, true));
+        }
         if provider.instanceOf("WorldProviderHell")
         {
             let file1: PathBuf = self.m_saveDirectory.join("DIM-1");

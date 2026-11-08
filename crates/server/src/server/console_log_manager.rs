@@ -1,5 +1,6 @@
 use jvm::calendar::{DateFields, dateFields};
-use jvm::logging::{ConsoleHandler, FileHandler, Formatter, Level, LogRecord, Logger};
+use jvm::log_files;
+use jvm::logging::{Formatter, Level, LogRecord, Logger};
 use std::path::Path;
 
 fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
@@ -10,13 +11,8 @@ impl ConsoleLogManager
 {
     pub fn init()
     {
-        logger().setUseParentHandlers(false);
-        logger().addHandler(Box::new(ConsoleHandler::new(Box::new(ConsoleLogFormatter::new()))));
-        match FileHandler::new(Path::new("server.log"), true, Box::new(ConsoleLogFormatter::new()))
-        {
-            Ok(fileHandler) => logger().addHandler(Box::new(fileHandler)),
-            Err(exception) => logger().log(Level::WARNING, "Failed to log to server.log", Some(exception)),
-        }
+        // rewrite: logs/server.log with gzip backups of earlier runs replaces the ever growing server.log
+        log_files::install(logger(), Path::new("logs"), "server", || Box::new(ConsoleLogFormatter::new()));
     }
 }
 

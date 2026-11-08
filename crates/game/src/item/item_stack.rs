@@ -70,6 +70,11 @@ impl ItemStack
 
     pub fn useItem(self: &Rc<Self>, player: &Rc<Entity>, world: &Rc<World>, x: i32, y: i32, z: i32, face: i32) -> bool
     {
+        // mods may take the use before the item does
+        if crate::hooks::fire(crate::hooks::GameEvent::ItemUseOnBlock { world, player, stack: self, x, y, z, face })
+        {
+            return false;
+        }
         let bl: bool = self.getItem().onItemUse(self, player, world, x, y, z, face);
         if bl
         {
@@ -82,6 +87,11 @@ impl ItemStack
 
     pub fn useItemRightClick(self: &Rc<Self>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<ItemStack>>
     {
+        // mods may take the right click before the item does
+        if crate::hooks::fire(crate::hooks::GameEvent::ItemUse { world, player, stack: self })
+        {
+            return Some(Rc::clone(self));
+        }
         self.getItem().onItemRightClick(self, world, player)
     }
 
@@ -123,6 +133,13 @@ impl ItemStack
 
     pub fn damageItem(&self, amount: i32, holder: &Rc<Entity>)
     {
+        // mods observe the stack reaching its last use
+        if crate::hooks::active().is_some()
+            && self.isItemStackDamageable()
+            && self.m_itemDamage.get() + amount > self.getMaxDamage()
+        {
+            crate::hooks::fire(crate::hooks::GameEvent::ItemDestroyed { player: holder, stack: self });
+        }
         if !self.isItemStackDamageable()
         {
             return;

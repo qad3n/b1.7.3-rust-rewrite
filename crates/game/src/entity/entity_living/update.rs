@@ -322,7 +322,9 @@ pub fn isOnLadder(this: &Rc<Entity>) -> bool
     let i: i32 = math_helper::floor_double(this.posX());
     let j: i32 = math_helper::floor_double(this.m_boundingBox.minY());
     let k: i32 = math_helper::floor_double(this.posZ());
-    this.world().getBlockId(i, j, k) == Block::ladder().m_blockID
+    let id: i32 = this.world().getBlockId(i, j, k);
+    // mod blocks can be climbable
+    crate::hooks::component(crate::hooks::Component::Ladder, id).unwrap_or(id == Block::ladder().m_blockID)
 }
 
 pub fn onLivingUpdate(this: &Rc<Entity>)

@@ -69,6 +69,9 @@ impl Minecraft
         }
         let dataDir: PathBuf = Minecraft::getMinecraftDir();
         self.m_mcDataDir.set(Some(dataDir.clone()));
+        // the built in mod loader creates mods and config next to saves and loads what it finds
+        crate::modded::install(&this);
+        modloader::bootstrap(&dataDir);
         self.m_saveLoader.set(Some(Rc::new(SaveConverterMcRegion::new(&dataDir.join("saves")))));
         let settings: Rc<GameSettings> = GameSettings::new(Rc::clone(&this), &dataDir);
         self.m_gameSettings.set(Some(Rc::clone(&settings)));
@@ -109,6 +112,11 @@ impl Minecraft
         self.checkGLError("Startup");
         self.m_glCapabilities.set(Some(Rc::new(OpenGlCapsChecker)));
         self.sndManager().loadSoundSettings(Some(Rc::clone(&settings)));
+        // mod sounds join the sound pool under their mod id
+        for (path, file) in modloader::sounds::files()
+        {
+            self.sndManager().addSound(&path, &file);
+        }
         let effects: [Rc<dyn TextureFX>; 9] = [
             self.m_textureLavaFX.get().orNpe(),
             self.m_textureWaterFX.get().orNpe(),
@@ -136,7 +144,8 @@ impl Minecraft
             {
                 self.displayGuiScreen(Some(GuiConnecting::new(&this, &serverName, self.m_serverPort.get())));
             }
-            None => self.displayGuiScreen(Some(GuiMainMenu::new())),
+            // mod load problems are shown before the title screen
+            None => self.displayGuiScreen(Some(crate::modded::startScreen(GuiMainMenu::new()))),
         }
         Ok(())
     }

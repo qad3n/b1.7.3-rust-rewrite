@@ -128,6 +128,11 @@ fn onCollideWithPlayer(this: &Rc<Entity>, player: &Rc<Entity>)
     }
     let fields: &ItemFields = fields(this);
     let stack: Rc<ItemStack> = item(this);
+    // mods may keep an item from being picked up
+    if crate::hooks::fire(crate::hooks::GameEvent::ItemPickup { player, item: this, stack: &stack })
+    {
+        return;
+    }
     let n: i32 = stack.m_stackSize.get();
     if fields.m_delayBeforeCanPickup.get() == 0 && entity_player::inventory(player).addItemStackToInventory(&stack)
     {

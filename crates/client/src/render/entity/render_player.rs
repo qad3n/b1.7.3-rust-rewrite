@@ -57,11 +57,16 @@ fn shouldRenderPass(this: &Rc<Render>, entity: &Rc<Entity>, layer: i32, _tickDel
         return false;
     };
     let renderIndex: i32 = item_armor::fields(&item).m_renderIndex;
-    this.loadTexture(&format!(
-        "/armor/{}_{}.png",
-        ARMOR_FILENAME_PREFIX[renderIndex as usize],
-        if layer == 2 { 2 } else { 1 }
-    ));
+    // mod armor names its own texture sheets
+    match modloader::content::armorTexture(item.m_shiftedIndex, layer)
+    {
+        Some(path) => this.loadTexture(&path),
+        None => this.loadTexture(&format!(
+            "/armor/{}_{}.png",
+            ARMOR_FILENAME_PREFIX[renderIndex as usize],
+            if layer == 2 { 2 } else { 1 }
+        )),
+    }
     let modelbiped: &Rc<ModelBiped> = if layer == 2
     {
         &ext(this).m_modelArmor

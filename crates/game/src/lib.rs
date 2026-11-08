@@ -2,6 +2,7 @@ pub mod block;
 pub mod container;
 pub mod crafting;
 pub mod entity;
+pub mod hooks;
 pub mod inventory;
 pub mod item;
 pub mod locale;

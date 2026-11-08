@@ -4,16 +4,19 @@ use crate::tileentity::TileEntityKind;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+// 12-bit block ids, vanilla only fills the first 256
+pub const BLOCK_IDS: usize = 4096;
+
 thread_local! {
     static INIT: Cell<u8> = const { Cell::new(0) };
-    static BLOCKS_LIST: RefCell<Vec<Option<Rc<Block>>>> = RefCell::new(vec![None; 256]);
-    static TICK_ON_LOAD: RefCell<[bool; 256]> = const { RefCell::new([false; 256]) };
-    static OPAQUE_CUBE_LOOKUP: RefCell<[bool; 256]> = const { RefCell::new([false; 256]) };
-    static IS_BLOCK_CONTAINER: RefCell<[bool; 256]> = const { RefCell::new([false; 256]) };
-    static LIGHT_OPACITY: RefCell<[i32; 256]> = const { RefCell::new([0; 256]) };
-    static CAN_BLOCK_GRASS: RefCell<[bool; 256]> = const { RefCell::new([false; 256]) };
-    static LIGHT_VALUE: RefCell<[i32; 256]> = const { RefCell::new([0; 256]) };
-    static UPDATE_CLIENTS: RefCell<[bool; 256]> = const { RefCell::new([false; 256]) };
+    static BLOCKS_LIST: RefCell<Vec<Option<Rc<Block>>>> = RefCell::new(vec![None; BLOCK_IDS]);
+    static TICK_ON_LOAD: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
+    static OPAQUE_CUBE_LOOKUP: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
+    static IS_BLOCK_CONTAINER: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
+    static LIGHT_OPACITY: RefCell<[i32; BLOCK_IDS]> = const { RefCell::new([0; BLOCK_IDS]) };
+    static CAN_BLOCK_GRASS: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
+    static LIGHT_VALUE: RefCell<[i32; BLOCK_IDS]> = const { RefCell::new([0; BLOCK_IDS]) };
+    static UPDATE_CLIENTS: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
 }
 
 pub fn ensureInit()
@@ -29,7 +32,7 @@ pub fn ensureInit()
 
 fn index(id: i32) -> usize
 {
-    if !(0..256).contains(&id)
+    if !(0..BLOCK_IDS as i32).contains(&id)
     {
         jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &id.to_string());
     }
@@ -206,6 +209,9 @@ impl Block
         }
     }
 
+    // an item id that names a block, vanilla ones are below 256 and 12-bit mod blocks reach 4095
+    pub fn isBlockItem(id: i32) -> bool { (0..BLOCK_IDS as i32).contains(&id) && Block::byId(id).is_some() }
+
     pub fn exists(id: i32) -> bool { BLOCKS_LIST.with(|list| list.borrow()[index(id)].is_some()) }
 
     pub fn tickOnLoad(id: i32) -> bool
@@ -251,6 +257,18 @@ impl Block
     }
 
     pub fn setIsBlockContainerEntry(id: i32, value: bool) { setIsBlockContainer(id, value); }
+
+    // the mod loader rebuilds mod blocks when a world or server maps them to other ids
+    pub fn unregister(id: i32)
+    {
+        BLOCKS_LIST.with(|list| list.borrow_mut()[index(id)] = None);
+        for table in [&TICK_ON_LOAD, &OPAQUE_CUBE_LOOKUP, &IS_BLOCK_CONTAINER, &CAN_BLOCK_GRASS, &UPDATE_CLIENTS]
+        {
+            table.with(|table| table.borrow_mut()[index(id)] = false);
+        }
+        LIGHT_OPACITY.with(|table| table.borrow_mut()[index(id)] = 0);
+        LIGHT_VALUE.with(|table| table.borrow_mut()[index(id)] = 0);
+    }
 
     pub fn setTickOnLoadFlag(id: i32, value: bool) { setTickOnLoadEntry(id, value); }
 

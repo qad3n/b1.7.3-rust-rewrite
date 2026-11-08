@@ -21,6 +21,8 @@ fn onPickupFromSlot(this: &Rc<Slot>, item: Option<Rc<ItemStack>>)
     let stack: &Rc<ItemStack> = item.as_ref().orNpe();
     let thePlayer: Rc<Entity> = player(this);
     stack.onCrafting(&thePlayer.world(), &thePlayer);
+    // mods observe smelted items
+    crate::hooks::fire(crate::hooks::GameEvent::ItemSmelted { player: &thePlayer, stack });
     if stack.m_itemID.get() == Item::ingotIron().m_shiftedIndex
     {
         thePlayer.addStat(AchievementList::acquireIron().as_ref(), 1);

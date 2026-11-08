@@ -79,10 +79,7 @@ impl Throwable
     pub fn getMessage(&self) -> Option<&str> { self.m_message.as_deref() }
 
     // the jvm also prints one at line per stack frame, which has no counterpart here
-    pub fn printStackTrace(&self)
-    {
-        eprintln!("{self}");
-    }
+    pub fn printStackTrace(&self) { crate::system::errPrintln(&self.to_string()); }
 }
 
 impl fmt::Display for Throwable
@@ -194,7 +191,7 @@ fn fromRustPanic(text: &str) -> Throwable
     Throwable::new(&ERROR, Some(text.to_owned()))
 }
 
-fn standsForJava(payload: &(dyn Any + Send)) -> bool
+pub(crate) fn standsForJava(payload: &(dyn Any + Send)) -> bool
 {
     if payload.is::<Throwable>()
     {

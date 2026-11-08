@@ -18,6 +18,11 @@ fn onItemRightClick(
     player: &Rc<Entity>,
 ) -> Option<Rc<ItemStack>>
 {
+    // mods may handle a bucket use first, such as filling from their own fluids
+    if crate::hooks::fire(crate::hooks::GameEvent::BucketFill { world, player, stack })
+    {
+        return Some(Rc::clone(stack));
+    }
     let isFull: i32 = this.ext::<BucketExt>().m_isFull;
     let (movingobjectposition, d0, d1, d2): (Option<MovingObjectPosition>, f64, f64, f64) =
         item_boat::lookRay(world, player, isFull == 0);

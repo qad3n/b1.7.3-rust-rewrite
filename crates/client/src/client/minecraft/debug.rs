@@ -152,5 +152,30 @@ impl Minecraft
         Minecraft::theMinecraft().is_some_and(|minecraft| minecraft.gameSettings().m_showDebugInfo.get())
     }
 
-    pub fn lineIsCommand(&self, _message: &str) -> bool { false }
+    // single player has no server, so mod commands typed in chat run here
+    pub fn lineIsCommand(&self, message: &str) -> bool
+    {
+        if self.isMultiplayerWorld()
+        {
+            return false;
+        }
+        let Some(line) = message.strip_prefix('/')
+        else
+        {
+            return false;
+        };
+        let player: Option<Rc<game::entity::Entity>> = self.m_thePlayer.get();
+        match modloader::play::command(line, player.as_ref(), true)
+        {
+            Some(reply) =>
+            {
+                if let Some(player) = player.filter(|_| !reply.is_empty())
+                {
+                    player.addChatMessage(&reply);
+                }
+                true
+            }
+            None => false,
+        }
+    }
 }

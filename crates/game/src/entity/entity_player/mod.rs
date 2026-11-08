@@ -278,6 +278,11 @@ pub fn dropPlayerItemWithRandomChoice(this: &Rc<Entity>, item: Option<Rc<ItemSta
     {
         return;
     };
+    // mods may keep an item from being tossed
+    if crate::hooks::fire(crate::hooks::GameEvent::ItemToss { player: this, stack: &item })
+    {
+        return;
+    }
     let entityitem: Rc<Entity> = entity_item::create(
         &this.world(),
         this.posX(),
@@ -319,6 +324,8 @@ pub fn dropPlayerItemWithRandomChoice(this: &Rc<Entity>, item: Option<Rc<ItemSta
 pub fn getCurrentPlayerStrVsBlock(this: &Rc<Entity>, block: &Rc<Block>) -> f32
 {
     let mut f: f32 = inventory(this).getStrVsBlock(block);
+    // mods may change the mining speed
+    crate::hooks::fire(crate::hooks::GameEvent::PlayerBreakSpeed { player: this, block, speed: &mut f });
     if this.isInsideOfMaterial(&crate::block::Material::water())
     {
         f /= 5.0;
@@ -330,7 +337,13 @@ pub fn getCurrentPlayerStrVsBlock(this: &Rc<Entity>, block: &Rc<Block>) -> f32
     f
 }
 
-pub fn canHarvestBlock(this: &Rc<Entity>, block: &Rc<Block>) -> bool { inventory(this).canHarvestBlock(block) }
+pub fn canHarvestBlock(this: &Rc<Entity>, block: &Rc<Block>) -> bool
+{
+    // mods may change whether the held item harvests the block
+    let mut allowed: bool = inventory(this).canHarvestBlock(block);
+    crate::hooks::fire(crate::hooks::GameEvent::PlayerCanHarvest { player: this, block, allowed: &mut allowed });
+    allowed
+}
 
 pub fn getCurrentEquippedItem(this: &Entity) -> Option<Rc<ItemStack>> { inventory(this).getCurrentItem() }
 

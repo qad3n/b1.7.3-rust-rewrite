@@ -79,7 +79,7 @@ pub(super) struct AoState
 pub struct RenderBlocks
 {
     m_blockAccess: Option<Rc<dyn IBlockAccess>>,
-    m_overrideBlockTexture: i32,
+    pub m_overrideBlockTexture: i32,
     m_flipTexture: bool,
     m_renderAllFaces: bool,
     pub m_updateColor: bool,
@@ -166,6 +166,8 @@ impl RenderBlocks
             15 => self.renderBlockRepeater(block, x, y, z),
             16 => self.tesselatePistonBase(block, x, y, z, false),
             17 => self.tesselatePistonHead(block, x, y, z, true),
+            // mod block models are lists of cuboids
+            modloader::content::blocks::MODEL_RENDER_TYPE => crate::modded::renderModel(self, block, x, y, z),
             _ => false,
         }
     }

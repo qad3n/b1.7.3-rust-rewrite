@@ -4,6 +4,7 @@ pub mod client;
 pub mod controller;
 pub mod entity;
 pub mod gui;
+pub mod modded;
 pub mod model;
 pub mod network;
 pub mod port;

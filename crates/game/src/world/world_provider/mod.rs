@@ -79,7 +79,8 @@ impl WorldProvider
             -1 => Self::alloc(&WORLD_PROVIDER_HELL),
             0 => Self::alloc(&WORLD_PROVIDER_SURFACE),
             1 => Self::alloc(&WORLD_PROVIDER_SKY),
-            _ => jvm::throwable::npe(),
+            // dimensions registered by mods
+            _ => crate::hooks::worldProvider(id).unwrap_or_else(|| jvm::throwable::npe()),
         }
     }
 }

@@ -39,16 +39,19 @@ impl StringTranslate
         INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(StringTranslate::new()))))
     }
 
-    pub fn translateKey(&self, key: &str) -> String { self.m_translateTable.getProperty(key, key) }
+    // mod lang files are consulted before the vanilla table
+    fn lookup(&self, key: &str) -> Option<String>
+    {
+        crate::hooks::translate(key).or_else(|| self.m_translateTable.getPropertyOrNull(key))
+    }
+
+    pub fn translateKey(&self, key: &str) -> String { self.lookup(key).unwrap_or_else(|| key.to_owned()) }
 
     pub fn translateKeyFormat(&self, key: &str, args: &[String]) -> String
     {
-        let string: String = self.m_translateTable.getProperty(key, key);
+        let string: String = self.lookup(key).unwrap_or_else(|| key.to_owned());
         jvm::format::format(&string, args)
     }
 
-    pub fn translateNamedKey(&self, key: &str) -> String
-    {
-        self.m_translateTable.getProperty(&format!("{key}.name"), "")
-    }
+    pub fn translateNamedKey(&self, key: &str) -> String { self.lookup(&format!("{key}.name")).unwrap_or_default() }
 }

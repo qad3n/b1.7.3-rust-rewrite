@@ -6,8 +6,8 @@ use std::rc::Rc;
 
 pub struct FireExt
 {
-    m_chanceToEncourageFire: RefCell<[i32; 256]>,
-    m_abilityToCatchFire: RefCell<[i32; 256]>,
+    m_chanceToEncourageFire: RefCell<[i32; crate::block::BLOCK_IDS]>,
+    m_abilityToCatchFire: RefCell<[i32; crate::block::BLOCK_IDS]>,
 }
 
 fn ext(this: &Block) -> &FireExt { this.ext::<FireExt>() }
@@ -16,6 +16,12 @@ fn setBurnRate(this: &Block, block: i32, flammability: i32, burnChance: i32)
 {
     ext(this).m_chanceToEncourageFire.borrow_mut()[block as usize] = flammability;
     ext(this).m_abilityToCatchFire.borrow_mut()[block as usize] = burnChance;
+}
+
+// mods register flammable blocks after the fire block exists
+pub fn setFlammable(block: i32, flammability: i32, burnChance: i32)
+{
+    setBurnRate(&Block::fire(), block, flammability, burnChance);
 }
 
 fn initializeBlock(this: &Rc<Block>)
@@ -317,7 +323,9 @@ pub const CLASS: BlockClass = BlockClass {
 
 pub fn create(id: i32, sprite: i32) -> Rc<Block>
 {
-    let ext: FireExt =
-        FireExt { m_chanceToEncourageFire: RefCell::new([0; 256]), m_abilityToCatchFire: RefCell::new([0; 256]) };
+    let ext: FireExt = FireExt {
+        m_chanceToEncourageFire: RefCell::new([0; crate::block::BLOCK_IDS]),
+        m_abilityToCatchFire: RefCell::new([0; crate::block::BLOCK_IDS]),
+    };
     Block::constructWithSprite(&CLASS, Box::new(ext), id, sprite, Material::fire()).setTickOnLoad(true)
 }

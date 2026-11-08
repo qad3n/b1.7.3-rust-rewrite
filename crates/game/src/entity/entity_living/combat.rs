@@ -58,6 +58,12 @@ pub fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: 
     {
         return false;
     }
+    // mods may cancel an attack or change its damage
+    let mut amount: i32 = amount;
+    if crate::hooks::fire(crate::hooks::GameEvent::LivingAttack { entity: this, source, amount: &mut amount })
+    {
+        return false;
+    }
     living.m_entityAge.set(0);
     if living.m_health.get() <= 0
     {
@@ -143,6 +149,11 @@ pub fn knockBack(this: &Rc<Entity>, _attacker: &Rc<Entity>, _amount: i32, dx: f6
 
 pub fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
 {
+    // mods may cancel a death
+    if crate::hooks::fire(crate::hooks::GameEvent::LivingDeath { entity: this, source: killer })
+    {
+        return;
+    }
     let living: &LivingFields = fields(this);
     if living.m_scoreValue.get() >= 0
         && let Some(killer) = killer
@@ -154,7 +165,9 @@ pub fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
         killer.onKillEntity(this);
     }
     living.m_unused_flag.set(true);
+    // mods may replace the drops of a death
     if !this.world().m_multiplayerWorld.get()
+        && !crate::hooks::fire(crate::hooks::GameEvent::LivingDrops { entity: this, source: killer })
     {
         this.dropFewItems();
     }

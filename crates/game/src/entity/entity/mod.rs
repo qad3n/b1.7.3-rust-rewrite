@@ -123,7 +123,8 @@ impl Entity
             id
         });
         Rc::new(Self {
-            m_class: class,
+            // mod content reuses a vanilla constructor with a class derived from it
+            m_class: crate::hooks::entityClass(class),
             m_ext: ext,
             m_entityId: Cell::new(entityId),
             m_renderDistanceWeight: Cell::new(1.0),

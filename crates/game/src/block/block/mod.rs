@@ -7,6 +7,7 @@ use crate::block::Material;
 pub use class::{BLOCK, BlockClass};
 use jvm::field::Field;
 use jvm::object::JavaObject;
+pub use registry::BLOCK_IDS;
 use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -48,7 +49,8 @@ impl Block
         }
 
         let block: Rc<Self> = Rc::new(Self {
-            m_class: class,
+            // mod blocks reuse a vanilla constructor with a class derived from it
+            m_class: crate::hooks::blockClass(class),
             m_ext: ext,
             m_blockIndexInTexture: Cell::new(0),
             m_blockID: id,

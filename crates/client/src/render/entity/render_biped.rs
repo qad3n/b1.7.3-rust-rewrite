@@ -10,7 +10,6 @@ use lwjgl::opengl::GL11;
 use std::rc::Rc;
 
 const MODEL_SCALE: f32 = 0.0625;
-const BLOCK_ITEM_LIMIT: i32 = 256;
 
 pub fn new(model: Rc<dyn ModelBase>, shadowSize: f32) -> Rc<Render>
 {
@@ -24,7 +23,7 @@ pub fn modelBipedMain(this: &Render) -> &ModelBiped
 
 pub fn rendersAsBlock(itemID: i32) -> bool
 {
-    itemID < BLOCK_ITEM_LIMIT && RenderBlocks::renderItemIn3d(Block::byId(itemID).orNpe().getRenderType())
+    Block::isBlockItem(itemID) && RenderBlocks::renderItemIn3d(Block::byId(itemID).orNpe().getRenderType())
 }
 
 pub fn transformHeldItem(itemstack: &ItemStack, checkRotateAround: bool)

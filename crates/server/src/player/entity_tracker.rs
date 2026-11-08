@@ -36,6 +36,12 @@ impl EntityTracker
 
     pub fn trackEntity(&self, entity: &Rc<Entity>)
     {
+        // mod entities carry their tracking range, frequency and velocity in their registry row
+        if let Some((range, frequency, velocity)) = modloader::entities::tracking(entity)
+        {
+            self.trackEntityWithVelocity(entity, range, frequency, velocity);
+            return;
+        }
         if entity.instanceOf("EntityPlayerMP")
         {
             self.trackEntityWith(entity, 512, 2);

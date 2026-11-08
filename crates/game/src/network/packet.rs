@@ -86,7 +86,7 @@ const fn mapping<T: Packet + Default>(id: i32, clientbound: bool, serverbound: b
     }
 }
 
-const PACKETS: [PacketRow; 57] = [
+const PACKETS: [PacketRow; 58] = [
     mapping::<Packet0KeepAlive>(0, true, true),
     mapping::<Packet1Login>(1, true, true),
     mapping::<Packet2Handshake>(2, true, true),
@@ -112,6 +112,7 @@ const PACKETS: [PacketRow; 57] = [
     mapping::<Packet22Collect>(22, true, false),
     mapping::<Packet23VehicleSpawn>(23, true, false),
     mapping::<Packet24MobSpawn>(24, true, false),
+    mapping::<Packet250ModPayload>(250, true, true),
     mapping::<Packet25EntityPainting>(25, true, false),
     mapping::<Packet27Position>(27, false, true),
     mapping::<Packet28EntityVelocity>(28, true, false),
@@ -163,6 +164,11 @@ impl PacketCounter
 
 static PACKET_STATS: LazyLock<Mutex<HashMap<i32, PacketCounter>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 static TOTAL_PACKETS_COUNT: AtomicI32 = AtomicI32::new(0);
+
+pub fn packetRows() -> impl Iterator<Item = (i32, bool, bool)>
+{
+    PACKETS.iter().map(|row| (row.m_id, row.m_clientbound, row.m_serverbound))
+}
 
 pub fn getNewPacket(id: i32) -> Option<Box<dyn Packet>>
 {

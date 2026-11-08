@@ -127,6 +127,11 @@ impl ItemInWorldManager
 
     pub fn removeBlock(&self, x: i32, y: i32, z: i32) -> bool
     {
+        // mods may protect a block from being broken
+        if modloader::play::blockBreak(&self.m_thisWorld, x, y, z, &self.thisPlayer())
+        {
+            return false;
+        }
         let block: Option<Rc<Block>> = Block::byId(self.m_thisWorld.getBlockId(x, y, z));
         let n: i32 = self.m_thisWorld.getBlockMetadata(x, y, z);
         let bl: bool = self.m_thisWorld.setBlockWithNotify(x, y, z, 0);
@@ -204,8 +209,17 @@ impl ItemInWorldManager
         face: i32,
     ) -> bool
     {
+        // mods may use the held item before the block, or veto the interaction and the activation
+        let pos = modloader::mod_protocol::abi::BlockPos::new(x, y, z);
+        if modloader::play::itemUseFirst(world, player, itemInHand, pos, face)
+            || modloader::play::interact(player, pos, face)
+        {
+            return true;
+        }
         let n: i32 = world.getBlockId(x, y, z);
-        if n > 0 && Block::byId(n).orNpe().blockActivated(world, x, y, z, player)
+        if n > 0
+            && !modloader::play::blockActivate(world, x, y, z, player)
+            && Block::byId(n).orNpe().blockActivated(world, x, y, z, player)
         {
             return true;
         }

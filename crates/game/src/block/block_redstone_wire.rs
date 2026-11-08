@@ -328,6 +328,11 @@ pub fn isPowerProviderOrWire(world: &dyn IBlockAccess, x: i32, y: i32, z: i32, s
     {
         return true;
     }
+    // mod blocks declare whether wire connects to them
+    if let Some(connects) = crate::hooks::component(crate::hooks::Component::RedstoneConnect, n)
+    {
+        return connects;
+    }
     if n == 0
     {
         return false;

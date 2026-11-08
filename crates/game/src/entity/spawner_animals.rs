@@ -178,7 +178,9 @@ impl SpawnerAnimals
                         {
                             continue;
                         }
-                        let Some(entityliving) = instantiate(constructorFor(spawnEntry.m_entityClass), world)
+                        // mod entities in biome spawn lists are created by the loader
+                        let Some(entityliving) = crate::hooks::createEntity(spawnEntry.m_entityClass, world)
+                            .or_else(|| instantiate(constructorFor(spawnEntry.m_entityClass), world))
                         else
                         {
                             return k3;
@@ -190,7 +192,8 @@ impl SpawnerAnimals
                             world.m_rand.nextFloat() * 360.0,
                             0.0,
                         );
-                        if entityliving.getCanSpawnHere()
+                        // mods may veto or allow a natural spawn
+                        if crate::hooks::spawnAllowed(&entityliving, entityliving.getCanSpawnHere())
                         {
                             i2 += 1;
                             world.entityJoinedWorld(&entityliving);
@@ -292,7 +295,8 @@ impl SpawnerAnimals
                     world.m_rand.nextFloat() * 360.0,
                     0.0,
                 );
-                if !entityliving.getCanSpawnHere()
+                // mods may veto or allow a natural spawn
+                if !crate::hooks::spawnAllowed(&entityliving, entityliving.getCanSpawnHere())
                 {
                     continue;
                 }

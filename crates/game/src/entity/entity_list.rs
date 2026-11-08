@@ -89,13 +89,16 @@ impl EntityList
 {
     pub fn createEntityInWorld(key: Option<&JString>, world: &Rc<World>) -> Option<Rc<Entity>>
     {
-        instantiate(byKey(key), world)
+        // mod entities are created by the loader when no vanilla key matches
+        instantiate(byKey(key), world).or_else(|| crate::hooks::createEntity(&key?.to_string(), world))
     }
 
     pub fn createEntityFromNBT(nbt: &NBTTagCompound, world: &Rc<World>) -> Option<Rc<Entity>>
     {
         let id: Option<JString> = nbt.getString("id");
-        let entity: Option<Rc<Entity>> = instantiate(byKey(id.as_ref()), world);
+        // mod entities are created by the loader when no vanilla key matches
+        let entity: Option<Rc<Entity>> = instantiate(byKey(id.as_ref()), world)
+            .or_else(|| id.as_ref().and_then(|key| crate::hooks::createEntity(&key.to_string(), world)));
         match &entity
         {
             Some(entity) => entity.readFromNBT(nbt),
@@ -117,9 +120,23 @@ impl EntityList
         entity
     }
 
-    pub fn getEntityID(entity: &Entity) -> i32 { byClass(entity).map(|row| row.m_id).orNpe() }
+    // mod entity classes are named by their identifier, the loader knows their key and id
+    pub fn getEntityID(entity: &Entity) -> i32
+    {
+        byClass(entity).map(|row| row.m_id).or_else(|| crate::hooks::entityKey(entity).map(|(_, id)| id)).orNpe()
+    }
 
-    pub fn getEntityString(entity: &Entity) -> Option<JString> { byClass(entity).map(|row| JString::from(row.m_key)) }
+    pub fn getEntityString(entity: &Entity) -> Option<JString>
+    {
+        byClass(entity)
+            .map(|row| JString::from(row.m_key))
+            .or_else(|| crate::hooks::entityKey(entity).map(|(key, _)| JString::from(key.as_str())))
+    }
+
+    pub fn vanillaRows() -> impl Iterator<Item = (&'static str, i32)>
+    {
+        MAPPINGS.iter().filter(|row| row.m_create.is_some()).map(|row| (row.m_key, row.m_id))
+    }
 
     pub fn objectString(entity: &Entity) -> String
     {

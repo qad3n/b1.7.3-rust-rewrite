@@ -6,7 +6,8 @@ use game::network::net_handler::NetHandler;
 use game::network::network_manager::NetworkManager;
 use game::network::packet::Packet;
 use game::network::packets::{
-    Packet1Login, Packet2Handshake, Packet3Chat, Packet4UpdateTime, Packet6SpawnPosition, Packet255KickDisconnect,
+    Packet1Login, Packet2Handshake, Packet3Chat, Packet4UpdateTime, Packet6SpawnPosition, Packet250ModPayload,
+    Packet255KickDisconnect,
 };
 use game::world::{ChunkCoordinates, World};
 use jvm::field::Field;
@@ -16,7 +17,8 @@ use jvm::logging::Logger;
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
-use std::cell::Cell;
+use modloader::netsync::{Outcome, ServerSession};
+use std::cell::{Cell, RefCell};
 use std::net::TcpStream;
 use std::rc::{Rc, Weak};
 use std::sync::{Arc, Mutex};
@@ -45,7 +47,14 @@ pub struct NetLoginHandler
     m_serverId: Field<String>,
     m_verification: Arc<Mutex<Option<VerifyOutcome>>>,
     m_pendingLogin: Field<Option<Packet1Login>>,
+    // the mod loader configuration phase of a modded client, between auth and play
+    m_session: RefCell<Option<ServerSession>>,
+    m_configured: Cell<bool>,
+    m_configuringLogin: Field<Option<Packet1Login>>,
 }
+
+// a slow registry remap may take longer than the vanilla 600 tick login window
+const CONFIGURATION_TIMEOUT: i32 = 6000;
 
 impl NetLoginHandler
 {
@@ -62,6 +71,9 @@ impl NetLoginHandler
             m_serverId: Field::new(String::new()),
             m_verification: Arc::new(Mutex::new(None)),
             m_pendingLogin: Field::new(None),
+            m_session: RefCell::new(None),
+            m_configured: Cell::new(false),
+            m_configuringLogin: Field::new(None),
         });
         let listener: Weak<dyn NetHandler> = handler.m_self.clone();
         let netManager: Rc<NetworkManager> = NetworkManager::new(socket, name, listener, true)?;
@@ -102,7 +114,15 @@ impl NetLoginHandler
         }
         let loginTimer: i32 = self.m_loginTimer.get();
         self.m_loginTimer.set(loginTimer + 1);
-        if loginTimer == 600
+        let timeout: i32 = if self.m_session.borrow().is_some()
+        {
+            CONFIGURATION_TIMEOUT
+        }
+        else
+        {
+            600
+        };
+        if loginTimer == timeout
         {
             self.kickUser("Took too long to log in");
         }
@@ -126,8 +146,42 @@ impl NetLoginHandler
         }
     }
 
+    fn rawSender(&self) -> impl Fn(u32, Vec<u8>) + use<>
+    {
+        let netManager: Rc<NetworkManager> = self.netManager();
+        move |channel: u32, body: Vec<u8>| netManager.addToSendQueue(Box::new(Packet250ModPayload::new(channel, body)))
+    }
+
+    // true when the mod loader holds the login back for its configuration phase or refused it
+    fn configure(&self, packet: &Packet1Login) -> bool
+    {
+        if !modloader::play::active() || self.m_configured.get()
+        {
+            return false;
+        }
+        if packet.m_mapSeed != modloader::netsync::LOADER_MAGIC
+        {
+            let who: String = self.getUserAndIPString();
+            modloader::log::info(modloader::log::LOADER, &format!("{who} has no mod loader"));
+            let problems: Vec<String> = modloader::netsync::vanillaClientProblems();
+            if problems.is_empty()
+            {
+                return false;
+            }
+            self.kickUser(&modloader::netsync::kickMessage(&problems));
+            return true;
+        }
+        *self.m_session.borrow_mut() = Some(ServerSession::start(&self.rawSender(), self.getUserAndIPString()));
+        self.m_configuringLogin.set(Some(packet.clone()));
+        true
+    }
+
     pub fn doLogin(&self, packet: &Packet1Login)
     {
+        if self.configure(packet)
+        {
+            return;
+        }
         let entityPlayerMP: Option<Rc<Entity>> =
             self.m_mcServer.configManager().login(self, packet.m_username.as_ref());
         if let Some(entityPlayerMP) = entityPlayerMP
@@ -176,6 +230,18 @@ impl NetLoginHandler
                 entityPlayerMP.m_rotationPitch.get(),
             );
             self.m_mcServer.networkServer().addPlayer(&netServerHandler);
+            // a configured modded client gets its mod channels for play
+            if let Some(session) = self.m_session.borrow().as_ref()
+            {
+                let handler: Weak<NetServerHandler> = Rc::downgrade(&netServerHandler);
+                let raw: Rc<dyn Fn(u32, Vec<u8>)> = Rc::new(move |channel: u32, body: Vec<u8>| {
+                    if let Some(handler) = handler.upgrade()
+                    {
+                        handler.sendPacket(Box::new(Packet250ModPayload::new(channel, body)));
+                    }
+                });
+                modloader::netsync::serverPlayerJoined(entityPlayerMP.m_entityId.get(), session, raw);
+            }
             netServerHandler.sendPacket(Box::new(Packet4UpdateTime::new(worldServer.getWorldTime())));
             entity_player_mp::initMenu(&entityPlayerMP);
         }
@@ -228,6 +294,31 @@ impl NetHandler for NetLoginHandler
         else
         {
             self.netManager().addToSendQueue(Box::new(Packet2Handshake::new(JString::from("-"))));
+        }
+    }
+
+    fn handleModPayload(&self, packet: &Packet250ModPayload)
+    {
+        let sender = self.rawSender();
+        let outcome: Option<Outcome> = self
+            .m_session
+            .borrow_mut()
+            .as_mut()
+            .map(|session| session.receive(packet.m_channel, &packet.m_data, &sender));
+        match outcome
+        {
+            None => self.kickUser("Protocol error"),
+            Some(Outcome::Continue) =>
+            {}
+            Some(Outcome::Kick(reason)) => self.kickUser(&reason),
+            Some(Outcome::Done) =>
+            {
+                self.m_configured.set(true);
+                if let Some(login) = self.m_configuringLogin.get()
+                {
+                    self.doLogin(&login);
+                }
+            }
         }
     }
 

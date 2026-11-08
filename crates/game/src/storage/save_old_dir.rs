@@ -32,6 +32,14 @@ impl ISaveHandler for SaveOldDir
     fn getChunkLoader(&self, provider: &Rc<WorldProvider>) -> Rc<dyn IChunkLoader>
     {
         let file: &Path = self.m_base.getSaveDirectory();
+        // mod dimensions use ids from 2 up and save beside the nether in their own DIM folder
+        let dimension: i32 = provider.m_worldType.get();
+        if dimension >= 2
+        {
+            let folder: PathBuf = file.join(format!("DIM{dimension}"));
+            file::mkdirs(&folder);
+            return Rc::new(McRegionChunkLoader::new(&folder));
+        }
         if provider.instanceOf("WorldProviderHell")
         {
             let file2: PathBuf = file.join("DIM-1");

@@ -304,6 +304,8 @@ impl World
 
     pub fn saveWorld(self: &Rc<Self>, saveEntities: bool, progressListener: Option<&dyn common::world::IProgressUpdate>)
     {
+        // mods save their world data alongside
+        crate::hooks::fire(crate::hooks::GameEvent::WorldSave { world: self });
         let provider: Rc<dyn IChunkProvider> = self.chunkProvider();
         if !provider.canSave()
         {

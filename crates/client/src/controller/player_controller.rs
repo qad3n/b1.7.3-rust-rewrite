@@ -84,8 +84,17 @@ fn sendPlaceBlock(
     face: i32,
 ) -> bool
 {
+    // mods may use the held item before the block, or veto the interaction and the activation
+    let pos = modloader::mod_protocol::abi::BlockPos::new(x, y, z);
+    if modloader::play::itemUseFirst(world, player, itemInHand, pos, face)
+        || modloader::play::interact(player, pos, face)
+    {
+        return true;
+    }
     let n: i32 = world.getBlockId(x, y, z);
-    if n > 0 && Block::byId(n).orNpe().blockActivated(world, x, y, z, player)
+    if n > 0
+        && !modloader::play::blockActivate(world, x, y, z, player)
+        && Block::byId(n).orNpe().blockActivated(world, x, y, z, player)
     {
         return true;
     }

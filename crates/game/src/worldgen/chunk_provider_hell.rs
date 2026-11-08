@@ -448,6 +448,8 @@ impl IChunkProvider for ChunkProviderHell
                 WorldGenFlowers::new(mushroom).generate(world, rng, x, y, z);
             }
         }
+        // mod ores and features generate after vanilla with their own random so vanilla terrain is unchanged
+        crate::hooks::populate(&self.world(), chunkX, chunkZ);
         setFallInstantly(false);
     }
 

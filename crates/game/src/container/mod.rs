@@ -125,7 +125,7 @@ impl Container
 
     pub fn ext<T: 'static>(&self) -> &T { self.m_ext.downcast_ref::<T>().expect("container ext matches its class") }
 
-    fn addSlot(&self, slot: Rc<Slot>)
+    pub fn addSlot(&self, slot: Rc<Slot>)
     {
         slot.m_slotNumber.set(self.m_slots.size());
         self.m_slots.add(slot);
@@ -391,7 +391,7 @@ impl Container
 
     pub fn rollbackToBackup(&self, _id: i16) {}
 
-    fn moveItem(&self, item: &Rc<ItemStack>, from: i32, to: i32, reverse: bool)
+    pub fn moveItem(&self, item: &Rc<ItemStack>, from: i32, to: i32, reverse: bool)
     {
         let mut i: i32 = from;
         if reverse

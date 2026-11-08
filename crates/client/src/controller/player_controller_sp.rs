@@ -23,6 +23,11 @@ fn fields(this: &PlayerController) -> &ControllerSPExt { this.ext::<ControllerSP
 
 fn sendBlockRemoved(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, face: i32) -> bool
 {
+    // mods may protect a block from being broken
+    if modloader::play::blockBreak(&this.theWorld(), x, y, z, &this.thePlayer())
+    {
+        return false;
+    }
     let blockId: i32 = this.theWorld().getBlockId(x, y, z);
     let blockMetadata: i32 = this.theWorld().getBlockMetadata(x, y, z);
     let sendBlockRemoved: bool = (PLAYER_CONTROLLER.sendBlockRemoved)(this, x, y, z, face);

@@ -6,6 +6,11 @@ use std::rc::Rc;
 
 pub fn sleepInBedAt(this: &Rc<Entity>, x: i32, y: i32, z: i32) -> EnumStatus
 {
+    // mods may refuse sleep, the bed then reports it is not possible here
+    if crate::hooks::fire(crate::hooks::GameEvent::PlayerSleep { player: this, x, y, z })
+    {
+        return EnumStatus::OtherProblem;
+    }
     let player: &PlayerFields = fields(this);
     let world: Rc<World> = this.world();
     if !world.m_multiplayerWorld.get()

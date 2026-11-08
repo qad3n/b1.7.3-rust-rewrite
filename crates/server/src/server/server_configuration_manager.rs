@@ -59,7 +59,8 @@ pub struct ServerConfigurationManager
 {
     pub m_playerEntities: JArrayList<Rc<Entity>>,
     m_mcServer: Rc<MinecraftServer>,
-    m_playerManagerObj: [Rc<PlayerManager>; 2],
+    // one player manager per dimension, vanilla dimensions first
+    m_playerManagerObj: Vec<Rc<PlayerManager>>,
     m_maxPlayers: i32,
     m_bannedPlayers: Field<JHashSet<JString>>,
     m_bannedIPs: Field<JHashSet<JString>>,
@@ -87,14 +88,16 @@ impl ServerConfigurationManager
         let opFile: PathBuf = server.getFile("ops.txt");
         let whitelistPlayersFile: PathBuf = server.getFile("white-list.txt");
         let i: i32 = server.propertyManager().getIntProperty("view-distance", 10);
-        let manager0: Rc<PlayerManager> = PlayerManager::new(server, 0, i);
-        let manager1: Rc<PlayerManager> = PlayerManager::new(server, -1, i);
+        let managers: Vec<Rc<PlayerManager>> = modloader::dimensions::serverDimensions()
+            .iter()
+            .map(|dimension| PlayerManager::new(server, *dimension, i))
+            .collect();
         let maxPlayers: i32 = server.propertyManager().getIntProperty("max-players", 20);
         let whiteListEnforced: bool = server.propertyManager().getBooleanProperty("white-list", false);
         let manager: Rc<ServerConfigurationManager> = Rc::new(ServerConfigurationManager {
             m_playerEntities: playerEntities,
             m_mcServer: Rc::clone(server),
-            m_playerManagerObj: [manager0, manager1],
+            m_playerManagerObj: managers,
             m_maxPlayers: maxPlayers,
             m_bannedPlayers: bannedPlayers,
             m_bannedIPs: bannedIPs,
@@ -128,8 +131,10 @@ impl ServerConfigurationManager
 
     pub fn onChangedDimension(&self, player: &Rc<Entity>)
     {
-        self.m_playerManagerObj[0].removePlayer(player);
-        self.m_playerManagerObj[1].removePlayer(player);
+        for manager in &self.m_playerManagerObj
+        {
+            manager.removePlayer(player);
+        }
         let dimension: i32 = entity_player::fields(player).m_dimension.get();
         self.getPlayerManager(dimension).addPlayer(player);
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(dimension);
@@ -139,22 +144,16 @@ impl ServerConfigurationManager
 
     pub fn getMaxTrackingDistance(&self) -> i32 { self.m_playerManagerObj[0].getMaxTrackingDistance() }
 
-    fn getPlayerManager(&self, dimension: i32) -> Rc<PlayerManager>
+    pub fn getPlayerManager(&self, dimension: i32) -> Rc<PlayerManager>
     {
-        if dimension == -1
-        {
-            Rc::clone(&self.m_playerManagerObj[1])
-        }
-        else
-        {
-            Rc::clone(&self.m_playerManagerObj[0])
-        }
+        Rc::clone(&self.m_playerManagerObj[modloader::dimensions::serverSlot(dimension)])
     }
 
     pub fn readPlayerDataFromFile(&self, player: &Rc<Entity>) { self.playerNBTManagerObj().readPlayerData(player); }
 
     pub fn playerLoggedIn(&self, player: &Rc<Entity>)
     {
+        modloader::play::player(modloader::EventKind::PlayerLogin, player);
         self.m_playerEntities.add(Rc::clone(player));
         let dimension: i32 = entity_player::fields(player).m_dimension.get();
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(dimension);
@@ -175,6 +174,8 @@ impl ServerConfigurationManager
 
     pub fn playerLoggedOut(&self, player: &Rc<Entity>)
     {
+        modloader::play::player(modloader::EventKind::PlayerLogout, player);
+        modloader::netsync::serverPlayerLeft(player.m_entityId.get());
         self.playerNBTManagerObj().writePlayerData(player);
         let dimension: i32 = entity_player::fields(player).m_dimension.get();
         self.m_mcServer.getWorldManager(dimension).setEntityDead(player);

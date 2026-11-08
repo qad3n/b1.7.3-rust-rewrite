@@ -149,6 +149,8 @@ impl Minecraft
             previous.saveWorldIndirectly(Some(&*loadingScreen as &dyn IProgressUpdate));
         }
         self.m_theWorld.set(world.clone());
+        // mods apply the world id map and load their world data before chunks are read
+        modloader::play::worldChanged(previous.as_ref(), world.as_ref());
         let Some(world) = world
         else
         {
@@ -204,6 +206,8 @@ impl Minecraft
         {
             world.saveWorldIndirectly(Some(&*loadingScreen as &dyn IProgressUpdate));
         }
+        // single player mod packets loop back to this player
+        modloader::play::playerChanged(Some(Rc::clone(&thePlayer)));
         self.m_renderViewEntity.set(Some(thePlayer));
         self.m_systemTime.set(0);
         releaseDiscardedWorld(previous, self.m_theWorld.get());
@@ -299,6 +303,8 @@ impl Minecraft
         self.m_renderViewEntity.set(None);
         let player: Rc<Entity> = self.playerController().createPlayer(&world);
         self.m_thePlayer.set(Some(Rc::clone(&player)));
+        // the respawned player replaces the old one for mod packets and events
+        modloader::play::playerChanged(Some(Rc::clone(&player)));
         entity_player::fields(&player).m_dimension.set(dimension);
         self.m_renderViewEntity.set(Some(Rc::clone(&player)));
         player.preparePlayerToSpawn();

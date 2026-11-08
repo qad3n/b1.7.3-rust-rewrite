@@ -61,7 +61,7 @@ pub fn fields(this: &Entity) -> &PlayerMPExt { this.ext::<PlayerMPExt>() }
 
 pub fn netServerHandler(this: &Entity) -> Rc<NetServerHandler> { fields(this).m_playerNetServerHandler.get().orNpe() }
 
-fn mcServer(this: &Entity) -> Rc<MinecraftServer> { fields(this).m_mcServer.get().orNpe() }
+pub fn mcServer(this: &Entity) -> Rc<MinecraftServer> { fields(this).m_mcServer.get().orNpe() }
 
 fn itemInWorldManager(this: &Entity) -> Rc<ItemInWorldManager> { fields(this).m_itemInWorldManager.get().orNpe() }
 
@@ -429,13 +429,15 @@ pub fn handleFalling(this: &Rc<Entity>, distance: f64, onGround: bool)
     (entity_player::CLASS.updateFallState)(this, distance, onGround);
 }
 
-fn getNextWidowId(this: &Entity)
+pub fn getNextWidowId(this: &Entity)
 {
     let ext: &PlayerMPExt = fields(this);
     ext.m_currentWindowId.set(ext.m_currentWindowId.get() % 100 + 1);
 }
 
-fn openContainer(this: &Rc<Entity>, container: Rc<Container>)
+pub fn currentWindowId(this: &Entity) -> i32 { fields(this).m_currentWindowId.get() }
+
+pub fn openContainer(this: &Rc<Entity>, container: Rc<Container>)
 {
     entity_player::fields(this).m_craftingInventory.set(Some(Rc::clone(&container)));
     container.m_windowId.set(fields(this).m_currentWindowId.get());

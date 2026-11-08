@@ -225,6 +225,18 @@ impl World
         }
         if let Some(block) = Block::byId(self.getBlockId(x, y, z))
         {
+            // mods may observe or suppress a neighbor update
+            if crate::hooks::fire(crate::hooks::GameEvent::NeighborChange {
+                world: self,
+                x,
+                y,
+                z,
+                block: block.m_blockID,
+                neighbor: neighborBlock,
+            })
+            {
+                return;
+            }
             block.onNeighborBlockChange(self, x, y, z, neighborBlock);
         }
     }
@@ -411,7 +423,9 @@ impl World
         match Block::byId(self.getBlockId(x, y, z))
         {
             None => false,
-            Some(block) => block.m_blockMaterial.getIsTranslucent() && block.renderAsNormalBlock(),
+            // mod blocks may offer solid sides for torches and buttons without being full cubes
+            Some(block) => crate::hooks::component(crate::hooks::Component::SolidSides, block.m_blockID)
+                .unwrap_or_else(|| block.m_blockMaterial.getIsTranslucent() && block.renderAsNormalBlock()),
         }
     }
 
@@ -450,7 +464,9 @@ impl World
                 Block::fire(),
                 Block::snow(),
             ];
+            // mod blocks such as tall plants can be replaced by placement
             if replaceable.iter().any(|candidate| Rc::ptr_eq(candidate, existing))
+                || crate::hooks::component(crate::hooks::Component::Replaceable, i) == Some(true)
             {
                 blockx = None;
             }

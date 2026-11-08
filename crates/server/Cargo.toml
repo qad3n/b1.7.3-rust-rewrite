@@ -13,6 +13,7 @@ awt = { path = "../awt" }
 common = { path = "../common" }
 game = { path = "../game" }
 jvm = { path = "../jvm" }
+modloader = { path = "../modloader" }
 
 [lints]
 workspace = true

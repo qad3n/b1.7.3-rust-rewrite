@@ -42,6 +42,8 @@ fn onPickupFromSlot(this: &Rc<Slot>, item: Option<Rc<ItemStack>>)
     let item: Rc<ItemStack> = item.orNpe();
     let thePlayer: Rc<Entity> = player(this);
     item.onCrafting(&thePlayer.world(), &thePlayer);
+    // mods observe crafted items
+    crate::hooks::fire(crate::hooks::GameEvent::ItemCrafted { player: &thePlayer, stack: &item });
     if let Some(row) = CRAFT_ACHIEVEMENTS.iter().find(|row| item.m_itemID.get() == (row.m_itemID)())
     {
         thePlayer.addStat((row.m_achievement)().as_ref(), 1);

@@ -24,6 +24,8 @@ pub struct Chunk
 {
     pub m_class: &'static ChunkClass,
     pub m_blocks: Field<Vec<i8>>,
+    // high nibbles of 12-bit block ids, allocated once a mod block above 255 is placed
+    pub m_addBlocks: Field<Option<Vec<u8>>>,
     pub m_isChunkLoaded: Cell<bool>,
     pub m_worldObj: Field<Option<Rc<World>>>,
     pub m_data: Field<Option<Rc<NibbleArray>>>,
@@ -49,6 +51,7 @@ impl Chunk
         Self {
             m_class: class,
             m_blocks: Field::new(Vec::new()),
+            m_addBlocks: Field::new(None),
             m_isChunkLoaded: Cell::new(false),
             m_worldObj: Field::new(Some(Rc::clone(world))),
             m_data: Field::new(None),
@@ -113,6 +116,31 @@ impl Chunk
     pub fn blocklight(&self) -> Rc<NibbleArray> { self.m_blocklightMap.get().orNpe() }
 
     pub fn rawBlock(&self, index: i32) -> i8 { self.m_blocks.with(|blocks| blocks[index as usize]) }
+
+    pub fn blockAt(&self, index: i32) -> i32
+    {
+        let low: i32 = self.rawBlock(index) as i32 & 0xFF;
+        let high: i32 = self
+            .m_addBlocks
+            .with(|add| add.as_ref().map_or(0, |add| (add[(index >> 1) as usize] >> ((index & 1) * 4)) as i32 & 0xF));
+        low | high << 8
+    }
+
+    pub fn setBlockHigh(&self, index: i32, block: i32)
+    {
+        let high: u8 = (block >> 8) as u8 & 0xF;
+        if high == 0 && self.m_addBlocks.with(Option::is_none)
+        {
+            return;
+        }
+        let size: usize = self.m_blocks.with(Vec::len) / 2;
+        self.m_addBlocks.update(|add| {
+            let add: &mut Vec<u8> = add.get_or_insert_with(|| vec![0; size]);
+            let slot: &mut u8 = &mut add[(index >> 1) as usize];
+            let shift: i32 = (index & 1) * 4;
+            *slot = (*slot & !(0xF << shift)) | (high << shift);
+        });
+    }
 
     fn height(&self, index: i32) -> i32 { self.m_heightMap.with(|map| map[index as usize] as i32 & 255) }
 

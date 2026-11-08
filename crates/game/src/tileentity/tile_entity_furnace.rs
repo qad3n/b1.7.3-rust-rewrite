@@ -204,6 +204,11 @@ fn getItemBurnTime(item: Option<Rc<ItemStack>>) -> i32
     {
         return 0;
     };
+    // fuel values registered by mods come first
+    if let Some(ticks) = crate::hooks::fuel(&item)
+    {
+        return ticks;
+    }
     let n: i32 = item.getItem().m_shiftedIndex;
     if n < 256 && Rc::ptr_eq(&Block::byId(n).orNpe().m_blockMaterial, &Material::wood())
     {

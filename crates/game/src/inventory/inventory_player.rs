@@ -228,6 +228,12 @@ impl InventoryPlayer
 
     pub fn getStrVsBlock(&self, block: &Rc<Block>) -> f32
     {
+        // tool components from mods decide speed for their blocks and tools
+        if let Some(speed) =
+            crate::hooks::strVsBlock(block, at(&self.m_mainInventory, self.m_currentItem.get()).as_ref())
+        {
+            return speed;
+        }
         let mut n: f32 = 1.0;
         if let Some(stack) = at(&self.m_mainInventory, self.m_currentItem.get())
         {
@@ -296,6 +302,12 @@ impl InventoryPlayer
 
     pub fn canHarvestBlock(&self, block: &Rc<Block>) -> bool
     {
+        // tool components from mods decide harvesting for their blocks and tools
+        if let Some(harvest) =
+            crate::hooks::canHarvest(block, at(&self.m_mainInventory, self.m_currentItem.get()).as_ref())
+        {
+            return harvest;
+        }
         if block.m_blockMaterial.getIsHarvestable()
         {
             return true;

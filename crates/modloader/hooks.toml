@@ -1,0 +1,586 @@
+# versioned hook catalog, a released contract never changes, a changed one gets a new version and the old keeps firing
+
+[[hook]]
+name = "solid_side"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "World::isBlockSolidOnSide via Block.getIsBlockSolid"
+
+[[hook]]
+name = "replaceable"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "World::canBlockBePlacedAt"
+
+[[hook]]
+name = "burning"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "BlockFire::tryToCatchBlockOnFire"
+
+[[hook]]
+name = "ladder"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "EntityLiving::isOnLadder"
+
+[[hook]]
+name = "redstone_connect"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "BlockRedstoneWire::isPowerProviderOrWire"
+
+[[hook]]
+name = "tool"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "Block::blockStrength and EntityPlayer::canHarvestBlock"
+
+[[hook]]
+name = "explosion_resistance"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "Explosion::doExplosionA"
+
+[[hook]]
+name = "fuel"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "TileEntityFurnace::getItemBurnTime"
+
+[[hook]]
+name = "flammability"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "BlockFire::setBurnRate"
+
+[[hook]]
+name = "register"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "modloader lifecycle"
+
+[[hook]]
+name = "setup"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "modloader lifecycle"
+
+[[hook]]
+name = "client_setup"
+version = 1
+kind = "event"
+side = "client"
+cancellable = false
+result = false
+fires_in = "modloader lifecycle"
+
+[[hook]]
+name = "server_setup"
+version = 1
+kind = "event"
+side = "server"
+cancellable = false
+result = false
+fires_in = "modloader lifecycle"
+
+[[hook]]
+name = "inter_mod"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "modloader lifecycle"
+
+[[hook]]
+name = "load_complete"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "modloader lifecycle"
+
+[[hook]]
+name = "shutdown"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "Minecraft::shutdownMinecraftApplet and MinecraftServer::stopServer"
+
+[[hook]]
+name = "server_starting"
+version = 1
+kind = "event"
+side = "server"
+cancellable = false
+result = false
+fires_in = "MinecraftServer::startServer"
+
+[[hook]]
+name = "server_started"
+version = 1
+kind = "event"
+side = "server"
+cancellable = false
+result = false
+fires_in = "MinecraftServer::run"
+
+[[hook]]
+name = "server_stopping"
+version = 1
+kind = "event"
+side = "server"
+cancellable = false
+result = false
+fires_in = "MinecraftServer::stopServer"
+
+[[hook]]
+name = "tick_pre"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "MinecraftServer::doTick and Minecraft::runTick"
+
+[[hook]]
+name = "tick_post"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "MinecraftServer::doTick and Minecraft::runTick"
+
+[[hook]]
+name = "world_load"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "Minecraft::changeWorld and MinecraftServer::initWorld"
+
+[[hook]]
+name = "world_save"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "World::saveWorld"
+
+[[hook]]
+name = "world_unload"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "Minecraft::changeWorld and MinecraftServer::stopServer"
+
+[[hook]]
+name = "chunk_load"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ChunkProvider::loadChunk"
+
+[[hook]]
+name = "chunk_unload"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ChunkProvider::unload100OldestChunks"
+
+[[hook]]
+name = "chunk_generate"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ChunkProviderGenerate::provideChunk"
+
+[[hook]]
+name = "chunk_populate"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ChunkProviderGenerate::populate"
+
+[[hook]]
+name = "block_place"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "ItemBlock::onItemUse"
+
+[[hook]]
+name = "block_break"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "ItemInWorldManager::blockHarvessted and PlayerControllerSP::sendBlockRemoved"
+
+[[hook]]
+name = "block_harvest_drops"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "Block::dropBlockAsItemWithChance"
+
+[[hook]]
+name = "block_activate"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = true
+fires_in = "ItemInWorldManager::activeBlockOrUseItem and PlayerControllerSP::sendPlaceBlock"
+
+[[hook]]
+name = "neighbor_change"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "World::notifyBlockOfNeighborChange"
+
+[[hook]]
+name = "explosion_affect"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "Explosion::doExplosionB"
+
+[[hook]]
+name = "item_use"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = true
+fires_in = "ItemStack::useItemRightClick"
+
+[[hook]]
+name = "item_use_first"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = true
+fires_in = "ItemInWorldManager::activeBlockOrUseItem"
+
+[[hook]]
+name = "item_use_on_block"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = true
+fires_in = "ItemStack::useItem"
+
+[[hook]]
+name = "item_destroyed"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ItemStack::damageItem"
+
+[[hook]]
+name = "item_pickup"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "EntityItem::onCollideWithPlayer"
+
+[[hook]]
+name = "item_toss"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "EntityPlayer::dropPlayerItemWithRandomChoice"
+
+[[hook]]
+name = "entity_join_world"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "World::entityJoinedWorld"
+
+[[hook]]
+name = "entity_tick"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "World::updateEntityWithOptionalForce"
+
+[[hook]]
+name = "living_attack"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "EntityLiving::attackEntityFrom"
+
+[[hook]]
+name = "living_hurt"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "EntityLiving::damageEntity"
+
+[[hook]]
+name = "living_death"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "EntityLiving::onDeath"
+
+[[hook]]
+name = "living_drops"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "EntityLiving::onDeath"
+
+[[hook]]
+name = "living_spawn_check"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = true
+fires_in = "SpawnerAnimals::performSpawning"
+
+[[hook]]
+name = "player_login"
+version = 1
+kind = "event"
+side = "server"
+cancellable = false
+result = false
+fires_in = "ServerConfigurationManager::playerLoggedIn"
+
+[[hook]]
+name = "player_logout"
+version = 1
+kind = "event"
+side = "server"
+cancellable = false
+result = false
+fires_in = "ServerConfigurationManager::playerLoggedOut"
+
+[[hook]]
+name = "player_respawn"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ServerConfigurationManager::recreatePlayerEntity and Minecraft::respawn"
+
+[[hook]]
+name = "player_change_dimension"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ServerConfigurationManager::sendPlayerToOtherDimension and Minecraft::usePortal"
+
+[[hook]]
+name = "player_sleep"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = true
+fires_in = "EntityPlayer::sleepInBedAt"
+
+[[hook]]
+name = "player_chat"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "NetServerHandler::handleChat and Minecraft::sendChat"
+
+[[hook]]
+name = "player_interact"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "ItemInWorldManager::activeBlockOrUseItem"
+
+[[hook]]
+name = "player_break_speed"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = true
+fires_in = "EntityPlayer::getCurrentPlayerStrVsBlock"
+
+[[hook]]
+name = "player_can_harvest"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = true
+fires_in = "EntityPlayer::canHarvestBlock"
+
+[[hook]]
+name = "item_crafted"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "SlotCrafting::onPickupFromSlot"
+
+[[hook]]
+name = "item_smelted"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "SlotFurnace::onPickupFromSlot"
+
+[[hook]]
+name = "bucket_fill"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = true
+fires_in = "ItemBucket::onItemRightClick"
+
+[[hook]]
+name = "render_world_last"
+version = 1
+kind = "event"
+side = "client"
+cancellable = false
+result = false
+fires_in = "EntityRenderer::renderWorld"
+
+[[hook]]
+name = "render_hud"
+version = 1
+kind = "event"
+side = "client"
+cancellable = false
+result = false
+fires_in = "GuiIngame::renderGameOverlay"
+
+[[hook]]
+name = "render_block_highlight"
+version = 1
+kind = "event"
+side = "client"
+cancellable = true
+result = false
+fires_in = "EntityRenderer::renderWorld"
+
+[[hook]]
+name = "screen_open"
+version = 1
+kind = "event"
+side = "client"
+cancellable = true
+result = false
+fires_in = "Minecraft::displayGuiScreen"
+
+[[hook]]
+name = "key_input"
+version = 1
+kind = "event"
+side = "client"
+cancellable = false
+result = false
+fires_in = "Minecraft::runTick"
+
+[[hook]]
+name = "client_tick"
+version = 1
+kind = "event"
+side = "client"
+cancellable = false
+result = false
+fires_in = "Minecraft::runTick"

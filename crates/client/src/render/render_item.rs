@@ -15,7 +15,6 @@ use std::rc::Rc;
 const ITEM_SEED: i64 = 187;
 const TEXTURE_SIZE: f32 = 256.0;
 const PISTON_RENDER_TYPE: i32 = 16;
-const BLOCK_ITEM_LIMIT: i32 = 256;
 
 pub struct RenderItemExt
 {
@@ -92,7 +91,7 @@ impl RenderItem
         else if sprite >= 0
         {
             GL11::glDisable(GL11::GL_LIGHTING);
-            let sheet: &str = if item < BLOCK_ITEM_LIMIT
+            let sheet: &str = if Block::isBlockItem(item)
             {
                 "/terrain.png"
             }
@@ -276,7 +275,7 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
         GL11::glScalef(0.5, 0.5, 0.5);
         let n3: i32 = itemStack.getIconIndex();
         this.loadTexture(
-            if itemID < BLOCK_ITEM_LIMIT
+            if Block::isBlockItem(itemID)
             {
                 "/terrain.png"
             }

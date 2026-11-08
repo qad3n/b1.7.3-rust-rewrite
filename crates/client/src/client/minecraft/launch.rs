@@ -59,6 +59,7 @@ impl Minecraft
         {
             string2 = args[1].clone();
         }
-        Minecraft::start(Some(string), Some(string2));
+        // rewrite: an optional third argument host:port joins that server on start like the applet server param
+        Minecraft::startMainThread(Some(string), Some(string2), args.get(2).cloned());
     }
 }

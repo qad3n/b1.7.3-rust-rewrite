@@ -258,7 +258,11 @@ impl EntityTrackerEntry
             {
                 self.m_trackedPlayers.update(|set| set.add(Rc::clone(player)));
                 let handler: Rc<crate::network::NetServerHandler> = entity_player_mp::netServerHandler(player);
-                handler.sendPacket(self.getSpawnPacket());
+                // mod entities spawn through the loader channel
+                if !modloader::entities::sendSpawn(&self.m_trackedEntity, player)
+                {
+                    handler.sendPacket(self.getSpawnPacket());
+                }
                 let tracked: &Rc<Entity> = &self.m_trackedEntity;
                 if self.m_shouldSendMotionUpdates
                 {

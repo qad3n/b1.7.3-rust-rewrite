@@ -27,7 +27,7 @@ fn main() -> ExitCode
         Ok(code) => code,
         Err(payload) =>
         {
-            eprintln!("Exception in thread \"main\" {}", jvm::throwable::fromPayload(payload));
+            jvm::system::errPrintln(&format!("Exception in thread \"main\" {}", jvm::throwable::fromPayload(payload)));
             ExitCode::FAILURE
         }
     }
@@ -35,9 +35,19 @@ fn main() -> ExitCode
 
 fn run() -> ExitCode
 {
+    let logs: std::path::PathBuf = Minecraft::getMinecraftDir().join("logs");
+    jvm::log_files::install(
+        jvm::logging::Logger::getLogger("Minecraft"),
+        &logs,
+        "client",
+        jvm::log_files::LogFormatter::boxed,
+    );
     if !assets::isComplete()
     {
-        eprintln!("beta173: no game assets in {}, start the game with beta173_launcher", assets::assetRoot().display());
+        jvm::logging::Logger::getLogger("Minecraft").severe(&format!(
+            "no game assets in {}, start the game with beta173_launcher",
+            assets::assetRoot().display()
+        ));
         return ExitCode::FAILURE;
     }
     let args: Vec<String> = std::env::args().skip(1).collect();

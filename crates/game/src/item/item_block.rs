@@ -65,6 +65,20 @@ fn onItemUse(
     }
     if world.canBlockBePlacedAt(id, x, y, z, false, face)
     {
+        // mods may refuse a placement
+        let meta: i32 = this.getPlacedBlockMetadata(stack.getItemDamage());
+        if crate::hooks::fire(crate::hooks::GameEvent::BlockPlace {
+            world,
+            x,
+            y,
+            z,
+            block: id,
+            meta,
+            player: Some(player),
+        })
+        {
+            return false;
+        }
         let block: Rc<Block> = Block::byId(id).orNpe();
         if world.setBlockAndMetadataWithNotify(x, y, z, id, this.getPlacedBlockMetadata(stack.getItemDamage()))
         {

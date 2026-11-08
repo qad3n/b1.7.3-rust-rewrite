@@ -52,7 +52,7 @@ pub const CHUNK: ChunkClass = ChunkClass {
     addTileEntity: entities::addTileEntity,
     canBlockSeeTheSky: |this, x, y, z| y >= this.height(z << 4 | x),
     generateHeightMap: light::generateHeightMap,
-    getBlockID: |this, x, y, z| this.rawBlock(x << 11 | z << 7 | y) as i32 & 0xFF,
+    getBlockID: |this, x, y, z| this.blockAt(x << 11 | z << 7 | y),
     getBlockLightValue: light::getBlockLightValue,
     getBlockMetadata: |this, x, y, z| this.data().getNibble(x, y, z),
     getChunkBlockTileEntity: entities::getChunkBlockTileEntity,

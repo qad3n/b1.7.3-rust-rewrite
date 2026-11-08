@@ -230,6 +230,8 @@ impl Minecraft
 
     pub fn shutdownMinecraftApplet(&self)
     {
+        // mods get their shutdown event before the game tears down
+        modloader::play::shutdown();
         let result: Result<(), Throwable> = catchThrowable(&THROWABLE, || {
             self.statFileWriter().func_27175_b();
             self.statFileWriter().syncStats();

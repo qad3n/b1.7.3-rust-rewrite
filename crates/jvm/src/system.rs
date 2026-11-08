@@ -26,18 +26,17 @@ pub fn println(line: &str)
     {
         eprintln!("System.out write failed: {error}");
     }
+    crate::log_files::write(&format!("{line}\n"));
 }
 
 // System.err.println
 pub fn errPrintln(line: &str)
 {
     eprintln!("{line}");
+    crate::log_files::write(&format!("{line}\n"));
 }
 
 pub fn printStackTrace(throwable: &crate::throwable::Throwable) { throwable.printStackTrace(); }
 
 // Thread.dumpStack prints a fresh exception, the frames that follow it have no counterpart here
-pub fn dumpStack()
-{
-    eprintln!("java.lang.Exception: Stack trace");
-}
+pub fn dumpStack() { errPrintln("java.lang.Exception: Stack trace"); }

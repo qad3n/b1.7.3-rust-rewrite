@@ -1,0 +1,442 @@
+use crate::content::{self, BlockData, ItemData};
+use crate::host::context::{blockCtx, stackData, stackFrom, withWorld};
+use crate::state;
+use game::block::{Block, BlockClass};
+use game::entity::Entity;
+use game::item::{Item, ItemClass, ItemStack};
+use game::world::{IBlockAccess, World};
+use jvm::random::Random;
+use mod_protocol::abi::{BlockCall, BlockCtx, BlockPos, GuestCall, GuestReply, ItemCall};
+use mod_protocol::spec::{Behavior, BlockMethod, ItemMethod};
+use std::rc::Rc;
+
+fn parent(this: &Block) -> &'static BlockClass
+{
+    this.m_class.m_parent.expect("a derived block class keeps its template")
+}
+
+fn callBlock(this: &Block, world: Option<&Rc<World>>, call: BlockCall) -> Option<GuestReply>
+{
+    let data: Rc<BlockData> = content::blockData(this.m_blockID)?;
+    let handle: u32 = data.m_spec.behavior.as_ref()?.handle;
+    let runtime: Rc<state::ModRuntime> = state::modAt(data.m_owner)?;
+    let request: GuestCall = GuestCall::Block { handle, call };
+    match world
+    {
+        Some(world) => withWorld(world, || runtime.call(&request)),
+        None => runtime.call(&request),
+    }
+}
+
+fn ctx(this: &Block, world: &Rc<World>, x: i32, y: i32, z: i32) -> BlockCtx { blockCtx(world, this.m_blockID, x, y, z) }
+
+fn asBool(reply: Option<GuestReply>) -> Option<bool>
+{
+    match reply
+    {
+        Some(GuestReply::Bool(value)) => Some(value),
+        _ => None,
+    }
+}
+
+fn asInt(reply: Option<GuestReply>) -> Option<i32>
+{
+    match reply
+    {
+        Some(GuestReply::Int(value)) => Some(value),
+        _ => None,
+    }
+}
+
+// void callbacks fall back to the template only when the mod failed to answer
+fn handled(reply: Option<GuestReply>) -> bool { reply.is_some() }
+
+fn activated(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> bool
+{
+    let call: BlockCall = BlockCall::Activated { ctx: ctx(this, world, x, y, z), player: player.m_entityId.get() };
+    asBool(callBlock(this, Some(world), call))
+        .unwrap_or_else(|| (parent(this).blockActivated)(this, world, x, y, z, player))
+}
+
+fn clicked(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>)
+{
+    let call: BlockCall = BlockCall::Clicked { ctx: ctx(this, world, x, y, z), player: player.m_entityId.get() };
+    if !handled(callBlock(this, Some(world), call))
+    {
+        (parent(this).onBlockClicked)(this, world, x, y, z, player);
+    }
+}
+
+fn wantsMethod(this: &Block, method: BlockMethod) -> bool
+{
+    content::blockData(this.m_blockID)
+        .is_some_and(|data| data.m_spec.behavior.as_ref().is_some_and(|behavior| behavior.methods.contains(&method)))
+}
+
+pub fn notifyAdded(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
+{
+    if wantsMethod(this, BlockMethod::Added)
+    {
+        callBlock(this, Some(world), BlockCall::Added { ctx: ctx(this, world, x, y, z) });
+    }
+}
+
+pub fn notifyRemoved(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
+{
+    if wantsMethod(this, BlockMethod::Removed)
+    {
+        callBlock(this, Some(world), BlockCall::Removed { ctx: ctx(this, world, x, y, z) });
+    }
+}
+
+fn added(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
+{
+    (parent(this).onBlockAdded)(this, world, x, y, z);
+    notifyAdded(this, world, x, y, z);
+}
+
+fn removed(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
+{
+    notifyRemoved(this, world, x, y, z);
+    (parent(this).onBlockRemoval)(this, world, x, y, z);
+}
+
+fn placed(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, face: i32)
+{
+    (parent(this).onBlockPlaced)(this, world, x, y, z, face);
+    callBlock(this, Some(world), BlockCall::Placed { ctx: ctx(this, world, x, y, z), face });
+}
+
+fn placedBy(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, entity: &Rc<Entity>)
+{
+    (parent(this).onBlockPlacedBy)(this, world, x, y, z, entity);
+    callBlock(
+        this,
+        Some(world),
+        BlockCall::PlacedBy { ctx: ctx(this, world, x, y, z), entity: entity.m_entityId.get() },
+    );
+}
+
+fn neighborChanged(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, neighbor: i32)
+{
+    let call: BlockCall = BlockCall::NeighborChanged { ctx: ctx(this, world, x, y, z), neighbor };
+    if !handled(callBlock(this, Some(world), call))
+    {
+        (parent(this).onNeighborBlockChange)(this, world, x, y, z, neighbor);
+    }
+}
+
+fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
+{
+    if !handled(callBlock(this, Some(world), BlockCall::UpdateTick { ctx: ctx(this, world, x, y, z) }))
+    {
+        (parent(this).updateTick)(this, world, x, y, z, random);
+    }
+}
+
+fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
+{
+    if !handled(callBlock(this, Some(world), BlockCall::RandomDisplayTick { ctx: ctx(this, world, x, y, z) }))
+    {
+        (parent(this).randomDisplayTick)(this, world, x, y, z, random);
+    }
+}
+
+fn entityCollided(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, entity: &Rc<Entity>)
+{
+    let call: BlockCall = BlockCall::EntityCollided { ctx: ctx(this, world, x, y, z), entity: entity.m_entityId.get() };
+    if !handled(callBlock(this, Some(world), call))
+    {
+        (parent(this).onEntityCollidedWithBlock)(this, world, x, y, z, entity);
+    }
+}
+
+fn entityWalking(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, entity: &Rc<Entity>)
+{
+    let call: BlockCall = BlockCall::EntityWalking { ctx: ctx(this, world, x, y, z), entity: entity.m_entityId.get() };
+    if !handled(callBlock(this, Some(world), call))
+    {
+        (parent(this).onEntityWalking)(this, world, x, y, z, entity);
+    }
+}
+
+fn destroyedByPlayer(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, metadata: i32)
+{
+    let mut context: BlockCtx = ctx(this, world, x, y, z);
+    context.meta = metadata;
+    callBlock(this, Some(world), BlockCall::DestroyedByPlayer { ctx: context });
+    (parent(this).onBlockDestroyedByPlayer)(this, world, x, y, z, metadata);
+}
+
+fn destroyedByExplosion(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
+{
+    callBlock(this, Some(world), BlockCall::DestroyedByExplosion { ctx: ctx(this, world, x, y, z) });
+    (parent(this).onBlockDestroyedByExplosion)(this, world, x, y, z);
+}
+
+fn harvest(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32, y: i32, z: i32, metadata: i32)
+{
+    let mut context: BlockCtx = ctx(this, world, x, y, z);
+    context.meta = metadata;
+    if !handled(callBlock(this, Some(world), BlockCall::Harvest { ctx: context, player: player.m_entityId.get() }))
+    {
+        (parent(this).harvestBlock)(this, world, player, x, y, z, metadata);
+    }
+}
+
+fn canPlaceAt(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
+{
+    asBool(callBlock(this, Some(world), BlockCall::CanPlaceAt { ctx: ctx(this, world, x, y, z) }))
+        .unwrap_or_else(|| (parent(this).canPlaceBlockAt)(this, world, x, y, z))
+}
+
+fn canStay(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
+{
+    asBool(callBlock(this, Some(world), BlockCall::CanStay { ctx: ctx(this, world, x, y, z) }))
+        .unwrap_or_else(|| (parent(this).canBlockStay)(this, world, x, y, z))
+}
+
+fn accessCtx(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> BlockCtx
+{
+    let dimension: i32 = crate::host::context::currentDimension();
+    BlockCtx {
+        world: dimension,
+        pos: BlockPos::new(x, y, z),
+        block: this.m_blockID,
+        meta: world.getBlockMetadata(x, y, z),
+        authority: true,
+    }
+}
+
+fn poweringTo(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, direction: i32) -> bool
+{
+    asBool(callBlock(this, None, BlockCall::PoweringTo { ctx: accessCtx(this, world, x, y, z), direction }))
+        .unwrap_or_else(|| (parent(this).isPoweringTo)(this, world, x, y, z, direction))
+}
+
+fn indirectlyPoweringTo(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, direction: i32) -> bool
+{
+    let call: BlockCall = BlockCall::IndirectlyPoweringTo { ctx: ctx(this, world, x, y, z), direction };
+    asBool(callBlock(this, Some(world), call))
+        .unwrap_or_else(|| (parent(this).isIndirectlyPoweringTo)(this, world, x, y, z, direction))
+}
+
+fn canProvidePower(this: &Rc<Block>) -> bool
+{
+    asBool(callBlock(this, None, BlockCall::CanProvidePower { block: this.m_blockID }))
+        .unwrap_or_else(|| (parent(this).canProvidePower)(this))
+}
+
+fn texture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
+{
+    asInt(callBlock(this, None, BlockCall::Texture { face, meta: metadata }))
+        .unwrap_or_else(|| (parent(this).getBlockTextureFromSideAndMetadata)(this, face, metadata))
+}
+
+fn colorMultiplier(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> i32
+{
+    asInt(callBlock(this, None, BlockCall::ColorMultiplier { ctx: accessCtx(this, world, x, y, z) }))
+        .unwrap_or_else(|| (parent(this).colorMultiplier)(this, world, x, y, z))
+}
+
+// only the methods a mod overrides cross into wasm, every other entry keeps the template fn pointer
+pub fn patchBlock(class: &mut BlockClass, behavior: &Behavior<BlockMethod>)
+{
+    for method in &behavior.methods
+    {
+        match method
+        {
+            BlockMethod::Activated => class.blockActivated = activated,
+            BlockMethod::Clicked => class.onBlockClicked = clicked,
+            BlockMethod::Added => class.onBlockAdded = added,
+            BlockMethod::Removed => class.onBlockRemoval = removed,
+            BlockMethod::Placed => class.onBlockPlaced = placed,
+            BlockMethod::PlacedBy => class.onBlockPlacedBy = placedBy,
+            BlockMethod::NeighborChanged => class.onNeighborBlockChange = neighborChanged,
+            BlockMethod::UpdateTick => class.updateTick = updateTick,
+            BlockMethod::RandomDisplayTick => class.randomDisplayTick = randomDisplayTick,
+            BlockMethod::EntityCollided => class.onEntityCollidedWithBlock = entityCollided,
+            BlockMethod::EntityWalking => class.onEntityWalking = entityWalking,
+            BlockMethod::DestroyedByPlayer => class.onBlockDestroyedByPlayer = destroyedByPlayer,
+            BlockMethod::DestroyedByExplosion => class.onBlockDestroyedByExplosion = destroyedByExplosion,
+            BlockMethod::Harvest => class.harvestBlock = harvest,
+            BlockMethod::CanPlaceAt => class.canPlaceBlockAt = canPlaceAt,
+            BlockMethod::CanStay => class.canBlockStay = canStay,
+            BlockMethod::PoweringTo => class.isPoweringTo = poweringTo,
+            BlockMethod::IndirectlyPoweringTo => class.isIndirectlyPoweringTo = indirectlyPoweringTo,
+            BlockMethod::CanProvidePower => class.canProvidePower = canProvidePower,
+            BlockMethod::Texture => class.getBlockTextureFromSideAndMetadata = texture,
+            BlockMethod::ColorMultiplier => class.colorMultiplier = colorMultiplier,
+        }
+    }
+}
+
+fn itemParent(this: &Item) -> &'static ItemClass
+{
+    this.m_class.m_parent.expect("a derived item class keeps its template")
+}
+
+fn callItem(this: &Item, world: Option<&Rc<World>>, call: ItemCall) -> Option<GuestReply>
+{
+    let data: Rc<ItemData> = content::itemData(this.m_shiftedIndex)?;
+    let handle: u32 = data.m_spec.behavior.as_ref()?.handle;
+    let runtime: Rc<state::ModRuntime> = state::modAt(data.m_owner)?;
+    let request: GuestCall = GuestCall::Item { handle, call };
+    match world
+    {
+        Some(world) => withWorld(world, || runtime.call(&request)),
+        None => runtime.call(&request),
+    }
+}
+
+fn dimensionOf(world: &World) -> i32 { crate::host::context::dimension(world) }
+
+// a stack the guest returns replaces the held one, its size and damage are written back in place
+fn applyStack(stack: &Rc<ItemStack>, reply: &Option<mod_protocol::abi::StackData>) -> Option<Rc<ItemStack>>
+{
+    match reply
+    {
+        Some(data) if data.id == stack.m_itemID.get() =>
+        {
+            stack.m_stackSize.set(data.count);
+            stack.setItemDamage(data.damage);
+            Some(Rc::clone(stack))
+        }
+        Some(data) => stackFrom(data),
+        None => None,
+    }
+}
+
+fn rightClick(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<ItemStack>>
+{
+    let call: ItemCall =
+        ItemCall::RightClick { world: dimensionOf(world), player: player.m_entityId.get(), stack: stackData(stack) };
+    match callItem(this, Some(world), call)
+    {
+        Some(GuestReply::Use { handled: true, stack: reply }) => applyStack(stack, &reply),
+        Some(GuestReply::Stack(reply)) => applyStack(stack, &reply),
+        _ => (itemParent(this).onItemRightClick)(this, stack, world, player),
+    }
+}
+
+fn useOnBlock(
+    this: &Rc<Item>,
+    stack: &Rc<ItemStack>,
+    player: &Rc<Entity>,
+    world: &Rc<World>,
+    x: i32,
+    y: i32,
+    z: i32,
+    face: i32,
+) -> bool
+{
+    let call: ItemCall = ItemCall::UseOnBlock {
+        world: dimensionOf(world),
+        player: player.m_entityId.get(),
+        stack: stackData(stack),
+        pos: BlockPos::new(x, y, z),
+        face,
+    };
+    match callItem(this, Some(world), call)
+    {
+        Some(GuestReply::Use { handled, stack: reply }) =>
+        {
+            applyStack(stack, &reply);
+            handled
+        }
+        Some(GuestReply::Bool(handled)) => handled,
+        _ => (itemParent(this).onItemUse)(this, stack, player, world, x, y, z, face),
+    }
+}
+
+fn hitEntity(this: &Rc<Item>, stack: &Rc<ItemStack>, target: &Rc<Entity>, attacker: &Rc<Entity>) -> bool
+{
+    let call: ItemCall = ItemCall::HitEntity {
+        stack: stackData(stack),
+        target: target.m_entityId.get(),
+        attacker: attacker.m_entityId.get(),
+    };
+    let world: Option<Rc<World>> = target.m_worldObj.get();
+    asBool(callItem(this, world.as_ref(), call))
+        .unwrap_or_else(|| (itemParent(this).hitEntity)(this, stack, target, attacker))
+}
+
+fn interactEntity(this: &Rc<Item>, stack: &Rc<ItemStack>, entity: &Rc<Entity>)
+{
+    let call: ItemCall =
+        ItemCall::InteractEntity { stack: stackData(stack), target: entity.m_entityId.get(), player: 0 };
+    let world: Option<Rc<World>> = entity.m_worldObj.get();
+    if !handled(callItem(this, world.as_ref(), call))
+    {
+        (itemParent(this).saddleEntity)(this, stack, entity);
+    }
+}
+
+fn blockDestroyed(
+    this: &Rc<Item>,
+    stack: &Rc<ItemStack>,
+    block: i32,
+    x: i32,
+    y: i32,
+    z: i32,
+    entity: &Rc<Entity>,
+) -> bool
+{
+    let call: ItemCall = ItemCall::BlockDestroyed {
+        stack: stackData(stack),
+        block,
+        pos: BlockPos::new(x, y, z),
+        player: entity.m_entityId.get(),
+    };
+    let world: Option<Rc<World>> = entity.m_worldObj.get();
+    asBool(callItem(this, world.as_ref(), call))
+        .unwrap_or_else(|| (itemParent(this).onBlockDestroyed)(this, stack, block, x, y, z, entity))
+}
+
+fn icon(this: &Rc<Item>, damage: i32) -> i32
+{
+    asInt(callItem(this, None, ItemCall::Icon { damage }))
+        .unwrap_or_else(|| (itemParent(this).getIconFromDamage)(this, damage))
+}
+
+fn strVsBlock(this: &Rc<Item>, stack: &Rc<ItemStack>, block: &Rc<Block>) -> f32
+{
+    match callItem(this, None, ItemCall::StrVsBlock { stack: stackData(stack), block: block.m_blockID })
+    {
+        Some(GuestReply::Float(speed)) => speed,
+        _ => (itemParent(this).getStrVsBlock)(this, stack, block),
+    }
+}
+
+fn canHarvest(this: &Rc<Item>, block: &Rc<Block>) -> bool
+{
+    asBool(callItem(this, None, ItemCall::CanHarvest { block: block.m_blockID }))
+        .unwrap_or_else(|| (itemParent(this).canHarvestBlock)(this, block))
+}
+
+fn crafted(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>)
+{
+    (itemParent(this).onCreated)(this, stack, world, player);
+    callItem(this, Some(world), ItemCall::Crafted { stack: stackData(stack), player: player.m_entityId.get() });
+}
+
+pub fn patchItem(class: &mut ItemClass, behavior: &Behavior<ItemMethod>)
+{
+    for method in &behavior.methods
+    {
+        match method
+        {
+            ItemMethod::RightClick => class.onItemRightClick = rightClick,
+            ItemMethod::UseOnBlock => class.onItemUse = useOnBlock,
+            ItemMethod::HitEntity => class.hitEntity = hitEntity,
+            ItemMethod::InteractEntity => class.saddleEntity = interactEntity,
+            ItemMethod::BlockDestroyed => class.onBlockDestroyed = blockDestroyed,
+            ItemMethod::Icon => class.getIconFromDamage = icon,
+            ItemMethod::StrVsBlock => class.getStrVsBlock = strVsBlock,
+            ItemMethod::CanHarvest => class.canHarvestBlock = canHarvest,
+            ItemMethod::Crafted => class.onCreated = crafted,
+        }
+    }
+}
+
+pub fn patchTileBlock(class: &mut BlockClass) { crate::tiles::patchBlock(class); }

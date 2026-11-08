@@ -9,6 +9,7 @@ pub mod image;
 pub mod integer;
 pub mod io;
 pub mod locale;
+pub mod log_files;
 pub mod logging;
 pub mod math;
 pub mod md5;

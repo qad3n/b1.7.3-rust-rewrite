@@ -25,6 +25,11 @@ impl Minecraft
 {
     pub fn displayGuiScreen(&self, mut screen: Option<Rc<GuiScreen>>)
     {
+        // screen_open listeners may refuse a screen
+        if crate::modded::screenOpening(screen.as_ref())
+        {
+            return;
+        }
         if self.m_currentScreen.get().is_some_and(|current| current.instanceOf("GuiUnused"))
         {
             return;
@@ -326,6 +331,8 @@ impl Minecraft
 
     pub fn runTick(&self)
     {
+        // mod tick listeners run around the vanilla tick
+        modloader::play::tick(true);
         if self.m_ticksRan.get() == LICENSE_CHECK_TICK
         {
             self.initLicenseCheckThread();
@@ -376,6 +383,11 @@ impl Minecraft
         }
         self.tickWorld();
         self.m_systemTime.set(jvm::system::currentTimeMillis());
+        if modloader::play::tick(false)
+        {
+            self.shutdown();
+        }
+        modloader::play::clientTick();
     }
 
     fn updateScreenForPlayer(&self)
@@ -464,6 +476,8 @@ impl Minecraft
         while Keyboard::next()
         {
             entity_player_sp::handleKeyPress(&self.thePlayer(), Keyboard::getEventKey(), Keyboard::getEventKeyState());
+            // mod keybinds and key listeners see every key event in game
+            modloader::play::key(Keyboard::getEventKey(), Keyboard::getEventKeyState());
             if !Keyboard::getEventKeyState()
             {
                 continue;

@@ -353,7 +353,11 @@ impl EntityRenderer
         let currentItem = game::entity::entity_player::inventory(entityLiving).getCurrentItem();
         GL11::glDisable(3008);
         renderGlobal.drawBlockBreaking(entityLiving, &hit, 0, currentItem.as_ref(), tickDelta);
-        renderGlobal.drawSelectionBox(entityLiving, &hit, 0, currentItem.as_ref(), tickDelta);
+        // mods may draw their own highlight instead of the vanilla box
+        if !modloader::play::blockHighlight(&entityLiving.world(), hit.m_blockX, hit.m_blockY, hit.m_blockZ)
+        {
+            renderGlobal.drawSelectionBox(entityLiving, &hit, 0, currentItem.as_ref(), tickDelta);
+        }
         GL11::glEnable(3008);
     }
 
@@ -504,6 +508,8 @@ impl EntityRenderer
             renderGlobal.renderClouds(tickDelta);
             GL11::glDisable(2912);
             self.setupFog(1, tickDelta);
+            // mods draw after the world and before the hand
+            modloader::play::renderWorldLast(tickDelta);
             if self.m_cameraZoom.get() == 1.0
             {
                 GL11::glClear(256);

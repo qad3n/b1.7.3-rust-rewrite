@@ -14,7 +14,7 @@ pub fn generateHeightMap(this: &Rc<Chunk>)
         {
             let mut l: i32 = 127;
             let i1: i32 = j << 11 | k << 7;
-            while l > 0 && Block::lightOpacity(this.rawBlock(i1 + l - 1) as i32 & 0xFF) == 0
+            while l > 0 && Block::lightOpacity(this.blockAt(i1 + l - 1)) == 0
             {
                 l -= 1;
             }
@@ -40,7 +40,7 @@ pub fn populateHeightMap(this: &Rc<Chunk>)
         {
             let mut n: i32 = 127;
             let n2: i32 = i << 11 | j << 7;
-            while n > 0 && Block::lightOpacity(this.rawBlock(n2 + n - 1) as i32 & 0xFF) == 0
+            while n > 0 && Block::lightOpacity(this.blockAt(n2 + n - 1)) == 0
             {
                 n -= 1;
             }
@@ -55,7 +55,7 @@ pub fn populateHeightMap(this: &Rc<Chunk>)
                 let mut y: i32 = 127;
                 loop
                 {
-                    value -= Block::lightOpacity(this.rawBlock(n2 + y) as i32 & 0xFF);
+                    value -= Block::lightOpacity(this.blockAt(n2 + y));
                     if value > 0
                     {
                         skylight.setNibble(i, y, j, value);
@@ -117,7 +117,7 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
         j = y;
     }
     let k: i32 = localX << 11 | localZ << 7;
-    while j > 0 && Block::lightOpacity(this.rawBlock(k + j - 1) as i32 & 0xFF) == 0
+    while j > 0 && Block::lightOpacity(this.blockAt(k + j - 1)) == 0
     {
         j -= 1;
     }
@@ -200,7 +200,7 @@ pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32
     let b0: i8 = block as i8;
     let i: i32 = this.height(localZ << 4 | localX);
     let index: i32 = localX << 11 | localZ << 7 | y;
-    let j: i32 = this.rawBlock(index) as i32 & 255;
+    let j: i32 = this.blockAt(index);
     if j == block && this.data().getNibble(localX, y, localZ) == metadata
     {
         return false;
@@ -210,6 +210,8 @@ pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32
     let k: i32 = this.m_xPosition * 16 + localX;
     let l: i32 = this.m_zPosition * 16 + localZ;
     this.m_blocks.update(|blocks| blocks[index as usize] = (b0 as i32 & 0xFF) as i8);
+    // ids above 255 keep their high bits in the Add nibbles
+    this.setBlockHigh(index, block);
     if j != 0 && !world.m_multiplayerWorld.get()
     {
         Block::byId(j).orNpe().onBlockRemoval(&world, k, y, l);
@@ -246,7 +248,7 @@ pub fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32
     let b0: i8 = block as i8;
     let i: i32 = this.height(localZ << 4 | localX);
     let index: i32 = localX << 11 | localZ << 7 | y;
-    let j: i32 = this.rawBlock(index) as i32 & 255;
+    let j: i32 = this.blockAt(index);
     if j == block
     {
         return false;
@@ -256,6 +258,8 @@ pub fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32
     let k: i32 = this.m_xPosition * 16 + localX;
     let l: i32 = this.m_zPosition * 16 + localZ;
     this.m_blocks.update(|blocks| blocks[index as usize] = (b0 as i32 & 0xFF) as i8);
+    // ids above 255 keep their high bits in the Add nibbles
+    this.setBlockHigh(index, block);
     if j != 0
     {
         Block::byId(j).orNpe().onBlockRemoval(&world, k, y, l);

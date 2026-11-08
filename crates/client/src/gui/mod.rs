@@ -9,7 +9,7 @@ mod gui_chat;
 mod gui_conflict_warning;
 mod gui_connect_failed;
 mod gui_connecting;
-mod gui_container;
+pub mod gui_container;
 mod gui_controls;
 mod gui_create_world;
 mod gui_download_terrain;

@@ -66,7 +66,7 @@ impl ItemRenderer
     {
         GL11::glPushMatrix();
         let itemID: i32 = itemInHand.m_itemID.get();
-        if itemID < 256 && RenderBlocks::renderItemIn3d(Block::byId(itemID).orNpe().getRenderType())
+        if Block::isBlockItem(itemID) && RenderBlocks::renderItemIn3d(Block::byId(itemID).orNpe().getRenderType())
         {
             GL11::glBindTexture(3553, self.renderEngine().getTexture("/terrain.png"));
             self.m_renderBlocksInstance.borrow_mut().renderBlockOnInventory(
@@ -77,7 +77,7 @@ impl ItemRenderer
         }
         else
         {
-            let path: &str = if itemID < 256
+            let path: &str = if Block::isBlockItem(itemID)
             {
                 "/terrain.png"
             }

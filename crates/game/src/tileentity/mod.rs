@@ -185,6 +185,8 @@ impl TileEntityKind
     }
 
     pub fn newInstance(self) -> Rc<TileEntity> { (self.row().m_create)() }
+
+    pub fn vanillaIds() -> impl Iterator<Item = &'static str> { MAPPINGS.iter().map(|row| row.m_id) }
 }
 
 impl TileEntity
@@ -192,7 +194,8 @@ impl TileEntity
     pub fn new(class: &'static TileEntityClass, ext: Box<dyn Any>) -> Rc<TileEntity>
     {
         Rc::new_cyclic(|this| TileEntity {
-            m_class: class,
+            // mod content reuses a vanilla constructor with a class derived from it
+            m_class: crate::hooks::tileEntityClass(class),
             m_ext: ext,
             m_this: Weak::clone(this),
             m_worldObj: Field::new(None),
@@ -204,6 +207,8 @@ impl TileEntity
     }
 
     pub fn ext<T: 'static>(&self) -> &T { self.m_ext.downcast_ref::<T>().expect("tile entity ext matches its class") }
+
+    pub fn tryExt<T: 'static>(&self) -> Option<&T> { self.m_ext.downcast_ref::<T>() }
 
     pub fn world(&self) -> Rc<World> { self.m_worldObj.get().orNpe() }
 
@@ -218,8 +223,12 @@ impl TileEntity
     pub fn createAndLoadEntity(nbt: &NBTTagCompound) -> Option<Rc<TileEntity>>
     {
         let id: Option<JString> = nbt.getString("id");
-        let tileEntity: Option<Rc<TileEntity>> =
-            id.as_ref().and_then(TileEntityKind::forId).map(TileEntityKind::newInstance);
+        // mod tile entities are created by the loader when no vanilla kind matches
+        let tileEntity: Option<Rc<TileEntity>> = id
+            .as_ref()
+            .and_then(TileEntityKind::forId)
+            .map(TileEntityKind::newInstance)
+            .or_else(|| id.as_ref().and_then(|id| crate::hooks::createTileEntity(&id.to_string())));
         match &tileEntity
         {
             Some(entity) => entity.readFromNBT(nbt),

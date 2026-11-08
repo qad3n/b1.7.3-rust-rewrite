@@ -210,7 +210,9 @@ impl Explosion
                 );
                 world.spawnParticle("smoke", d0, d1, d2, d3, d4, d5);
             }
+            // mods may protect a block from an explosion
             if i1 > 0
+                && !crate::hooks::fire(crate::hooks::GameEvent::ExplosionAffect { world, x: j, y: k, z: l, block: i1 })
             {
                 Block::byId(i1).orNpe().dropBlockAsItemWithChance(world, j, k, l, world.getBlockMetadata(j, k, l), 0.3);
                 world.setBlockWithNotify(j, k, l, 0);

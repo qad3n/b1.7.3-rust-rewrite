@@ -62,7 +62,7 @@ fn isSound(name: &str) -> bool { name.split_once('/').is_some_and(|(folder, _)| 
 
 fn copySounds(resources: &Path, source: &Path) -> Result<()>
 {
-    eprintln!("beta173_launcher: copying sounds from {} into {}", source.display(), resources.display());
+    crate::logger().info(&format!("copying sounds from {} into {}", source.display(), resources.display()));
     for folder in SOUND_FOLDERS
     {
         let from: PathBuf = source.join(folder);
@@ -100,12 +100,12 @@ fn fetchClient(root: &Path, jar: Option<PathBuf>) -> Result<()>
     {
         Some(path) =>
         {
-            eprintln!("beta173_launcher: extracting assets from {}", path.display());
+            crate::logger().info(&format!("extracting assets from {}", path.display()));
             std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?
         }
         None =>
         {
-            eprintln!("beta173_launcher: no local client jar, downloading the {VERSION_ID} client from Mojang");
+            crate::logger().info(&format!("no local client jar, downloading the {VERSION_ID} client from Mojang"));
             downloadClientJar().with_context(|| {
                 format!("copy the files of {} into {} to install the assets by hand", url::MCASSET, root.display())
             })?
@@ -128,7 +128,7 @@ fn fetchSounds(resources: &Path) -> Result<()>
     let objects: &serde_json::Map<String, Value> =
         index.get("objects").and_then(Value::as_object).with_context(|| format!("{indexUrl} has no objects map"))?;
     let wanted: Vec<(&String, &Value)> = objects.iter().filter(|(name, _)| isSound(name)).collect();
-    eprintln!("beta173_launcher: downloading {} sound files into {}", wanted.len(), resources.display());
+    crate::logger().info(&format!("downloading {} sound files into {}", wanted.len(), resources.display()));
     for (name, object) in wanted
     {
         let hash: &str = text(object, "/hash")?;
@@ -207,7 +207,7 @@ fn extractJar(root: &Path, bytes: &[u8]) -> Result<()>
         let path: PathBuf = root.join(&relative);
         std::io::copy(&mut entry, &mut create(&path)?).with_context(|| format!("extracting {}", path.display()))?;
     }
-    eprintln!("beta173_launcher: assets extracted into {}", root.display());
+    crate::logger().info(&format!("assets extracted into {}", root.display()));
     Ok(())
 }
 

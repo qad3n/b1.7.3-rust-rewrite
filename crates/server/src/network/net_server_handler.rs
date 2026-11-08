@@ -14,7 +14,7 @@ use game::network::packets::{
     Packet0KeepAlive, Packet3Chat, Packet7UseEntity, Packet9Respawn, Packet10Flying, Packet13PlayerLookMove,
     Packet14BlockDig, Packet15Place, Packet16BlockItemSwitch, Packet18Animation, Packet19EntityAction,
     Packet27Position, Packet53BlockChange, Packet101CloseWindow, Packet102WindowClick, Packet103SetSlot,
-    Packet106Transaction, Packet130UpdateSign, Packet255KickDisconnect,
+    Packet106Transaction, Packet130UpdateSign, Packet250ModPayload, Packet255KickDisconnect,
 };
 use game::port::packet_item_stack::PacketItemStack;
 use game::tileentity::{TileEntity, tile_entity_sign};
@@ -133,7 +133,13 @@ impl NetServerHandler
 
     pub fn sendPacket(&self, packet: Box<dyn Packet>)
     {
+        // 12-bit block ids reach modded clients through a loader extension after the vanilla packet
+        let (packet, extension) = modloader::network::blocks::outgoing(&self.player(), packet);
         self.m_netManager.addToSendQueue(packet);
+        if let Some(extension) = extension
+        {
+            modloader::network::blocks::sendExtension(&self.player(), &extension);
+        }
         self.m_lastKeepAliveTime.set(self.m_ticks.get());
     }
 
@@ -145,6 +151,17 @@ impl NetServerHandler
 
     fn handleSlashCommand(&self, command: &JString)
     {
+        // mod commands check their own permission against ops.txt
+        let player: Rc<Entity> = self.player();
+        let op: bool = self.m_mcServer.configManager().isOp(entity_player::fields(&player).m_username.get().as_ref());
+        if let Some(reply) = modloader::play::command(&command.substringFrom(1).to_string(), Some(&player), op)
+        {
+            for line in reply.lines()
+            {
+                self.sendPacket(Box::new(Packet3Chat::new(JString::from(line))));
+            }
+            return;
+        }
         let mut command: JString = command.clone();
         if command.toLowerCase().startsWith("/me ")
         {
@@ -620,6 +637,15 @@ impl NetHandler for NetServerHandler
         entity_player::inventory(&self.player()).m_currentItem.set(packet.m_id);
     }
 
+    fn handleModPayload(&self, packet: &Packet250ModPayload)
+    {
+        // oversize payloads, unknown channels and a blown budget end the connection
+        if let Err(reason) = modloader::netsync::serverReceive(&self.player(), packet.m_channel, &packet.m_data)
+        {
+            self.kickPlayer(&reason);
+        }
+    }
+
     fn handleChat(&self, packet: &Packet3Chat)
     {
         let message: JString = packet.m_message.clone().orNpe();
@@ -640,6 +666,12 @@ impl NetHandler for NetServerHandler
         }
         else
         {
+            // chat listeners may cancel or rewrite a line
+            let Some(trim) = modloader::play::chat(&self.player(), &trim.to_string())
+            else
+            {
+                return;
+            };
             let string: String = format!("<{}> {trim}", self.username());
             logger().info(&string);
             self.m_mcServer

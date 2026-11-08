@@ -16,6 +16,8 @@ pub trait NetHandler
 
     fn handleLogin(&self, packet: &Packet1Login) { self.registerPacket(packet); }
 
+    fn handleModPayload(&self, packet: &Packet250ModPayload) { self.registerPacket(packet); }
+
     fn handleFlying(&self, packet: &Packet10Flying) { self.registerPacket(packet); }
 
     fn handleMultiBlockChange(&self, packet: &Packet52MultiBlockChange) { self.registerPacket(packet); }

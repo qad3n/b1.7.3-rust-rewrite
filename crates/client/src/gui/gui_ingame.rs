@@ -149,6 +149,8 @@ impl GuiIngame
         }
         self.renderRecordMessage(&fontrenderer, tickDelta, i, j);
         self.renderChat(&fontrenderer, j);
+        // mod hud draw lists paint over the vanilla overlay
+        crate::modded::drawHud(&self.m_mc, tickDelta);
     }
 
     fn renderStatusBars(&self, player: &Rc<Entity>, i: i32, j: i32)
@@ -240,6 +242,11 @@ impl GuiIngame
         fontrenderer.drawStringWithShadow(&mc.getRenderEntityDebugInfo(), 2, 22, 16777215);
         fontrenderer.drawStringWithShadow(&mc.getWorldDebugInfo(), 2, 32, 16777215);
         fontrenderer.drawStringWithShadow(&mc.getChunkSourceDebugInfo(), 2, 42, 16777215);
+        // per mod guest time under the vanilla debug lines
+        for (index, line) in modloader::profiler::lines().iter().enumerate()
+        {
+            fontrenderer.drawStringWithShadow(line, 2, 52 + index as i32 * 10, 16777215);
+        }
         // port runtimeMemory stands in for java Runtime memory figures
         let (k3, j5, j6): (i64, i64, i64) = runtime::runtimeMemory();
         let k2: i64 = j5 - j6;

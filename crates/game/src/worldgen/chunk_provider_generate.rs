@@ -657,6 +657,8 @@ impl IChunkProvider for ChunkProviderGenerate
         self.m_cave.place(self, world, chunkX, chunkZ, &mut blocks);
         let chunk: Rc<Chunk> = Chunk::withBlocks(world, blocks, chunkX, chunkZ);
         chunk.populateHeightMap();
+        // mods observe generated chunks
+        crate::hooks::fire(crate::hooks::GameEvent::ChunkGenerate { world, x: chunkX, z: chunkZ });
         chunk
     }
 
@@ -744,6 +746,8 @@ impl IChunkProvider for ChunkProviderGenerate
         }
         populateDecorations(world, rand, &biome, i, j);
         populateSnow(world, &self.m_generatedTemperatures, i, j);
+        // mod ores and features generate after vanilla with their own random so vanilla terrain is unchanged
+        crate::hooks::populate(&self.world(), chunkX, chunkZ);
         setFallInstantly(false);
     }
 

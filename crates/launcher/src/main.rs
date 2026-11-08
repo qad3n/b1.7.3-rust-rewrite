@@ -1,6 +1,8 @@
 mod assets;
 
 use anyhow::{Context, Result, bail};
+use jvm::log_files::{self, LogFormatter};
+use jvm::logging::Logger;
 use std::io::{BufRead, Write};
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -21,6 +23,8 @@ struct Options
     m_help: bool,
 }
 
+fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
+
 fn main() -> ExitCode
 {
     match run()
@@ -28,7 +32,7 @@ fn main() -> ExitCode
         Ok(code) => code,
         Err(error) =>
         {
-            eprintln!("beta173_launcher: {error:#}");
+            logger().severe(&format!("{error:#}"));
             ExitCode::FAILURE
         }
     }
@@ -43,6 +47,7 @@ fn run() -> Result<ExitCode>
         return Ok(ExitCode::SUCCESS);
     }
     let dataDir: PathBuf = dataDir()?;
+    log_files::install(logger(), &dataDir.join("logs"), "launcher", LogFormatter::boxed);
     let name: String = askName(&dataDir)?;
     let root: PathBuf = assetRoot(&dataDir);
     assets::install(&root, &gameDir()?, options.m_clientJar)?;
@@ -51,13 +56,14 @@ fn run() -> Result<ExitCode>
         Some(path) => path,
         None => gameNextToLauncher()?,
     };
-    println!("Starting the game as {name}");
+    logger().info(&format!("Starting the game as {name}"));
     let status: std::process::ExitStatus = std::process::Command::new(&game)
         .arg(&name)
         .arg(NO_SESSION)
         .env(ASSETS_ENV, &root)
         .status()
         .with_context(|| format!("starting {}", game.display()))?;
+    logger().info(&format!("Game exited with {status}"));
     Ok(status.code().map_or(ExitCode::FAILURE, |code| ExitCode::from(code as u8)))
 }
 

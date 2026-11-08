@@ -77,6 +77,18 @@ pub fn dropBlockAsItemWithChance(this: &Rc<Block>, world: &Rc<World>, x: i32, y:
     {
         return;
     }
+    // mods may replace the drops of a harvested block
+    if crate::hooks::fire(crate::hooks::GameEvent::HarvestDrops {
+        world,
+        x,
+        y,
+        z,
+        block: this.m_blockID,
+        meta: metadata,
+    })
+    {
+        return;
+    }
     let n: i32 = this.quantityDropped(&world.m_rand);
     for _ in 0..n
     {

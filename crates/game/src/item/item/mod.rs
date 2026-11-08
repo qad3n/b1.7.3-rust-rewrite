@@ -30,7 +30,8 @@ impl Item
     pub fn construct(class: &'static ItemClass, ext: Box<dyn Any>, id: i32) -> Rc<Item>
     {
         let item: Rc<Item> = Rc::new(Item {
-            m_class: class,
+            // mod items reuse a vanilla constructor with a class derived from it
+            m_class: crate::hooks::itemClass(class),
             m_ext: ext,
             m_shiftedIndex: 256 + id,
             m_maxStackSize: Cell::new(64),
