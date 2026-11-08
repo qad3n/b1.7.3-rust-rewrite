@@ -112,10 +112,14 @@ impl Minecraft
         self.checkGLError("Startup");
         self.m_glCapabilities.set(Some(Rc::new(OpenGlCapsChecker)));
         self.sndManager().loadSoundSettings(Some(Rc::clone(&settings)));
-        // mod sounds join the sound pool under their mod id
+        // mod sounds join the sound pool under their mod id, discs the streaming pool
         for (path, file) in modloader::sounds::files()
         {
-            self.sndManager().addSound(&path, &file);
+            match modloader::sounds::isRecord(&path)
+            {
+                true => self.sndManager().addStreaming(&path, &file),
+                false => self.sndManager().addSound(&path, &file),
+            }
         }
         let effects: [Rc<dyn TextureFX>; 9] = [
             self.m_textureLavaFX.get().orNpe(),

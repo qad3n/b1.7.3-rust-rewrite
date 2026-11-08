@@ -113,7 +113,8 @@ impl IWorldAccess for RenderGlobal
             "snowshovel" => Some(entity_snow_shovel_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
             "slime" => Some(entity_slime_fx::new(w, x, y, z, &Item::slimeBall())),
             "heart" => Some(entity_heart_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            _ => None,
+            // rewrite: mod particles, item crack bits and tinted portal particles
+            _ => crate::modded::particles::spawn(kind, w, [x, y, z], [velocityX, velocityY, velocityZ]),
         };
         if let Some(particle) = particle
         {
@@ -140,7 +141,9 @@ impl IWorldAccess for RenderGlobal
     {
         if let Some(record) = record
         {
-            self.m_mc.m_ingameGUI.get().orNpe().setRecordPlayingMessage(&format!("C418 - {record}"));
+            // rewrite: mod discs name their own artist and title
+            let title: String = modloader::content::recordTitle(record).unwrap_or_else(|| format!("C418 - {record}"));
+            self.m_mc.m_ingameGUI.get().orNpe().setRecordPlayingMessage(&title);
         }
         self.m_mc.m_sndManager.get().orNpe().playStreaming(record, x as f32, y as f32, z as f32, 1.0, 1.0);
     }

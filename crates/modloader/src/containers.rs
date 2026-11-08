@@ -1,6 +1,7 @@
 use crate::screens::ScreenType;
 use game::container::slot::Slot;
 use game::container::{CONTAINER, Container, ContainerClass};
+use game::entity::entity_player;
 use game::inventory::IInventory;
 use game::item::ItemStack;
 use std::rc::Rc;
@@ -15,6 +16,8 @@ pub struct ModContainer
     pub m_inventory: Rc<dyn IInventory>,
     pub m_screen: Rc<ScreenType>,
     pub m_modSlots: i32,
+    // slots opened without a block, emptied at the player on close
+    pub m_scratch: bool,
 }
 
 pub fn ext(container: &Container) -> &ModContainer { container.ext::<ModContainer>() }
@@ -51,6 +54,22 @@ pub const MOD_CONTAINER: ContainerClass = ContainerClass {
     m_interfaces: &[],
     getStackInSlot: transfer,
     isUsableByPlayer: |this, player| ext(this).m_inventory.canInteractWith(player),
+    onCraftGuiClosed: |this, player| {
+        (CONTAINER.onCraftGuiClosed)(this, player);
+        let container: &ModContainer = ext(this);
+        if !container.m_scratch || player.world().m_multiplayerWorld.get()
+        {
+            return;
+        }
+        for slot in 0..container.m_inventory.getSizeInventory()
+        {
+            if let Some(stack) = container.m_inventory.getStackInSlot(slot)
+            {
+                container.m_inventory.setInventorySlotContents(slot, None);
+                entity_player::dropPlayerItem(player, Some(stack));
+            }
+        }
+    },
     ..CONTAINER
 };
 
@@ -58,11 +77,17 @@ pub fn create(
     screen: &Rc<ScreenType>,
     playerInventory: Rc<dyn IInventory>,
     inventory: Rc<dyn IInventory>,
+    scratch: bool,
 ) -> Rc<Container>
 {
     let modSlots: i32 = screen.m_spec.slots.len() as i32;
     let this: Rc<Container> = Container::construct(&MOD_CONTAINER, |_| {
-        Box::new(ModContainer { m_inventory: Rc::clone(&inventory), m_screen: Rc::clone(screen), m_modSlots: modSlots })
+        Box::new(ModContainer {
+            m_inventory: Rc::clone(&inventory),
+            m_screen: Rc::clone(screen),
+            m_modSlots: modSlots,
+            m_scratch: scratch,
+        })
     });
     for slot in &screen.m_spec.slots
     {
@@ -95,6 +120,15 @@ pub fn create(
 pub fn slotCount(screen: &ScreenType) -> i32
 {
     screen.m_spec.slots.iter().map(|slot| slot.index + 1).max().unwrap_or(0)
+}
+
+// a block-less container screen's slots, held only while it is open
+pub fn scratchInventory(screen: &ScreenType) -> Rc<dyn IInventory>
+{
+    Rc::new(game::inventory::InventoryBasic::new(
+        jvm::string::JString::from(screen.m_spec.title.as_str()),
+        slotCount(screen),
+    ))
 }
 
 pub fn tileInventory(world: &game::world::World, pos: mod_protocol::abi::BlockPos) -> Option<Rc<dyn IInventory>>

@@ -214,7 +214,10 @@ fn onLivingUpdate(this: &Rc<Entity>)
     let player: &PlayerFields = fields(this);
     let living: &entity_living::LivingFields = entity_living::fields(this);
     let world: Rc<World> = this.world();
-    if world.m_difficultySetting.get() == 0 && living.m_health.get() < 20 && this.m_ticksExisted.get() % 20 * 12 == 0
+    // rewrite: peaceful regeneration heals to the max health hook instead of 20
+    if world.m_difficultySetting.get() == 0
+        && living.m_health.get() < crate::hooks::maxHealth(this)
+        && this.m_ticksExisted.get() % 20 * 12 == 0
     {
         this.heal(1);
     }
@@ -403,7 +406,8 @@ pub const CLASS: EntityClass = EntityClass {
         this.m_yOffset.set(1.62);
         this.setSize(0.6, 1.8);
         (entity_living::CLASS.preparePlayerToSpawn)(this);
-        entity_living::fields(this).m_health.set(20);
+        // rewrite: a respawned player starts at the max health hook instead of 20
+        entity_living::fields(this).m_health.set(crate::hooks::maxHealth(this));
         entity_living::fields(this).m_deathTime.set(0);
     },
     updatePlayerActionState: |this| {

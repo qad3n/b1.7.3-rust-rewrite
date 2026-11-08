@@ -8,7 +8,7 @@ use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 use modloader::mod_protocol::abi::{BlockPos, DrawList, ScreenOp};
 use modloader::screens::{self, ScreenType};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 // the guest owns what a mod screen shows, the host only replays its draw list and forwards input
@@ -18,6 +18,8 @@ pub struct ModScreen
     m_pos: Option<BlockPos>,
     m_data: Vec<u8>,
     m_buttons: RefCell<Vec<ButtonRect>>,
+    // where the mouse was this frame, container layers are drawn without it
+    m_mouse: Cell<[i32; 2]>,
 }
 
 fn state(this: &GuiScreen) -> Rc<ModScreen>
@@ -90,6 +92,16 @@ const PLAIN: GuiScreenClass = GuiScreenClass {
         let origin: (i32, i32) = ((this.m_width.get() - spec.width) / 2, (this.m_height.get() - spec.height) / 2);
         click(screen, mouseX, mouseY, button, origin);
     },
+    // GuiScreen.mouseMovedOrUp passes button -1 for moves so only releases reach the guest
+    mouseMovedOrUp: |this, mouseX, mouseY, button| {
+        let screen: &ModScreen = plainState(this);
+        let spec = &screen.m_screen.m_spec;
+        let origin: (i32, i32) = ((this.m_width.get() - spec.width) / 2, (this.m_height.get() - spec.height) / 2);
+        if button >= 0
+        {
+            send(screen, ScreenOp::Release { x: mouseX - origin.0, y: mouseY - origin.1, button });
+        }
+    },
     keyTyped: |this, chr, key| {
         send(plainState(this), ScreenOp::Key { character: chr as u32, key });
         (GUI_SCREEN.keyTyped)(this, chr, key);
@@ -125,7 +137,11 @@ const CONTAINER: GuiScreenClass = GuiScreenClass {
             let fields = gui_container::fields(this);
             this.m_gui.drawTexturedModalRect(origin.0, origin.1, 0, 0, fields.m_xSize.get(), fields.m_ySize.get());
         }
-        paint(&mc, &screen, origin, [0, 0], partial);
+        paint(&mc, &screen, origin, screen.m_mouse.get(), partial);
+    },
+    drawScreen: |this, mouseX, mouseY, partial| {
+        state(this).m_mouse.set([mouseX, mouseY]);
+        (GUI_CONTAINER.drawScreen)(this, mouseX, mouseY, partial);
     },
     drawGuiContainerForegroundLayer: |this| {
         let screen: Rc<ModScreen> = state(this);
@@ -152,15 +168,26 @@ pub fn plain(screen: Rc<ScreenType>, pos: Option<BlockPos>, data: Vec<u8>) -> Rc
 {
     GuiScreen::construct(
         &PLAIN,
-        Box::new(ModScreen { m_screen: screen, m_pos: pos, m_data: data, m_buttons: RefCell::new(Vec::new()) }),
+        Box::new(ModScreen {
+            m_screen: screen,
+            m_pos: pos,
+            m_data: data,
+            m_buttons: RefCell::new(Vec::new()),
+            m_mouse: Cell::new([0, 0]),
+        }),
     )
 }
 
 pub fn container(screen: Rc<ScreenType>, menu: Rc<Container>, pos: Option<BlockPos>, data: Vec<u8>) -> Rc<GuiScreen>
 {
     let (width, height): (i32, i32) = (screen.m_spec.width, screen.m_spec.height);
-    let state: Rc<dyn std::any::Any> =
-        Rc::new(ModScreen { m_screen: screen, m_pos: pos, m_data: data, m_buttons: RefCell::new(Vec::new()) });
+    let state: Rc<dyn std::any::Any> = Rc::new(ModScreen {
+        m_screen: screen,
+        m_pos: pos,
+        m_data: data,
+        m_buttons: RefCell::new(Vec::new()),
+        m_mouse: Cell::new([0, 0]),
+    });
     let gui: Rc<GuiScreen> = gui_container::construct(&CONTAINER, menu, ContainerScreen::Mod { m_state: state });
     gui_container::fields(&gui).m_xSize.set(width);
     gui_container::fields(&gui).m_ySize.set(height);

@@ -43,9 +43,11 @@ pub fn heal(this: &Rc<Entity>, amount: i32)
         return;
     }
     living.m_health.set(living.m_health.get() + amount);
-    if living.m_health.get() > 20
+    // rewrite: the cap of 20 comes from the max health hook so mods can raise it
+    let max: i32 = crate::hooks::maxHealth(this);
+    if living.m_health.get() > max
     {
-        living.m_health.set(20);
+        living.m_health.set(max);
     }
     this.m_heartsLife.set(living.m_heartsHalvesLife.get() / 2);
 }

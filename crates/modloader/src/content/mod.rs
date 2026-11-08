@@ -60,6 +60,16 @@ pub fn blockData(id: i32) -> Option<Rc<BlockData>> { TABLES.with(|tables| tables
 
 pub fn itemData(id: i32) -> Option<Rc<ItemData>> { TABLES.with(|tables| tables.borrow().m_items.get(&id).cloned()) }
 
+// the now playing line of a mod disc, by its streaming sound
+pub fn recordTitle(sound: &str) -> Option<String>
+{
+    TABLES.with(|tables| {
+        tables.borrow().m_items.values().find_map(|data| {
+            data.m_spec.record.as_ref().filter(|record| record.sound == sound).map(|record| record.title.clone())
+        })
+    })
+}
+
 pub fn fuel(id: i32) -> Option<i32> { TABLES.with(|tables| tables.borrow().m_fuel.get(&id).copied()) }
 
 pub fn hasBlockTools() -> bool

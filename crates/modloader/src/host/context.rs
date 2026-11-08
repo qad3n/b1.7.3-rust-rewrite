@@ -9,6 +9,32 @@ use std::rc::{Rc, Weak};
 thread_local! {
     static WORLDS: RefCell<HashMap<i32, Weak<World>>> = RefCell::new(HashMap::new());
     static CURRENT: RefCell<Vec<Rc<World>>> = const { RefCell::new(Vec::new()) };
+    // max health mods set, by entity id, entities never raised heal to the vanilla 20
+    static MAX_HEALTH: RefCell<HashMap<i32, i32>> = RefCell::new(HashMap::new());
+    // entities mods made invisible, by entity id
+    static INVISIBLE: RefCell<std::collections::HashSet<i32>> = RefCell::new(std::collections::HashSet::new());
+}
+
+pub fn invisible(entity: i32) -> bool { INVISIBLE.with(|hidden| hidden.borrow().contains(&entity)) }
+
+pub fn setInvisible(entity: i32, hidden: bool)
+{
+    INVISIBLE.with(|set| match hidden
+    {
+        true => set.borrow_mut().insert(entity),
+        false => set.borrow_mut().remove(&entity),
+    });
+}
+
+pub fn maxHealth(entity: i32) -> Option<i32> { MAX_HEALTH.with(|max| max.borrow().get(&entity).copied()) }
+
+pub fn setMaxHealth(entity: i32, health: i32)
+{
+    MAX_HEALTH.with(|max| match health == game::hooks::VANILLA_MAX_HEALTH
+    {
+        true => max.borrow_mut().remove(&entity),
+        false => max.borrow_mut().insert(entity, health),
+    });
 }
 
 pub fn dimension(world: &World) -> i32 { world.worldProvider().m_worldType.get() }

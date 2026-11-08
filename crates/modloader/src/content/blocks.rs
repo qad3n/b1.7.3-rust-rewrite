@@ -277,12 +277,18 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
 pub fn requestTextures(spec: &BlockSpec)
 {
     let faces: Option<&FaceTextures> = spec.textures.as_ref();
-    let bed = spec.bed.iter().flat_map(|bed| [&bed.top_head, &bed.top_foot, &bed.side_head, &bed.side_foot, &bed.end_head, &bed.end_foot, &bed.bottom]);
-    let all = spec.texture.iter().chain(
-        faces
-            .into_iter()
-            .flat_map(|faces| [&faces.top, &faces.bottom, &faces.side, &faces.front].into_iter().flatten()),
-    ).chain(bed);
+    let bed = spec.bed.iter().flat_map(|bed| {
+        [&bed.top_head, &bed.top_foot, &bed.side_head, &bed.side_foot, &bed.end_head, &bed.end_foot, &bed.bottom]
+    });
+    let all = spec
+        .texture
+        .iter()
+        .chain(
+            faces
+                .into_iter()
+                .flat_map(|faces| [&faces.top, &faces.bottom, &faces.side, &faces.front].into_iter().flatten()),
+        )
+        .chain(bed);
     for texture in all
     {
         crate::atlas::request(Atlas::Terrain, texture);
@@ -399,8 +405,16 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
             m_owner: owner,
             m_faces: faces(&spec, sprite),
             m_bed: spec.bed.as_ref().map(|bed| {
-                [&bed.top_head, &bed.top_foot, &bed.side_head, &bed.side_foot, &bed.end_head, &bed.end_foot, &bed.bottom]
-                    .map(|texture| slot(Some(texture), sprite))
+                [
+                    &bed.top_head,
+                    &bed.top_foot,
+                    &bed.side_head,
+                    &bed.side_foot,
+                    &bed.end_head,
+                    &bed.end_foot,
+                    &bed.bottom,
+                ]
+                .map(|texture| slot(Some(texture), sprite))
             }),
             m_drops: drops,
             m_tool: spec.tool.clone(),

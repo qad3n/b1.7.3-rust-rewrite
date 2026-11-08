@@ -103,6 +103,23 @@ pub fn draw(mc: &Rc<Minecraft>, list: &DrawList, originX: i32, originY: i32, mou
                 tessellator.draw();
                 GL11::glDisable(GL11::GL_BLEND);
             }
+            DrawOp::Region { texture, x, y, w, h, uv, size } =>
+            {
+                GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+                engine.bindTexture(engine.getTexture(&texturePath(texture)));
+                let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
+                let [left, top] = [(originX + x) as f64, (originY + y) as f64];
+                let [right, bottom] = [left + *w as f64, top + *h as f64];
+                let [u, v, uw, vh] = uv.map(f64::from);
+                let [width, height] = size.map(f64::from);
+                let [u0, v0, u1, v1] = [u / width, v / height, (u + uw) / width, (v + vh) / height];
+                tessellator.startDrawingQuads();
+                tessellator.addVertexWithUV(left, bottom, 0.0, u0, v1);
+                tessellator.addVertexWithUV(right, bottom, 0.0, u1, v1);
+                tessellator.addVertexWithUV(right, top, 0.0, u1, v0);
+                tessellator.addVertexWithUV(left, top, 0.0, u0, v0);
+                tessellator.draw();
+            }
             DrawOp::Item { x, y, stack } =>
             {
                 if let Some(stack) = stackFrom(stack)

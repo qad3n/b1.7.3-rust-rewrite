@@ -4,6 +4,8 @@ use std::path::PathBuf;
 const SOUND_DIR: &str = "sounds";
 
 // mod ogg files are copied out of the mod files once, the sound engine plays files from disk
+const RECORD_DIR: &str = "record";
+
 pub fn files() -> Vec<(String, PathBuf)>
 {
     let Some(paths) = crate::paths()
@@ -39,3 +41,6 @@ pub fn files() -> Vec<(String, PathBuf)>
     }
     found
 }
+
+// mod discs stream from sounds/record like vanilla discs from resources/streaming
+pub fn isRecord(path: &str) -> bool { path.split('/').nth(1) == Some(RECORD_DIR) }

@@ -4,7 +4,7 @@ use crate::render::RenderEngine;
 use game::entity::Entity;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
-use modloader::mod_protocol::abi::{BipedPart, PlayerLayer};
+use modloader::mod_protocol::abi::{BipedPart, ModelOp, PlayerLayer};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -98,6 +98,7 @@ fn drawLayer(main: &ModelBiped, layer: &PlayerLayer, cloak: &mut dyn FnMut(&Mode
             BipedPart::Cloak => cloak(&biped),
         }
     }
+    attachments(&layer.ops);
     GL11::glPopMatrix();
     if layer.blend
     {
@@ -120,5 +121,25 @@ pub fn render(main: &ModelBiped, player: &Rc<Entity>, mut cloak: impl FnMut(&Mod
     for layer in modloader::screens::playerLayers(player)
     {
         drawLayer(main, &layer, &mut cloak);
+    }
+}
+
+// geometry a layer adds beside the biped parts, without parts of its own to pose
+fn attachments(ops: &[ModelOp])
+{
+    for op in ops
+    {
+        match op
+        {
+            ModelOp::Push => GL11::glPushMatrix(),
+            ModelOp::Pop => GL11::glPopMatrix(),
+            ModelOp::Translate([x, y, z]) => GL11::glTranslatef(*x, *y, *z),
+            ModelOp::Rotate(angle, [x, y, z]) => GL11::glRotatef(*angle, *x, *y, *z),
+            ModelOp::Scale([x, y, z]) => GL11::glScalef(*x, *y, *z),
+            ModelOp::Normal([x, y, z]) => GL11::glNormal3f(*x, *y, *z),
+            ModelOp::Quads(vertices) => super::entity_model::drawQuads(vertices),
+            _ =>
+            {}
+        }
     }
 }

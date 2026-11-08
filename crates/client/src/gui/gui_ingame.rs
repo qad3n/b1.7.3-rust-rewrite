@@ -170,10 +170,12 @@ impl GuiIngame
         }
         let i1: i32 = entity_player_sp::getPlayerArmorValue(player);
         let gui: &Gui = &self.m_gui;
-        for j1 in 0..10
+        // rewrite: hearts past ten stack in rows as forge draws a raised max health
+        let rows: HeartRows = HeartRows::of(game::hooks::maxHealth(player));
+        for j1 in 0..rows.m_hearts
         {
             let mut k1: i32 = j - 32;
-            if i1 > 0
+            if i1 > 0 && j1 < HeartRows::PER_ROW
             {
                 let l1: i32 = i / 2 + 91 - j1 * 8 - 9;
                 if j1 * 2 + 1 < i1
@@ -190,7 +192,8 @@ impl GuiIngame
                 }
             }
             let b1: i32 = if flag { 1 } else { 0 };
-            let i2: i32 = i / 2 - 91 + j1 * 8;
+            let i2: i32 = i / 2 - 91 + j1 % HeartRows::PER_ROW * 8;
+            k1 -= rows.lift(j1);
             if k <= 4
             {
                 k1 += self.m_rand.nextIntBounded(2);
@@ -224,7 +227,7 @@ impl GuiIngame
             for i6 in 0..l3 + k4
             {
                 let u: i32 = if i6 < l3 { 16 } else { 25 };
-                gui.drawTexturedModalRect(i / 2 - 91 + i6 * 8, j - 32 - 9, u, 18, 9, 9);
+                gui.drawTexturedModalRect(i / 2 - 91 + i6 * 8, j - 32 - 9 - rows.lift(rows.m_hearts - 1), u, 18, 9, 9);
             }
         }
     }
@@ -482,4 +485,26 @@ impl GuiIngame
         let stringtranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         self.addChatMessage(&stringtranslate.translateKey(s));
     }
+}
+
+// GuiIngameForge.renderHealth: rows of ten hearts, packed closer the more rows there are
+struct HeartRows
+{
+    m_hearts: i32,
+    m_rowHeight: i32,
+}
+
+impl HeartRows
+{
+    const PER_ROW: i32 = 10;
+    const MIN_ROW_HEIGHT: i32 = 3;
+
+    fn of(maxHealth: i32) -> HeartRows
+    {
+        let hearts: i32 = ((maxHealth + 1) / 2).max(Self::PER_ROW);
+        let rows: i32 = (hearts + Self::PER_ROW - 1) / Self::PER_ROW;
+        HeartRows { m_hearts: hearts, m_rowHeight: (Self::PER_ROW - (rows - 2)).max(Self::MIN_ROW_HEIGHT) }
+    }
+
+    fn lift(&self, heart: i32) -> i32 { heart / Self::PER_ROW * self.m_rowHeight }
 }

@@ -20,6 +20,9 @@ pub trait Platform
     // FontRenderer.getStringWidth on a client, nothing to measure on a server
     fn textWidth(&self, _text: &str) -> i32 { 0 }
 
+    // ServerConfigurationManager.isOp on a server, a single player world has no operators to check
+    fn isOp(&self, _player: &Rc<Entity>) -> bool { true }
+
     // a multiplayer client adds server spawned mod entities under the server's entity id
     fn addClientEntity(&self, _id: i32, _entity: Rc<Entity>) -> Result<(), String>
     {
@@ -75,6 +78,8 @@ pub fn flushTeleports()
 }
 
 pub fn screenSize() -> Option<(i32, i32)> { platform().ok()?.screenSize() }
+
+pub fn isOp(player: &Rc<Entity>) -> bool { platform().is_ok_and(|platform| platform.isOp(player)) }
 
 pub fn syncCursor(player: &Rc<Entity>)
 {

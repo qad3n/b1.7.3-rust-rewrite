@@ -629,3 +629,57 @@ side = "server"
 cancellable = false
 result = true
 fires_in = "EntityTrackerEntry::updatePlayerEntity, mod entities wait for the player's handshake and synced data follows vanilla spawns"
+
+[[hook]]
+name = "max_health"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "EntityLiving::heal, EntityPlayer::onLivingUpdate and preparePlayerToSpawn, GuiIngame::renderStatusBars"
+
+[[hook]]
+name = "sky_time"
+version = 1
+kind = "component"
+side = "both"
+cancellable = false
+result = true
+fires_in = "WorldProviderMod::calculateCelestialAngle"
+
+[[hook]]
+name = "screen_release"
+version = 1
+kind = "component"
+side = "client"
+cancellable = false
+result = false
+fires_in = "GuiModScreen::mouseMovedOrUp"
+
+[[hook]]
+name = "invisible"
+version = 1
+kind = "component"
+side = "client"
+cancellable = false
+result = true
+fires_in = "RenderLiving::doRenderLiving and Render::doRenderShadowAndFire"
+
+[[hook]]
+name = "mod_particles"
+version = 1
+kind = "component"
+side = "client"
+cancellable = false
+result = true
+fires_in = "RenderGlobal::spawnParticle for iconcrack_<item>_<damage> and tintportal_<RRGGBB>"
+
+[[hook]]
+name = "dimension_music"
+version = 1
+kind = "component"
+side = "client"
+cancellable = true
+result = false
+fires_in = "SoundManager::playRandomMusicIfReady"

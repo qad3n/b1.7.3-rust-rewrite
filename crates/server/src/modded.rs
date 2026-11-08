@@ -18,12 +18,16 @@ impl modloader::netplay::Platform for ServerPlatform
         let window: i32 = entity_player_mp::currentWindowId(player);
         if !request.m_screen.m_spec.slots.is_empty()
         {
-            let pos = request.m_pos.ok_or("a container screen needs a block position")?;
             let world = player.m_worldObj.get().ok_or("the player is in no world")?;
-            let inventory: Rc<dyn IInventory> = modloader::containers::tileInventory(&world, pos)
-                .ok_or("no mod tile entity inventory at that position")?;
+            let inventory: Rc<dyn IInventory> = match request.m_pos
+            {
+                Some(pos) => modloader::containers::tileInventory(&world, pos)
+                    .ok_or("no mod tile entity inventory at that position")?,
+                None => modloader::containers::scratchInventory(&request.m_screen),
+            };
             let playerInventory: Rc<dyn IInventory> = entity_player::inventory(player);
-            let container = modloader::containers::create(&request.m_screen, playerInventory, inventory);
+            let scratch: bool = request.m_pos.is_none();
+            let container = modloader::containers::create(&request.m_screen, playerInventory, inventory, scratch);
             entity_player_mp::openContainer(player, container);
         }
         let screen: i32 = modloader::screens::numeric(&request.m_screen.m_id).ok_or("unknown screen")?;
@@ -38,6 +42,11 @@ impl modloader::netplay::Platform for ServerPlatform
     }
 
     fn syncCursor(&self, player: &Rc<Entity>) { entity_player_mp::updateHeldItem(player); }
+
+    fn isOp(&self, player: &Rc<Entity>) -> bool
+    {
+        entity_player_mp::mcServer(player).configManager().isOp(entity_player::fields(player).m_username.get().as_ref())
+    }
 }
 
 mod properties

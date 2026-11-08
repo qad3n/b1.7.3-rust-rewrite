@@ -128,6 +128,11 @@ impl SoundManager
 
     pub fn playRandomMusicIfReady(&self)
     {
+        // rewrite: a mod dimension with its own music plays it instead of the vanilla tracks
+        if crate::modded::music::tick(self)
+        {
+            return;
+        }
         if !loaded() || self.options().m_musicVolume.get() == 0.0
         {
             return;
@@ -148,6 +153,38 @@ impl SoundManager
             system.backgroundMusic("BgMusic", &soundPoolEntry.m_soundUrl, &soundPoolEntry.m_soundName, false);
             system.setVolume("BgMusic", self.options().m_musicVolume.get());
             system.play("BgMusic");
+        }
+    }
+
+    // a background track by sound pool name, for mod dimension music, false while sound is off or busy
+    pub fn playMusicNamed(&self, name: &str) -> bool
+    {
+        if !loaded() || self.options().m_musicVolume.get() == 0.0
+        {
+            return false;
+        }
+        let Some(entry) = self.m_soundPoolSounds.getRandomSoundFromSoundPool(name)
+        else
+        {
+            return false;
+        };
+        let system: Rc<SoundSystem> = sndSystem();
+        system.backgroundMusic("BgMusic", &entry.m_soundUrl, &entry.m_soundName, false);
+        system.setVolume("BgMusic", self.options().m_musicVolume.get());
+        system.play("BgMusic");
+        true
+    }
+
+    pub fn musicPlaying(&self) -> bool
+    {
+        loaded() && (sndSystem().playing("BgMusic") || sndSystem().playing("streaming"))
+    }
+
+    pub fn stopMusic(&self)
+    {
+        if loaded() && sndSystem().playing("BgMusic")
+        {
+            sndSystem().stop("BgMusic");
         }
     }
 

@@ -98,7 +98,7 @@ fn armorSlot(spec: &ItemSpec) -> i32
     }
 }
 
-pub const ITEM_TEMPLATES: [ItemTemplate; 10] = [
+pub const ITEM_TEMPLATES: [ItemTemplate; 11] = [
     ItemTemplate { m_name: "stick", m_create: |id, _| Item::basic(id) },
     ItemTemplate {
         m_name: "apple",
@@ -115,6 +115,10 @@ pub const ITEM_TEMPLATES: [ItemTemplate; 10] = [
     ItemTemplate { m_name: "snowball", m_create: |id, _| items::item_snowball::create(id) },
     ItemTemplate { m_name: "shears", m_create: |id, _| items::item_shears::create(id) },
     ItemTemplate { m_name: "iron_helmet", m_create: |id, spec| items::item_armor::create(id, 2, 2, armorSlot(spec)) },
+    ItemTemplate {
+        m_name: "record_13",
+        m_create: |id, spec| items::item_record::create(id, spec.record.as_ref().map_or("13", |record| &record.sound)),
+    },
 ];
 
 // the template a spec gets when it names none
@@ -139,6 +143,10 @@ pub fn defaultItemTemplate(spec: &ItemSpec) -> &'static str
     if spec.armor.is_some()
     {
         return "iron_helmet";
+    }
+    if spec.record.is_some()
+    {
+        return "record_13";
     }
     "stick"
 }

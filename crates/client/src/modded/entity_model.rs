@@ -185,7 +185,7 @@ impl ModModel
     }
 }
 
-fn drawQuads(vertices: &[[f32; 5]])
+pub(crate) fn drawQuads(vertices: &[[f32; 5]])
 {
     let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
     tessellator.startDrawingQuads();

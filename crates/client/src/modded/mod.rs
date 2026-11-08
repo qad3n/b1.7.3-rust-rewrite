@@ -3,14 +3,15 @@ mod draw;
 pub mod entity_model;
 mod menu;
 mod model;
+pub mod music;
+pub mod particles;
 pub mod player_layers;
 mod screen;
 
 use crate::client::Minecraft;
 use crate::gui::{GuiScreen, ScaledResolution};
 use game::entity::{Entity, entity_player};
-use game::inventory::{IInventory, InventoryBasic};
-use jvm::string::JString;
+use game::inventory::IInventory;
 use jvm::throwable::OrNpe;
 pub use menu::{modsButtonVisible, modsScreen, startScreen};
 pub use model::renderModel;
@@ -111,12 +112,9 @@ fn open(mc: &Rc<Minecraft>, request: OpenRequest)
             mc.m_theWorld.get().zip(pos).and_then(|(world, pos)| modloader::containers::tileInventory(&world, pos))
         })
         .flatten();
-    let inventory: Rc<dyn IInventory> = local.unwrap_or_else(|| {
-        let size: i32 = modloader::containers::slotCount(&screenType);
-        Rc::new(InventoryBasic::new(JString::from(screenType.m_spec.title.as_str()), size))
-    });
+    let inventory: Rc<dyn IInventory> = local.unwrap_or_else(|| modloader::containers::scratchInventory(&screenType));
     let playerInventory: Rc<dyn IInventory> = entity_player::inventory(&player);
-    let menu = modloader::containers::create(&screenType, playerInventory, inventory);
+    let menu = modloader::containers::create(&screenType, playerInventory, inventory, pos.is_none());
     mc.displayGuiScreen(Some(screen::container(screenType, Rc::clone(&menu), pos, data)));
     if window != 0
     {

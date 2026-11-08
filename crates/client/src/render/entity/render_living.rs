@@ -65,7 +65,11 @@ fn renderBody(this: &Rc<Render>, entity: &Rc<Entity>, dx: f64, dy: f64, dz: f64,
     this.loadDownloadableImageTexture(skinUrl.as_deref(), texture.as_deref());
     GL11::glEnable(GL11::GL_ALPHA_TEST);
     mainModel.setLivingAnimations(entity, f6, f5, tickDelta);
-    mainModel.render(f6, f5, f3, f1 - f, f2, f4);
+    // rewrite: an invisible entity skips its model, armor passes and the hurt flash still draw
+    if !game::hooks::invisible(entity)
+    {
+        mainModel.render(f6, f5, f3, f1 - f, f2, f4);
+    }
     for i in 0..RENDER_PASSES
     {
         if this.shouldRenderPass(entity, i, tickDelta)

@@ -102,6 +102,44 @@ fn movingBlock(entity: &Entity) -> Option<&game::entity::entity_falling_sand::Fa
     entity.instanceOf("EntityFallingSand").then(|| game::entity::entity_falling_sand::fields(entity))
 }
 
+mod shot
+{
+    pub const NOBODY: i32 = -1;
+    pub const NOT_A_PROJECTILE: i32 = -2;
+    pub const THROWN: [&str; 3] = ["EntitySnowball", "EntityEgg", "EntityFireball"];
+}
+
+fn shooter(entity: &Entity) -> i32
+{
+    let owner: Option<Rc<Entity>> = if entity.instanceOf("EntityArrow")
+    {
+        game::entity::entity_arrow::fields(entity).m_owner.get()
+    }
+    else if shot::THROWN.iter().any(|class| entity.instanceOf(class))
+    {
+        game::entity::entity_snowball::throwable(entity).m_thrower.get()
+    }
+    else
+    {
+        return shot::NOT_A_PROJECTILE;
+    };
+    owner.map_or(shot::NOBODY, |owner| owner.m_entityId.get())
+}
+
+fn setShooter(entity: &Entity, id: i32)
+{
+    let owner: Option<Rc<Entity>> =
+        entity.m_worldObj.get().and_then(|world| context::entityIn(context::dimension(&world), id));
+    if entity.instanceOf("EntityArrow")
+    {
+        game::entity::entity_arrow::fields(entity).m_owner.set(owner);
+    }
+    else if shot::THROWN.iter().any(|class| entity.instanceOf(class))
+    {
+        game::entity::entity_snowball::throwable(entity).m_thrower.set(owner);
+    }
+}
+
 fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
 {
     match field
@@ -150,6 +188,9 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         EntityField::Bottom => HostReply::Float(entity.m_boundingBox.m_minY.get() as f32),
         EntityField::MoveSpeed => HostReply::Float(living(entity).map_or(0.0, |fields| fields.m_moveSpeed.get())),
         EntityField::StepHeight => HostReply::Float(entity.m_stepHeight.get()),
+        EntityField::MaxHealth => HostReply::Float(game::hooks::maxHealth(entity) as f32),
+        EntityField::Invisible => HostReply::Bool(context::invisible(entity.m_entityId.get())),
+        EntityField::Shooter => HostReply::Float(shooter(entity) as f32),
     }
 }
 
@@ -205,6 +246,9 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::Health => living(entity).into_iter().for_each(|fields| fields.m_health.set(value as i32)),
         EntityField::MoveSpeed => living(entity).into_iter().for_each(|fields| fields.m_moveSpeed.set(value as f32)),
         EntityField::StepHeight => entity.m_stepHeight.set(value as f32),
+        EntityField::MaxHealth => context::setMaxHealth(entity.m_entityId.get(), value as i32),
+        EntityField::Invisible => context::setInvisible(entity.m_entityId.get(), value != 0.0),
+        EntityField::Shooter => setShooter(entity, value as i32),
     }
 }
 
@@ -310,6 +354,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         HostCall::BlockEffect { world: dimension, pos, block, meta } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
             world.doEvent(BLOCK_BREAK_EVENT, pos.x, pos.y, pos.z, block + meta * META_SHIFT);
+            Ok(())
+        })),
+        HostCall::DropBlockItems { world: dimension, pos, block, meta } => unit(world(dimension).and_then(|world| {
+            authoritative(&world)?;
+            let block = game::block::Block::byId(block).ok_or_else(|| format!("no block {block}"))?;
+            block.dropBlockAsItem(&world, pos.x, pos.y, pos.z, meta);
             Ok(())
         })),
         HostCall::SetMeta { world: dimension, pos, meta } => unit(world(dimension).and_then(|world| {
@@ -501,6 +551,30 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             crate::netplay::syncCursor(&player);
         })),
         HostCall::TextWidth { text } => HostReply::Int(crate::netplay::textWidth(&text)),
+        HostCall::SetWorldTime { time } =>
+        {
+            context::worlds().iter().for_each(|world| world.setWorldTime(time));
+            HostReply::Unit
+        }
+        HostCall::SetSkyTime { world: dimension, time } =>
+        {
+            crate::worlds::setSkyTime(dimension, time);
+            HostReply::Unit
+        }
+        HostCall::IsOp { player: id } => ok(player(id), |player| HostReply::Bool(crate::netplay::isOp(&player))),
+        HostCall::OpenSlot { player: id, slot } => ok(player(id), |player| {
+            let open = entity_player::fields(&player).m_craftingInventory.get();
+            let stack: Option<Rc<ItemStack>> = open
+                .filter(|container| slot >= 0 && slot < container.m_slots.size())
+                .and_then(|container| container.m_slots.get(slot).getStack());
+            HostReply::Stack(stack.map(|stack| stackData(&stack)))
+        }),
+        HostCall::DisplayName { stack } => HostReply::Text(
+            stackFrom(&stack)
+                .and_then(|stack| stack.getItemName())
+                .map(|name| game::locale::StatCollector::translateToLocal(&format!("{name}.name")))
+                .unwrap_or_default(),
+        ),
         HostCall::Explode { world: dimension, pos, power } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
             world.createExplosion(None, pos[0], pos[1], pos[2], power);

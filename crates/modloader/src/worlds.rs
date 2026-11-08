@@ -21,6 +21,17 @@ thread_local! {
     static BIOMES: RefCell<HashMap<i32, Rc<BiomeGenBase>>> = RefCell::new(HashMap::new());
     // sky color of each mod dimension biome, keyed by the biome object
     static SKIES: RefCell<HashMap<usize, i32>> = RefCell::new(HashMap::new());
+    // times mods pinned a dimension's sky to, by dimension
+    static SKY_TIMES: RefCell<HashMap<i32, i64>> = RefCell::new(HashMap::new());
+}
+
+pub fn setSkyTime(dimension: i32, time: Option<i64>)
+{
+    SKY_TIMES.with(|times| match time
+    {
+        Some(time) => times.borrow_mut().insert(dimension, time),
+        None => times.borrow_mut().remove(&dimension),
+    });
 }
 
 fn biomeKey(biome: &Rc<BiomeGenBase>) -> usize { Rc::as_ptr(biome) as usize }
@@ -249,10 +260,15 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
         })
     },
     getFogColor: fogColor,
+    calculateCelestialAngle: |this, time, tickDelta| {
+        let dimension: i32 = this.m_worldType.get();
+        let shown: i64 = SKY_TIMES.with(|times| times.borrow().get(&dimension).copied()).unwrap_or(time);
+        (WORLD_PROVIDER.calculateCelestialAngle)(this, shown, tickDelta)
+    },
     canCoordinateBeSpawn: |this, x, z| {
         this.world().getChunkFromChunkCoords(x >> 4, z >> 4).getHeightValue(x & 15, z & 15) > 0
     },
-    canRespawnHere: |_| false,
+    canRespawnHere: |this| spec(this).is_some_and(|dimension| dimension.m_spec.beds),
     ..WORLD_PROVIDER
 };
 
