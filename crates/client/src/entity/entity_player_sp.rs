@@ -274,7 +274,7 @@ pub const CLASS: EntityClass = EntityClass {
         let fx: Rc<Entity> = entity_pickup_fx::new(&mc.m_theWorld.get().orNpe(), item, this, -0.5);
         mc.m_effectRenderer.get().orNpe().addEffect(fx);
     },
-    sendChatMessage: |_, _| {},
+    sendChatMessage: |this, line| crate::modded::localChat(mc(this), this, line),
     isSneaking: |this| movementInput(this).m_sneak.get() && !entity_player::fields(this).m_sleeping.get(),
     setHealth,
     respawnPlayer: |this| mc(this).respawn(false, 0),

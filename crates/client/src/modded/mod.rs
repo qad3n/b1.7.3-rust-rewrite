@@ -9,7 +9,7 @@ pub mod player_layers;
 mod screen;
 
 use crate::client::Minecraft;
-use crate::gui::{GuiScreen, ScaledResolution};
+use crate::gui::{GuiIngame, GuiScreen, ScaledResolution};
 use game::entity::{Entity, entity_player};
 use game::inventory::IInventory;
 use game::item::ItemStack;
@@ -135,6 +135,30 @@ pub fn install(mc: &Rc<Minecraft>)
             open(&mc, request);
         }
     }));
+}
+
+const UNKNOWN_COMMAND: &str = "Unknown command, try /help";
+
+// single player has no server, so a slash line runs mod commands here and any other line shows as chat
+pub fn localChat(mc: &Rc<Minecraft>, player: &Rc<Entity>, line: &str)
+{
+    let gui: Rc<GuiIngame> = mc.m_ingameGUI.get().orNpe();
+    let reply: Option<String> = match line.strip_prefix('/')
+    {
+        Some(command) =>
+        {
+            Some(modloader::play::command(command, Some(player), true).unwrap_or_else(|| UNKNOWN_COMMAND.to_owned()))
+        }
+        None => modloader::play::chat(player, line).map(|message| {
+            let name: String =
+                entity_player::fields(player).m_username.get().map(|name| name.to_string()).unwrap_or_default();
+            format!("<{name}> {message}")
+        }),
+    };
+    for row in reply.iter().flat_map(|reply| reply.lines())
+    {
+        gui.addChatMessage(row);
+    }
 }
 
 // mod overlays on a vanilla container screen, drawn in screen space from the container's corner

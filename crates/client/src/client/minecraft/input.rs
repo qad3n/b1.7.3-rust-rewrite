@@ -549,7 +549,9 @@ impl Minecraft
         {
             self.thePlayer().dropCurrentItem();
         }
-        if self.isMultiplayerWorld() && key == settings.m_keyBindChat.m_keyCode.get()
+        // rewrite: with mods loaded single player gets chat too, for mod commands
+        let chat: bool = self.isMultiplayerWorld() || modloader::play::active();
+        if chat && key == settings.m_keyBindChat.m_keyCode.get()
         {
             self.displayGuiScreen(Some(GuiChat::new()));
         }
