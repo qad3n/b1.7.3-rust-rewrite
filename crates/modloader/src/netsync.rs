@@ -523,7 +523,7 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
         Control::Registry(snapshot) =>
         {
             let missing: Vec<String> = crate::remap::apply(&snapshot);
-            let required: Vec<String> = missing
+            let mut required: Vec<String> = missing
                 .into_iter()
                 .filter(|entry| {
                     entry
@@ -533,6 +533,7 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
                         .is_some_and(|namespace| state::byId(namespace).is_none())
                 })
                 .collect();
+            required.extend(crate::states::mismatches(snapshot.registries.get(crate::states::SNAPSHOT_KEY)));
             let ids: usize = snapshot.registries.values().map(BTreeMap::len).sum();
             crate::log::info(crate::log::LOADER, &format!("applied server registry, {ids} ids"));
             if required.is_empty()

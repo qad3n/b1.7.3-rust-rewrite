@@ -98,20 +98,29 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
             registry::with(|registries| {
                 registries
                     .m_blocks
-                    .replace(&id, &owner, registry::BlockEntry { m_spec: Some(spec) })
+                    .replace(&id, &owner, registry::BlockEntry { m_spec: Some(spec), m_page: None })
                     .map_err(registryError)
             })
         })),
+        HostCall::ModifyBlock { spec } => unit(registering().map(|()| crate::modify::queueBlock(&owner, spec))),
+        HostCall::RegisterBlockStates { block, spec } => unit(
+            registering()
+                .and_then(|()| own(runtime, &block.to_string()))
+                .and_then(|block| crate::states::register(block, &spec)),
+        ),
+        HostCall::ModifySpawns { spec } => unit(registering().map(|()| crate::modify::queueSpawn(&owner, spec))),
         HostCall::AddTag { registry, tag, values } =>
         {
             tags::add(registry, tag, values, false);
             HostReply::Unit
         }
         HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
-        HostCall::RegisterWorldgen { name: _, spec } =>
+        HostCall::RegisterWorldgen { name, spec } =>
         {
-            data::registerWorldgen(&owner, spec);
-            HostReply::Unit
+            // abi 2 never checked the name, one outside the namespace still registers under the block's path
+            let fallback: Result<Identifier, String> =
+                Identifier::new(&owner, &format!("worldgen/{}", spec.block.path())).map_err(|error| error.to_string());
+            unit(own(runtime, &name).or(fallback).map(|id| data::registerWorldgen(&owner, id, spec)))
         }
         HostCall::DefineConfig { entries } => unit(runtime.m_config.borrow_mut().define(entries)),
         HostCall::DefineConfigOptions { options } => unit(runtime.m_config.borrow_mut().defineOptions(options)),

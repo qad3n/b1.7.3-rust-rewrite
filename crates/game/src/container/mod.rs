@@ -294,6 +294,7 @@ impl Container
     {
         if itemstack3.m_itemID.get() != itemstack4.m_itemID.get()
             || itemstack3.getHasSubtypes() && itemstack3.getItemDamage() != itemstack4.getItemDamage()
+            || !itemstack3.sameComponents(itemstack4)
         {
             if itemstack4.m_stackSize.get() <= slot1.getSlotStackLimit()
             {
@@ -339,6 +340,7 @@ impl Container
         if itemstack3.m_itemID.get() == itemstack4.m_itemID.get()
             && itemstack4.getMaxStackSize() > 1
             && (!itemstack3.getHasSubtypes() || itemstack3.getItemDamage() == itemstack4.getItemDamage())
+            && itemstack3.sameComponents(itemstack4)
         {
             let j1: i32 = itemstack3.m_stackSize.get();
             if j1 > 0 && j1.wrapping_add(itemstack4.m_stackSize.get()) <= itemstack4.getMaxStackSize()
@@ -407,6 +409,7 @@ impl Container
                 if let Some(itemstack) = itemstack
                     && itemstack.m_itemID.get() == item.m_itemID.get()
                     && (!item.getHasSubtypes() || item.getItemDamage() == itemstack.getItemDamage())
+                    && item.sameComponents(&itemstack)
                 {
                     let j: i32 = itemstack.m_stackSize.get().wrapping_add(item.m_stackSize.get());
                     if j <= item.getMaxStackSize()

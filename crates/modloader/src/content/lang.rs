@@ -7,6 +7,8 @@ pub const LANG_FILE: &str = "lang/en_US.lang";
 struct Tables
 {
     m_loaded: HashMap<String, String>,
+    // the mod whose lang file set each key, so a second mod replacing it is reported
+    m_owners: HashMap<String, String>,
     // names given in specs, used when no lang file has the key
     m_defaults: HashMap<String, String>,
 }
@@ -16,16 +18,24 @@ thread_local! {
 }
 
 // the vanilla key=value format, later files override earlier ones in load order
-pub fn load(text: &str)
+pub fn load(owner: &str, text: &str)
 {
     TABLES.with(|tables| {
         let mut tables = tables.borrow_mut();
         for line in text.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#'))
         {
-            if let Some((key, value)) = line.split_once('=')
+            let Some((key, value)) = line.split_once('=')
+            else
             {
-                tables.m_loaded.insert(key.trim().to_owned(), value.trim().to_owned());
+                continue;
+            };
+            let key: String = key.trim().to_owned();
+            if let Some(previous) = tables.m_owners.insert(key.clone(), owner.to_owned())
+                && previous != owner
+            {
+                crate::log::warn(owner, &format!("lang key {key} from {previous} is replaced"));
             }
+            tables.m_loaded.insert(key, value.trim().to_owned());
         }
     });
 }

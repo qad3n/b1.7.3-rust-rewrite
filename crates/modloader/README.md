@@ -44,6 +44,14 @@ Logs go to `logs/client.log` in the game folder and `logs/server.log` next to `s
 - A `.b173mod` file is a zip. It holds a `mod.toml` manifest, optional `data/` and `assets/` folders, and an optional `mod.wasm` with code.
 - On start the loader reads every mod, checks versions and dependencies, and sorts them into load order. Then it adds their blocks, items, recipes and other content to the game's registries.
 - Blocks and items have names like `ruby:ruby_ore`, not fixed numbers. The loader picks the numbers and saves them in each world, so adding or removing mods doesn't scramble a save. Content from a removed mod becomes a placeholder, and the loader makes one backup of the world first.
+- With mods installed, worlds save blocks and items by name. Chunks store a palette of block names per 16-high section, and item stacks store their item's name. If a world is opened without mods, it still loads from the saved numbers.
+- Blocks can have named states such as `facing=north,lit=true`. A block can have up to 256 states. Past 16, the loader uses extra hidden ids.
+- Mods never overwrite each other's data:
+  - Data a mod keeps on entities, players, tile entities, chunks, the world and item stacks has one slot per mod.
+  - Item stacks with different mod data don't stack together.
+- Changes to blocks a mod doesn't own (hardness, light, flammability, tool) and to spawn lists run in a separate step, in load order. When two mods change the same thing, the Mod Loader screen shows it under "Block changes".
+- A mod's ores and plants are seeded from their names. Adding or removing another mod doesn't move them in new chunks.
+- Mod commands also answer to `/<modid>:<name>`. If two mods want the same short name, the first one in load order gets it.
 - Mod code runs as WebAssembly in a sandbox. If a mod crashes or hangs, the loader turns that mod off and the game keeps running.
 - Mods hook the game through events and behaviors. Many mods can listen to the same event, so they don't overwrite each other.
 - On join, the server sends its mod list and registry ids to the client before play starts.
@@ -100,6 +108,25 @@ Put TOML files under `data/<modid>/`:
 - `recipes/`: shaped, shapeless, smelting and fuel.
 - `worldgen/`: ore and plant generation.
 - `tags/`: groups such as `c:ores/ruby`.
+- `states/`: named states for one of your blocks. See below.
+- `modify/blocks/`, `modify/spawns/`: changes to blocks and spawn lists you don't own.
+
+Each file under `modify/blocks/` changes one block, vanilla or another mod's:
+
+```toml
+target = "minecraft:bookshelf"
+flammability = { encouragement = 30, flammability = 20 }
+```
+
+`data/<modid>/states/<block>.toml` gives your block named states:
+
+```toml
+properties = [{ name = "lit", values = ["false", "true"] }]
+default = { lit = "false" }
+variants = [{ when = { lit = "true" }, texture = "ruby:block/ruby_lamp_on" }]
+```
+
+To make pickaxes, axes or shovels mine your block at full speed, add it to the tag `minecraft:mineable/pickaxe`, `minecraft:mineable/axe` or `minecraft:mineable/shovel`.
 
 A block:
 

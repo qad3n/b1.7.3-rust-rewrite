@@ -1,7 +1,9 @@
 use crate::discovery::Source;
 use crate::registry::{BlockEntry, ItemEntry, RecipeEntry};
 use mod_protocol::Identifier;
-use mod_protocol::spec::{BlockSpec, ItemSpec, RecipeSpec, TagSpec, WorldgenSpec};
+use mod_protocol::spec::{
+    BlockModifySpec, BlockSpec, BlockStatesSpec, ItemSpec, RecipeSpec, SpawnModifySpec, TagSpec, WorldgenSpec,
+};
 use serde::de::DeserializeOwned;
 use std::cell::RefCell;
 
@@ -10,7 +12,7 @@ const TOML: &str = ".toml";
 
 thread_local! {
     // worldgen applies after freeze, when block ids exist
-    static PENDING_WORLDGEN: RefCell<Vec<(String, WorldgenSpec)>> = const { RefCell::new(Vec::new()) };
+    static PENDING_WORLDGEN: RefCell<Vec<(String, Identifier, WorldgenSpec)>> = const { RefCell::new(Vec::new()) };
 }
 
 fn parse<T: DeserializeOwned>(source: &mut Source, name: &str) -> Result<T, String>
@@ -44,7 +46,7 @@ pub fn registerBlock(id: Identifier, owner: &str, spec: BlockSpec) -> Result<(),
     crate::registry::with(|registries| -> Result<(), String> {
         registries
             .m_blocks
-            .register(id.clone(), owner, BlockEntry { m_spec: Some(spec) })
+            .register(id.clone(), owner, BlockEntry { m_spec: Some(spec), m_page: None })
             .map_err(|error| error.to_string())?;
         registries
             .m_items
@@ -82,12 +84,13 @@ pub fn registerRecipe(id: Identifier, owner: &str, spec: RecipeSpec) -> Result<(
     })
 }
 
-pub fn registerWorldgen(owner: &str, spec: WorldgenSpec)
+// the feature's identifier seeds its random, so adding or removing other mods never moves its ores
+pub fn registerWorldgen(owner: &str, id: Identifier, spec: WorldgenSpec)
 {
-    PENDING_WORLDGEN.with(|list| list.borrow_mut().push((owner.to_owned(), spec)));
+    PENDING_WORLDGEN.with(|list| list.borrow_mut().push((owner.to_owned(), id, spec)));
 }
 
-pub fn takeWorldgen() -> Vec<(String, WorldgenSpec)>
+pub fn takeWorldgen() -> Vec<(String, Identifier, WorldgenSpec)>
 {
     PENDING_WORLDGEN.with(|list| list.borrow_mut().drain(..).collect())
 }
@@ -115,7 +118,20 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             "blocks" => parse::<BlockSpec>(source, &name).and_then(|spec| registerBlock(id, modId, spec)),
             "items" => parse::<ItemSpec>(source, &name).and_then(|spec| registerItem(id, modId, spec)),
             "recipes" => parse::<RecipeSpec>(source, &name).and_then(|spec| registerRecipe(id, modId, spec)),
-            "worldgen" => parse::<WorldgenSpec>(source, &name).map(|spec| registerWorldgen(modId, spec)),
+            "states" => parse::<BlockStatesSpec>(source, &name).and_then(|spec| crate::states::register(id, &spec)),
+            "worldgen" => parse::<WorldgenSpec>(source, &name).map(|spec| registerWorldgen(modId, id, spec)),
+            "modify" => match path.split_once('/')
+            {
+                Some(("blocks", _)) =>
+                {
+                    parse::<BlockModifySpec>(source, &name).map(|spec| crate::modify::queueBlock(modId, spec))
+                }
+                Some(("spawns", _)) =>
+                {
+                    parse::<SpawnModifySpec>(source, &name).map(|spec| crate::modify::queueSpawn(modId, spec))
+                }
+                _ => Err(format!("{name} needs modify/blocks/<name>.toml or modify/spawns/<name>.toml")),
+            },
             "tags" =>
             {
                 let (folder, tagPath) =
@@ -136,7 +152,7 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
     {
         match source.read(&name).map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
         {
-            Some(text) => super::lang::load(&text),
+            Some(text) => super::lang::load(modId, &text),
             None => problems.push(format!("{name} could not be read")),
         }
     }

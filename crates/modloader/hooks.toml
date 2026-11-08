@@ -683,3 +683,39 @@ side = "client"
 cancellable = true
 result = false
 fires_in = "SoundManager::playRandomMusicIfReady"
+
+[[hook]]
+name = "block_palette"
+version = 1
+kind = "storage"
+side = "both"
+cancellable = false
+result = true
+fires_in = "ChunkLoader::storeChunkInCompound and loadChunkIntoWorldFromCompound via block_palette, LoaderHooks::blockName and blockByName"
+
+[[hook]]
+name = "item_name"
+version = 1
+kind = "storage"
+side = "both"
+cancellable = false
+result = true
+fires_in = "ItemStack::writeToNBT and readFromNBT, LoaderHooks::itemName and itemByName"
+
+[[hook]]
+name = "stack_components"
+version = 1
+kind = "storage"
+side = "both"
+cancellable = false
+result = false
+fires_in = "ItemStack::writeToNBT, readFromNBT, copy, splitStack, isItemEqual and the merge checks in Container and InventoryPlayer"
+
+[[hook]]
+name = "attachments"
+version = 1
+kind = "storage"
+side = "server"
+cancellable = false
+result = false
+fires_in = "TileEntity::readFromNBT and writeToNBT, ChunkLoader chunk save and load"

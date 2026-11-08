@@ -40,6 +40,7 @@ const DARK_GREY: i32 = 0x808080;
 const ELLIPSIS: &str = "...";
 const LOADER_TITLE: &str = "Mod Loader";
 const KEY_CONFLICT_TITLE: &str = "Key conflicts";
+const MODIFY_CONFLICT_TITLE: &str = "Block changes";
 const CONFIG_HINT: &str = "click a mod to change its config";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -248,6 +249,12 @@ fn entries(font: &FontRenderer) -> Vec<Entry>
         let details: Vec<(String, i32)> =
             conflicts.into_iter().map(|(first, second)| (format!("{first} and {second}"), RED)).collect();
         entries.push(entry(font, KEY_CONFLICT_TITLE, Status::Warning, details));
+    }
+    let changes: Vec<String> = modloader::modify::conflicts();
+    if !changes.is_empty()
+    {
+        let details: Vec<(String, i32)> = changes.into_iter().map(|change| (change, RED)).collect();
+        entries.push(entry(font, MODIFY_CONFLICT_TITLE, Status::Warning, details));
     }
     entries
 }

@@ -9,6 +9,8 @@ pub enum HookKind
 {
     Event,
     Component,
+    // save and load sites where the loader names blocks and items and keeps per mod data
+    Storage,
 }
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]

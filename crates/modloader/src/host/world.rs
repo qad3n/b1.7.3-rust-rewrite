@@ -9,7 +9,7 @@ use game::item::ItemStack;
 use game::math::AxisAlignedBB;
 use game::tileentity::TileEntity;
 use game::world::World;
-use mod_protocol::abi::{BlockInfo, BlockPos, EntityField, HostCall, HostReply};
+use mod_protocol::abi::{BlockInfo, BlockPos, EntityField, HostCall, HostReply, StackRef};
 use std::rc::Rc;
 
 fn world(dimension: i32) -> Result<Rc<World>, String>
@@ -54,6 +54,45 @@ fn modTile(dimension: i32, pos: BlockPos) -> Result<Rc<TileEntity>, String>
         return Err(format!("the tile entity at {pos:?} is not a mod tile entity"));
     }
     Ok(tile)
+}
+
+fn anyTile(dimension: i32, pos: BlockPos) -> Result<Rc<TileEntity>, String>
+{
+    world(dimension)?.getBlockTileEntity(pos.x, pos.y, pos.z).ok_or_else(|| format!("no tile entity at {pos:?}"))
+}
+
+fn attachment(slots: &std::cell::RefCell<common::nbt::attachments::Attachments>, owner: &str) -> HostReply
+{
+    HostReply::Bytes(slots.borrow().get(owner).cloned().unwrap_or_default())
+}
+
+// an empty value removes the slot, so a cleared attachment leaves no trace in the save
+fn setAttachment(slots: &std::cell::RefCell<common::nbt::attachments::Attachments>, owner: &str, data: Vec<u8>)
+{
+    let mut slots = slots.borrow_mut();
+    if data.is_empty()
+    {
+        slots.remove(owner);
+    }
+    else
+    {
+        slots.insert(owner.to_owned(), data);
+    }
+}
+
+fn stackAt(at: StackRef) -> Result<Rc<game::item::ItemStack>, String>
+{
+    let stack: Option<Rc<game::item::ItemStack>> = match at
+    {
+        StackRef::Held { player: id } => heldStack(&player(id)?),
+        StackRef::Inventory { player: id, slot } =>
+        {
+            let owner: Rc<Entity> = player(id)?;
+            entity_player::inventory(&owner).getStackInSlot(slot)
+        }
+        StackRef::Tile { world: dimension, pos, slot } => inventoryTile(dimension, pos)?.getStackInSlot(slot),
+    };
+    stack.ok_or_else(|| format!("no stack at {at:?}"))
 }
 
 // any tile with an inventory, a mod tile or a vanilla chest, furnace or dispenser
@@ -272,12 +311,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         }
         HostCall::SyncedData { world: dimension, id } =>
         {
-            ok(entity(dimension, id), |entity| HostReply::Bytes(crate::entities::synced(&entity)))
+            ok(entity(dimension, id), |entity| HostReply::Bytes(crate::entities::synced(&entity, runtime.id())))
         }
         // only the dedicated server broadcasts, single player and a client keep the bytes local
         HostCall::SetSyncedData { world: dimension, id, data } =>
         {
-            unit(entity(dimension, id).map(|entity| crate::entities::publishSynced(&entity, data)))
+            unit(entity(dimension, id).map(|entity| crate::entities::publishSynced(&entity, runtime.id(), data)))
         }
         HostCall::EntityField { world: dimension, id, field } =>
         {
@@ -351,6 +390,31 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 HostReply::Bool(changed)
             })
         }
+        HostCall::BlockState { world: dimension, pos } => ok(world(dimension), |world| {
+            let block: i32 = world.getBlockId(pos.x, pos.y, pos.z);
+            HostReply::State(crate::states::describe(block, world.getBlockMetadata(pos.x, pos.y, pos.z)))
+        }),
+        HostCall::SetBlockState { world: dimension, pos, state, notify } =>
+        {
+            let target: Result<(i32, i32), String> =
+                crate::states::resolve(&state).ok_or_else(|| format!("{} is not a registered block", state.block));
+            ok(
+                world(dimension)
+                    .and_then(|world| authoritative(&world).map(|()| world))
+                    .and_then(|world| target.map(|target| (world, target))),
+                |(world, (block, meta))| {
+                    let changed: bool = if notify
+                    {
+                        world.setBlockAndMetadataWithNotify(pos.x, pos.y, pos.z, block, meta)
+                    }
+                    else
+                    {
+                        world.setBlockAndMetadata(pos.x, pos.y, pos.z, block, meta)
+                    };
+                    HostReply::Bool(changed)
+                },
+            )
+        }
         HostCall::BlockEffect { world: dimension, pos, block, meta } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
             world.doEvent(BLOCK_BREAK_EVENT, pos.x, pos.y, pos.z, block + meta * META_SHIFT);
@@ -398,6 +462,28 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             tile.onInventoryChanged();
             crate::network::sync::tileChanged(&tile);
         })),
+        HostCall::TileAttachment { world: dimension, pos } =>
+        {
+            ok(anyTile(dimension, pos), |tile| attachment(&tile.m_attachments, runtime.id()))
+        }
+        HostCall::SetTileAttachment { world: dimension, pos, data } => unit(anyTile(dimension, pos).map(|tile| {
+            setAttachment(&tile.m_attachments, runtime.id(), data);
+            if let Some(world) = tile.m_worldObj.get()
+            {
+                world.getChunkFromBlockCoords(pos.x, pos.z).setChunkModified();
+            }
+        })),
+        HostCall::ChunkAttachment { world: dimension, chunk_x, chunk_z } => ok(world(dimension), |world| {
+            attachment(&world.getChunkFromChunkCoords(chunk_x, chunk_z).m_attachments, runtime.id())
+        }),
+        HostCall::SetChunkAttachment { world: dimension, chunk_x, chunk_z, data } =>
+        {
+            unit(world(dimension).map(|world| {
+                let chunk = world.getChunkFromChunkCoords(chunk_x, chunk_z);
+                setAttachment(&chunk.m_attachments, runtime.id(), data);
+                chunk.setChunkModified();
+            }))
+        }
         HostCall::TileSlot { world: dimension, pos, slot } => ok(inventoryTile(dimension, pos), |tile| {
             HostReply::Stack(tile.getStackInSlot(slot).map(|stack| stackData(&stack)))
         }),
@@ -514,6 +600,25 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             }
             Ok(())
         })),
+        HostCall::StackComponent { at, component } => ok(stackAt(at), |stack| {
+            HostReply::Bytes(stack.m_components.borrow().get(&component.to_string()).cloned().unwrap_or_default())
+        }),
+        HostCall::SetStackComponent { at, component, data } =>
+        {
+            let owned: Result<(), String> = if component.namespace() == runtime.id()
+            {
+                Ok(())
+            }
+            else
+            {
+                Err(format!("{component} is outside the namespace {}", runtime.id()))
+            };
+            unit(
+                owned
+                    .and_then(|()| stackAt(at))
+                    .map(|stack| setAttachment(&stack.m_components, &component.to_string(), data)),
+            )
+        }
         HostCall::HeldStack { player: id } =>
         {
             ok(player(id), |player| HostReply::Stack(heldStack(&player).map(|stack| stackData(&stack))))

@@ -42,6 +42,8 @@ pub struct Chunk
     pub m_neverSave: Cell<bool>,
     pub m_hasEntities: Cell<bool>,
     pub m_lastSaveTime: Cell<i64>,
+    // rewrite: per mod chunk data, saved under loader:attachments
+    pub m_attachments: std::cell::RefCell<common::nbt::attachments::Attachments>,
 }
 
 impl Chunk
@@ -68,6 +70,7 @@ impl Chunk
             m_neverSave: Cell::new(false),
             m_hasEntities: Cell::new(false),
             m_lastSaveTime: Cell::new(0),
+            m_attachments: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
         }
     }
 

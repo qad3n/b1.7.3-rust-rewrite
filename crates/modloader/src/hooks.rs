@@ -92,6 +92,28 @@ impl LoaderHooks for Hooks
     fn writeEntityData(&self, entity: &Rc<Entity>, nbt: &NBTTagCompound) { crate::entities::writeData(entity, nbt); }
 
     fn readEntityData(&self, entity: &Rc<Entity>, nbt: &NBTTagCompound) { crate::entities::readData(entity, nbt); }
+
+    fn itemName(&self, item: i32) -> Option<String>
+    {
+        crate::registry::with(|registries| registries.m_items.byNumeric(item).map(|row| row.m_id.to_string()))
+            .or_else(|| crate::remap::missingName("item", item).map(|id| id.to_string()))
+    }
+
+    fn itemByName(&self, name: &str) -> Option<i32>
+    {
+        let id: mod_protocol::Identifier = mod_protocol::Identifier::parse(name).ok()?;
+        crate::registry::with(|registries| registries.itemId(&id))
+    }
+
+    fn blockName(&self, block: i32, meta: i32) -> Option<(String, Vec<(String, String)>)>
+    {
+        crate::palette::name(block, meta)
+    }
+
+    fn blockByName(&self, name: &str, properties: &[(String, String)], block: i32, meta: i32) -> Option<(i32, i32)>
+    {
+        crate::palette::resolve(name, properties, block, meta)
+    }
 }
 
 pub fn install()

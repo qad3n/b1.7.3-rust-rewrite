@@ -214,9 +214,13 @@ impl ModInstance
             .get_typed_func(&mut store, exports::ABI)
             .map_err(|_| format!("mod.wasm exports no {}, build it with the b173 SDK", exports::ABI))?;
         let version: u32 = abiVersion.call(&mut store, ()).map_err(|error| format!("{}: {error:#}", exports::ABI))?;
-        if version != abi::ABI_VERSION
+        if !(abi::ABI_MIN_VERSION..=abi::ABI_VERSION).contains(&version)
         {
-            return Err(format!("mod.wasm uses ABI {version}, this loader speaks {}", abi::ABI_VERSION));
+            return Err(format!(
+                "mod.wasm uses ABI {version}, this loader speaks {} to {}",
+                abi::ABI_MIN_VERSION,
+                abi::ABI_VERSION
+            ));
         }
         let missing = |name: &str| format!("mod.wasm exports no {name}");
         let exports: Exports = Exports {

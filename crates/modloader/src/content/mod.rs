@@ -34,6 +34,9 @@ pub struct BlockData
     pub m_bed: Option<[i32; 7]>,
     pub m_drops: Vec<ResolvedDrop>,
     pub m_tool: Option<ToolSpec>,
+    // faces of every named state, indexed by state, for blocks whose states change their textures
+    pub m_stateFaces: Option<Vec<[i32; 6]>>,
+    pub m_page: usize,
 }
 
 pub struct ItemData
@@ -117,6 +120,7 @@ pub fn textureSlot(texture: &str, atlas: crate::atlas::Atlas) -> Option<i32>
 pub fn reset()
 {
     TABLES.with(|tables| *tables.borrow_mut() = Tables::default());
+    crate::states::clearBindings();
     worldgen::clear();
     recipes::removeModded();
 }

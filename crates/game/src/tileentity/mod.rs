@@ -60,6 +60,8 @@ pub const TILE_ENTITY: TileEntityClass = TileEntityClass {
         this.m_xCoord.set(nbt.getInteger("x"));
         this.m_yCoord.set(nbt.getInteger("y"));
         this.m_zCoord.set(nbt.getInteger("z"));
+        // rewrite: mod attachments ride along with every tile entity
+        *this.m_attachments.borrow_mut() = common::nbt::attachments::read(nbt);
     },
     setInventorySlotContents: |_, _, _| notInventory("setInventorySlotContents"),
     updateEntity: |_| {},
@@ -76,6 +78,8 @@ pub const TILE_ENTITY: TileEntityClass = TileEntityClass {
         nbt.setInteger("x", this.m_xCoord.get());
         nbt.setInteger("y", this.m_yCoord.get());
         nbt.setInteger("z", this.m_zCoord.get());
+        // rewrite: mod attachments ride along with every tile entity
+        common::nbt::attachments::write(&this.m_attachments.borrow(), nbt);
     },
 };
 
@@ -89,6 +93,8 @@ pub struct TileEntity
     pub m_yCoord: Cell<i32>,
     pub m_zCoord: Cell<i32>,
     pub m_removed: Cell<bool>,
+    // rewrite: mod data on any tile entity, vanilla ones included, saved under loader:attachments
+    pub m_attachments: std::cell::RefCell<common::nbt::attachments::Attachments>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -203,6 +209,7 @@ impl TileEntity
             m_yCoord: Cell::new(0),
             m_zCoord: Cell::new(0),
             m_removed: Cell::new(false),
+            m_attachments: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
         })
     }
 

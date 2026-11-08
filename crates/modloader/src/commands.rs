@@ -37,6 +37,7 @@ const VANILLA: [&str; 17] = [
     "say",
 ];
 
+// every command answers to /<modid>:<name>, the plain /<name> goes to the first mod in load order that asks for it
 pub fn register(
     modIndex: usize,
     name: &str,
@@ -45,20 +46,28 @@ pub fn register(
     handler: Handle,
 ) -> Result<(), String>
 {
-    if VANILLA.contains(&name)
-    {
-        return Err(format!("/{name} is a vanilla command"));
-    }
+    let owner: String = state::modId(modIndex);
+    let command: Command = Command { m_mod: modIndex, m_handler: handler, m_permission: permission, m_usage: usage };
     COMMANDS.with(|commands| {
         let mut commands = commands.borrow_mut();
-        if let Some(existing) = commands.get(name)
+        let qualified: String = format!("{owner}:{name}");
+        if commands.contains_key(&qualified)
         {
-            return Err(format!("/{name} is already registered by {}", state::modId(existing.m_mod)));
+            return Err(format!("/{qualified} is registered twice"));
         }
-        commands.insert(
-            name.to_owned(),
-            Command { m_mod: modIndex, m_handler: handler, m_permission: permission, m_usage: usage },
-        );
+        commands.insert(qualified.clone(), command.clone());
+        if VANILLA.contains(&name)
+        {
+            crate::log::warn(&owner, &format!("/{name} is a vanilla command, use /{qualified}"));
+        }
+        else if let Some(existing) = commands.get(name)
+        {
+            crate::log::warn(&owner, &format!("/{name} belongs to {}, use /{qualified}", state::modId(existing.m_mod)));
+        }
+        else
+        {
+            commands.insert(name.to_owned(), command);
+        }
         Ok(())
     })
 }

@@ -115,6 +115,7 @@ fn writeNbt(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
         }
     }
     nbt.setCompoundTag(ITEMS, &items);
+    common::nbt::attachments::write(&this.m_attachments.borrow(), nbt);
 }
 
 fn readNbt(this: &Rc<TileEntity>, nbt: &NBTTagCompound)

@@ -12,6 +12,8 @@ pub struct ToolExt
 
 pub fn fields(this: &Item) -> &ToolExt { this.ext::<ToolExt>() }
 
+pub fn effectiveBlocks(this: &Item) -> &[Rc<Block>] { &fields(this).m_blocksEffectiveAgainst }
+
 pub const CLASS: ItemClass = ItemClass {
     m_name: "ItemTool",
     m_parent: Some(&ITEM),

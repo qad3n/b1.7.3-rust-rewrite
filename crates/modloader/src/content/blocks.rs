@@ -23,10 +23,16 @@ fn data(this: &Block) -> Rc<BlockData>
 fn faceTexture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
 {
     let data: Rc<BlockData> = data(this);
+    let side: usize = face.clamp(0, 5) as usize;
+    if let Some(states) = &data.m_stateFaces
+    {
+        let state: usize = data.m_page * crate::states::pages::STATES_PER_ID + (metadata as usize & 15);
+        return states.get(state).map_or(data.m_faces[side], |faces| faces[side]);
+    }
     match data.m_bed
     {
         Some(bed) => bedTexture(&bed, face, metadata),
-        None => data.m_faces[face.clamp(0, 5) as usize],
+        None => data.m_faces[side],
     }
 }
 
@@ -300,9 +306,11 @@ fn slot(texture: Option<&String>, fallback: i32) -> i32
     texture.and_then(|texture| super::textureSlot(texture, Atlas::Terrain)).unwrap_or(fallback)
 }
 
-fn faces(spec: &BlockSpec, sprite: i32) -> [i32; FACES]
+fn faces(spec: &BlockSpec, sprite: i32) -> [i32; FACES] { faceSlots(spec.textures.as_ref(), sprite) }
+
+fn faceSlots(textures: Option<&FaceTextures>, sprite: i32) -> [i32; FACES]
 {
-    let Some(faces) = &spec.textures
+    let Some(faces) = textures
     else
     {
         return [sprite; FACES];
@@ -336,9 +344,53 @@ fn resolveDrops(drops: &[DropSpec]) -> Result<Vec<ResolvedDrop>, String>
         .collect()
 }
 
-fn patch(class: &mut BlockClass, spec: &BlockSpec)
+// a variant's textures apply to every state whose properties match all of its when entries
+fn stateFaces(table: &crate::states::StateTable, base: [i32; FACES]) -> Option<Vec<[i32; FACES]>>
 {
-    if spec.textures.is_some() || spec.bed.is_some()
+    if table.variants().is_empty()
+    {
+        return None;
+    }
+    let faces: Vec<[i32; FACES]> = (0..table.count())
+        .map(|index| {
+            let values: std::collections::BTreeMap<String, String> = table.properties(index);
+            table
+                .variants()
+                .iter()
+                .filter(|variant| variant.when.iter().all(|(key, value)| values.get(key) == Some(value)))
+                .fold(base, |faces, variant| {
+                    let sprite: i32 = slot(variant.texture.as_ref(), faces[0]);
+                    match (&variant.texture, &variant.textures)
+                    {
+                        (_, Some(textures)) => faceSlots(Some(textures), sprite),
+                        (Some(_), None) => [sprite; FACES],
+                        (None, None) => faces,
+                    }
+                })
+        })
+        .collect();
+    Some(faces)
+}
+
+// a hidden page id has no item of its own, what its template would drop as itself drops as the base block
+fn pageIdDropped(this: &Rc<Block>, metadata: i32, random: &jvm::random::Random) -> i32
+{
+    let parent: &BlockClass = this.m_class.m_parent.expect("a derived block class keeps its template");
+    let dropped: i32 = (parent.idDropped)(this, metadata, random);
+    if dropped != this.m_blockID
+    {
+        return dropped;
+    }
+    crate::states::locate(&data(this).m_id, 0).map_or(dropped, |(base, _)| base)
+}
+
+fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize)
+{
+    if page > 0
+    {
+        class.idDropped = pageIdDropped;
+    }
+    if spec.textures.is_some() || spec.bed.is_some() || stated
     {
         class.getBlockTextureFromSideAndMetadata = faceTexture;
     }
@@ -398,10 +450,22 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     let material: Rc<Material> = spec.material.as_deref().and_then(templates::material).unwrap_or_else(Material::rock);
     let sprite: i32 = slot(spec.texture.as_ref(), DEFAULT_SPRITE);
     let drops: Vec<ResolvedDrop> = resolveDrops(spec.drops.as_deref().unwrap_or_default())?;
+    // a hidden page id is the same block as its base, so it saves, drops and renders under the base identifier
+    let (id, page): (Identifier, usize) = row.m_value.m_page.clone().unwrap_or_else(|| (row.m_id.clone(), 0));
+    let table: Option<crate::states::StateTable> = crate::states::table(&id);
+    if table.is_some()
+    {
+        crate::states::bindPage(numeric, &id, page);
+    }
+    let stateFaces: Option<Vec<[i32; FACES]>> =
+        table.as_ref().and_then(|table| stateFaces(table, faces(&spec, sprite)));
+    let stated: bool = stateFaces.is_some();
     super::putBlock(
         numeric,
         BlockData {
-            m_id: row.m_id.clone(),
+            m_stateFaces: stateFaces,
+            m_page: page,
+            m_id: id.clone(),
             m_owner: owner,
             m_faces: faces(&spec, sprite),
             m_bed: spec.bed.as_ref().map(|bed| {
@@ -423,7 +487,7 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     );
     let class: &'static BlockClass =
         crate::classes::deriveBlockClass(templates::templateClass(template), &row.m_id.to_string(), |class| {
-            patch(class, &spec)
+            patch(class, &spec, stated, page)
         });
     let mut block: Rc<Block> = game::hooks::withBlockClass(class, || (template.m_create)(numeric, sprite, material));
     block.m_blockIndexInTexture.set(sprite);
@@ -459,7 +523,7 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     {
         block = block.setTickOnLoad(true);
     }
-    let key: String = format!("{}.{}", row.m_id.namespace(), row.m_id.path().replace('/', "."));
+    let key: String = format!("{}.{}", id.namespace(), id.path().replace('/', "."));
     block = block.setBlockName(&key);
     if let Some(name) = &spec.name
     {
@@ -477,7 +541,10 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     {
         super::putFuel(numeric, ticks);
     }
-    super::items::buildBlockItem(&block, spec.item.as_ref(), owner, &row.m_id)?;
+    if page == 0
+    {
+        super::items::buildBlockItem(&block, spec.item.as_ref(), owner, &row.m_id)?;
+    }
     block.initializeBlock();
     Ok(())
 }

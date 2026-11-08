@@ -13,6 +13,8 @@ pub struct ItemStack
     pub m_animationsToGo: Cell<i32>,
     pub m_itemID: Cell<i32>,
     m_itemDamage: Cell<i32>,
+    // rewrite: typed per stack data from mods by component identifier, stacks merge only when these match
+    pub m_components: std::cell::RefCell<common::nbt::attachments::Attachments>,
 }
 
 impl ItemStack
@@ -45,6 +47,7 @@ impl ItemStack
             m_animationsToGo: Cell::new(0),
             m_itemID: Cell::new(id),
             m_itemDamage: Cell::new(metadata),
+            m_components: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
         })
     }
 
@@ -58,7 +61,7 @@ impl ItemStack
     pub fn splitStack(&self, amount: i32) -> Rc<ItemStack>
     {
         self.m_stackSize.set(self.m_stackSize.get() - amount);
-        ItemStack::withDamage(self.m_itemID.get(), amount, self.m_itemDamage.get())
+        self.withComponents(ItemStack::withDamage(self.m_itemID.get(), amount, self.m_itemDamage.get()))
     }
 
     pub fn getItem(&self) -> Rc<Item> { Item::byIdOrNpe(self.m_itemID.get()) }
@@ -100,6 +103,9 @@ impl ItemStack
         nbt.setShort("id", self.m_itemID.get() as i16);
         nbt.setByte("Count", self.m_stackSize.get() as i8);
         nbt.setShort("Damage", self.m_itemDamage.get() as i16);
+        // rewrite: with mods loaded a stack also saves its item by name and its components
+        crate::hooks::writeItemName(self.m_itemID.get(), nbt);
+        common::nbt::attachments::writeAt(&self.m_components.borrow(), nbt, common::nbt::attachments::COMPONENTS);
         nbt
     }
 
@@ -108,6 +114,12 @@ impl ItemStack
         self.m_itemID.set(nbt.getShort("id") as i32);
         self.m_stackSize.set(nbt.getByte("Count") as i32);
         self.m_itemDamage.set(nbt.getShort("Damage") as i32);
+        // rewrite: a saved name wins over the numeric id, which only a vanilla game or an unknown item falls back to
+        if let Some(id) = crate::hooks::itemByName(nbt)
+        {
+            self.m_itemID.set(id);
+        }
+        *self.m_components.borrow_mut() = common::nbt::attachments::readAt(nbt, common::nbt::attachments::COMPONENTS);
     }
 
     pub fn getMaxStackSize(&self) -> i32 { self.getItem().getItemStackLimit() }
@@ -188,7 +200,19 @@ impl ItemStack
 
     pub fn copy(&self) -> Rc<ItemStack>
     {
-        ItemStack::withDamage(self.m_itemID.get(), self.m_stackSize.get(), self.m_itemDamage.get())
+        self.withComponents(ItemStack::withDamage(self.m_itemID.get(), self.m_stackSize.get(), self.m_itemDamage.get()))
+    }
+
+    fn withComponents(&self, stack: Rc<ItemStack>) -> Rc<ItemStack>
+    {
+        stack.m_components.borrow_mut().clone_from(&self.m_components.borrow());
+        stack
+    }
+
+    // rewrite: stacks with different mod components never merge or compare equal
+    pub fn sameComponents(&self, other: &ItemStack) -> bool
+    {
+        *self.m_components.borrow() == *other.m_components.borrow()
     }
 
     pub fn areItemStacksEqual(stack1: Option<&Rc<ItemStack>>, stack2: Option<&Rc<ItemStack>>) -> bool
@@ -211,12 +235,14 @@ impl ItemStack
         {
             return false;
         }
-        self.m_itemDamage.get() == other.m_itemDamage.get()
+        self.m_itemDamage.get() == other.m_itemDamage.get() && self.sameComponents(other)
     }
 
     pub fn isItemEqual(&self, other: &ItemStack) -> bool
     {
-        self.m_itemID.get() == other.m_itemID.get() && self.m_itemDamage.get() == other.m_itemDamage.get()
+        self.m_itemID.get() == other.m_itemID.get()
+            && self.m_itemDamage.get() == other.m_itemDamage.get()
+            && self.sameComponents(other)
     }
 
     pub fn getItemName(self: &Rc<Self>) -> Option<String> { self.getItem().getItemNameIS(self) }
@@ -249,5 +275,6 @@ impl ItemStack
         self.m_itemID.get() == other.m_itemID.get()
             && self.m_stackSize.get() == other.m_stackSize.get()
             && self.m_itemDamage.get() == other.m_itemDamage.get()
+            && self.sameComponents(other)
     }
 }

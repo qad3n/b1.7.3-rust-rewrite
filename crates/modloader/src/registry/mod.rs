@@ -3,10 +3,10 @@ mod vanilla;
 
 use mod_protocol::Identifier;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 pub use tables::{
     BiomeEntry, BlockEntry, DimensionEntry, EntityEntry, FuelEntry, ItemEntry, PacketEntry, RecipeEntry, Registries,
-    TileEntityEntry,
+    SYNCED_ORDER, TileEntityEntry,
 };
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]
@@ -190,6 +190,56 @@ impl<T> Registry<T>
             .map(|(index, row)| (row.m_numeric, index))
             .collect();
         changes
+    }
+}
+
+// type-erased access so bookkeeping can walk every synced registry from one list
+pub trait SyncedRegistry
+{
+    fn name(&self) -> &'static str;
+    fn snapshot(&self) -> BTreeMap<Identifier, i32>;
+    fn contains(&self, id: &Identifier) -> bool;
+    fn ownsAny(&self, owner: &str) -> bool;
+    fn reassign(&mut self, saved: &BTreeMap<Identifier, i32>, reserved: &BTreeSet<i32>);
+}
+
+impl<T> SyncedRegistry for Registry<T>
+{
+    fn name(&self) -> &'static str { self.m_name }
+
+    fn snapshot(&self) -> BTreeMap<Identifier, i32> { Registry::snapshot(self) }
+
+    fn contains(&self, id: &Identifier) -> bool { self.get(id).is_some() }
+
+    fn ownsAny(&self, owner: &str) -> bool { self.modded().any(|row| row.m_owner == owner) }
+
+    // saved ids win, modded rows whose id a saved row reserves move to the lowest free ids
+    fn reassign(&mut self, saved: &BTreeMap<Identifier, i32>, reserved: &BTreeSet<i32>)
+    {
+        let free: Vec<(Identifier, i32)> = self
+            .modded()
+            .filter(|row| !saved.contains_key(&row.m_id))
+            .filter(|row| reserved.contains(&row.m_numeric))
+            .map(|row| (row.m_id.clone(), row.m_numeric))
+            .collect();
+        let mut map: BTreeMap<Identifier, i32> = saved.clone();
+        let used: BTreeSet<i32> = self
+            .rows()
+            .filter(|row| !free.iter().any(|(id, _)| *id == row.m_id))
+            .map(|row| row.m_numeric)
+            .chain(reserved.iter().copied())
+            .collect();
+        let mut next: i32 = free.iter().map(|(_, numeric)| *numeric).min().unwrap_or(0);
+        for (id, _) in free
+        {
+            while used.contains(&next)
+            {
+                next += 1;
+            }
+            map.insert(id, next);
+            next += 1;
+        }
+        self.remap(&map);
     }
 }
 

@@ -81,6 +81,7 @@ impl InventoryPlayer
                 && stack.m_stackSize.get() < stack.getMaxStackSize()
                 && stack.m_stackSize.get() < self.getInventoryStackLimit()
                 && (!stack.getHasSubtypes() || stack.getItemDamage() == item.getItemDamage())
+                && stack.sameComponents(item)
             {
                 return i;
             }

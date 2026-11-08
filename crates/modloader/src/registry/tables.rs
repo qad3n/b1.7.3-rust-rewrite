@@ -1,16 +1,20 @@
-use super::Registry;
 use super::vanilla::{self, BIOME_NAMES, BLOCK_NAMES, DIMENSIONS, ITEM_NAMES, RECORD_NAMES};
+use super::{Registry, SyncedRegistry};
 use game::block::Block;
 use game::crafting::{CraftingManager, FurnaceRecipes};
 use game::entity::EntityList;
-use game::item::Item;
+use game::item::{Item, ItemStack};
 use game::tileentity::TileEntityKind;
 use mod_protocol::Identifier;
 use mod_protocol::spec::{BlockSpec, EntitySpec, ItemSpec, RecipeSpec, TileEntitySpec};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 pub struct BlockEntry
 {
     pub m_spec: Option<BlockSpec>,
+    // set for the hidden extra ids of a block with more than 16 states, the block and which page of states
+    pub m_page: Option<(Identifier, usize)>,
 }
 
 pub struct ItemEntry
@@ -51,6 +55,21 @@ pub struct PacketEntry
 pub struct DimensionEntry;
 
 pub struct BiomeEntry;
+
+// later recipes for the same output take a numbered suffix in recipe list order
+fn unique(taken: &mut HashMap<String, i32>, name: String) -> String
+{
+    let count: &mut i32 = taken.entry(name.clone()).or_insert(0);
+    *count += 1;
+    match *count
+    {
+        1 => name,
+        n => format!("{name}_{n}"),
+    }
+}
+
+// registries whose numeric ids reach saves or the wire, blocks before items because block items share ids
+pub const SYNCED_ORDER: [&str; 6] = ["block", "item", "entity", "tile_entity", "dimension", "biome"];
 
 // each registry mirrors a game lookup table, the game arrays stay the hot path caches filled at freeze
 pub struct Registries
@@ -104,7 +123,7 @@ impl Registries
         {
             if Block::byId(id as i32).is_some()
             {
-                self.m_blocks.seed(Identifier::minecraft(name), id as i32, BlockEntry { m_spec: None });
+                self.m_blocks.seed(Identifier::minecraft(name), id as i32, BlockEntry { m_spec: None, m_page: None });
             }
         }
         for (index, name) in ITEM_NAMES.iter().enumerate()
@@ -155,24 +174,21 @@ impl Registries
 
     fn seedRecipes(&mut self)
     {
-        let count: i32 = CraftingManager::getInstance().getRecipeList().size();
-        for index in 0..count
+        let list = CraftingManager::getInstance().getRecipeList();
+        let mut taken: HashMap<String, i32> = HashMap::new();
+        for index in 0..list.size()
         {
-            self.m_recipes.seed(
-                Identifier::minecraft(&format!("crafting/{index}")),
-                index,
-                RecipeEntry { m_spec: None },
-            );
+            let output: Rc<ItemStack> = list.get(index).getRecipeOutput();
+            let name: String = format!("crafting/{}", self.outputName(output.m_itemID.get(), output.getItemDamage()));
+            let id: Identifier = Identifier::minecraft(&unique(&mut taken, name));
+            self.m_recipes.seed(id, index, RecipeEntry { m_spec: None });
         }
         let mut inputs: Vec<i32> = FurnaceRecipes::smelting().getSmeltingList().borrow().keys();
         inputs.sort_unstable();
         for input in inputs
         {
-            self.m_smelting.seed(
-                Identifier::minecraft(&format!("smelting/{input}")),
-                input,
-                RecipeEntry { m_spec: None },
-            );
+            let name: String = format!("smelting/{}", self.outputName(input, 0));
+            self.m_smelting.seed(Identifier::minecraft(&name), input, RecipeEntry { m_spec: None });
         }
         for (name, ticks) in [("stick", 100), ("coal", 1600), ("lava_bucket", 20000), ("sapling", 100)]
         {
@@ -184,6 +200,18 @@ impl Registries
         }
     }
 
+    // the item path, with the damage value when a recipe makes a variant such as a dye colour
+    fn outputName(&self, item: i32, damage: i32) -> String
+    {
+        let path: String =
+            self.m_items.byNumeric(item).map_or_else(|| item.to_string(), |row| row.m_id.path().to_owned());
+        match damage
+        {
+            0 => path,
+            _ => format!("{path}_{damage}"),
+        }
+    }
+
     fn seedPackets(&mut self)
     {
         for (numeric, clientbound, serverbound) in game::network::packet::packetRows()
@@ -191,6 +219,23 @@ impl Registries
             let entry: PacketEntry = PacketEntry { m_clientbound: clientbound, m_serverbound: serverbound };
             self.m_packets.seed(Identifier::minecraft(&format!("packet/{numeric}")), numeric, entry);
         }
+    }
+
+    pub fn synced(&self) -> [&dyn SyncedRegistry; 6]
+    {
+        [&self.m_blocks, &self.m_items, &self.m_entities, &self.m_tileEntities, &self.m_dimensions, &self.m_biomes]
+    }
+
+    pub fn syncedMut(&mut self) -> [&mut dyn SyncedRegistry; 6]
+    {
+        [
+            &mut self.m_blocks,
+            &mut self.m_items,
+            &mut self.m_entities,
+            &mut self.m_tileEntities,
+            &mut self.m_dimensions,
+            &mut self.m_biomes,
+        ]
     }
 
     pub fn blockId(&self, id: &Identifier) -> Option<i32> { self.m_blocks.numeric(id) }
@@ -216,6 +261,10 @@ mod tests
         assert_eq!(registries.itemId(&Identifier::minecraft("record_cat")), Some(2257));
         assert_eq!(registries.m_entities.numeric(&Identifier::minecraft("pig_zombie")), Some(57));
         assert!(registries.m_recipes.rowCount() > 50);
+        assert!(registries.m_recipes.get(&Identifier::minecraft("crafting/torch")).is_some());
+        assert!(registries.m_smelting.get(&Identifier::minecraft("smelting/iron_ore")).is_some());
+        let names: Vec<&str> = registries.synced().iter().map(|registry| registry.name()).collect();
+        assert_eq!(names, SYNCED_ORDER);
         assert_eq!(registries.m_packets.numeric(&Identifier::minecraft("packet/51")), Some(51));
         for row in registries.m_blocks.rows()
         {

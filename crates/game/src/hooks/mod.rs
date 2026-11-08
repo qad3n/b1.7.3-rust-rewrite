@@ -183,6 +183,20 @@ pub trait LoaderHooks
     fn writeEntityData(&self, _entity: &Rc<Entity>, _nbt: &NBTTagCompound) {}
 
     fn readEntityData(&self, _entity: &Rc<Entity>, _nbt: &NBTTagCompound) {}
+
+    fn itemName(&self, _item: i32) -> Option<String> { None }
+
+    fn itemByName(&self, _name: &str) -> Option<i32> { None }
+
+    // the registry name and named properties a stored block id and metadata save as
+    fn blockName(&self, _block: i32, _meta: i32) -> Option<(String, Vec<(String, String)>)> { None }
+
+    // the id and metadata a saved name loads as, given what was stored with it
+    fn blockByName(&self, _name: &str, _properties: &[(String, String)], _block: i32, _meta: i32)
+    -> Option<(i32, i32)>
+    {
+        None
+    }
 }
 
 thread_local! {
@@ -271,6 +285,32 @@ pub fn readEntityData(entity: &Rc<Entity>, nbt: &NBTTagCompound)
         hooks.readEntityData(entity, nbt);
     }
 }
+
+pub fn blockName(block: i32, meta: i32) -> Option<(String, Vec<(String, String)>)> { active()?.blockName(block, meta) }
+
+pub fn blockByName(name: &str, properties: &[(String, String)], block: i32, meta: i32) -> Option<(i32, i32)>
+{
+    active()?.blockByName(name, properties, block, meta)
+}
+
+const ITEM_NAME: &str = "loader:id";
+
+pub fn writeItemName(item: i32, nbt: &NBTTagCompound)
+{
+    if let Some(name) = active().and_then(|hooks| hooks.itemName(item))
+    {
+        nbt.setString(ITEM_NAME, Some(jvm::string::JString::from(name.as_str())));
+    }
+}
+
+pub fn itemByName(nbt: &NBTTagCompound) -> Option<i32>
+{
+    let name: String = nbt.getString(ITEM_NAME)?.to_string();
+    active()?.itemByName(&name)
+}
+
+// with mods loaded chunks save blocks by name, a vanilla game keeps the McRegion arrays
+pub fn savesBlockNames() -> bool { active().is_some() }
 
 // mod content reuses a vanilla constructor while the next constructed object takes a derived class
 macro_rules! class_override {

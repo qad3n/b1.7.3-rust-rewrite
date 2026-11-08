@@ -1,3 +1,4 @@
+mod block_palette;
 mod chunk_file;
 mod chunk_loader;
 mod i_player_file_data;

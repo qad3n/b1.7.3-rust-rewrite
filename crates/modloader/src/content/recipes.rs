@@ -94,6 +94,13 @@ pub fn apply(spec: &RecipeSpec) -> Result<(), String>
         RecipeSpec::Smelting(smelting) =>
         {
             let input: i32 = itemId(&smelting.input)?;
+            if FurnaceRecipes::smelting().getSmeltingList().borrow().containsKey(&input)
+            {
+                crate::log::warn(
+                    crate::log::LOADER,
+                    &format!("smelting {} already has a result, the later recipe replaces it", smelting.input),
+                );
+            }
             FurnaceRecipes::smelting().addSmelting(input, stackOf(&smelting.result)?);
             SMELTED.with(|smelted| smelted.borrow_mut().push(input));
         }

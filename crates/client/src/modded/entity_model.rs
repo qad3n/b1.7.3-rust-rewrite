@@ -273,7 +273,7 @@ fn poseInput(entity: &Rc<Entity>, tickDelta: f32) -> PoseInput
         riding_local: ridingLocal,
         rider_size: entity.m_riddenByEntity.get().map_or(0.0, |rider| rider.m_width.get() + rider.m_height.get()),
         hurt_time: fields.m_hurtTime.get(),
-        synced: modloader::entities::synced(entity),
+        synced: modloader::entities::synced(entity, &modloader::entities::kindNamespace(entity)),
     }
 }
 
@@ -327,7 +327,7 @@ fn objectPoseInput(entity: &Rc<Entity>, tickDelta: f32) -> PoseInput
         riding_local: false,
         rider_size: 0.0,
         hurt_time: 0,
-        synced: modloader::entities::synced(entity),
+        synced: modloader::entities::synced(entity, &modloader::entities::kindNamespace(entity)),
     }
 }
 

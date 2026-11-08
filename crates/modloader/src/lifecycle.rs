@@ -30,7 +30,7 @@ thread_local! {
     static RECIPE_REMOVALS: RefCell<Vec<Identifier>> = const { RefCell::new(Vec::new()) };
     static PENDING_LOOKUPS: RefCell<Vec<(usize, Identifier, Identifier, Handle)>> = const { RefCell::new(Vec::new()) };
     static BLOCK_LIMIT: std::cell::Cell<i32> = const { std::cell::Cell::new(ids::BLOCK_LIMIT) };
-    static WORLDGEN: RefCell<Vec<(String, mod_protocol::spec::WorldgenSpec)>> = const { RefCell::new(Vec::new()) };
+    static WORLDGEN: RefCell<Vec<(String, Identifier, mod_protocol::spec::WorldgenSpec)>> = const { RefCell::new(Vec::new()) };
 }
 
 pub fn queueRecipeRemoval(id: &Identifier) -> Result<(), String>
@@ -160,6 +160,12 @@ fn rebuildBlock(id: &Identifier, owner: &str)
 // modded rows and vanilla rows a mod replaced are built from their specs, in registry order
 pub fn buildContent()
 {
+    buildRegistered();
+    crate::modify::apply();
+}
+
+fn buildRegistered()
+{
     let blocks: Vec<(Identifier, String)> = registry::with(|registries| {
         registries
             .m_blocks
@@ -192,7 +198,7 @@ fn clone(row: &registry::Row<registry::BlockEntry>) -> registry::Row<registry::B
         m_numeric: row.m_numeric,
         m_owner: row.m_owner.clone(),
         m_replacedBy: row.m_replacedBy.clone(),
-        m_value: registry::BlockEntry { m_spec: row.m_value.m_spec.clone() },
+        m_value: registry::BlockEntry { m_spec: row.m_value.m_spec.clone(), m_page: row.m_value.m_page.clone() },
     }
 }
 
@@ -207,6 +213,12 @@ fn cloneItem(row: &registry::Row<registry::ItemEntry>) -> registry::Row<registry
     }
 }
 
+// abi 2 named vanilla recipes by list index, crafting/<index> still resolves
+fn legacyRecipe(id: &Identifier) -> Option<i32>
+{
+    id.path().strip_prefix("crafting/")?.parse().ok().filter(|_| id.isVanilla())
+}
+
 fn removeVanillaRecipes()
 {
     let mut removals: Vec<i32> = RECIPE_REMOVALS
@@ -214,7 +226,11 @@ fn removeVanillaRecipes()
         .iter()
         .filter_map(|id| {
             registry::with(|registries| {
-                registries.m_recipes.get(id).filter(|row| row.m_id.isVanilla()).map(|row| row.m_numeric)
+                let row = registries
+                    .m_recipes
+                    .get(id)
+                    .or_else(|| legacyRecipe(id).and_then(|n| registries.m_recipes.byNumeric(n)));
+                row.filter(|row| row.m_id.isVanilla()).map(|row| row.m_numeric)
             })
         })
         .collect();
@@ -243,9 +259,9 @@ fn applyRecipes()
 
 fn applyWorldgen()
 {
-    for (owner, spec) in WORLDGEN.with(|list| list.borrow().clone())
+    for (owner, id, spec) in WORLDGEN.with(|list| list.borrow().clone())
     {
-        if let Err(reason) = content::worldgen::add(&spec)
+        if let Err(reason) = content::worldgen::add(&id, &spec)
         {
             fail(&owner, format!("worldgen for {}: {reason}", spec.block));
         }
@@ -266,6 +282,7 @@ fn applyLate()
     }
     dimensions::finish();
     crate::entities::registerSpawns();
+    crate::modify::applySpawns();
 }
 
 fn loadSprites()
@@ -338,6 +355,7 @@ pub fn load(paths: &LoaderPaths)
     game::item::Item::byId(256);
     registry::with(|_| ());
     state::setPhase(Phase::Register);
+    content::harvest::seedTags();
     for runtime in &mut runtimes
     {
         let id: String = runtime.id().to_owned();
@@ -355,6 +373,10 @@ pub fn load(paths: &LoaderPaths)
     for runtime in state::mods()
     {
         runtime.call(&GuestCall::Lifecycle(Lifecycle::Register(runtime.id().to_owned())));
+    }
+    for (owner, reason) in crate::states::registerPages()
+    {
+        state::problem(&owner, "", &reason);
     }
     atlas::assign();
     if let Err(error) = freezeRegistries()

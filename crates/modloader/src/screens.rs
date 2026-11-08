@@ -122,15 +122,12 @@ pub fn playerLayers(player: &Rc<game::entity::Entity>) -> Vec<mod_protocol::abi:
         return Vec::new();
     }
     let info = crate::host::context::entityInfo(player);
-    let synced: Vec<u8> = crate::entities::synced(player);
     layers
         .into_iter()
         .filter_map(|(owner, handler)| {
-            match state::modAt(owner)?.call(&GuestCall::PlayerLayers {
-                handler,
-                player: info.clone(),
-                synced: synced.clone(),
-            })?
+            let runtime = state::modAt(owner)?;
+            let synced: Vec<u8> = crate::entities::synced(player, runtime.id());
+            match runtime.call(&GuestCall::PlayerLayers { handler, player: info.clone(), synced })?
             {
                 GuestReply::Layers(list) => Some(list),
                 _ => None,

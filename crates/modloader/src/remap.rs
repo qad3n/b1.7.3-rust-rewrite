@@ -16,7 +16,6 @@ use std::rc::Rc;
 pub const REGISTRY_FILE: &str = "registry.dat";
 pub const MISSING: &str = "loader:missing";
 const MISSING_SPRITE: i32 = 30;
-const SYNCED: [&str; 6] = ["block", "item", "entity", "tile_entity", "dimension", "biome"];
 
 thread_local! {
     // identifier and numeric id of every placeholder, kept in the snapshot so reinstalling restores content
@@ -27,15 +26,9 @@ thread_local! {
 pub fn snapshot() -> RegistrySnapshot
 {
     let mut maps: BTreeMap<String, BTreeMap<Identifier, i32>> = registry::with(|registries| {
-        BTreeMap::from([
-            ("block".to_owned(), registries.m_blocks.snapshot()),
-            ("item".to_owned(), registries.m_items.snapshot()),
-            ("entity".to_owned(), registries.m_entities.snapshot()),
-            ("tile_entity".to_owned(), registries.m_tileEntities.snapshot()),
-            ("dimension".to_owned(), registries.m_dimensions.snapshot()),
-            ("biome".to_owned(), registries.m_biomes.snapshot()),
-        ])
+        registries.synced().iter().map(|registry| (registry.name().to_owned(), registry.snapshot())).collect()
     });
+    maps.insert(crate::states::SNAPSHOT_KEY.to_owned(), crate::states::counts());
     MISSING_ROWS.with(|missing| {
         for (name, rows) in missing.borrow().iter()
         {
@@ -48,14 +41,14 @@ pub fn snapshot() -> RegistrySnapshot
 // the registries in the snapshot, a mod owning rows in any of them cannot be missing on a client
 pub fn ownsSyncedRows(owner: &str) -> bool
 {
-    registry::with(|registries| {
-        registries.m_blocks.modded().any(|row| row.m_owner == owner)
-            || registries.m_items.modded().any(|row| row.m_owner == owner)
-            || registries.m_entities.modded().any(|row| row.m_owner == owner)
-            || registries.m_tileEntities.modded().any(|row| row.m_owner == owner)
-            || registries.m_dimensions.modded().any(|row| row.m_owner == owner)
-            || registries.m_biomes.modded().any(|row| row.m_owner == owner)
-    })
+    registry::with(|registries| registries.synced().iter().any(|registry| registry.ownsAny(owner)))
+}
+
+// the identifier a placeholder id stands for, from the saved map of a removed mod
+pub fn missingName(registry: &str, numeric: i32) -> Option<Identifier>
+{
+    MISSING_ROWS
+        .with(|rows| rows.borrow().get(registry)?.iter().find(|(_, id)| **id == numeric).map(|(name, _)| name.clone()))
 }
 
 fn modded(map: &BTreeMap<Identifier, i32>) -> BTreeMap<Identifier, i32>
@@ -67,28 +60,16 @@ fn modded(map: &BTreeMap<Identifier, i32>) -> BTreeMap<Identifier, i32>
 fn missingRows(registries: &Registries, snapshot: &RegistrySnapshot) -> BTreeMap<String, BTreeMap<Identifier, i32>>
 {
     let mut missing: BTreeMap<String, BTreeMap<Identifier, i32>> = BTreeMap::new();
-    for name in SYNCED
+    for registry in registries.synced()
     {
-        let Some(saved) = snapshot.registries.get(name)
+        let Some(saved) = snapshot.registries.get(registry.name())
         else
         {
             continue;
         };
-        for (id, numeric) in modded(saved)
+        for (id, numeric) in modded(saved).into_iter().filter(|(id, _)| !registry.contains(id))
         {
-            let known: bool = match name
-            {
-                "block" => registries.m_blocks.get(&id).is_some(),
-                "item" => registries.m_items.get(&id).is_some(),
-                "entity" => registries.m_entities.get(&id).is_some(),
-                "tile_entity" => registries.m_tileEntities.get(&id).is_some(),
-                "dimension" => registries.m_dimensions.get(&id).is_some(),
-                _ => registries.m_biomes.get(&id).is_some(),
-            };
-            if !known
-            {
-                missing.entry(name.to_owned()).or_default().insert(id, numeric);
-            }
+            missing.entry(registry.name().to_owned()).or_default().insert(id, numeric);
         }
     }
     missing
@@ -181,21 +162,27 @@ pub fn apply(snapshot: &RegistrySnapshot) -> Vec<String>
         };
         let saved =
             |name: &str| -> BTreeMap<Identifier, i32> { snapshot.registries.get(name).map(modded).unwrap_or_default() };
-        reassign(&mut registries.m_blocks, &saved("block"), &reserved("block"));
-        let blocks: BTreeMap<Identifier, i32> = registries.m_blocks.snapshot();
-        let mut items: BTreeMap<Identifier, i32> = saved("item");
-        for row in registries.m_items.modded().filter(|row| row.m_value.m_block.is_some())
+        let mut blocks: BTreeMap<Identifier, i32> = BTreeMap::new();
+        let blockItems: BTreeSet<Identifier> = registries
+            .m_items
+            .modded()
+            .filter(|row| row.m_value.m_block.is_some())
+            .map(|row| row.m_id.clone())
+            .collect();
+        for registry in registries.syncedMut()
         {
-            if let Some(numeric) = blocks.get(&row.m_id)
+            let mut map: BTreeMap<Identifier, i32> = saved(registry.name());
+            // a block item follows its block, which SYNCED_ORDER reassigns first
+            if registry.name() == "item"
             {
-                items.insert(row.m_id.clone(), *numeric);
+                map.extend(blocks.iter().filter(|(id, _)| blockItems.contains(*id)).map(|(id, n)| (id.clone(), *n)));
+            }
+            registry.reassign(&map, &reserved(registry.name()));
+            if registry.name() == "block"
+            {
+                blocks = registry.snapshot();
             }
         }
-        reassign(&mut registries.m_items, &items, &reserved("item"));
-        reassign(&mut registries.m_entities, &saved("entity"), &reserved("entity"));
-        reassign(&mut registries.m_tileEntities, &saved("tile_entity"), &reserved("tile_entity"));
-        reassign(&mut registries.m_dimensions, &saved("dimension"), &reserved("dimension"));
-        reassign(&mut registries.m_biomes, &saved("biome"), &reserved("biome"));
     });
     placeholders(&missing);
     MISSING_ROWS.with(|rows| *rows.borrow_mut() = missing.clone());
@@ -203,37 +190,10 @@ pub fn apply(snapshot: &RegistrySnapshot) -> Vec<String>
     missing.iter().flat_map(|(name, rows)| rows.keys().map(move |id| format!("{name} {id}"))).collect()
 }
 
-fn reassign<T>(registry: &mut registry::Registry<T>, saved: &BTreeMap<Identifier, i32>, reserved: &BTreeSet<i32>)
-{
-    let free: Vec<(Identifier, i32)> = registry
-        .modded()
-        .filter(|row| !saved.contains_key(&row.m_id))
-        .filter(|row| reserved.contains(&row.m_numeric))
-        .map(|row| (row.m_id.clone(), row.m_numeric))
-        .collect();
-    let mut map: BTreeMap<Identifier, i32> = saved.clone();
-    let used: BTreeSet<i32> = registry
-        .rows()
-        .filter(|row| !free.iter().any(|(id, _)| *id == row.m_id))
-        .map(|row| row.m_numeric)
-        .chain(reserved.iter().copied())
-        .collect();
-    let mut next: i32 = free.iter().map(|(_, numeric)| *numeric).min().unwrap_or(0);
-    for (id, _) in free
-    {
-        while used.contains(&next)
-        {
-            next += 1;
-        }
-        map.insert(id, next);
-        next += 1;
-    }
-    registry.remap(&map);
-}
-
 // every authoritative world load applies its saved map and writes the merged one back
 pub fn onWorldLoad(world: &Rc<World>)
 {
+    crate::palette::clear();
     let saved: Option<RegistrySnapshot> =
         persist::read(world, REGISTRY_FILE).and_then(|bytes| wire::decode(&bytes).ok());
     // the same map, as on a nether trip, needs no rebuild

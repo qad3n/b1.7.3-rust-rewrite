@@ -80,13 +80,21 @@ impl ChunkLoader
         nbt.setInteger("xPos", chunk.m_xPosition);
         nbt.setInteger("zPos", chunk.m_zPosition);
         nbt.setLong("LastUpdate", world.getWorldTime());
-        nbt.setByteArray("Blocks", Rc::new(chunk.m_blocks.get()));
-        // 12-bit block ids store their high nibbles under Add, which vanilla readers ignore
-        if let Some(add) = chunk.m_addBlocks.get()
+        // rewrite: with mods loaded blocks save by name in palette sections, see block_palette
+        if crate::hooks::savesBlockNames()
         {
-            nbt.setByteArray("Add", Rc::new(add.iter().map(|byte| *byte as i8).collect()));
+            super::block_palette::write(chunk, nbt);
         }
-        nbt.setByteArray("Data", Rc::new(chunk.data().m_data.get()));
+        else
+        {
+            nbt.setByteArray("Blocks", Rc::new(chunk.m_blocks.get()));
+            // 12-bit block ids store their high nibbles under Add, which vanilla readers ignore
+            if let Some(add) = chunk.m_addBlocks.get()
+            {
+                nbt.setByteArray("Add", Rc::new(add.iter().map(|byte| *byte as i8).collect()));
+            }
+            nbt.setByteArray("Data", Rc::new(chunk.data().m_data.get()));
+        }
         nbt.setByteArray("SkyLight", Rc::new(chunk.skylight().m_data.get()));
         nbt.setByteArray("BlockLight", Rc::new(chunk.blocklight().m_data.get()));
         nbt.setByteArray("HeightMap", Rc::new(chunk.m_heightMap.get()));
@@ -115,6 +123,8 @@ impl ChunkLoader
             nbttaglist1.list().setTag(nbttagcompound1);
         }
         nbt.setTag("TileEntities", &nbttaglist1);
+        // rewrite: per mod chunk data, absent unless a mod stored some
+        common::nbt::attachments::write(&chunk.m_attachments.borrow(), nbt);
     }
 
     pub fn loadChunkIntoWorldFromCompound(world: &Rc<World>, nbt: &NBTTagCompound) -> Rc<Chunk>
@@ -122,12 +132,20 @@ impl ChunkLoader
         let i: i32 = nbt.getInteger("xPos");
         let j: i32 = nbt.getInteger("zPos");
         let chunk: Rc<Chunk> = Chunk::new(world, i, j);
-        chunk.m_blocks.set((*nbt.getByteArray("Blocks").orNpe()).clone());
-        if nbt.hasKey("Add")
+        // rewrite: palette sections from a modded save, read even with no mods by their saved ids
+        if super::block_palette::present(nbt)
         {
-            chunk.m_addBlocks.set(nbt.getByteArray("Add").map(|add| add.iter().map(|byte| *byte as u8).collect()));
+            super::block_palette::read(&chunk, nbt);
         }
-        chunk.m_data.set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("Data").orNpe()).clone()))));
+        else
+        {
+            chunk.m_blocks.set((*nbt.getByteArray("Blocks").orNpe()).clone());
+            if nbt.hasKey("Add")
+            {
+                chunk.m_addBlocks.set(nbt.getByteArray("Add").map(|add| add.iter().map(|byte| *byte as u8).collect()));
+            }
+            chunk.m_data.set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("Data").orNpe()).clone()))));
+        }
         chunk.m_skylightMap.set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("SkyLight").orNpe()).clone()))));
         chunk
             .m_blocklightMap
@@ -174,6 +192,8 @@ impl ChunkLoader
                 chunk.addTileEntity(&tileentity);
             }
         }
+        // rewrite: per mod chunk data, absent unless a mod stored some
+        *chunk.m_attachments.borrow_mut() = common::nbt::attachments::read(nbt);
         chunk
     }
 
@@ -185,7 +205,8 @@ impl ChunkLoader
             jvm::system::println(&format!("Chunk file at {chunkX},{chunkZ} is missing level data, skipping"));
             return None;
         }
-        if !compound.getCompoundTag("Level").compound().hasKey("Blocks")
+        let level: Rc<NBTBase> = compound.getCompoundTag("Level");
+        if !level.compound().hasKey("Blocks") && !super::block_palette::present(level.compound())
         {
             jvm::system::println(&format!("Chunk file at {chunkX},{chunkZ} is missing block data, skipping"));
             return None;

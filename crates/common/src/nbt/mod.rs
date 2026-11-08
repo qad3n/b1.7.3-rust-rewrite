@@ -1,3 +1,4 @@
+pub mod attachments;
 pub mod compressed_stream_tools;
 pub mod nbt_base;
 pub mod nbt_tag_byte;

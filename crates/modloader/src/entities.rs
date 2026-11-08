@@ -13,7 +13,13 @@ use std::rc::Rc;
 
 pub const MOD_DATA: &str = "ModData";
 // the ModData key holding the bytes mirrored to clients, saved with the entity like any other mod data
-const SYNCED_KEY: &str = "loader:synced";
+// a mod id and the synced bytes it owns on one entity
+type OwnedBytes = (String, Vec<u8>);
+
+// one blob per entity before abi 3, the first mod to read it after an upgrade takes it over
+const LEGACY_SYNCED_KEY: &str = "loader:synced";
+// the loader namespace is reserved, so no mod's own data key can take this form
+const SYNCED_PREFIX: &str = "loader:synced/";
 const PATH_RANGE: f32 = 16.0;
 
 type Constructor = fn(Option<Rc<World>>) -> Rc<Entity>;
@@ -165,7 +171,7 @@ pub struct EntityType
 
 thread_local! {
     // synced bytes that reached a client before the entity they belong to
-    static STASHED: RefCell<HashMap<i32, Vec<u8>>> = RefCell::new(HashMap::new());
+    static STASHED: RefCell<HashMap<i32, Vec<OwnedBytes>>> = RefCell::new(HashMap::new());
     static TYPES: RefCell<HashMap<Identifier, Rc<EntityType>>> = RefCell::new(HashMap::new());
     // per entity mod bytes by entity id, saved under ModData for every entity that has them
     static DATA: RefCell<HashMap<i32, BTreeMap<String, Vec<u8>>>> = RefCell::new(HashMap::new());
@@ -502,29 +508,71 @@ pub fn setData(entity: &Entity, key: &str, bytes: Vec<u8>)
     DATA.with(|data| data.borrow_mut().entry(entity.m_entityId.get()).or_default().insert(key.to_owned(), bytes));
 }
 
-pub fn synced(entity: &Entity) -> Vec<u8> { data(entity, SYNCED_KEY) }
+fn syncedKey(owner: &str) -> String { format!("{SYNCED_PREFIX}{owner}") }
 
-pub fn setSynced(entity: &Entity, bytes: Vec<u8>) { setData(entity, SYNCED_KEY, bytes); }
+// each mod keeps its own synced bytes on an entity, so two mods syncing data on the player never overwrite each other
+pub fn synced(entity: &Entity, owner: &str) -> Vec<u8>
+{
+    let key: String = syncedKey(owner);
+    let bytes: Vec<u8> = data(entity, &key);
+    if !bytes.is_empty()
+    {
+        return bytes;
+    }
+    let legacy: Vec<u8> = data(entity, LEGACY_SYNCED_KEY);
+    if !legacy.is_empty()
+    {
+        DATA.with(|data| {
+            if let Some(map) = data.borrow_mut().get_mut(&entity.m_entityId.get())
+            {
+                map.remove(LEGACY_SYNCED_KEY);
+            }
+        });
+        setData(entity, &key, legacy.clone());
+    }
+    legacy
+}
+
+pub fn setSynced(entity: &Entity, owner: &str, bytes: Vec<u8>) { setData(entity, &syncedKey(owner), bytes); }
+
+// every mod's synced bytes on an entity, by owner
+fn allSynced(entity: &Entity) -> Vec<OwnedBytes>
+{
+    DATA.with(|data| {
+        data.borrow()
+            .get(&entity.m_entityId.get())
+            .map(|map| {
+                map.iter()
+                    .filter_map(|(key, bytes)| Some((key.strip_prefix(SYNCED_PREFIX)?.to_owned(), bytes.clone())))
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
+}
 
 // the server keeps the bytes and mirrors them to the players near the entity
-pub fn publishSynced(entity: &Rc<Entity>, bytes: Vec<u8>)
+pub fn publishSynced(entity: &Rc<Entity>, owner: &str, bytes: Vec<u8>)
 {
-    setSynced(entity, bytes.clone());
+    setSynced(entity, owner, bytes.clone());
     if let Some(world) = entity.m_worldObj.get()
     {
-        let message = crate::network::loader::EntitySynced { id: entity.m_entityId.get(), data: bytes };
+        let message =
+            crate::network::loader::EntitySynced { id: entity.m_entityId.get(), owner: owner.to_owned(), data: bytes };
         let pos: [f64; 3] = [entity.m_posX.get(), entity.m_posY.get(), entity.m_posZ.get()];
         crate::network::loader::broadcastNear(crate::network::loader::ENTITY_SYNCED, &world, pos, &message);
     }
 }
 
-pub fn stashSynced(id: i32, bytes: Vec<u8>) { STASHED.with(|stash| stash.borrow_mut().insert(id, bytes)); }
+pub fn stashSynced(id: i32, owner: String, bytes: Vec<u8>)
+{
+    STASHED.with(|stash| stash.borrow_mut().entry(id).or_default().push((owner, bytes)));
+}
 
 pub fn claimStashedSynced(entity: &Entity)
 {
-    if let Some(bytes) = STASHED.with(|stash| stash.borrow_mut().remove(&entity.m_entityId.get()))
+    for (owner, bytes) in STASHED.with(|stash| stash.borrow_mut().remove(&entity.m_entityId.get())).unwrap_or_default()
     {
-        setSynced(entity, bytes);
+        setSynced(entity, &owner, bytes);
     }
 }
 
@@ -625,7 +673,7 @@ pub fn numericOf(entity: &Entity) -> Option<i32>
     crate::registry::with(|registries| registries.m_entities.numeric(&entityType.m_id))
 }
 
-fn biomesFor(spawn: &mod_protocol::spec::SpawnSpec) -> Vec<Rc<game::worldgen::BiomeGenBase>>
+pub(crate) fn biomesFor(spawn: &mod_protocol::spec::SpawnSpec) -> Vec<Rc<game::worldgen::BiomeGenBase>>
 {
     use game::worldgen::BiomeGenBase;
     let all: [BiomeRow; 11] = [
@@ -649,17 +697,24 @@ fn biomesFor(spawn: &mod_protocol::spec::SpawnSpec) -> Vec<Rc<game::worldgen::Bi
         .collect()
 }
 
+pub(crate) fn spawnList(
+    biome: &game::worldgen::BiomeGenBase,
+    kind: mod_protocol::spec::CreatureKind,
+) -> &Rc<jvm::array_list::JArrayList<game::worldgen::SpawnListEntry>>
+{
+    match kind
+    {
+        mod_protocol::spec::CreatureKind::Monster => &biome.m_spawnableMonsterList,
+        mod_protocol::spec::CreatureKind::Creature => &biome.m_spawnableCreatureList,
+        mod_protocol::spec::CreatureKind::Water => &biome.m_spawnableWaterCreatureList,
+    }
+}
+
 // natural spawning finds mod entities by their identifier, which the spawner hands to the loader
 fn addSpawn(biome: &game::worldgen::BiomeGenBase, entityType: &EntityType, spawn: &mod_protocol::spec::SpawnSpec)
 {
     let className: &'static str = Box::leak(entityType.m_id.to_string().into_boxed_str());
-    let entry: game::worldgen::SpawnListEntry = game::worldgen::SpawnListEntry::new(className, spawn.weight);
-    match spawn.kind
-    {
-        mod_protocol::spec::CreatureKind::Monster => biome.m_spawnableMonsterList.add(entry),
-        mod_protocol::spec::CreatureKind::Creature => biome.m_spawnableCreatureList.add(entry),
-        mod_protocol::spec::CreatureKind::Water => biome.m_spawnableWaterCreatureList.add(entry),
-    };
+    spawnList(biome, spawn.kind).add(game::worldgen::SpawnListEntry::new(className, spawn.weight));
 }
 
 pub fn registerSpawns()
@@ -686,6 +741,7 @@ pub fn addSpawns(biome: &game::worldgen::BiomeGenBase, id: &Identifier)
             addSpawn(biome, &entityType, spawn);
         }
     }
+    crate::modify::applySpawnsTo(biome, id);
 }
 
 pub fn createByNumeric(numeric: i32, world: &Rc<World>) -> Option<Rc<Entity>>
@@ -752,11 +808,10 @@ pub fn sendSpawn(entity: &Rc<Entity>, player: &Rc<Entity>) -> bool
 // the synced bytes of any entity, players included, for a player who just started seeing it
 pub fn sendSynced(entity: &Rc<Entity>, player: &Rc<Entity>)
 {
-    let bytes: Vec<u8> = synced(entity);
-    if !bytes.is_empty()
+    let channel: Identifier = crate::network::loader::id(crate::network::loader::ENTITY_SYNCED);
+    for (owner, data) in allSynced(entity).into_iter().filter(|(_, bytes)| !bytes.is_empty())
     {
-        let update = crate::network::loader::EntitySynced { id: entity.m_entityId.get(), data: bytes };
-        let channel: Identifier = crate::network::loader::id(crate::network::loader::ENTITY_SYNCED);
+        let update = crate::network::loader::EntitySynced { id: entity.m_entityId.get(), owner, data };
         crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&update));
     }
 }

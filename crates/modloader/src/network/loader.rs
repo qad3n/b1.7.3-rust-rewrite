@@ -13,12 +13,13 @@ pub const OPEN_SCREEN: &str = "loader:open_screen";
 pub const SOUND: &str = "loader:sound";
 pub const PARTICLE: &str = "loader:particle";
 pub const BLOCK_EVENT: &str = "loader:block_event";
-pub const ENTITY_SYNCED: &str = "loader:entity_synced";
+pub const ENTITY_SYNCED: &str = "loader:entity_attachment";
 
 #[derive(Serialize, Deserialize)]
 pub struct EntitySynced
 {
     pub id: i32,
+    pub owner: String,
     pub data: Vec<u8>,
 }
 
@@ -147,8 +148,8 @@ fn entitySynced(message: EntitySynced)
         .and_then(|world| context::entityById(&world, message.id));
     match entity
     {
-        Some(entity) => crate::entities::setSynced(&entity, message.data),
-        None => crate::entities::stashSynced(message.id, message.data),
+        Some(entity) => crate::entities::setSynced(&entity, &message.owner, message.data),
+        None => crate::entities::stashSynced(message.id, message.owner, message.data),
     }
 }
 
