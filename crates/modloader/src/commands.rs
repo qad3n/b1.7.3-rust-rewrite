@@ -56,7 +56,8 @@ pub fn register(
             return Err(format!("/{qualified} is registered twice"));
         }
         commands.insert(qualified.clone(), command.clone());
-        if VANILLA.contains(&name)
+        // only a server has vanilla commands, single player runs mod commands on the client
+        if VANILLA.contains(&name) && !crate::side::isClient()
         {
             crate::log::warn(&owner, &format!("/{name} is a vanilla command, use /{qualified}"));
         }
