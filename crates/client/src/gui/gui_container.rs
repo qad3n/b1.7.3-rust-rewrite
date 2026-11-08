@@ -209,7 +209,8 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
 
 fn drawTooltip(this: &GuiScreen, slot: &Slot, x: i32, y: i32)
 {
-    let name: Option<String> = slot.getStack().orNpe().getItemName();
+    let stack: Rc<ItemStack> = slot.getStack().orNpe();
+    let name: Option<String> = stack.getItemName();
     let translated: String = StringTranslate::getInstance().translateNamedKey(name.as_deref().unwrap_or("null"));
     // port trim strips chars up to space like java String.trim
     let s: String = text::trim(&JString::from(translated.as_str())).to_string();
@@ -217,12 +218,29 @@ fn drawTooltip(this: &GuiScreen, slot: &Slot, x: i32, y: i32)
     {
         return;
     }
+    // rewrite: mod lines sit under the name spaced as later versions space tooltip lines
+    const LINE_SPACING: i32 = 10;
+    const NAME_GAP: i32 = 2;
+    let lines: Vec<String> = crate::modded::tooltipLines(&stack);
     let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
     let k1: i32 = x + 12;
     let l1: i32 = y - 12;
-    let j1: i32 = fontRenderer.getStringWidth(&s);
-    this.m_gui.drawGradientRect(k1 - 3, l1 - 3, k1 + j1 + 3, l1 + 8 + 3, -1073741824, -1073741824);
+    let j1: i32 =
+        lines.iter().map(|line| fontRenderer.getStringWidth(line)).fold(fontRenderer.getStringWidth(&s), i32::max);
+    let extra: i32 = if lines.is_empty()
+    {
+        0
+    }
+    else
+    {
+        NAME_GAP + lines.len() as i32 * LINE_SPACING
+    };
+    this.m_gui.drawGradientRect(k1 - 3, l1 - 3, k1 + j1 + 3, l1 + 8 + extra + 3, -1073741824, -1073741824);
     fontRenderer.drawStringWithShadow(&s, k1, l1, -1);
+    for (index, line) in lines.iter().enumerate()
+    {
+        fontRenderer.drawStringWithShadow(line, k1, l1 + NAME_GAP + (index as i32 + 1) * LINE_SPACING, -1);
+    }
 }
 
 fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)

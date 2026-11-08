@@ -156,6 +156,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             screens::registerOverlay(index, target, handler);
             HostReply::Unit
         }
+        HostCall::RegisterTooltip { handler } =>
+        {
+            screens::registerTooltip(index, handler);
+            HostReply::Unit
+        }
         HostCall::RegisterHud { handler } =>
         {
             screens::registerHud(index, handler);

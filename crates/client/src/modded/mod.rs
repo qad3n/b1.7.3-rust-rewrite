@@ -177,6 +177,16 @@ pub fn drawOverlays(screen: &Rc<crate::gui::GuiScreen>, origin: (i32, i32), size
     }
 }
 
+// lines mods add under the item name of a slot tooltip
+pub fn tooltipLines(stack: &ItemStack) -> Vec<String>
+{
+    if !modloader::play::active()
+    {
+        return Vec::new();
+    }
+    modloader::screens::tooltipLines(&modloader::host::context::stackData(stack))
+}
+
 // a key typed on a vanilla container screen reaches mod overlays first, with the stack in the slot under the mouse
 pub fn overlayKey(screen: &GuiScreen, character: u16, key: i32, hovered: Option<Rc<ItemStack>>) -> bool
 {

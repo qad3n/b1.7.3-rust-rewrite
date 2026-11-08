@@ -4,7 +4,10 @@ use crate::registry::{self, RegistryError};
 use crate::state::{self, ModRuntime, Phase};
 use mod_protocol::Identifier;
 use mod_protocol::abi::{HostCall, HostReply, RegistryKind};
+use mod_protocol::identifier::MINECRAFT;
 use std::rc::Rc;
+
+const VANILLA_NAME: &str = "Minecraft";
 
 fn own(runtime: &ModRuntime, name: &str) -> Result<Identifier, String>
 {
@@ -134,7 +137,17 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
         HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
         HostCall::IsClient => HostReply::Bool(crate::side::isClient()),
         HostCall::IsLoaded { modid } => HostReply::Bool(state::byId(&modid).is_some_and(|other| other.isActive())),
+        HostCall::ModName { modid } => HostReply::Text(modName(&modid)),
         other => return Err(Box::new(other)),
     };
     Ok(reply)
+}
+
+fn modName(modid: &str) -> String
+{
+    match modid
+    {
+        MINECRAFT => VANILLA_NAME.to_owned(),
+        _ => state::byId(modid).map(|other| other.m_manifest.name.clone()).unwrap_or_default(),
+    }
 }

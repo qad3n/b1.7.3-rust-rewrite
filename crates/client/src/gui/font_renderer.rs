@@ -7,7 +7,7 @@ use jvm::image::{BufferedImage, ImageIO};
 use jvm::io::FileInputStream;
 use jvm::string::JString;
 use jvm::throwable::{self, OrNpe};
-use lwjgl::buffers::IntBuffer;
+use lwjgl::buffers::{FloatBuffer, IntBuffer};
 use lwjgl::opengl::GL11;
 use std::rc::Rc;
 
@@ -17,6 +17,12 @@ const CHARACTERS: usize = 256;
 const COLOR_CODES: i32 = 32;
 const LIST_BUFFER_SIZE: i32 = 1024;
 const COLOR_DIGITS: &str = "0123456789abcdef";
+const ITALIC_CODE: u16 = b'o' as u16;
+// one list slants the glyphs that follow and one straightens them again
+const STYLE_LISTS: i32 = 2;
+// glyph tops lean one pixel right and bottoms one pixel left as later versions draw italic
+const ITALIC_SLANT: f32 = -0.25;
+const ITALIC_SHIFT: f32 = 1.0;
 
 thread_local! {
     static ALLOWED: Vec<u16> = ChatAllowedCharacters::allowedCharacters().encode_utf16().collect();
@@ -32,6 +38,21 @@ fn allowedIndex(character: u16) -> i32
 fn hasVisible(text: &[u16]) -> bool { text.iter().any(|&unit| unit > b' ' as u16) }
 
 fn concat(parts: &[&[u16]]) -> Vec<u16> { parts.concat() }
+
+// a display list shearing x by y, column major so index 4 is the y term and index 12 the offset
+fn shearList(list: i32, slant: f32, shift: f32)
+{
+    let matrix: FloatBuffer = GLAllocation::createDirectFloatBuffer(16);
+    for i in 0..4
+    {
+        matrix.putAt(i * 4 + i, 1.0);
+    }
+    matrix.putAt(4, slant);
+    matrix.putAt(12, shift);
+    GL11::glNewList(list, GL11::GL_COMPILE);
+    GL11::glMultMatrix(&matrix);
+    GL11::glEndList();
+}
 
 pub struct FontRenderer
 {
@@ -79,7 +100,7 @@ impl FontRenderer
             *width = j1 + 2;
         }
         let fontTextureName: i32 = textureManager.allocateAndSetupTexture(Rc::new(bufferedimage));
-        let fontDisplayLists: i32 = GLAllocation::generateDisplayLists(CHARACTERS as i32 + COLOR_CODES);
+        let fontDisplayLists: i32 = GLAllocation::generateDisplayLists(CHARACTERS as i32 + COLOR_CODES + STYLE_LISTS);
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         for l2 in 0..CHARACTERS as i32
         {
@@ -152,6 +173,10 @@ impl FontRenderer
             GL11::glColor3f(i4 as f32 / 255.0, j4 as f32 / 255.0, k4 as f32 / 255.0);
             GL11::glEndList();
         }
+        // rewrite: italic lists for the modern §o code, beta has colors only
+        let italicList: i32 = fontDisplayLists + CHARACTERS as i32 + COLOR_CODES;
+        shearList(italicList, ITALIC_SLANT, ITALIC_SHIFT);
+        shearList(italicList + 1, -ITALIC_SLANT, -ITALIC_SHIFT);
         FontRenderer {
             m_charWidth: charWidth,
             m_fontTextureName: fontTextureName,
@@ -167,6 +192,12 @@ impl FontRenderer
     }
 
     pub fn drawString(&self, text: &str, x: i32, y: i32, color: i32) { self.renderString(text, x, y, color, false); }
+
+    fn queue(&self, list: i32)
+    {
+        self.m_buffer.put(list);
+        self.flushIfFull();
+    }
 
     fn flushIfFull(&self)
     {
@@ -201,7 +232,9 @@ impl FontRenderer
         GL11::glPushMatrix();
         GL11::glTranslatef(x as f32, y as f32, 0.0);
         let digits: Vec<u16> = units(COLOR_DIGITS);
+        let italicList: i32 = self.m_fontDisplayLists + CHARACTERS as i32 + COLOR_CODES;
         let mut lowered: Option<JString> = None;
+        let mut italic: bool = false;
         let mut i: usize = 0;
         while i < text.len()
         {
@@ -209,9 +242,24 @@ impl FontRenderer
             {
                 let code: u16 =
                     lowered.get_or_insert_with(|| JString::fromUtf16(text.clone()).toLowerCase()).charAt(i as i32 + 1);
+                // rewrite: §o slants until the next color code as in later versions
+                if code == ITALIC_CODE
+                {
+                    if !italic
+                    {
+                        self.queue(italicList);
+                        italic = true;
+                    }
+                    i += 2;
+                    continue;
+                }
+                if italic
+                {
+                    self.queue(italicList + 1);
+                    italic = false;
+                }
                 let index: i32 = digits.iter().position(|&digit| digit == code).map_or(15, |index| index as i32);
-                self.m_buffer.put(self.m_fontDisplayLists + CHARACTERS as i32 + index + if shadow { 16 } else { 0 });
-                self.flushIfFull();
+                self.queue(self.m_fontDisplayLists + CHARACTERS as i32 + index + if shadow { 16 } else { 0 });
                 i += 2;
             }
             if i < text.len()

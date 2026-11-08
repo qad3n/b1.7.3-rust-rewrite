@@ -32,6 +32,7 @@ struct Screens
     m_types: BTreeMap<Identifier, Rc<ScreenType>>,
     m_huds: Vec<(usize, Handle)>,
     m_overlays: Vec<(usize, String, Handle)>,
+    m_tooltips: Vec<(usize, Handle)>,
     m_layers: Vec<(usize, Handle)>,
     // set by the client, absent on the dedicated server
     m_opener: Option<Opener>,
@@ -71,6 +72,28 @@ pub fn registerHud(modIndex: usize, handler: Handle)
 pub fn registerOverlay(modIndex: usize, target: String, handler: Handle)
 {
     SCREENS.with(|screens| screens.borrow_mut().m_overlays.push((modIndex, target, handler)));
+}
+
+pub fn registerTooltip(modIndex: usize, handler: Handle)
+{
+    SCREENS.with(|screens| screens.borrow_mut().m_tooltips.push((modIndex, handler)));
+}
+
+// lines every tooltip handler adds under the item name, in mod load order
+pub fn tooltipLines(stack: &StackData) -> Vec<String>
+{
+    let handlers: Vec<(usize, Handle)> = SCREENS.with(|screens| screens.borrow().m_tooltips.clone());
+    let mut lines: Vec<String> = Vec::new();
+    for (owner, handler) in handlers
+    {
+        let reply: Option<GuestReply> =
+            state::modAt(owner).and_then(|runtime| runtime.call(&GuestCall::Tooltip { handler, stack: stack.clone() }));
+        if let Some(GuestReply::Lines(added)) = reply
+        {
+            lines.extend(added);
+        }
+    }
+    lines
 }
 
 fn overlaysOn(target: &str) -> Vec<(usize, Handle)>
