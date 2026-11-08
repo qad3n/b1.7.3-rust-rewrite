@@ -320,6 +320,29 @@ pub fn load(paths: &LoaderPaths)
     {
         return;
     }
+    start(paths);
+}
+
+// a world saved with mods opens in a game without any, the loader starts with no mods so placeholders keep that
+// world's mod blocks, items, tile entities and entities instead of the vanilla code dropping them
+pub fn keep()
+{
+    let Some(paths) = crate::paths()
+    else
+    {
+        return;
+    };
+    log::warn(log::LOADER, "this world was saved with mods that are not installed, keeping their content");
+    let started: bool = state::phase() != Phase::Bootstrap;
+    state::setKeeper(true);
+    if !started
+    {
+        start(&paths);
+    }
+}
+
+fn start(paths: &LoaderPaths)
+{
     let (found, errors) = discovery::discover(&paths.m_mods);
     for error in errors
     {

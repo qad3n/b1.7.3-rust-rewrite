@@ -186,6 +186,9 @@ pub trait LoaderHooks
 
     fn itemName(&self, _item: i32) -> Option<String> { None }
 
+    // false while the loader is installed but the open world is vanilla
+    fn savesNames(&self) -> bool { false }
+
     fn itemByName(&self, _name: &str) -> Option<i32> { None }
 
     // the registry name and named properties a stored block id and metadata save as
@@ -297,7 +300,7 @@ const ITEM_NAME: &str = "loader:id";
 
 pub fn writeItemName(item: i32, nbt: &NBTTagCompound)
 {
-    if let Some(name) = active().and_then(|hooks| hooks.itemName(item))
+    if let Some(name) = active().filter(|hooks| hooks.savesNames()).and_then(|hooks| hooks.itemName(item))
     {
         nbt.setString(ITEM_NAME, Some(jvm::string::JString::from(name.as_str())));
     }
@@ -310,7 +313,7 @@ pub fn itemByName(nbt: &NBTTagCompound) -> Option<i32>
 }
 
 // with mods loaded chunks save blocks by name, a vanilla game keeps the McRegion arrays
-pub fn savesBlockNames() -> bool { active().is_some() }
+pub fn savesBlockNames() -> bool { active().is_some_and(|hooks| hooks.savesNames()) }
 
 // mod content reuses a vanilla constructor while the next constructed object takes a derived class
 macro_rules! class_override {

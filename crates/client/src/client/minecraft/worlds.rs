@@ -37,6 +37,11 @@ impl Minecraft
     pub fn startWorld(&self, saveName: &str, name: &str, seed: i64)
     {
         self.changeWorld1(None);
+        // rewrite: the save's mod id map applies before its chunks are read, and a world saved with mods keeps them
+        if let Some(dir) = Minecraft::minecraftDir()
+        {
+            modloader::remap::preload(&dir.join("saves").join(saveName));
+        }
         let saveLoader: Rc<dyn ISaveFormat> = self.m_saveLoader.get().orNpe();
         if saveLoader.isOldMapFormat(saveName)
         {

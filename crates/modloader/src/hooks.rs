@@ -93,6 +93,8 @@ impl LoaderHooks for Hooks
 
     fn readEntityData(&self, entity: &Rc<Entity>, nbt: &NBTTagCompound) { crate::entities::readData(entity, nbt); }
 
+    fn savesNames(&self) -> bool { crate::play::active() }
+
     fn itemName(&self, item: i32) -> Option<String>
     {
         crate::registry::with(|registries| registries.m_items.byNumeric(item).map(|row| row.m_id.to_string()))

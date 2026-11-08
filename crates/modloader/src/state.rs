@@ -94,7 +94,13 @@ thread_local! {
     static PHASE: Cell<Phase> = const { Cell::new(Phase::Bootstrap) };
     static PROBLEMS: RefCell<Vec<Problem>> = const { RefCell::new(Vec::new()) };
     static SKIPPED: RefCell<Vec<(String, String)>> = const { RefCell::new(Vec::new()) };
+    // no mods are installed but a world saved with mods is open, the loader runs only to keep that content
+    static KEEPER: Cell<bool> = const { Cell::new(false) };
 }
+
+pub fn setKeeper(keeping: bool) { KEEPER.with(|slot| slot.set(keeping)); }
+
+pub fn isKeeper() -> bool { KEEPER.with(Cell::get) }
 
 // a problem raised before the file has a mod id
 pub const UNKNOWN_MOD: &str = "?";

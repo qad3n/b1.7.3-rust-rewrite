@@ -81,7 +81,8 @@ pub fn fire(event: GameEvent<'_>) -> bool
 {
     if let GameEvent::WorldSave { world } = &event
     {
-        if crate::side::isAuthority(world)
+        // a vanilla world open after a modded one in the same game gets no loader folder
+        if crate::side::isAuthority(world) && crate::play::active()
         {
             crate::persist::saveWorld(world);
         }

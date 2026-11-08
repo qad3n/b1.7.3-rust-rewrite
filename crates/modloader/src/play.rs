@@ -6,7 +6,7 @@ use mod_protocol::abi::{BlockPos, EventData, EventKind, Sender};
 use std::rc::Rc;
 
 // the client and server binaries call these at their own lifecycle points, all are no-ops without mods
-pub fn active() -> bool { state::hasMods() }
+pub fn active() -> bool { state::hasMods() || state::isKeeper() }
 
 pub fn worldChanged(previous: Option<&Rc<World>>, world: Option<&Rc<World>>)
 {

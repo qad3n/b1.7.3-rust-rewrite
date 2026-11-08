@@ -198,9 +198,10 @@ pub fn apply(snapshot: &RegistrySnapshot) -> Vec<String>
 // saved map applies first and mod dimensions keep their saved numbers when another mod was added
 pub fn preload(worldDir: &std::path::Path)
 {
+    // a world without saved mod content in a game without mods stays vanilla, even after keeping an earlier one
     if !crate::state::hasMods()
     {
-        return;
+        crate::state::setKeeper(false);
     }
     let path: std::path::PathBuf = worldDir.join(persist::LOADER_DIR).join(REGISTRY_FILE);
     let Some(saved) = std::fs::read(&path).ok().and_then(|bytes| wire::decode::<RegistrySnapshot>(&bytes).ok())
@@ -208,6 +209,15 @@ pub fn preload(worldDir: &std::path::Path)
     {
         return;
     };
+    let modded: bool = saved.registries.values().flat_map(BTreeMap::keys).any(|id| !id.isVanilla());
+    if !crate::state::hasMods() && modded
+    {
+        crate::lifecycle::keep();
+    }
+    if !crate::play::active()
+    {
+        return;
+    }
     if saved != snapshot()
     {
         applySaved(Some(worldDir), &saved);
