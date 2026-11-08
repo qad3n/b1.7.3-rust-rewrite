@@ -102,8 +102,8 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             &stringTranslate.translateKey("texturePack.openFolder"),
         ));
         this.m_controlList.add(GuiButton::small(6, center + 4, height - 48, &stringTranslate.translateKey("gui.done")));
-        // the mod list opens from here under done since this screen is titled mods and texture packs
-        crate::modded::addModsButton(this, center + 4, height - 24);
+        // the mod list opens from the top right corner since this screen is titled mods and texture packs
+        crate::modded::addModsButton(this, this.m_width.get() - 64, 6);
         let mc: Rc<Minecraft> = this.mc();
         texturePackList(&mc).updateAvaliableTexturePacks();
         let folder: std::path::PathBuf = Minecraft::getMinecraftDir().join("texturepacks");

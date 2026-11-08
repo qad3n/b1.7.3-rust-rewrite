@@ -439,7 +439,7 @@ pub fn addModsButton(screen: &GuiScreen, x: i32, y: i32)
 {
     if modloader::play::present()
     {
-        screen.m_controlList.add(GuiButton::small(MODS_BUTTON, x, y, "Mods"));
+        screen.m_controlList.add(GuiButton::withSize(MODS_BUTTON, x, y, 60, 20, "Mods"));
     }
 }
 
