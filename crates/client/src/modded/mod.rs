@@ -14,6 +14,7 @@ use game::entity::{Entity, entity_player};
 use game::inventory::IInventory;
 use game::item::ItemStack;
 use jvm::throwable::OrNpe;
+use lwjgl::opengl::GL11;
 pub use menu::{MODS_BUTTON, addModsButton, modsScreen, startScreen};
 pub use model::renderModel;
 use modloader::mod_protocol::abi::StackData;
@@ -143,6 +144,8 @@ pub fn drawOverlays(screen: &Rc<crate::gui::GuiScreen>, origin: (i32, i32), size
     {
         return;
     }
+    // slot items the container drew would hide overlay items behind their depth
+    GL11::glClear(GL11::GL_DEPTH_BUFFER_BIT);
     let relative: [i32; 2] = [mouse[0] - origin.0, mouse[1] - origin.1];
     for list in modloader::screens::drawOverlays(screen.className(), size, relative)
     {

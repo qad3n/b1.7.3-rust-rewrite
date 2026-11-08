@@ -283,6 +283,8 @@ impl GL11
         Some(text.to_string_lossy().into_owned())
     }
 
+    pub fn glIsEnabled(cap: i32) -> bool { glCall!(IsEnabled(cap as GLenum)) != 0 }
+
     pub fn glLight(light: i32, pname: i32, params: &FloatBuffer)
     {
         glCall!(Lightfv(light as GLenum, pname as GLenum, params.address().cast()));

@@ -1,8 +1,9 @@
 use crate::client::Minecraft;
 use crate::gui::{FontRenderer, Gui, GuiButton};
-use crate::render::{RenderEngine, RenderItem};
+use crate::render::{RenderEngine, RenderHelper, RenderItem};
+use game::item::ItemStack;
 use jvm::throwable::OrNpe;
-use lwjgl::opengl::GL11;
+use lwjgl::opengl::{GL11, GL12};
 use modloader::host::context::stackFrom;
 use modloader::mod_protocol::abi::{DrawList, DrawOp};
 use std::cell::OnceCell;
@@ -27,6 +28,9 @@ impl ButtonRect
     }
 }
 
+// the light rotation GuiContainer sets before its slots
+const ITEM_LIGHT_TILT: f32 = 120.0;
+
 thread_local! {
     static ITEMS: OnceCell<Rc<RenderItem>> = const { OnceCell::new() };
 }
@@ -36,6 +40,27 @@ fn itemRenderer() -> Rc<RenderItem> { ITEMS.with(|items| Rc::clone(items.get_or_
 fn texturePath(texture: &str) -> String
 {
     modloader::entities::modTexturePath(texture).unwrap_or_else(|| texture.to_owned())
+}
+
+// lit and depth tested as GuiContainer slots, then back to the flat state later ops expect
+fn drawItem(font: &Rc<FontRenderer>, engine: &Rc<RenderEngine>, stack: &Rc<ItemStack>, x: i32, y: i32)
+{
+    let depth: bool = GL11::glIsEnabled(GL11::GL_DEPTH_TEST);
+    GL11::glPushMatrix();
+    GL11::glRotatef(ITEM_LIGHT_TILT, 1.0, 0.0, 0.0);
+    RenderHelper::enableStandardItemLighting();
+    GL11::glPopMatrix();
+    GL11::glEnable(GL12::GL_RESCALE_NORMAL);
+    GL11::glEnable(GL11::GL_DEPTH_TEST);
+    itemRenderer().renderItemIntoGUI(font, engine, Some(stack), x, y);
+    itemRenderer().renderItemOverlayIntoGUI(font, engine, Some(stack), x, y);
+    GL11::glDisable(GL12::GL_RESCALE_NORMAL);
+    RenderHelper::disableStandardItemLighting();
+    GL11::glDisable(GL11::GL_LIGHTING);
+    if !depth
+    {
+        GL11::glDisable(GL11::GL_DEPTH_TEST);
+    }
 }
 
 // paints one guest draw list at an origin, returns the buttons it placed
@@ -124,8 +149,7 @@ pub fn draw(mc: &Rc<Minecraft>, list: &DrawList, originX: i32, originY: i32, mou
             {
                 if let Some(stack) = stackFrom(stack)
                 {
-                    itemRenderer().renderItemIntoGUI(&font, &engine, Some(&stack), originX + x, originY + y);
-                    itemRenderer().renderItemOverlayIntoGUI(&font, &engine, Some(&stack), originX + x, originY + y);
+                    drawItem(&font, &engine, &stack, originX + x, originY + y);
                 }
             }
             DrawOp::Button { id, x, y, w, h, label, enabled } =>
