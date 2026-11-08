@@ -1,0 +1,29 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "beta173"
+path = "src/bin/beta173.rs"
+
+[[bin]]
+name = "isom_preview"
+path = "src/bin/isom_preview.rs"
+
+[dependencies]
+awt = { path = "../awt" }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+common = { path = "../common" }
+game = { path = "../game" }
+jvm = { path = "../jvm" }
+lwjgl = { path = "../lwjgl" }
+paulscode = { package = "pudscode", path = "../../vendor/pudscode" }
+serde_json = "1"
+sha1_smol = "1"
+thiserror = "2"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[lints]
+workspace = true

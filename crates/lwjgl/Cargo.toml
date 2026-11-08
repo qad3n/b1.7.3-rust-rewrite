@@ -1,0 +1,15 @@
+[package]
+name = "lwjgl"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+jvm = { path = "../jvm" }
+sdl2 = "0.37"
+
+[lints]
+workspace = true
+
+[build-dependencies]
+gl_generator = "0.14"

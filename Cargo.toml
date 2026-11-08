@@ -1,0 +1,55 @@
+[workspace]
+members = ["crates/awt", "crates/client", "crates/common", "crates/game", "crates/jvm", "crates/launcher", "crates/lwjgl", "vendor/pudscode", "crates/server"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+publish = false
+
+[workspace.lints.rust]
+non_snake_case = "allow"
+non_camel_case_types = "allow"
+unused_assignments = "allow"
+
+# the port keeps the source statement shapes these lints would rewrite
+[workspace.lints.clippy]
+approx_constant = "allow"
+assign_op_pattern = "allow"
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+comparison_chain = "allow"
+eq_op = "allow"
+erasing_op = "allow"
+excessive_precision = "allow"
+explicit_counter_loop = "allow"
+identity_op = "allow"
+if_same_then_else = "allow"
+ifs_same_cond = "allow"
+int_plus_one = "allow"
+manual_clamp = "allow"
+manual_flatten = "allow"
+manual_isolate_lowest_one = "allow"
+manual_memcpy = "allow"
+manual_range_contains = "allow"
+manual_swap = "allow"
+module_inception = "allow"
+needless_late_init = "allow"
+needless_range_loop = "allow"
+neg_cmp_op_on_partial_ord = "allow"
+new_ret_no_self = "allow"
+new_without_default = "allow"
+nonminimal_bool = "allow"
+precedence = "allow"
+too_many_arguments = "allow"
+unnecessary_cast = "allow"
+
+[profile.dev]
+overflow-checks = false
+panic = "unwind"
+
+[profile.release]
+overflow-checks = false
+panic = "unwind"
+
+[profile.test]
+overflow-checks = false

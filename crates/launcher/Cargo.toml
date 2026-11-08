@@ -1,0 +1,19 @@
+[package]
+name = "launcher"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "beta173_launcher"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+serde_json = "1"
+sha1_smol = "1"
+ureq = "3"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,51 @@
+Beta 1.7.3 Rust Reconstruct
+Non-Commercial, No-Redistribution, No-Claim License
+
+1. Ownership
+
+The author claims no ownership of Minecraft or of anything derived from it.
+Minecraft, its name, design, game mechanics, file formats, network protocol
+and all original assets are the property of Mojang AB and Microsoft
+Corporation. This project is an unofficial fan project for study and
+personal use. It is not affiliated with, endorsed by or associated with
+Mojang AB or Microsoft Corporation.
+
+This repository contains no Minecraft game files, assets, jars or
+decompiled code. Running the software requires game assets obtained by the
+user from an official source.
+
+2. Permitted use
+
+You may view, read and study the source code, and build and run it on your
+own devices for personal, non-commercial purposes. You may modify it for
+your own private use.
+
+3. Restrictions
+
+You may not:
+
+  a. use this software, or any part or modified version of it, for any
+     commercial purpose, including selling it, charging for access to it,
+     running it on paid or monetized servers, or using it in any product or
+     service that generates revenue, advertising income or donations in
+     exchange for access;
+  b. redistribute, republish, sublicense or mirror this software, in source
+     or binary form, modified or unmodified, outside of the platform's
+     built-in fork feature where its terms of service require one;
+  c. remove or change this license or the notices in it;
+  d. claim ownership of this software or present it as official Minecraft
+     software.
+
+4. No warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+5. Takedown
+
+If you are a rights holder and object to this project, contact the author
+through the repository and it will be taken down.

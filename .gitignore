@@ -1,0 +1,48 @@
+# build output
+/target/
+**/*.rs.bk
+*.pdb
+
+# game assets load at runtime and are never committed
+/assets/*
+!/assets/README.md
+
+# original game files and decompiled code
+*.jar
+*.class
+*.java
+*.zip
+
+# runtime data
+/run/
+*.log
+logs/
+saves/
+options.txt
+servers.dat
+
+# profiling
+perf.data*
+flamegraph*.svg
+*.profraw
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# editors
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.fleet/
+.zed/
+
+# os
+.DS_Store
+Thumbs.db
+desktop.ini
+.directory
