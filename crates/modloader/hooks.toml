@@ -613,6 +613,15 @@ result = false
 fires_in = "GuiContainer::drawScreen and GuiContainer::mouseClicked, overlays registered on a screen class name"
 
 [[hook]]
+name = "screen_overlay_input"
+version = 1
+kind = "component"
+side = "client"
+cancellable = true
+result = false
+fires_in = "GuiContainer::keyTyped with the hovered slot stack and GuiContainer::mouseMovedOrUp for the wheel, api 1.2 overlays only"
+
+[[hook]]
 name = "player_layer"
 version = 1
 kind = "component"

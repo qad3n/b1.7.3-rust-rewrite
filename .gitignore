@@ -14,7 +14,6 @@
 *.zip
 
 # runtime data
-/run/
 *.log
 logs/
 saves/

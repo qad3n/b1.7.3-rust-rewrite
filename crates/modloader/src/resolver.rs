@@ -29,7 +29,7 @@ pub struct Resolution
     pub m_problems: Vec<Problem>,
 }
 
-fn parseApi(api: &str) -> Option<(u32, u32)>
+pub fn parseApi(api: &str) -> Option<(u32, u32)>
 {
     let (major, minor) = api.split_once('.').unwrap_or((api, "0"));
     Some((major.parse().ok()?, minor.trim_end_matches(".x").parse().ok()?))

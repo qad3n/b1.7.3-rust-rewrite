@@ -1,45 +1,11 @@
 use crate::client::Minecraft;
 use crate::entity::entity_client_player_mp;
 use crate::network::net_client_handler::NetClientHandler;
-// os name home folder and a test override for the game folder come from port
-use crate::port::system;
 use crate::render::OpenGlCapsChecker;
 use game::storage::ISaveFormat;
 use jvm::throwable::OrNpe;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum EnumOS2
-{
-    linux,
-    solaris,
-    windows,
-    macos,
-    unknown,
-}
-
-fn getOs() -> EnumOS2
-{
-    let string: String = jvm::string::JString::from(system::osName()).toLowerCase().to_string();
-    if string.contains("win")
-    {
-        return EnumOS2::windows;
-    }
-    if string.contains("mac")
-    {
-        return EnumOS2::macos;
-    }
-    if string.contains("solaris") || string.contains("sunos")
-    {
-        return EnumOS2::solaris;
-    }
-    if string.contains("linux") || string.contains("unix")
-    {
-        return EnumOS2::linux;
-    }
-    EnumOS2::unknown
-}
 
 impl Minecraft
 {
@@ -49,30 +15,10 @@ impl Minecraft
         {
             return dir;
         }
-        let dir: PathBuf = match system::minecraftDirOverride()
-        {
-            Some(dir) => Minecraft::makeDirs(dir),
-            None => Minecraft::getAppDir("minecraft"),
-        };
+        // rewrite: the per-user beta173 data folder replaces .minecraft
+        let dir: PathBuf = Minecraft::makeDirs(jvm::data_dir::root());
         Minecraft::setMinecraftDir(dir.clone());
         dir
-    }
-
-    pub fn getAppDir(name: &str) -> PathBuf
-    {
-        let string: PathBuf = system::userHome();
-        let file: PathBuf = match getOs()
-        {
-            EnumOS2::linux | EnumOS2::solaris => string.join(format!(".{name}/")),
-            EnumOS2::windows => match std::env::var_os("APPDATA")
-            {
-                Some(appData) => PathBuf::from(appData).join(format!(".{name}/")),
-                None => string.join(format!(".{name}/")),
-            },
-            EnumOS2::macos => string.join(format!("Library/Application Support/{name}")),
-            EnumOS2::unknown => string.join(format!("{name}/")),
-        };
-        Minecraft::makeDirs(file)
     }
 
     fn makeDirs(file: PathBuf) -> PathBuf

@@ -14,4 +14,4 @@ if [[ -z "${B173_SOUNDS_DIR:-}" && -d "$files/InventivetalentDev-minecraft-asset
 fi
 
 cargo build --release --bin beta173 --bin beta173_launcher
-exec target/release/beta173_launcher "$@"
+exec target/release/beta173_launcher --dev "$@"

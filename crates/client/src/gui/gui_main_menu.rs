@@ -53,8 +53,6 @@ fn readSplashes() -> Option<Vec<String>>
     )
 }
 
-const MODS_BUTTON: i32 = 50;
-
 const HOLIDAY_SPLASHES: [(i32, i32, &str); 4] = [
     (11, 9, "Happy birthday, ez!"),
     (6, 1, "Happy birthday, Notch!"),
@@ -114,11 +112,6 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         {
             ext.m_multiplayerButton.get().orNpe().m_enabled.set(false);
         }
-        // the mod loader menu only appears when mod files are present
-        if crate::modded::modsButtonVisible()
-        {
-            this.m_controlList.add(GuiButton::withSize(MODS_BUTTON, x, i + 108, 200, 20, "Mod Loader"));
-        }
     },
     actionPerformed: |this, button| {
         let mc: Rc<Minecraft> = this.mc();
@@ -130,7 +123,6 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             2 => mc.displayGuiScreen(Some(GuiMultiplayer::new(&parent))),
             3 => mc.displayGuiScreen(Some(GuiTexturePacks::new(&parent))),
             4 => mc.shutdown(),
-            MODS_BUTTON => mc.displayGuiScreen(Some(crate::modded::modsScreen(&parent))),
             _ =>
             {}
         }

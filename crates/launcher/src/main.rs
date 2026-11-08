@@ -6,21 +6,19 @@ use jvm::logging::Logger;
 use std::io::{BufRead, Write};
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode, Stdio};
 
-const ASSETS_ENV: &str = "B173_ASSETS";
-const GAME_DIR_ENV: &str = "B173_MINECRAFT_DIR";
 const GAME_BINARY: &str = "beta173";
-const DATA_FOLDER: &str = "beta173";
 const NAME_FILE: &str = "name.txt";
 const NO_SESSION: &str = "-";
-const USAGE: &str = "usage: beta173_launcher [--client-jar <path>] [--game <path>]";
+const USAGE: &str = "usage: beta173_launcher [--client-jar <path>] [--game <path>] [--dev]";
 
 struct Options
 {
     m_clientJar: Option<PathBuf>,
     m_game: Option<PathBuf>,
     m_help: bool,
+    m_dev: bool,
 }
 
 fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
@@ -46,30 +44,46 @@ fn run() -> Result<ExitCode>
         println!("{USAGE}");
         return Ok(ExitCode::SUCCESS);
     }
-    let dataDir: PathBuf = dataDir()?;
+    let dataDir: PathBuf = jvm::data_dir::root();
     log_files::install(logger(), &dataDir.join("logs"), "launcher", LogFormatter::boxed);
     let name: String = askName(&dataDir)?;
-    let root: PathBuf = assetRoot(&dataDir);
-    assets::install(&root, &gameDir()?, options.m_clientJar)?;
+    assets::install(&jvm::data_dir::assets(), &dataDir, options.m_clientJar)?;
     let game: PathBuf = match options.m_game
     {
         Some(path) => path,
         None => gameNextToLauncher()?,
     };
     logger().info(&format!("Starting the game as {name}"));
-    let status: std::process::ExitStatus = std::process::Command::new(&game)
-        .arg(&name)
-        .arg(NO_SESSION)
-        .env(ASSETS_ENV, &root)
-        .status()
-        .with_context(|| format!("starting {}", game.display()))?;
+    let mut command: Command = Command::new(&game);
+    command.arg(&name).arg(NO_SESSION);
+    if !options.m_dev
+    {
+        detach(&mut command);
+        command.spawn().with_context(|| format!("starting {}", game.display()))?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    let status: std::process::ExitStatus = command.status().with_context(|| format!("starting {}", game.display()))?;
     logger().info(&format!("Game exited with {status}"));
     Ok(status.code().map_or(ExitCode::FAILURE, |code| ExitCode::from(code as u8)))
 }
 
+// the game outlives the launcher with no console, it still writes its log file
+fn detach(command: &mut Command)
+{
+    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(command, 0);
+    #[cfg(windows)]
+    {
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        std::os::windows::process::CommandExt::creation_flags(command, DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
+    }
+}
+
 fn parseArgs(mut args: impl Iterator<Item = String>) -> Result<Options>
 {
-    let mut options: Options = Options { m_clientJar: None, m_game: None, m_help: false };
+    let mut options: Options = Options { m_clientJar: None, m_game: None, m_help: false, m_dev: false };
     while let Some(arg) = args.next()
     {
         match arg.as_str()
@@ -77,6 +91,7 @@ fn parseArgs(mut args: impl Iterator<Item = String>) -> Result<Options>
             "help" | "--help" | "-h" => options.m_help = true,
             "--client-jar" => options.m_clientJar = Some(flagValue(&mut args, &arg)?),
             "--game" => options.m_game = Some(flagValue(&mut args, &arg)?),
+            "--dev" => options.m_dev = true,
             _ => bail!("unknown argument {arg}\n{USAGE}"),
         }
     }
@@ -145,51 +160,6 @@ fn ask(question: &str) -> Result<String>
         bail!("no answer was entered");
     }
     Ok(line.trim().to_owned())
-}
-
-fn dataDir() -> Result<PathBuf>
-{
-    let fromEnv = |name: &str| std::env::var_os(name).map(PathBuf::from).with_context(|| format!("{name} is not set"));
-    let base: PathBuf = match std::env::consts::OS
-    {
-        "windows" => fromEnv("APPDATA")?,
-        "macos" => fromEnv("HOME")?.join("Library/Application Support"),
-        _ => match std::env::var_os("XDG_DATA_HOME").filter(|path| !path.is_empty())
-        {
-            Some(path) => PathBuf::from(path),
-            None => fromEnv("HOME")?.join(".local/share"),
-        },
-    };
-    Ok(base.join(DATA_FOLDER))
-}
-
-fn gameDir() -> Result<PathBuf>
-{
-    if let Some(dir) = std::env::var_os(GAME_DIR_ENV)
-    {
-        return Ok(PathBuf::from(dir));
-    }
-    let home: PathBuf = std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-        .context("no home folder is set")?;
-    Ok(match std::env::consts::OS
-    {
-        "linux" | "solaris" => home.join(".minecraft"),
-        "windows" => std::env::var_os("APPDATA")
-            .map_or_else(|| home.join(".minecraft"), |appData| PathBuf::from(appData).join(".minecraft")),
-        "macos" => home.join("Library/Application Support/minecraft"),
-        _ => home.join("minecraft"),
-    })
-}
-
-fn assetRoot(dataDir: &Path) -> PathBuf
-{
-    match std::env::var_os(ASSETS_ENV)
-    {
-        Some(path) => PathBuf::from(path),
-        None => dataDir.join("assets"),
-    }
 }
 
 fn gameNextToLauncher() -> Result<PathBuf>

@@ -17,4 +17,7 @@ pub trait IRecipe
     fn getRecipeOutput(&self) -> Rc<ItemStack>;
 
     fn instanceOf(&self, name: &str) -> bool;
+
+    // rewrite: recipe viewers read the ingredients, row by row with the width, width 0 for shapeless
+    fn getRecipeGrid(&self) -> (i32, Vec<Option<Rc<ItemStack>>>);
 }

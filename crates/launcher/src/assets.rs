@@ -26,12 +26,12 @@ const SOUND_FOLDERS: &[&str] = &["sound", "newsound", "music", "newmusic", "stre
 // one agent keeps connections alive across the sound downloads
 static AGENT: LazyLock<ureq::Agent> = LazyLock::new(ureq::Agent::new_with_defaults);
 
-pub fn install(root: &Path, gameDir: &Path, clientJar: Option<PathBuf>) -> Result<()>
+pub fn install(root: &Path, dataDir: &Path, clientJar: Option<PathBuf>) -> Result<()>
 {
-    let resources: PathBuf = gameDir.join("resources");
+    let resources: PathBuf = dataDir.join("resources");
     if !stampMatches(&root.join(CLIENT_STAMP), CLIENT_JAR_SHA1)
     {
-        fetchClient(root, clientJar.or_else(|| localJar(gameDir)))?;
+        fetchClient(root, clientJar.or_else(localJar))?;
     }
     let soundsStamp: PathBuf = root.join(SOUNDS_STAMP);
     if !stampMatches(&soundsStamp, &resources.to_string_lossy())
@@ -51,11 +51,25 @@ fn stampMatches(stamp: &Path, expected: &str) -> bool
     std::fs::read_to_string(stamp).is_ok_and(|text| text.trim() == expected)
 }
 
-fn localJar(gameDir: &Path) -> Option<PathBuf>
+fn localJar() -> Option<PathBuf>
 {
     std::env::var_os(CLIENT_JAR_ENV)
         .map(PathBuf::from)
-        .or_else(|| Some(gameDir.join(LAUNCHER_JAR)).filter(|jar| jar.is_file()))
+        .or_else(|| mojangDir().map(|dir| dir.join(LAUNCHER_JAR)).filter(|jar| jar.is_file()))
+}
+
+// the official launcher's .minecraft folder, where it keeps the b1.7.3 jar once that version was played
+fn mojangDir() -> Option<PathBuf>
+{
+    let fromEnv = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty()).map(PathBuf::from);
+    Some(match std::env::consts::OS
+    {
+        "windows" => fromEnv("APPDATA")
+            .or_else(|| fromEnv("USERPROFILE").map(|home| home.join("AppData").join("Roaming")))?
+            .join(".minecraft"),
+        "macos" => fromEnv("HOME")?.join("Library").join("Application Support").join("minecraft"),
+        _ => fromEnv("HOME")?.join(".minecraft"),
+    })
 }
 
 fn isSound(name: &str) -> bool { name.split_once('/').is_some_and(|(folder, _)| SOUND_FOLDERS.contains(&folder)) }

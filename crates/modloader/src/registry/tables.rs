@@ -181,6 +181,7 @@ impl Registries
             let output: Rc<ItemStack> = list.get(index).getRecipeOutput();
             let name: String = format!("crafting/{}", self.outputName(output.m_itemID.get(), output.getItemDamage()));
             let id: Identifier = Identifier::minecraft(&unique(&mut taken, name));
+            crate::content::recipes::nameRecipe(&list.get(index), id.clone());
             self.m_recipes.seed(id, index, RecipeEntry { m_spec: None });
         }
         let mut inputs: Vec<i32> = FurnaceRecipes::smelting().getSmeltingList().borrow().keys();

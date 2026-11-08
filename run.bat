@@ -9,5 +9,5 @@ if not defined B173_CLIENT_JAR if exist "%FILES%\minecraft-b1.7.3-client.jar" se
 if not defined B173_SOUNDS_DIR if exist "%FILES%\InventivetalentDev-minecraft-assets-737829f\assets\" set "B173_SOUNDS_DIR=%FILES%\InventivetalentDev-minecraft-assets-737829f\assets"
 
 cargo build --release --bin beta173 --bin beta173_launcher || exit /b 1
-target\release\beta173_launcher.exe %*
+target\release\beta173_launcher.exe --dev %*
 exit /b %errorlevel%

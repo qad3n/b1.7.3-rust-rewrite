@@ -13,7 +13,7 @@ use game::tileentity::{TileEntity, tile_entity_furnace};
 use game::world::World;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
-use lwjgl::input::Keyboard;
+use lwjgl::input::{Keyboard, Mouse};
 use lwjgl::opengl::GL11;
 use std::cell::{Cell, OnceCell};
 use std::rc::Rc;
@@ -99,6 +99,15 @@ fn getSlotAtPosition(this: &GuiScreen, x: i32, y: i32) -> Option<Rc<Slot>>
 {
     let slots: &jvm::array_list::JArrayList<Rc<Slot>> = &fields(this).m_inventorySlots.m_slots;
     (0..slots.size()).map(|i| slots.get(i)).find(|slot| getIsMouseOverSlot(this, slot, x, y))
+}
+
+// rewrite: the stack under the mouse for mod overlay key input, keyTyped carries no mouse position
+fn hoveredStack(this: &GuiScreen) -> Option<Rc<ItemStack>>
+{
+    let mc: Rc<Minecraft> = this.mc();
+    let x: i32 = Mouse::getX() * this.m_width.get() / mc.m_displayWidth.get();
+    let y: i32 = this.m_height.get() - Mouse::getY() * this.m_height.get() / mc.m_displayHeight.get() - 1;
+    getSlotAtPosition(this, x, y).and_then(|slot| slot.getStack())
 }
 
 fn drawSlotInventory(this: &GuiScreen, slot: &Slot)
@@ -259,8 +268,21 @@ pub const GUI_CONTAINER: GuiScreenClass = GuiScreenClass {
     drawScreen,
     drawGuiContainerForegroundLayer: |_| {},
     mouseClicked,
-    mouseMovedOrUp: |_, _, _, _| {},
-    keyTyped: |this, _, key| {
+    // rewrite: the mouse wheel reaches mod overlays, vanilla containers ignore it
+    mouseMovedOrUp: |this, mouseX, mouseY, _| {
+        let delta: i32 = Mouse::getEventDWheel();
+        let (left, top): (i32, i32) = origin(this);
+        if delta != 0
+        {
+            crate::modded::overlayScroll(this, mouseX - left, mouseY - top, delta.signum());
+        }
+    },
+    keyTyped: |this, character, key| {
+        // rewrite: a mod overlay may take the key before the container sees it
+        if crate::modded::overlayKey(this, character, key, hoveredStack(this))
+        {
+            return;
+        }
         let mc: Rc<Minecraft> = this.mc();
         if key == 1 || key == mc.m_gameSettings.get().orNpe().m_keyBindInventory.m_keyCode.get()
         {

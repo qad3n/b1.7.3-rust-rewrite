@@ -5,8 +5,8 @@ The game has a mod loader built in. You don't need a separate installer.
 ## Playing with mods
 
 1. Put a `.b173mod` file in the `mods/` folder.
-   - Client: `mods/` next to `saves/` in the game folder (`~/.minecraft`, or `B173_MINECRAFT_DIR`).
-   - Server: `mods/` next to `server.properties`.
+   - Client: `mods/` next to `saves/` in the game data folder (see the main README).
+   - Server: `server/mods/` in the same data folder.
 2. Start the game or the server.
 
 The same `.b173mod` file works on both sides. When a mod adds content, the server and the client need the same mods installed. If they don't match, the join screen tells you which mods are missing or have the wrong version.
@@ -15,7 +15,7 @@ With no mod files the game runs as vanilla. Nothing extra loads.
 
 In game:
 
-- The title screen gets a "Mod Loader" button. It lists your mods, any load problems, keybind conflicts and each mod's settings.
+- The Mods and Texture Packs screen gets a "Mods" button. It lists your mods, any load problems, keybind conflicts and each mod's settings.
 - If a mod fails to load, a screen before the title screen says why.
 - F3 shows how much tick time each mod uses.
 
@@ -83,7 +83,7 @@ Commands, run in the mod folder or with `--path <mod dir>`:
 
 - `cargo b173 check` checks `mod.toml` and every data file.
 - `cargo b173 build` makes `target/<id>-<version>.b173mod`.
-- `cargo b173 run --client` or `--server` builds the mod, copies it into `run/client/mods` or `run/server/mods`, and starts the game. The game binaries come from `PATH` or `B173_BIN_DIR`.
+- `cargo b173 run --client` or `--server` builds the mod, copies it into the game data folder's `mods/` or `server/mods/`, and starts the game. The game binaries come from `PATH` or `B173_BIN_DIR`.
 
 ### mod.toml
 

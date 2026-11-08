@@ -39,6 +39,7 @@ pub mod state;
 pub mod states;
 pub mod steering;
 pub mod tiles;
+pub mod viewer;
 pub mod wasm;
 pub mod worlds;
 

@@ -53,6 +53,9 @@ impl ModRuntime
 
     pub fn id(&self) -> &str { &self.m_manifest.id }
 
+    // the loader API minor version the mod was built against, calls it cannot decode are never sent to it
+    pub fn apiMinor(&self) -> u32 { crate::resolver::parseApi(&self.m_manifest.api).map_or(0, |(_, minor)| minor) }
+
     pub fn failure(&self) -> Option<String> { self.m_failure.borrow().clone() }
 
     pub fn isActive(&self) -> bool { self.m_failure.borrow().is_none() }

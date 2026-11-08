@@ -4,15 +4,25 @@ use std::path::PathBuf;
 
 const PROBE_ASSET: &str = "lang/en_US.lang";
 
-// the log opens before anything else so startup failures reach logs/server.log
+// the server runs in the data folder server folder and opens the log first so startup failures reach logs/server.log
 fn main()
 {
+    if let Err(error) = jvm::data_dir::createServer().and_then(std::env::set_current_dir)
+    {
+        jvm::system::errPrintln(&format!(
+            "could not set up the server folder {}: {error}",
+            jvm::data_dir::server().display()
+        ));
+        std::process::exit(1);
+    }
     ConsoleLogManager::init();
     let probe: PathBuf = game::port::assetRoot().join(PROBE_ASSET);
     if !probe.is_file()
     {
-        Logger::getLogger("Minecraft")
-            .severe(&format!("missing {}, set B173_ASSETS to the game assets", probe.display()));
+        Logger::getLogger("Minecraft").severe(&format!(
+            "missing {}, run beta173_launcher once or set B173_ASSETS to the game assets",
+            probe.display()
+        ));
         std::process::exit(1);
     }
     game::port::setSide(game::port::Side::Server);

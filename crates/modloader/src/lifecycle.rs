@@ -249,7 +249,7 @@ fn applyRecipes()
     });
     for (owner, id, spec) in recipes
     {
-        if let Err(reason) = content::recipes::apply(&spec)
+        if let Err(reason) = content::recipes::apply(&id, &spec)
         {
             fail(&owner, format!("recipe {id}: {reason}"));
         }

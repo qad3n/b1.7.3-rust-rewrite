@@ -102,6 +102,8 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             &stringTranslate.translateKey("texturePack.openFolder"),
         ));
         this.m_controlList.add(GuiButton::small(6, center + 4, height - 48, &stringTranslate.translateKey("gui.done")));
+        // the mod list opens from here under done since this screen is titled mods and texture packs
+        crate::modded::addModsButton(this, center + 4, height - 24);
         let mc: Rc<Minecraft> = this.mc();
         texturePackList(&mc).updateAvaliableTexturePacks();
         let folder: std::path::PathBuf = Minecraft::getMinecraftDir().join("texturepacks");
@@ -138,6 +140,8 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 mc.m_renderEngine.get().orNpe().refreshTextures();
                 mc.displayGuiScreen(Some(Rc::clone(&ext.m_guiScreen)));
             }
+            // the mod list returns here when closed
+            crate::modded::MODS_BUTTON => this.mc().displayGuiScreen(Some(crate::modded::modsScreen(&this.rc()))),
             _ => ext.m_guiTexturePackSlot.get().orNpe().actionPerformed(button),
         }
     },

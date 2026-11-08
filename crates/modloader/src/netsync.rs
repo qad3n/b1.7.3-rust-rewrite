@@ -467,7 +467,7 @@ fn applyData(bytes: &[u8]) -> Result<(), String>
     crate::content::recipes::removeModded();
     for (id, spec) in recipes
     {
-        crate::content::recipes::apply(&spec).map_err(|reason| format!("recipe {id}: {reason}"))?;
+        crate::content::recipes::apply(&id, &spec).map_err(|reason| format!("recipe {id}: {reason}"))?;
     }
     crate::content::recipes::finish();
     Ok(())

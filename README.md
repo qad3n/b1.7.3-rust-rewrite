@@ -18,6 +18,27 @@ cargo build --release
 
 `run.sh` starts the client through the launcher, and `run_server.sh` starts the server.
 
+Binaries build into `target/release`: `beta173_launcher`, `beta173` and `beta173_server`.
+
+## Game data
+
+Everything the game writes lives in one per-user data folder, like `.minecraft` for the original game:
+
+- Linux: `$XDG_DATA_HOME/beta173` (default `~/.local/share/beta173`)
+- Windows: `%APPDATA%\beta173`
+- macOS: `~/Library/Application Support/beta173`
+
+`B173_HOME` points the game at another folder.
+
+```
+beta173/
+  name.txt        launcher player name
+  assets/         game assets the launcher installs
+  resources/      sounds
+  saves/  mods/  config/  logs/  screenshots/  texturepacks/  stats/  options.txt
+  server/         server.properties, world, mods, config, logs
+```
+
 ## Source layout
 
 ```
@@ -34,5 +55,4 @@ crates/
 vendor/
   pudscode/             sound engine (submodule)
   b1.7.3-modding-sdk/   mod SDK (submodule): wire protocol, cargo b173, b173_api, example mods
-assets/         game assets, loaded at runtime
 ```

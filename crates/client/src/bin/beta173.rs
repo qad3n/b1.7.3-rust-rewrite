@@ -35,6 +35,14 @@ fn main() -> ExitCode
 
 fn run() -> ExitCode
 {
+    if let Err(error) = jvm::data_dir::createClient()
+    {
+        jvm::system::errPrintln(&format!(
+            "could not set up the game folder {}: {error}",
+            jvm::data_dir::root().display()
+        ));
+        return ExitCode::FAILURE;
+    }
     let logs: std::path::PathBuf = Minecraft::getMinecraftDir().join("logs");
     jvm::log_files::install(
         jvm::logging::Logger::getLogger("Minecraft"),

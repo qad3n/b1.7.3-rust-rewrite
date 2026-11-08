@@ -1,6 +1,8 @@
 use crate::state;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{BlockPos, DrawList, GuestCall, GuestReply, Handle, OverlayOp, ScreenOp, ScreenSpec};
+use mod_protocol::abi::{
+    BlockPos, DrawList, GuestCall, GuestReply, Handle, OverlayOp, ScreenOp, ScreenSpec, StackData,
+};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -107,6 +109,35 @@ pub fn clickOverlays(target: &str, x: i32, y: i32, button: i32) -> bool
     overlaysOn(target).into_iter().any(|(owner, handler)| {
         matches!(callOverlay(owner, handler, OverlayOp::Mouse { x, y, button }), Some(GuestReply::Bool(true)))
     })
+}
+
+// key and wheel input reach only mods built against api 1.2 or later, older guests cannot decode them
+const INPUT_API_MINOR: u32 = 2;
+
+fn inputOverlay(owner: usize, handler: Handle, op: OverlayOp) -> bool
+{
+    let Some(runtime) = state::modAt(owner)
+    else
+    {
+        return false;
+    };
+    runtime.apiMinor() >= INPUT_API_MINOR
+        && matches!(runtime.call(&GuestCall::Overlay { handler, op }), Some(GuestReply::Bool(true)))
+}
+
+// the first overlay to take a key keeps it from the screen under it
+pub fn keyOverlays(target: &str, character: u32, key: i32, hovered: Option<StackData>) -> bool
+{
+    overlaysOn(target).into_iter().any(|(owner, handler)| {
+        inputOverlay(owner, handler, OverlayOp::Key { character, key, hovered: hovered.clone() })
+    })
+}
+
+pub fn scrollOverlays(target: &str, x: i32, y: i32, delta: i32) -> bool
+{
+    overlaysOn(target)
+        .into_iter()
+        .any(|(owner, handler)| inputOverlay(owner, handler, OverlayOp::Scroll { x, y, delta }))
 }
 
 pub fn registerPlayerLayer(modIndex: usize, handler: Handle)

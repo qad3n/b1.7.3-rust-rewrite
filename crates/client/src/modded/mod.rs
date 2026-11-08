@@ -12,9 +12,11 @@ use crate::client::Minecraft;
 use crate::gui::{GuiScreen, ScaledResolution};
 use game::entity::{Entity, entity_player};
 use game::inventory::IInventory;
+use game::item::ItemStack;
 use jvm::throwable::OrNpe;
-pub use menu::{modsButtonVisible, modsScreen, startScreen};
+pub use menu::{MODS_BUTTON, addModsButton, modsScreen, startScreen};
 pub use model::renderModel;
+use modloader::mod_protocol::abi::StackData;
 use modloader::screens::OpenRequest;
 use std::rc::{Rc, Weak};
 
@@ -146,6 +148,19 @@ pub fn drawOverlays(screen: &Rc<crate::gui::GuiScreen>, origin: (i32, i32), size
     {
         draw::draw(&screen.mc(), &list, origin.0, origin.1, mouse);
     }
+}
+
+// a key typed on a vanilla container screen reaches mod overlays first, with the stack in the slot under the mouse
+pub fn overlayKey(screen: &GuiScreen, character: u16, key: i32, hovered: Option<Rc<ItemStack>>) -> bool
+{
+    let hovered: Option<StackData> = hovered.map(|stack| modloader::host::context::stackData(&stack));
+    modloader::play::active() && modloader::screens::keyOverlays(screen.className(), u32::from(character), key, hovered)
+}
+
+// the mouse wheel on a vanilla container screen, positions from the container's corner
+pub fn overlayScroll(screen: &GuiScreen, x: i32, y: i32, delta: i32) -> bool
+{
+    modloader::play::active() && modloader::screens::scrollOverlays(screen.className(), x, y, delta)
 }
 
 // mod huds draw over the vanilla overlay, render_hud listeners see the same frame

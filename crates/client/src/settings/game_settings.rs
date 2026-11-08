@@ -401,6 +401,8 @@ impl GameSettings
         let optionsFile: &Path = self.m_optionsFile.as_deref().orNpe();
         if !optionsFile.exists()
         {
+            // rewrite: a fresh game folder gets options.txt with the defaults on first launch
+            self.saveOptions();
             return;
         }
         if let Err(exception) = self.readOptions(optionsFile)

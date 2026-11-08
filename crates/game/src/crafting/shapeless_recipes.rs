@@ -53,4 +53,10 @@ impl IRecipe for ShapelessRecipes
     fn getRecipeOutput(&self) -> Rc<ItemStack> { Rc::clone(&self.m_recipeOutput) }
 
     fn instanceOf(&self, name: &str) -> bool { matches!(name, "ShapelessRecipes" | "IRecipe") }
+
+    // rewrite: recipe viewers read the ingredients
+    fn getRecipeGrid(&self) -> (i32, Vec<Option<Rc<ItemStack>>>)
+    {
+        (0, self.m_recipeItems.iter().cloned().map(Some).collect())
+    }
 }

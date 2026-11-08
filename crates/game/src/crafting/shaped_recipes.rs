@@ -110,4 +110,7 @@ impl IRecipe for ShapedRecipes
     fn getRecipeOutput(&self) -> Rc<ItemStack> { Rc::clone(&self.m_recipeOutput) }
 
     fn instanceOf(&self, name: &str) -> bool { matches!(name, "ShapedRecipes" | "IRecipe") }
+
+    // rewrite: recipe viewers read the ingredients
+    fn getRecipeGrid(&self) -> (i32, Vec<Option<Rc<ItemStack>>>) { (self.m_recipeWidth, self.m_recipeItems.clone()) }
 }

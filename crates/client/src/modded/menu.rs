@@ -33,6 +33,8 @@ mod listing
     pub const SCROLL_DOWN: i32 = 4;
 }
 
+pub const MODS_BUTTON: i32 = 50;
+
 const RED: i32 = 0xFF5555;
 const WHITE: i32 = 0xFFFFFF;
 const GREY: i32 = 0xA0A0A0;
@@ -432,7 +434,14 @@ pub fn modsScreen(parent: &Rc<GuiScreen>) -> Rc<GuiScreen>
     GuiScreen::construct(&MOD_LIST, Box::new(state))
 }
 
-pub fn modsButtonVisible() -> bool { modloader::play::present() }
+// the button only appears when mod files are present
+pub fn addModsButton(screen: &GuiScreen, x: i32, y: i32)
+{
+    if modloader::play::present()
+    {
+        screen.m_controlList.add(GuiButton::small(MODS_BUTTON, x, y, "Mods"));
+    }
+}
 
 // load problems show before the title screen, every one of them at once
 pub fn startScreen(main: Rc<GuiScreen>) -> Rc<GuiScreen>
