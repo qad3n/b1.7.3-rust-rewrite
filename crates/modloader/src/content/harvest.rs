@@ -63,8 +63,13 @@ fn toolFor(block: &Rc<Block>) -> Option<ToolSpec>
 }
 
 // only blocks with a tool component, or held mod tools, change the vanilla answer
+// as in forge the component gates only materials that need a tool, so dirt and wood still drop by hand
 pub fn canHarvest(block: &Rc<Block>, stack: Option<&Rc<ItemStack>>) -> Option<bool>
 {
+    if block.m_blockMaterial.getIsHarvestable()
+    {
+        return None;
+    }
     let tool: ToolSpec = toolFor(block)?;
     let held: Option<(ToolClass, i32)> = stack.and_then(|stack| toolOf(&stack.getItem()));
     Some(held.is_some_and(|(class, level)| class == tool.class && level >= tool.level))
