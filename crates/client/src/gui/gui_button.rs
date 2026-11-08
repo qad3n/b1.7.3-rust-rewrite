@@ -32,6 +32,14 @@ pub struct GuiButton
     pub m_enabled2: Cell<bool>,
 }
 
+// the button rows of /gui/gui.png, disabled then normal then hovered
+mod sheet
+{
+    pub const FIRST_ROW: i32 = 46;
+    pub const ROW: i32 = 20;
+    pub const WIDTH: i32 = 200;
+}
+
 pub const GUI_BUTTON: GuiButtonClass = GuiButtonClass {
     m_name: "GuiButton",
     m_parent: None,
@@ -143,8 +151,15 @@ impl GuiButton
         let n: i32 = self.getHoverState(bl);
         let (x, y, width, height): (i32, i32, i32, i32) =
             (self.m_xPosition.get(), self.m_yPosition.get(), self.m_width.get(), self.m_height.get());
-        self.m_gui.drawTexturedModalRect(x, y, 0, 46 + n * 20, width / 2, height);
-        self.m_gui.drawTexturedModalRect(x + width / 2, y, 200 - width / 2, 46 + n * 20, width / 2, height);
+        // rewrite: quarters from each texture corner keep the outline whole on buttons under 20 high or of odd width
+        let (left, top): (i32, i32) = (width / 2, height / 2);
+        let (right, bottom): (i32, i32) = (width - left, height - top);
+        let v: i32 = sheet::FIRST_ROW + n * sheet::ROW;
+        let (rightU, bottomV): (i32, i32) = (sheet::WIDTH - right, v + sheet::ROW - bottom);
+        self.m_gui.drawTexturedModalRect(x, y, 0, v, left, top);
+        self.m_gui.drawTexturedModalRect(x + left, y, rightU, v, right, top);
+        self.m_gui.drawTexturedModalRect(x, y + top, 0, bottomV, left, bottom);
+        self.m_gui.drawTexturedModalRect(x + left, y + top, rightU, bottomV, right, bottom);
         self.mouseDragged(minecraft, mouseX, mouseY);
         let color: i32 = if !self.m_enabled.get()
         {
