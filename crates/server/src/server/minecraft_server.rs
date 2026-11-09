@@ -12,7 +12,7 @@ use game::world::{ChunkCoordinates, ISaveHandler, World};
 use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::JHashMap;
-use jvm::logging::{Level, logger};
+use jvm::logging::{Level, logger, took};
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{self, OrNpe, Throwable, ThrowableClass};
@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 thread_local! {
     pub static GIVE_COMMANDS_COOLDOWNS: RefCell<JHashMap<JString, i32>> = RefCell::new(JHashMap::new());
@@ -125,6 +125,7 @@ impl MinecraftServer
 
     fn startServer(&self) -> Result<bool, Throwable>
     {
+        let startup: Instant = Instant::now();
         let this: Rc<MinecraftServer> = self.this();
         self.m_commandHandler.set(Some(Rc::new(ConsoleCommandHandler::new(&this))));
         let consoleLines: Arc<Mutex<Vec<String>>> = Arc::clone(&self.m_consoleLines);
@@ -184,7 +185,6 @@ impl MinecraftServer
             .map(|dimension| Some(EntityTracker::new(&this, *dimension)))
             .collect();
         self.m_entityTracker.set(trackers);
-        let j: i64 = jvm::system::nanoTime();
         let s1: String = self.propertyManager().getStringProperty("level-name", "world");
         let s2: String = self.propertyManager().getStringProperty("level-seed", "");
         let mut k: i64 = Random::new().nextLong();
@@ -201,8 +201,10 @@ impl MinecraftServer
             }
         }
         logger().info(&format!("Preparing level \"{s1}\""));
+        let preparing: Instant = Instant::now();
         self.initWorld(&SaveConverterMcRegion::new(Path::new(".")), &s1, k);
-        logger().info(&format!("Done ({}ns)! For help, type \"help\" or \"?\"", jvm::system::nanoTime() - j));
+        logger().info(&format!("Level \"{s1}\" prepared in {}", took(preparing)));
+        logger().info(&format!("Done ({})! For help, type \"help\" or \"?\"", took(startup)));
         Ok(true)
     }
 
@@ -212,10 +214,12 @@ impl MinecraftServer
         if storageSource.isOldMapFormat(saveName)
         {
             logger().info("Converting map!");
+            let converting: Instant = Instant::now();
             storageSource.convertMapFormat(
                 saveName,
                 &ConvertProgress { m_lastTimeMillis: Cell::new(jvm::system::currentTimeMillis()) },
             );
+            logger().info(&format!("Converted the map in {}", took(converting)));
         }
         // mod dimensions get worlds after the overworld and the nether
         let dimensions: Vec<i32> = modloader::dimensions::serverDimensions();
@@ -259,6 +263,7 @@ impl MinecraftServer
             logger().info(&format!("Preparing start region for level {k}"));
             if k == 0 || self.propertyManager().getBooleanProperty("allow-nether", true)
             {
+                let preparing: Instant = Instant::now();
                 let worldserver: Rc<World> = self.worldMngr()[k].clone();
                 let chunkcoordinates: ChunkCoordinates = worldserver.getSpawnPoint();
                 let short1: i32 = short1 as i32;
@@ -288,6 +293,7 @@ impl MinecraftServer
                     }
                     l += 16;
                 }
+                logger().debug(&format!("Start region for level {k} ready in {}", took(preparing)));
             }
         }
         self.clearCurrentTask();
@@ -309,16 +315,19 @@ impl MinecraftServer
     fn saveServerWorld(&self)
     {
         logger().info("Saving chunks");
+        let saving: Instant = Instant::now();
         for worldserver in self.worldMngr()
         {
             worldserver.saveWorld(true, None);
             world_server::forceSave(&worldserver);
         }
+        logger().debug(&format!("Saved chunks in {}", took(saving)));
     }
 
     fn stopServer(&self)
     {
         logger().info("Stopping server");
+        let stopping: Instant = Instant::now();
         modloader::play::lifecycle(modloader::EventKind::ServerStopping);
         if let Some(configManager) = self.m_configManager.get()
         {
@@ -331,6 +340,7 @@ impl MinecraftServer
                 self.saveServerWorld();
             }
         }
+        logger().info(&format!("Server stopped in {}", took(stopping)));
     }
 
     pub fn initiateShutdown(&self) { self.m_serverRunning.store(false, Ordering::Relaxed); }

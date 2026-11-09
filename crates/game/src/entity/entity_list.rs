@@ -6,6 +6,7 @@ use crate::entity::{
 };
 use crate::world::World;
 use common::nbt::NBTTagCompound;
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::{self, OrNpe, Throwable};
 use std::rc::Rc;
@@ -102,10 +103,10 @@ impl EntityList
         match &entity
         {
             Some(entity) => entity.readFromNBT(nbt),
-            None => jvm::system::println(&format!(
-                "Skipping Entity with id {}",
-                JString::display(nbt.getString("id").as_ref())
-            )),
+            None =>
+            {
+                logger().warning(&format!("Skipping Entity with id {}", JString::display(nbt.getString("id").as_ref())))
+            }
         }
         entity
     }
@@ -115,7 +116,7 @@ impl EntityList
         let entity: Option<Rc<Entity>> = instantiate(MAPPINGS.iter().find(|row| row.m_id == id), world);
         if entity.is_none()
         {
-            jvm::system::println(&format!("Skipping Entity with id {id}"));
+            logger().warning(&format!("Skipping Entity with id {id}"));
         }
         entity
     }

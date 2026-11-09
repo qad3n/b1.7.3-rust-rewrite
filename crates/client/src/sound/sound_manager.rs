@@ -3,6 +3,7 @@ use crate::sound::{CodecMus, SoundPool, SoundPoolEntry};
 use game::entity::Entity;
 use game::math::math_helper::{cos, sin};
 use jvm::field::Field;
+use jvm::logging::logger;
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
 use paulscode::sound::codecs::{CodecJOrbis, CodecWav};
@@ -59,10 +60,24 @@ impl SoundManager
             .as_ref()
             .is_some_and(|options| options.m_soundVolume.get() == 0.0 && options.m_musicVolume.get() == 0.0);
         self.m_options.set(options);
+        if silent
+        {
+            logger().info("Sound and music are muted, the sound system starts once either is turned up");
+        }
         if !(loaded() || silent)
         {
             self.tryToSetLibraryAndCodecs();
         }
+    }
+
+    pub fn logPools(&self)
+    {
+        logger().info(&format!(
+            "Sound pools hold {} sounds, {} records and {} music tracks",
+            self.m_soundPoolSounds.m_numberOfSoundPoolEntries.get(),
+            self.m_soundPoolStreaming.m_numberOfSoundPoolEntries.get(),
+            self.m_soundPoolMusic.m_numberOfSoundPoolEntries.get()
+        ));
     }
 
     fn tryToSetLibraryAndCodecs(&self)
@@ -84,10 +99,14 @@ impl SoundManager
                 options.m_musicVolume.set(f2);
                 options.saveOptions();
             });
-        if let Err(throwable) = result
+        match result
         {
-            throwable.printStackTrace();
-            jvm::system::errPrintln("error linking with the LibraryJavaSound plug-in");
+            Ok(()) => logger().debug("Sound system linked"),
+            Err(throwable) =>
+            {
+                throwable.printStackTrace();
+                jvm::system::errPrintln("error linking with the LibraryJavaSound plug-in");
+            }
         }
         LOADED.with(|loaded| loaded.set(true));
     }

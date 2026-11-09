@@ -1,4 +1,4 @@
-use jvm::logging::Logger;
+use jvm::logging::logger;
 use server::server::{ConsoleLogManager, MinecraftServer};
 use std::path::PathBuf;
 
@@ -16,10 +16,13 @@ fn main()
         std::process::exit(1);
     }
     ConsoleLogManager::init();
+    // wasmtime and other libraries only reach the server log with warnings and errors
+    jvm::logging::bridge(logger(), &[]);
+    logger().debug(&format!("Server folder {}", jvm::data_dir::server().display()));
     let probe: PathBuf = game::port::assetRoot().join(PROBE_ASSET);
     if !probe.is_file()
     {
-        Logger::getLogger("Minecraft").severe(&format!(
+        logger().severe(&format!(
             "missing {}, run beta173_launcher once or set B173_ASSETS to the game assets",
             probe.display()
         ));

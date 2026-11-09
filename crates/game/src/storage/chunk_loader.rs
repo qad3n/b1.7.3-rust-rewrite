@@ -6,6 +6,7 @@ use crate::world::{Chunk, IChunkLoader, World, WorldInfo};
 use common::nbt::{CompressedStreamTools, NBTBase, NBTTagCompound, NBTTagList};
 use common::world::NibbleArray;
 use jvm::io::{FileInputStream, FileOutputStream, IoResult};
+use jvm::logging::logger;
 use jvm::throwable::{self, OrNpe, Throwable};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -202,20 +203,20 @@ impl ChunkLoader
         let compound: &NBTTagCompound = nbt.compound();
         if !compound.hasKey("Level")
         {
-            jvm::system::println(&format!("Chunk file at {chunkX},{chunkZ} is missing level data, skipping"));
+            logger().warning(&format!("Chunk file at {chunkX},{chunkZ} is missing level data, skipping"));
             return None;
         }
         let level: Rc<NBTBase> = compound.getCompoundTag("Level");
         if !level.compound().hasKey("Blocks") && !super::block_palette::present(level.compound())
         {
-            jvm::system::println(&format!("Chunk file at {chunkX},{chunkZ} is missing block data, skipping"));
+            logger().warning(&format!("Chunk file at {chunkX},{chunkZ} is missing block data, skipping"));
             return None;
         }
         let mut chunk: Rc<Chunk> =
             Self::loadChunkIntoWorldFromCompound(world, compound.getCompoundTag("Level").compound());
         if !chunk.isAtLocation(chunkX, chunkZ)
         {
-            jvm::system::println(&format!(
+            logger().warning(&format!(
                 "Chunk file at {chunkX},{chunkZ} is in the wrong location; relocating. (Expected {chunkX}, {chunkZ}, got {}, {})",
                 chunk.m_xPosition, chunk.m_zPosition
             ));

@@ -14,6 +14,7 @@ use crate::network::packet::Packet;
 use crate::world::World;
 use common::nbt::NBTTagCompound;
 use jvm::field::Field;
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use std::any::Any;
@@ -239,7 +240,7 @@ impl TileEntity
         match &tileEntity
         {
             Some(entity) => entity.readFromNBT(nbt),
-            None => jvm::system::println(&format!("Skipping TileEntity with id {}", JString::display(id.as_ref()))),
+            None => logger().warning(&format!("Skipping TileEntity with id {}", JString::display(id.as_ref()))),
         }
         tileEntity
     }

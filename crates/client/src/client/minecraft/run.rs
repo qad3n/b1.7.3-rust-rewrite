@@ -4,6 +4,7 @@ use crate::gui::{GuiConflictWarning, GuiErrorScreen};
 use crate::render::{CHUNKS_UPDATED, GLAllocation, RenderBlocks, Tessellator};
 use crate::settings::Component;
 use game::math::{AxisAlignedBB, Vec3D};
+use jvm::logging::{logger, took};
 use jvm::throwable::{EXCEPTION, OUT_OF_MEMORY, OrNpe, THROWABLE, Throwable, ThrowableClass, catchThrowable, rethrow};
 use lwjgl::LWJGLException;
 use lwjgl::input::{Keyboard, Mouse};
@@ -11,6 +12,7 @@ use lwjgl::opengl::{Display, GL11};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 static LWJGL_EXCEPTION: ThrowableClass =
     ThrowableClass { m_name: "org.lwjgl.LWJGLException", m_parent: Some(&EXCEPTION) };
@@ -230,6 +232,8 @@ impl Minecraft
 
     pub fn shutdownMinecraftApplet(&self)
     {
+        let started: Instant = Instant::now();
+        logger().info("Shutting down");
         // mods get their shutdown event before the game tears down
         modloader::play::shutdown();
         let result: Result<(), Throwable> = catchThrowable(&THROWABLE, || {
@@ -253,6 +257,7 @@ impl Minecraft
             Keyboard::destroy();
         });
         Display::destroy();
+        logger().info(&format!("Shutdown took {}", took(started)));
         if !self.m_hasCrashed.get()
         {
             std::process::exit(0);
@@ -279,6 +284,7 @@ impl Minecraft
                     self.m_displayWidth.get(),
                     self.m_displayHeight.get(),
                 );
+                logger().info(&message);
                 self.ingameGUI().addChatMessage(&message);
             }
         }

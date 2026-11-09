@@ -1,9 +1,12 @@
 use client::assets;
 use client::client::Minecraft;
+use jvm::logging::logger;
 use std::process::ExitCode;
 
 // virtual size of the game thread stack, near a deep java -Xss so recursion depth matches more closely
 const GAME_STACK_BYTES: usize = 512 * 1024 * 1024;
+// crates whose debug lines reach the game log, every other library only logs warnings and errors
+const LIBRARY_LOGS: &[&str] = &["pudscode"];
 
 // everything runs on the big stack thread, so the thread_local registries are first built there
 fn main() -> ExitCode
@@ -50,9 +53,17 @@ fn run() -> ExitCode
         "client",
         jvm::log_files::LogFormatter::boxed,
     );
+    jvm::logging::bridge(logger(), LIBRARY_LOGS);
+    logger().info(&format!(
+        "Starting beta173 client {} on {} {}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    ));
+    logger().debug(&format!("Game folder {}", jvm::data_dir::root().display()));
     if !assets::isComplete()
     {
-        jvm::logging::Logger::getLogger("Minecraft").severe(&format!(
+        logger().severe(&format!(
             "no game assets in {}, start the game with beta173_launcher",
             assets::assetRoot().display()
         ));

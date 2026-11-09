@@ -3,6 +3,7 @@ use crate::network::packets::*;
 // java monitors are mutexes that ignore poisoning in port
 use crate::port::network::lock;
 use jvm::io::{DataInputStream, DataOutputStream, InputStream, IoResult, OutputStream, ioError};
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::{EOF, IO};
 use std::any::{Any, TypeId};
@@ -205,7 +206,7 @@ pub fn readPacket(input: &mut PacketInput, server: bool) -> IoResult<Option<Box<
         Ok(None) => return Ok(None),
         Err(throwable) if throwable.instanceOf(&EOF) =>
         {
-            jvm::system::println("Reached end of stream");
+            logger().debug("Reached end of stream");
             return Ok(None);
         }
         Err(throwable) => return Err(throwable),

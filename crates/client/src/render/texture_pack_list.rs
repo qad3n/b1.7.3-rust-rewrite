@@ -4,6 +4,7 @@ use crate::settings::GameSettings;
 // java.io.File calls are port stand-ins
 use game::port::file;
 use jvm::field::Field;
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use std::cell::RefCell;
@@ -59,6 +60,7 @@ impl TexturePackList
         }
         self.selected().closeTexturePackFile();
         self.m_currentTexturePack.set(pack.pack().m_texturePackFileName.get().orNpe());
+        logger().info(&format!("Switching texture pack to {}", self.m_currentTexturePack.get()));
         self.m_selectedTexturePack.set(Some(Rc::clone(pack)));
         let settings: Rc<GameSettings> = self.m_mc.m_gameSettings.get().orNpe();
         settings.m_skin.set(self.m_currentTexturePack.get());

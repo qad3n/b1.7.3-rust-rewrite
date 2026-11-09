@@ -9,8 +9,10 @@ use game::math::math_helper;
 use game::stats::StatList;
 use game::storage::ISaveFormat;
 use game::world::{ChunkCoordinates, IChunkProvider, ISaveHandler, Teleporter, World, WorldProvider};
+use jvm::logging::{logger, took};
 use jvm::throwable::OrNpe;
 use std::rc::Rc;
+use std::time::Instant;
 
 fn setMovementInputFromOptions(minecraft: &Minecraft, player: &Entity)
 {
@@ -36,6 +38,7 @@ impl Minecraft
 
     pub fn startWorld(&self, saveName: &str, name: &str, seed: i64)
     {
+        logger().info(&format!("Opening world \"{name}\" from saves/{saveName}"));
         self.changeWorld1(None);
         // rewrite: the save's mod id map applies before its chunks are read, and a world saved with mods keeps them
         if let Some(dir) = Minecraft::minecraftDir()
@@ -141,6 +144,7 @@ impl Minecraft
 
     pub fn changeWorld(&self, world: Option<Rc<World>>, message: &str, player: Option<&Rc<Entity>>)
     {
+        let started: Instant = Instant::now();
         let previous: Option<Rc<World>> = self.m_theWorld.get();
         self.statFileWriter().func_27175_b();
         self.statFileWriter().syncStats();
@@ -151,7 +155,9 @@ impl Minecraft
         self.sndManager().playStreaming(None, 0.0, 0.0, 0.0, 0.0, 0.0);
         if let Some(previous) = self.m_theWorld.get()
         {
+            let saving: Instant = Instant::now();
             previous.saveWorldIndirectly(Some(&*loadingScreen as &dyn IProgressUpdate));
+            logger().debug(&format!("Saved the previous world in {}", took(saving)));
         }
         self.m_theWorld.set(world.clone());
         // mods apply the world id map and load their world data before chunks are read
@@ -161,7 +167,12 @@ impl Minecraft
         {
             self.m_thePlayer.set(None);
             self.m_systemTime.set(0);
+            let left: bool = previous.is_some();
             releaseDiscardedWorld(previous, None);
+            if left
+            {
+                logger().info(&format!("Left the world in {}", took(started)));
+            }
             return;
         };
         self.playerController().initWorld(&world);
@@ -179,7 +190,9 @@ impl Minecraft
         }
         if !world.m_multiplayerWorld.get()
         {
+            let preparing: Instant = Instant::now();
             self.prepareWorld(message);
+            logger().debug(&format!("Built spawn terrain in {}", took(preparing)));
         }
         if self.m_thePlayer.with(Option::is_none)
         {
@@ -216,15 +229,27 @@ impl Minecraft
         self.m_renderViewEntity.set(Some(thePlayer));
         self.m_systemTime.set(0);
         releaseDiscardedWorld(previous, self.m_theWorld.get());
+        let label: &str = if message.is_empty()
+        {
+            "Joining the world"
+        }
+        else
+        {
+            message
+        };
+        logger().info(&format!("{label} took {}", took(started)));
     }
 
     fn convertMapFormat(&self, saveName: &str, name: &str)
     {
         let saveLoader: Rc<dyn ISaveFormat> = self.m_saveLoader.get().orNpe();
         let loadingScreen: Rc<crate::gui::LoadingScreenRenderer> = self.loadingScreen();
+        logger().info(&format!("Converting saves/{saveName} to {}", saveLoader.getName()));
+        let started: Instant = Instant::now();
         loadingScreen.printText(&format!("Converting World to {}", saveLoader.getName()));
         loadingScreen.displayLoadingString("This may take a while :)");
         saveLoader.convertMapFormat(saveName, &*loadingScreen);
+        logger().info(&format!("Converted saves/{saveName} in {}", took(started)));
         self.startWorld(saveName, name, 0);
     }
 

@@ -1,4 +1,5 @@
 use crate::client::Minecraft;
+use jvm::logging::logger;
 use jvm::net::openStream;
 use jvm::string::JString;
 use jvm::throwable::Throwable;
@@ -83,8 +84,8 @@ impl ThreadDownloadResources
     {
         if let Err(exception) = self.listContents()
         {
+            logger().warning(&format!("Resource index unavailable, using the local resources folder: {exception}"));
             self.loadResource(&self.m_resourcesFolder, "");
-            exception.printStackTrace();
         }
     }
 
@@ -109,7 +110,7 @@ impl ThreadDownloadResources
             })
             .is_err()
             {
-                jvm::system::println(&format!("Failed to add {prefix}{name}"));
+                logger().warning(&format!("Failed to add {prefix}{name}"));
             }
         }
     }

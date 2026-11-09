@@ -11,6 +11,7 @@ use crate::stats::StatFileWriter;
 use game::stats::{Achievement, AchievementList, IStatStringFormat, StatBase};
 use game::storage::SaveConverterMcRegion;
 use game::worldgen::{ColorizerFoliage, ColorizerGrass, ColorizerWater};
+use jvm::logging::{logger, took};
 use jvm::throwable::{EXCEPTION, OrNpe, catchThrowable};
 use lwjgl::LWJGLException;
 use lwjgl::input::{Controllers, Keyboard, Mouse};
@@ -18,10 +19,21 @@ use lwjgl::opengl::{Display, DisplayMode, GL11};
 use lwjgl::util::glu::GLU;
 use std::path::PathBuf;
 use std::rc::{Rc, Weak};
+use std::time::Instant;
 
 // the window title drops the Minecraft name at the user's request
 const WINDOW_TITLE: &str = "beta173";
 const CREATE_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(1000);
+const GL_DRIVER_STRINGS: [(&str, i32); 3] = [("vendor", 0x1F00), ("renderer", 0x1F01), ("version", 0x1F02)];
+
+fn logDriver()
+{
+    for (label, name) in GL_DRIVER_STRINGS
+    {
+        let text: String = GL11::glGetString(name).unwrap_or_else(|| "unknown".to_owned());
+        logger().info(&format!("OpenGL {label}: {text}"));
+    }
+}
 
 struct InventoryKeyFormat
 {
@@ -42,6 +54,7 @@ impl Minecraft
 {
     pub fn startGame(&self) -> Result<(), LWJGLException>
     {
+        let started: Instant = Instant::now();
         let this: Rc<Minecraft> = self.rc();
         if let Some(canvas) = self.m_mcCanvas.get()
         {
@@ -63,16 +76,32 @@ impl Minecraft
         Display::setTitle(WINDOW_TITLE);
         if let Err(exception) = Display::create()
         {
-            exception.printStackTrace();
+            logger().warning(&format!("Display creation failed, retrying once: {exception}"));
             std::thread::sleep(CREATE_RETRY_DELAY);
             Display::create()?;
         }
+        logger().info(&format!(
+            "Created {}x{} display{}",
+            self.m_displayWidth.get(),
+            self.m_displayHeight.get(),
+            if self.m_fullscreen.get()
+            {
+                " in fullscreen"
+            }
+            else
+            {
+                ""
+            }
+        ));
+        logDriver();
+
         let dataDir: PathBuf = Minecraft::getMinecraftDir();
         self.m_mcDataDir.set(Some(dataDir.clone()));
         // the built in mod loader creates mods and config next to saves and loads what it finds
         crate::modded::install(&this);
         modloader::bootstrap(&dataDir);
         self.m_saveLoader.set(Some(Rc::new(SaveConverterMcRegion::new(&dataDir.join("saves")))));
+        let stage: Instant = Instant::now();
         let settings: Rc<GameSettings> = GameSettings::new(Rc::clone(&this), &dataDir);
         self.m_gameSettings.set(Some(Rc::clone(&settings)));
         let packs: Rc<TexturePackList> = TexturePackList::new(&this, &dataDir);
@@ -83,6 +112,8 @@ impl Minecraft
         ColorizerWater::set(engine.getColors("/misc/watercolor.png"));
         ColorizerGrass::set(engine.getColors("/misc/grasscolor.png"));
         ColorizerFoliage::set(engine.getColors("/misc/foliagecolor.png"));
+        logger().debug(&format!("Settings, texture packs and fonts loaded in {}", took(stage)));
+
         self.m_entityRenderer.set(Some(Rc::new(EntityRenderer::new(&this))));
         RenderManager::instance().m_itemRenderer.set(Some(Rc::new(ItemRenderer::new(Rc::clone(&this)))));
         self.m_statFileWriter.set(Some(Rc::new(StatFileWriter::new(&self.m_session.get().orNpe(), &dataDir))));
@@ -95,7 +126,7 @@ impl Minecraft
         self.m_mouseHelper.set(Some(Rc::new(MouseHelper::new(component))));
         if let Err(exception) = Controllers::create()
         {
-            exception.printStackTrace();
+            logger().warning(&format!("Controllers unavailable: {exception}"));
         }
         self.checkGLError("Pre startup");
         GL11::glEnable(3553);
@@ -111,6 +142,7 @@ impl Minecraft
         GL11::glMatrixMode(5888);
         self.checkGLError("Startup");
         self.m_glCapabilities.set(Some(Rc::new(OpenGlCapsChecker)));
+        let stage: Instant = Instant::now();
         self.sndManager().loadSoundSettings(Some(Rc::clone(&settings)));
         // mod sounds join the sound pool under their mod id, discs the streaming pool
         for (path, file) in modloader::sounds::files()
@@ -121,6 +153,8 @@ impl Minecraft
                 false => self.sndManager().addSound(&path, &file),
             }
         }
+        logger().debug(&format!("Sound system started in {}", took(stage)));
+
         let effects: [Rc<dyn TextureFX>; 9] = [
             self.m_textureLavaFX.get().orNpe(),
             self.m_textureWaterFX.get().orNpe(),
@@ -139,7 +173,11 @@ impl Minecraft
         self.m_renderGlobal.set(Some(RenderGlobal::new(&this, &engine)));
         GL11::glViewport(0, 0, self.m_displayWidth.get(), self.m_displayHeight.get());
         self.m_effectRenderer.set(Some(Rc::new(EffectRenderer::new(self.m_theWorld.get(), &engine))));
+        let stage: Instant = Instant::now();
         self.startDownloadResources(&dataDir);
+        logger().debug(&format!("Resources checked in {}", took(stage)));
+        self.sndManager().logPools();
+
         self.checkGLError("Post startup");
         self.m_ingameGUI.set(Some(Rc::new(GuiIngame::new(Rc::clone(&this)))));
         match self.m_serverName.get()
@@ -151,6 +189,7 @@ impl Minecraft
             // mod load problems are shown before the title screen
             None => self.displayGuiScreen(Some(crate::modded::startScreen(GuiMainMenu::new()))),
         }
+        logger().info(&format!("Startup took {}", took(started)));
         Ok(())
     }
 

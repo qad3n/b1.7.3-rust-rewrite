@@ -1,5 +1,6 @@
 use crate::block::Block;
 use crate::world::{Chunk, EnumSkyBlock, World};
+use jvm::logging::logger;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -37,7 +38,7 @@ impl MetadataChunkBlock
         let l: i32 = i * j * k;
         if l > 32768
         {
-            jvm::system::println("Light too large, skipping!");
+            logger().warning("Light too large, skipping!");
             return;
         }
 

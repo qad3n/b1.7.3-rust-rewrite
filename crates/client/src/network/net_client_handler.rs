@@ -28,6 +28,7 @@ use game::tileentity::{TileEntity, tile_entity_dispenser, tile_entity_furnace, t
 use game::world::{ChunkCoordinates, Explosion, MapDataBase, MapStorage, World};
 use jvm::field::Field;
 use jvm::io::{IoResult, ioError};
+use jvm::logging::logger;
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{EXCEPTION, IO, OrNpe, Throwable, ThrowableClass, catchThrowable};
@@ -139,6 +140,7 @@ impl NetClientHandler
 
     pub fn disconnect(&self)
     {
+        logger().info("Disconnecting from the server");
         modloader::netsync::clientDisconnected();
         self.m_disconnected.set(true);
         self.netManager().wakeThreads();
@@ -232,6 +234,7 @@ impl NetHandler for NetClientHandler
             self.m_disconnected.set(true);
             return;
         }
+        logger().info(&format!("Logged in as entity {} in dimension {}", packet.m_protocolVersion, packet.m_dimension));
         let this: Rc<NetClientHandler> = self.rc();
         let mc: &Rc<Minecraft> = &self.m_mc;
         mc.m_playerController.set(Some(player_controller_mp::new(mc, &this)));
@@ -591,6 +594,8 @@ impl NetHandler for NetClientHandler
             return;
         }
         self.m_disconnected.set(true);
+        let detail: Vec<String> = args.iter().map(JString::to_string).collect();
+        logger().warning(&format!("Lost connection: {reason} {}", detail.join(", ")));
         self.m_mc.changeWorld1(None);
         self.m_mc.displayGuiScreen(Some(GuiConnectFailed::new("disconnect.lost", &reason.to_string(), args)));
     }

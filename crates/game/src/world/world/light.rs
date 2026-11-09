@@ -1,6 +1,7 @@
 use super::LIGHTING_UPDATES_SCHEDULED;
 use crate::block::Block;
 use crate::world::{Chunk, EnumSkyBlock, MetadataChunkBlock, World};
+use jvm::logging::logger;
 use std::rc::Rc;
 
 fn outside(x: i32, z: i32) -> bool { x < -32000000 || z < -32000000 || x >= 32000000 || z > 32000000 }
@@ -290,7 +291,7 @@ impl World
                 let j1: i32 = 1000000;
                 if self.m_lightingToUpdate.size() > 1000000
                 {
-                    jvm::system::println(&format!("More than {j1} updates, aborting lighting updates"));
+                    logger().warning(&format!("More than {j1} updates, aborting lighting updates"));
                     self.m_lightingToUpdate.clear();
                 }
             });

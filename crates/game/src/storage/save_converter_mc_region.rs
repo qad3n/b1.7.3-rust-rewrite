@@ -9,6 +9,7 @@ use crate::storage::{ChunkFile, ISaveFormat, SaveFormatComparator};
 use crate::world::{ISaveHandler, WorldInfo};
 use common::world::IProgressUpdate;
 use jvm::io::{DataInputStream, FileInputStream, InputStream, IoResult};
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::{self, OrNpe, Throwable};
 use jvm::zip::GZIPInputStream;
@@ -221,14 +222,14 @@ impl ISaveFormat for SaveConverterMcRegion
         let mut arraylist3: Vec<PathBuf> = Vec::new();
         let file1: PathBuf = self.m_base.m_dir.join(saveName);
         let file2: PathBuf = file1.join("DIM-1");
-        jvm::system::println("Scanning folders...");
+        logger().info("Scanning folders...");
         self.collectAlphaChunkFiles(&file1, &mut arraylist, &mut arraylist1);
         if file::exists(&file2)
         {
             self.collectAlphaChunkFiles(&file2, &mut arraylist2, &mut arraylist3);
         }
         let i: i32 = (arraylist.len() + arraylist2.len() + arraylist1.len() + arraylist3.len()) as i32;
-        jvm::system::println(&format!("Total conversion count is {i}"));
+        logger().info(&format!("Total conversion count is {i}"));
         let size: i32 = arraylist.len() as i32;
         let size2: i32 = arraylist2.len() as i32;
         let size1: i32 = arraylist1.len() as i32;
