@@ -114,9 +114,10 @@ fn spawnEntity(message: SpawnEntity)
         return;
     };
     entity.m_entityId.set(message.id);
-    entity.m_serverPosX.set((message.pos[0] * 32.0) as i32);
-    entity.m_serverPosY.set((message.pos[1] * 32.0) as i32);
-    entity.m_serverPosZ.set((message.pos[2] * 32.0) as i32);
+    // relative moves build on the tracker's encoded position so both sides must encode alike
+    entity.m_serverPosX.set(game::math::math_helper::encodePos(message.pos[0]));
+    entity.m_serverPosY.set(game::math::math_helper::encodePos(message.pos[1]));
+    entity.m_serverPosZ.set(game::math::math_helper::encodePos(message.pos[2]));
     entity.setPositionAndRotation(
         message.pos[0],
         message.pos[1],
