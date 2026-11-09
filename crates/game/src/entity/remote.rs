@@ -111,6 +111,9 @@ pub struct Track
     m_correction: Cell<[f64; 3]>,
     m_blend: Cell<i32>,
     m_impulse: Cell<i32>,
+    m_kicked: Cell<bool>,
+    m_drift: Cell<[f64; 3]>,
+    m_driftTicks: Cell<i32>,
 }
 
 impl Track
@@ -338,7 +341,31 @@ impl Track
         }
 
         self.m_impulse.set(self.m_impulse.get() - 1);
+        self.m_kicked.set(true);
         true
+    }
+
+    // after a hit the buffer still shows the moment before it, so the predicted lead fades out while the buffer catches up
+    pub fn ease(&self, this: &Entity, pose: Pose) -> Pose
+    {
+        let delay: i32 = self.delay();
+        if self.m_kicked.replace(false)
+        {
+            let current: [f64; 3] = [this.posX(), this.posY(), this.posZ()];
+            self.m_drift.set(std::array::from_fn(|i| current[i] - pose.m_pos[i]));
+            self.m_driftTicks.set(delay);
+        }
+
+        let ticks: i32 = self.m_driftTicks.get();
+        if ticks <= 0
+        {
+            return pose;
+        }
+
+        self.m_driftTicks.set(ticks - 1);
+        let share: f64 = ticks as f64 / delay as f64;
+        let drift: [f64; 3] = self.m_drift.get();
+        Pose { m_pos: std::array::from_fn(|i| pose.m_pos[i] + drift[i] * share), ..pose }
     }
 }
 

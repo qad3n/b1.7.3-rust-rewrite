@@ -350,7 +350,7 @@ pub fn onLivingUpdate(this: &Rc<Entity>)
         {
             if let Some(pose) = pose
             {
-                remote::follow(this, &pose);
+                remote::follow(this, &this.m_remote.ease(this, pose));
             }
             animateWalk(this);
             pushOthers(this, &world);
