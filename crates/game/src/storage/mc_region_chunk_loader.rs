@@ -5,6 +5,7 @@ use crate::world::{Chunk, IChunkLoader, World, WorldInfo};
 use common::nbt::{CompressedStreamTools, NBTBase, NBTTagCompound};
 use jvm::io::IoResult;
 use jvm::throwable::OrNpe;
+use jvm::trace;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -26,6 +27,7 @@ impl IChunkLoader for McRegionChunkLoader
             RegionFileCache::getChunkInputStream(&self.m_worldDir, chunkX, chunkZ)
         else
         {
+            trace!("Chunk {chunkX},{chunkZ} is not in its region file");
             return Ok(None);
         };
         let nbtTagCompound: Rc<NBTBase> = CompressedStreamTools::read(&mut dataInputStream)?;
@@ -45,9 +47,12 @@ impl IChunkLoader for McRegionChunkLoader
             CompressedStreamTools::write(&nbtTagCompound, &mut dataOutputStream)?;
             dataOutputStream.close()?;
             let worldInfo: Rc<WorldInfo> = world.getWorldInfo();
-            worldInfo.setSizeOnDisk(
-                worldInfo.getSizeOnDisk()
-                    + RegionFileCache::getSizeDelta(&self.m_worldDir, chunk.m_xPosition, chunk.m_zPosition) as i64,
+            let delta: i64 =
+                RegionFileCache::getSizeDelta(&self.m_worldDir, chunk.m_xPosition, chunk.m_zPosition) as i64;
+            worldInfo.setSizeOnDisk(worldInfo.getSizeOnDisk() + delta);
+            trace!(
+                "Chunk {},{} written to its region file, size changed by {delta} bytes",
+                chunk.m_xPosition, chunk.m_zPosition
             );
             Ok(())
         });

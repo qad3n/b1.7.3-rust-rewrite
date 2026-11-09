@@ -1,7 +1,9 @@
 use crate::world::{Chunk, IChunkLoader, IChunkProvider, World};
 use common::world::IProgressUpdate;
 use jvm::field::Field;
+use jvm::logging::Level;
 use jvm::throwable::{self, OrNpe};
+use jvm::{debug, logThrown, trace};
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
@@ -88,7 +90,11 @@ impl ChunkProviderLoadOrGenerate
             }
             Ok(Err(exception)) | Err(exception) =>
             {
-                jvm::system::printStackTrace(&exception);
+                logThrown!(
+                    Level::SEVERE,
+                    Some(exception),
+                    "Could not load chunk {chunkX},{chunkZ}, using a blank chunk"
+                );
                 self.m_blankChunk.get()
             }
         }
@@ -105,7 +111,8 @@ impl ChunkProviderLoadOrGenerate
             throwable::catchThrowable(&throwable::EXCEPTION, || loader.saveExtraChunkData(&self.world(), chunk));
         if let Ok(Err(exception)) | Err(exception) = result
         {
-            jvm::system::printStackTrace(&exception);
+            let (x, z): (i32, i32) = (chunk.m_xPosition, chunk.m_zPosition);
+            logThrown!(Level::SEVERE, Some(exception), "Could not save extra data of chunk {x},{z}");
         }
     }
 
@@ -119,7 +126,8 @@ impl ChunkProviderLoadOrGenerate
         chunk.m_lastSaveTime.set(self.world().getWorldTime());
         if let Err(exception) = loader.saveChunk(&self.world(), chunk)
         {
-            jvm::system::printStackTrace(&exception);
+            let (x, z): (i32, i32) = (chunk.m_xPosition, chunk.m_zPosition);
+            logThrown!(Level::SEVERE, Some(exception), "Could not save chunk {x},{z}");
         }
     }
 
@@ -171,6 +179,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         {
             if let Some(old) = self.slot(k)
             {
+                trace!("Chunk {},{} leaves the cache for {chunkX},{chunkZ}", old.m_xPosition, old.m_zPosition);
                 old.onChunkUnload();
                 self.saveChunk(&old);
                 self.saveExtraChunkData(&old);
@@ -178,7 +187,11 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
 
             let chunk: Rc<Chunk> = match self.loadChunkFromStorage(chunkX, chunkZ)
             {
-                Some(chunk) => chunk,
+                Some(chunk) =>
+                {
+                    trace!("Chunk {chunkX},{chunkZ} loaded from disk");
+                    chunk
+                }
                 None => match self.m_chunkProvider.get()
                 {
                     None => self.m_blankChunk.get().orNpe(),
@@ -186,6 +199,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
                     {
                         let chunk: Rc<Chunk> = generator.provideChunk(chunkX, chunkZ);
                         chunk.fill();
+                        trace!("Chunk {chunkX},{chunkZ} generated");
                         chunk
                     }
                 },
@@ -302,6 +316,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
 
         if saveEntities
         {
+            debug!("Saved {i} of {length} cached chunks");
             let Some(loader) = self.m_chunkLoader.get()
             else
             {

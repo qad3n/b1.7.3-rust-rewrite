@@ -1,6 +1,7 @@
 use crate::world::{ISaveHandler, MapDataBase, MapDataKind};
 use common::nbt::{CompressedStreamTools, NBTBase, NBTTag, NBTTagCompound};
 use jvm::array_list::JArrayList;
+use jvm::debug;
 use jvm::hash_map::JHashMap;
 use jvm::io::{DataInputStream, DataOutputStream, FileInputStream, FileOutputStream, IoResult};
 use jvm::string::JString;
@@ -62,6 +63,7 @@ impl MapStorage
                     let fileinputstream: FileInputStream = FileInputStream::open(&file1)?;
                     let nbttagcompound: Rc<NBTBase> = CompressedStreamTools::readCompressed(fileinputstream)?;
                     data.readFromNBT(nbttagcompound.compound().getCompoundTag("data").compound());
+                    debug!("Read world data {id} from {}", file1.display());
                 }
                 Ok(())
             });
@@ -116,6 +118,7 @@ impl MapStorage
                 nbt.compound().setCompoundTag("data", &nbtTagCompound);
                 let os: FileOutputStream = FileOutputStream::create(&dataFile, false)?;
                 CompressedStreamTools::writeGzippedCompoundToOutputStream(&nbt, os)?;
+                debug!("Wrote world data {} to {}", data.m_id, dataFile.display());
             }
             Ok(())
         });

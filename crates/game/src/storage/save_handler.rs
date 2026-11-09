@@ -7,9 +7,8 @@ use crate::world::{IChunkLoader, ISaveHandler, WorldInfo, WorldProvider};
 use common::nbt::{CompressedStreamTools, NBTBase, NBTTagCompound};
 use common::world::MINECRAFT_EXCEPTION;
 use jvm::io::{DataInputStream, DataOutputStream, FileInputStream, FileOutputStream, InputStream, IoResult};
-use jvm::logging::Logger;
 use jvm::string::JString;
-use jvm::throwable;
+use jvm::{debug, throwable, warning};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -35,11 +34,22 @@ pub(super) fn readWorldInfo(dir: &Path) -> Option<Rc<WorldInfo>>
             let data: Rc<NBTBase> = nbttagcompound.compound().getCompoundTag("Data");
             Ok(Rc::new(WorldInfo::fromNBT(data.compound())))
         });
-        if info.is_some()
+        if let Some(read) = &info
         {
+            debug!(
+                "Read {} ({} bytes): version {} seed {} time {} last played {}",
+                file1.display(),
+                file::length(&file1),
+                read.getSaveVersion(),
+                read.getRandomSeed(),
+                read.getWorldTime(),
+                read.getLastTimePlayed()
+            );
             return info;
         }
+        warning!("Could not read {}, trying the next level file", file1.display());
     }
+    debug!("No level data in {}, the world is new", dir.display());
     None
 }
 
@@ -64,6 +74,7 @@ impl SaveHandler
             m_now: now,
         };
         handler.writeSessionLock();
+        debug!("Opened save {} with session lock {now}", handler.m_saveDirectory.display());
         handler
     }
 
@@ -94,8 +105,10 @@ impl SaveHandler
                 let file1: PathBuf = self.m_playersDirectory.join(format!("{}.dat", JString::display(playerName)));
                 if file::exists(&file1)
                 {
+                    debug!("Reading player data {} ({} bytes)", file1.display(), file::length(&file1));
                     return Ok(Some(CompressedStreamTools::readCompressed(FileInputStream::open(&file1)?)?));
                 }
+                debug!("No player data at {}, the player starts fresh", file1.display());
                 Ok(None)
             });
         match result.and_then(|inner| inner)
@@ -103,8 +116,7 @@ impl SaveHandler
             Ok(Some(nbt)) => return Some(nbt),
             Ok(None) =>
             {}
-            Err(_) => Logger::getLogger("Minecraft")
-                .warning(&format!("Failed to load player data for {}", JString::display(playerName))),
+            Err(_) => warning!("Failed to load player data for {}", JString::display(playerName)),
         }
         None
     }
@@ -135,6 +147,11 @@ impl SaveHandler
             {
                 file::delete(&file1);
             }
+            debug!(
+                "Wrote {} ({} bytes), kept the previous copy as level.dat_old",
+                file3.display(),
+                file::length(&file3)
+            );
             Ok(())
         });
     }
@@ -172,14 +189,17 @@ impl ISaveHandler for SaveHandler
         {
             let folder: PathBuf = self.m_saveDirectory.join(format!("DIM{dimension}"));
             file::mkdirs(&folder);
+            debug!("Dimension {dimension} chunks load from {}", folder.display());
             return Rc::new(ChunkLoader::new(&folder, true));
         }
         if provider.instanceOf("WorldProviderHell")
         {
             let file1: PathBuf = self.m_saveDirectory.join("DIM-1");
             file::mkdirs(&file1);
+            debug!("Nether chunks load from {}", file1.display());
             return Rc::new(ChunkLoader::new(&file1, true));
         }
+        debug!("Overworld chunks load from {}", self.m_saveDirectory.display());
         Rc::new(ChunkLoader::new(&self.m_saveDirectory, true))
     }
 
@@ -218,14 +238,15 @@ impl IPlayerFileData for SaveHandler
                     file::delete(&file2);
                 }
                 file::renameTo(&file1, &file2);
+                debug!("Wrote player data {} ({} bytes)", file2.display(), file::length(&file2));
                 Ok(())
             });
         if result.and_then(|inner| inner).is_err()
         {
-            Logger::getLogger("Minecraft").warning(&format!(
+            warning!(
                 "Failed to save player data for {}",
                 JString::display(entity_player::fields(player).m_username.get().as_ref())
-            ));
+            );
         }
     }
 

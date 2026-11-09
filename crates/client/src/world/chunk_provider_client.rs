@@ -3,6 +3,7 @@ use game::world::{Chunk, IChunkProvider, World};
 use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::JHashMap;
+use jvm::trace;
 use std::rc::Rc;
 
 pub struct ChunkProviderClient
@@ -29,6 +30,7 @@ impl ChunkProviderClient
 
     pub fn unloadChunk(&self, chunkX: i32, chunkZ: i32)
     {
+        trace!("Chunk {chunkX},{chunkZ} unloaded by the server");
         let chunk: Rc<Chunk> = self.provideChunk(chunkX, chunkZ);
         if !chunk.isEmpty()
         {
@@ -61,6 +63,7 @@ impl IChunkProvider for ChunkProviderClient
         chunk.skylight().m_data.update(|data| data.fill(-1));
         self.m_chunkMapping.update(|map| map.put(chunkCoordIntPair, Rc::clone(&chunk)));
         chunk.m_isChunkLoaded.set(true);
+        trace!("Chunk {chunkX},{chunkZ} allocated for server data");
         chunk
     }
 

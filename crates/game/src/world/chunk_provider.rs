@@ -3,7 +3,9 @@ use common::world::{ChunkCoordIntPair, IProgressUpdate};
 use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::{JHashMap, JHashSet};
+use jvm::logging::Level;
 use jvm::throwable::{self, OrNpe};
+use jvm::{debug, logThrown, trace};
 use std::rc::{Rc, Weak};
 
 pub struct ChunkProvider
@@ -60,7 +62,7 @@ impl ChunkProvider
             }
             Ok(Err(exception)) | Err(exception) =>
             {
-                jvm::system::printStackTrace(&exception);
+                logThrown!(Level::SEVERE, Some(exception), "Could not load chunk {chunkX},{chunkZ}");
                 None
             }
         }
@@ -77,7 +79,8 @@ impl ChunkProvider
             throwable::catchThrowable(&throwable::EXCEPTION, || loader.saveExtraChunkData(&self.world(), chunk));
         if let Ok(Err(exception)) | Err(exception) = result
         {
-            jvm::system::printStackTrace(&exception);
+            let (x, z): (i32, i32) = (chunk.m_xPosition, chunk.m_zPosition);
+            logThrown!(Level::SEVERE, Some(exception), "Could not save extra data of chunk {x},{z}");
         }
     }
 
@@ -91,7 +94,8 @@ impl ChunkProvider
         chunk.m_lastSaveTime.set(self.world().getWorldTime());
         if let Err(exception) = loader.saveChunk(&self.world(), chunk)
         {
-            jvm::system::printStackTrace(&exception);
+            let (x, z): (i32, i32) = (chunk.m_xPosition, chunk.m_zPosition);
+            logThrown!(Level::SEVERE, Some(exception), "Could not save chunk {x},{z}");
         }
     }
 
@@ -119,11 +123,19 @@ impl IChunkProvider for ChunkProvider
 
         let chunk: Rc<Chunk> = match self.loadChunkFromFile(chunkX, chunkZ)
         {
-            Some(chunk) => chunk,
+            Some(chunk) =>
+            {
+                trace!("Chunk {chunkX},{chunkZ} loaded from disk");
+                chunk
+            }
             None => match &self.m_chunkProvider
             {
                 None => Rc::clone(&self.m_empty),
-                Some(generator) => generator.provideChunk(chunkX, chunkZ),
+                Some(generator) =>
+                {
+                    trace!("Chunk {chunkX},{chunkZ} generated");
+                    generator.provideChunk(chunkX, chunkZ)
+                }
             },
         };
         self.m_chunkMap.update(|map| map.put(key, Rc::clone(&chunk)));
@@ -216,6 +228,7 @@ impl IChunkProvider for ChunkProvider
 
         if saveEntities
         {
+            debug!("Saved {n} of {} loaded chunks", self.m_chunkList.size());
             let Some(loader) = &self.m_chunkLoader
             else
             {
@@ -228,6 +241,7 @@ impl IChunkProvider for ChunkProvider
 
     fn unload100OldestChunks(&self) -> bool
     {
+        let queued: i32 = self.m_droppedChunksSet.with(JHashSet::size);
         for _ in 0..100
         {
             if self.m_droppedChunksSet.with(|set| !set.isEmpty())
@@ -237,6 +251,7 @@ impl IChunkProvider for ChunkProvider
                     set.nextKey(&mut cursor)
                 });
                 let chunk: Rc<Chunk> = self.m_chunkMap.with(|map| map.get(&n)).orNpe();
+                trace!("Chunk {},{} unloading", chunk.m_xPosition, chunk.m_zPosition);
                 chunk.onChunkUnload();
                 self.saveChunk(&chunk);
                 self.saveEntities(&chunk);
@@ -244,6 +259,11 @@ impl IChunkProvider for ChunkProvider
                 self.m_chunkMap.update(|map| map.remove(&n));
                 self.m_chunkList.removeIdentity(&chunk);
             }
+        }
+        let left: i32 = self.m_droppedChunksSet.with(JHashSet::size);
+        if queued > 0
+        {
+            debug!("Unloaded {} chunks, {left} still queued, {} loaded", queued - left, self.m_chunkList.size());
         }
         if let Some(loader) = &self.m_chunkLoader
         {

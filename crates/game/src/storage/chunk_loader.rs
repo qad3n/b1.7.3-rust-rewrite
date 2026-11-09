@@ -7,7 +7,7 @@ use common::nbt::{CompressedStreamTools, NBTBase, NBTTagCompound, NBTTagList};
 use common::world::NibbleArray;
 use jvm::io::{FileInputStream, FileOutputStream, IoResult};
 use jvm::throwable::{self, OrNpe, Throwable};
-use jvm::warning;
+use jvm::{trace, warning};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -126,6 +126,14 @@ impl ChunkLoader
         nbt.setTag("TileEntities", &nbttaglist1);
         // rewrite: per mod chunk data, absent unless a mod stored some
         common::nbt::attachments::write(&chunk.m_attachments.borrow(), nbt);
+        trace!(
+            "Chunk {},{} stored: {} entities, {} tile entities, populated {}",
+            chunk.m_xPosition,
+            chunk.m_zPosition,
+            nbttaglist.list().tagCount(),
+            nbttaglist1.list().tagCount(),
+            chunk.m_isTerrainPopulated.get()
+        );
     }
 
     pub fn loadChunkIntoWorldFromCompound(world: &Rc<World>, nbt: &NBTTagCompound) -> Rc<Chunk>
@@ -195,6 +203,13 @@ impl ChunkLoader
         }
         // rewrite: per mod chunk data, absent unless a mod stored some
         *chunk.m_attachments.borrow_mut() = common::nbt::attachments::read(nbt);
+        trace!(
+            "Chunk {i},{j} read: {} entities, {} tile entities, populated {}, last update {}",
+            nbttaglist.list().tagCount(),
+            nbttaglist1.list().tagCount(),
+            chunk.m_isTerrainPopulated.get(),
+            nbt.getLong("LastUpdate")
+        );
         chunk
     }
 

@@ -5,9 +5,9 @@ use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::{HashCursor, JHashMap, JHashSet};
 use jvm::io::IoResult;
-use jvm::logThrown;
 use jvm::logging::Level;
 use jvm::throwable::{self, OrNpe, Throwable};
+use jvm::{debug, logThrown, trace};
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
@@ -55,6 +55,7 @@ impl ChunkProviderServer
         let n3: i32 = 128;
         if n < -n3 || n > n3 || n2 < -n3 || n2 > n3
         {
+            trace!("Chunk {chunkX},{chunkZ} queued to unload");
             self.m_chunksToUnload.update(|set| set.add(ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ)));
         }
     }
@@ -142,11 +143,19 @@ impl IChunkProvider for ChunkProviderServer
         }
         let chunk: Rc<Chunk> = match self.loadChunkFromStorage(chunkX, chunkZ)
         {
-            Some(chunk) => chunk,
+            Some(chunk) =>
+            {
+                trace!("Chunk {chunkX},{chunkZ} loaded from disk");
+                chunk
+            }
             None => match &self.m_serverChunkGenerator
             {
                 None => Rc::clone(&self.m_dummyChunk),
-                Some(generator) => generator.provideChunk(chunkX, chunkZ),
+                Some(generator) =>
+                {
+                    trace!("Chunk {chunkX},{chunkZ} generated");
+                    generator.provideChunk(chunkX, chunkZ)
+                }
             },
         };
         self.m_id2ChunkMap.update(|map| map.put(chunkXZ2Int, Rc::clone(&chunk)));
@@ -243,6 +252,7 @@ impl IChunkProvider for ChunkProviderServer
         }
         if saveEntities
         {
+            debug!("Saved {n} of {} loaded chunks", self.m_chunks.size());
             let Some(storage) = &self.m_storage
             else
             {
@@ -257,6 +267,7 @@ impl IChunkProvider for ChunkProviderServer
     {
         if !world_server::fields(&self.m_world).m_levelSaving.get()
         {
+            let queued: i32 = self.m_chunksToUnload.with(JHashSet::size);
             for _ in 0..100
             {
                 if self.m_chunksToUnload.with(|set| !set.isEmpty())
@@ -266,6 +277,7 @@ impl IChunkProvider for ChunkProviderServer
                         set.nextKey(&mut cursor)
                     });
                     let chunk: Rc<Chunk> = self.m_id2ChunkMap.with(|map| map.get(&n)).orNpe();
+                    trace!("Chunk {},{} unloading", chunk.m_xPosition, chunk.m_zPosition);
                     chunk.onChunkUnload();
                     self.saveChunk(&chunk);
                     self.saveEntities(&chunk);
@@ -273,6 +285,11 @@ impl IChunkProvider for ChunkProviderServer
                     self.m_id2ChunkMap.update(|map| map.remove(&n));
                     self.m_chunks.removeIdentity(&chunk);
                 }
+            }
+            let left: i32 = self.m_chunksToUnload.with(JHashSet::size);
+            if queued > 0
+            {
+                debug!("Unloaded {} chunks, {left} still queued, {} loaded", queued - left, self.m_chunks.size());
             }
             if let Some(storage) = &self.m_storage
             {

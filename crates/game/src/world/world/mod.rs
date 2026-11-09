@@ -20,6 +20,7 @@ use jvm::field::Field;
 use jvm::hash_map::JHashSet;
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
+use jvm::{debug, trace};
 use std::any::Any;
 use std::cell::Cell;
 use std::collections::BTreeSet;
@@ -248,6 +249,33 @@ impl World
         }
         this.calculateInitialSkylight();
         this.initWeather();
+        let state: &str = if this.m_isNewWorld.get()
+        {
+            "created"
+        }
+        else
+        {
+            "loaded"
+        };
+        debug!("World {state}: {}", this.summary());
+    }
+
+    // name dimension seed time spawn and disk size for load and save log lines
+    pub fn summary(&self) -> String
+    {
+        let info: Rc<WorldInfo> = self.worldInfo();
+        format!(
+            "\"{}\" dimension {} seed {} time {} spawn {},{},{} raining {} {} bytes on disk",
+            jvm::string::JString::display(info.getWorldName().as_ref()),
+            self.worldProvider().m_worldType.get(),
+            info.getRandomSeed(),
+            info.getWorldTime(),
+            info.getSpawnX(),
+            info.getSpawnY(),
+            info.getSpawnZ(),
+            info.getRaining(),
+            info.getSizeOnDisk()
+        )
     }
 
     pub fn getInitialSpawnLocation(&self)
@@ -311,6 +339,8 @@ impl World
         {
             return;
         }
+        let started: std::time::Instant = std::time::Instant::now();
+        debug!("Saving world {} with {} players", self.summary(), self.m_playerEntities.size());
         if let Some(listener) = progressListener
         {
             listener.progressStartNoAbort("Saving level");
@@ -321,10 +351,12 @@ impl World
             listener.displayLoadingString("Saving chunks");
         }
         provider.saveChunks(saveEntities, progressListener);
+        debug!("World saved in {}", jvm::logging::took(started));
     }
 
     fn saveLevel(&self)
     {
+        trace!("Saving level data and map data");
         self.checkSessionLock();
         self.saveHandler().saveWorldInfoAndPlayer(&self.worldInfo(), &self.m_playerEntities.toVec());
         self.m_savedDataStorage.get().orNpe().saveAllData();
