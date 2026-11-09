@@ -207,7 +207,7 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
             let i5: i32 = j4 & 15;
             let l5: i32 = j4 >> 8 & 15;
             let j6: i32 = j4 >> 16 & 127;
-            let l6: i32 = chunk.rawBlock(i5 << 11 | l5 << 7 | j6) as i32 & 255;
+            let l6: i32 = chunk.blockAt(i5 << 11 | l5 << 7 | j6);
             if Block::tickOnLoad(l6)
             {
                 Block::byId(l6).orNpe().updateTick(this, i5 + i2, j6, l5 + j2, &this.m_rand);
