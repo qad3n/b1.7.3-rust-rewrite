@@ -1,5 +1,5 @@
 use crate::render::particle::{entity_digging_fx, entity_fx};
-use crate::render::{RenderEngine, Tessellator};
+use crate::render::{ICamera, RenderEngine, Tessellator};
 use game::block::Block;
 use game::entity::Entity;
 use game::math::math_helper;
@@ -11,6 +11,9 @@ use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 use std::f64::consts::PI;
 use std::rc::Rc;
+
+// past any particle quad half size plus a tick of motion
+const PARTICLE_PADDING: f64 = 4.0;
 
 pub struct EffectRenderer
 {
@@ -68,7 +71,7 @@ impl EffectRenderer
         }
     }
 
-    pub fn renderParticles(&self, camera: &Rc<Entity>, tickDelta: f32)
+    pub fn renderParticles(&self, camera: &Rc<Entity>, culler: &dyn ICamera, tickDelta: f32)
     {
         let yaw: f32 = camera.m_rotationYaw.get() * PI as f32 / 180.0;
         let pitch: f32 = camera.m_rotationPitch.get() * PI as f32 / 180.0;
@@ -95,7 +98,11 @@ impl EffectRenderer
             tessellator.startDrawingQuads();
             for j in 0..layer.size()
             {
-                layer.get(j).renderParticle(&*tessellator, tickDelta, f, f5, f2, f3, f4);
+                let particle: Rc<Entity> = layer.get(j);
+                if particleVisible(culler, &particle)
+                {
+                    particle.renderParticle(&*tessellator, tickDelta, f, f5, f2, f3, f4);
+                }
             }
             tessellator.draw();
         }
@@ -205,4 +212,19 @@ impl EffectRenderer
     {
         format!("{}", self.m_fxLayers[0].size() + self.m_fxLayers[1].size() + self.m_fxLayers[2].size())
     }
+}
+
+fn particleVisible(culler: &dyn ICamera, particle: &Entity) -> bool
+{
+    let (x, lastX): (f64, f64) = (particle.posX(), particle.m_prevPosX.get());
+    let (y, lastY): (f64, f64) = (particle.posY(), particle.m_prevPosY.get());
+    let (z, lastZ): (f64, f64) = (particle.posZ(), particle.m_prevPosZ.get());
+    culler.isBoxInFrustum(
+        x.min(lastX) - PARTICLE_PADDING,
+        y.min(lastY) - PARTICLE_PADDING,
+        z.min(lastZ) - PARTICLE_PADDING,
+        x.max(lastX) + PARTICLE_PADDING,
+        y.max(lastY) + PARTICLE_PADDING,
+        z.max(lastZ) + PARTICLE_PADDING,
+    )
 }

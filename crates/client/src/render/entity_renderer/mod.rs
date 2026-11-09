@@ -448,7 +448,7 @@ impl EntityRenderer
             effectRenderer.renderLit(&entityLiving, tickDelta);
             RenderHelper::disableStandardItemLighting();
             self.setupFog(0, tickDelta);
-            effectRenderer.renderParticles(&entityLiving, tickDelta);
+            effectRenderer.renderParticles(&entityLiving, &frustrum, tickDelta);
             if mc.m_objectMouseOver.get().is_some() && entityLiving.isInsideOfMaterial(&water) && isPlayer
             {
                 self.drawBlockHighlight(&renderGlobal, &entityLiving, tickDelta);
