@@ -24,6 +24,7 @@ struct ConnectingExt
     m_connection: Arc<Mutex<Option<Connection>>>,
     m_minecraft: Rc<Minecraft>,
     m_address: String,
+    m_port: i32,
 }
 
 fn fields(this: &GuiScreen) -> &ConnectingExt { this.ext::<ConnectingExt>() }
@@ -37,6 +38,7 @@ fn finishConnecting(ext: &ConnectingExt, connection: Connection)
         Ok(handler) =>
         {
             ext.m_clientHandler.set(Some(Rc::clone(&handler)));
+            handler.setServer(&format!("{}:{}", ext.m_address, ext.m_port));
             if ext.m_cancelled.load(Ordering::SeqCst)
             {
                 return;
@@ -166,6 +168,7 @@ impl GuiConnecting
             m_connection: Arc::new(Mutex::new(None)),
             m_minecraft: Rc::clone(minecraft),
             m_address: address.to_string(),
+            m_port: port,
         };
         let connection: Arc<Mutex<Option<Connection>>> = Arc::clone(&ext.m_connection);
         let host: String = address.to_string();

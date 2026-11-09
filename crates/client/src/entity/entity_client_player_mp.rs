@@ -188,6 +188,12 @@ pub const CLASS: EntityClass = EntityClass {
     dropCurrentItem: |this| sendQueue(this).addToSendQueue(Box::new(Packet14BlockDig::new(4, 0, 0, 0, 0))),
     joinEntityItemWithWorld: |_, _| {},
     sendChatMessage: |this, content| {
+        // a password never goes through chat, the change runs on the auth channel
+        if content.trim().eq_ignore_ascii_case("/password")
+        {
+            sendQueue(this).openPasswordChange();
+            return;
+        }
         sendQueue(this).addToSendQueue(Box::new(Packet3Chat::new(JString::from(content))));
     },
     swingItem: |this| {

@@ -1,5 +1,5 @@
 use crate::player::entity_player_mp;
-use crate::server::{ICommandListener, MinecraftServer};
+use crate::server::{ICommandListener, MinecraftServer, ServerAuth};
 use crate::world::world_server;
 use game::container::{Container, Slot};
 use game::entity::{Entity, entity_living, entity_player};
@@ -27,6 +27,7 @@ use jvm::{debug, info, warning};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+use std::time::Instant;
 
 pub struct NetServerHandler
 {
@@ -44,6 +45,7 @@ pub struct NetServerHandler
     m_lastPosZ: Cell<f64>,
     m_hasMoved: Cell<bool>,
     m_transactions: RefCell<HashMap<i32, i16>>,
+    m_passwordChange: RefCell<Option<auth::Handshake>>,
 }
 
 impl NetServerHandler
@@ -66,6 +68,7 @@ impl NetServerHandler
             m_lastPosZ: Cell::new(0.0),
             m_hasMoved: Cell::new(true),
             m_transactions: RefCell::new(HashMap::new()),
+            m_passwordChange: RefCell::new(None),
             m_mcServer: Rc::clone(server),
             m_netManager: Rc::clone(connection),
             m_playerEntity: Field::new(Rc::clone(player)),
@@ -221,6 +224,95 @@ impl NetServerHandler
     }
 
     pub fn getNumChunkDataPackets(&self) -> i32 { self.m_netManager.getNumChunkDataPackets() }
+
+    fn authReply(&self, message: &auth::Message) { self.sendPacket(Box::new(Packet250ModPayload::auth(message))); }
+
+    fn authPayload(&self, data: &[u8])
+    {
+        let (Some(service), Ok(message)) = (self.m_mcServer.auth(), auth::Message::decode(data))
+        else
+        {
+            self.kickPlayer("Protocol error");
+            return;
+        };
+
+        // the client marker can land here once login handed over, the read thread already switched
+        if message == auth::Message::Secure
+        {
+            return;
+        }
+
+        let display: String = self.username();
+        let Some(name) = auth::canonical(&display)
+        else
+        {
+            self.kickPlayer("Protocol error");
+            return;
+        };
+
+        let now: Instant = Instant::now();
+        if matches!(message, auth::Message::Ke1(_))
+        {
+            if let Err(reason) = self.startChange(&service, &name, &display, now)
+            {
+                self.authReply(&auth::Message::Result(reason));
+                return;
+            }
+        }
+
+        let outcome: Option<auth::Outcome> =
+            self.m_passwordChange.borrow_mut().as_mut().map(|change| change.receive(&mut service.vault(), message));
+        let finished: Option<String> = match outcome
+        {
+            None =>
+            {
+                debug!("Ignored an auth message from {display} with no password change running");
+                None
+            }
+            Some(auth::Outcome::Send(reply)) =>
+            {
+                // counted before the proof so a client that walks away after ke2 still pays the backoff
+                if matches!(reply, auth::Message::Ke2(_))
+                {
+                    service.limiter().failed(&name, now);
+                }
+                self.authReply(&reply);
+                None
+            }
+            Some(auth::Outcome::Wait) => None,
+            Some(auth::Outcome::Changed) =>
+            {
+                service.limiter().succeeded(&name);
+                info!("{display} changed their password");
+                Some(String::from("Password changed"))
+            }
+            Some(auth::Outcome::Fail(reason)) =>
+            {
+                service.limiter().failed(&name, now);
+                info!("{display} failed a password change: {reason}");
+                Some(reason)
+            }
+            Some(auth::Outcome::Refuse(reason)) => Some(reason),
+            Some(auth::Outcome::Authed(_)) => Some(String::from("Protocol error")),
+        };
+        if let Some(result) = finished
+        {
+            *self.m_passwordChange.borrow_mut() = None;
+            self.authReply(&auth::Message::Result(result));
+        }
+    }
+
+    fn startChange(&self, service: &ServerAuth, name: &str, display: &str, now: Instant) -> Result<(), String>
+    {
+        if !self.m_netManager.secure()
+        {
+            return Err(String::from("Password changes need an encrypted connection"));
+        }
+        let ip: std::net::IpAddr = self.m_netManager.remoteIp().ok_or("Protocol error")?;
+        service.limiter().attempt(ip, name, now)?;
+        *self.m_passwordChange.borrow_mut() = Some(auth::Handshake::change(name, display));
+        Ok(())
+    }
 }
 
 impl NetHandler for NetServerHandler
@@ -644,6 +736,12 @@ impl NetHandler for NetServerHandler
 
     fn handleModPayload(&self, packet: &Packet250ModPayload)
     {
+        if packet.m_channel == auth::CHANNEL
+        {
+            self.authPayload(&packet.m_data);
+            return;
+        }
+
         // oversize payloads, unknown channels and a blown budget end the connection
         if let Err(reason) = modloader::netsync::serverReceive(&self.player(), packet.m_channel, &packet.m_data)
         {

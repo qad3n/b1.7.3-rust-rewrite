@@ -1,7 +1,7 @@
 use crate::network::NetworkListenThread;
 use crate::player::EntityTracker;
 use crate::server::{
-    ConsoleCommandHandler, ICommandListener, PropertyManager, ServerCommand, ServerConfigurationManager,
+    ConsoleCommandHandler, ICommandListener, PropertyManager, ServerAuth, ServerCommand, ServerConfigurationManager,
 };
 use crate::world::{IUpdatePlayerListBox, WorldManager, world_server, world_server_multi};
 use common::world::IProgressUpdate;
@@ -51,6 +51,7 @@ pub struct MinecraftServer
     pub m_spawnPeacefulMobs: Cell<bool>,
     pub m_pvpOn: Cell<bool>,
     pub m_allowFlight: Cell<bool>,
+    pub m_auth: Field<Option<Rc<ServerAuth>>>,
 }
 
 struct ConvertProgress
@@ -98,6 +99,7 @@ impl MinecraftServer
             m_spawnPeacefulMobs: Cell::new(false),
             m_pvpOn: Cell::new(false),
             m_allowFlight: Cell::new(false),
+            m_auth: Field::new(None),
         });
         let sleeper: std::io::Result<std::thread::JoinHandle<()>> = jvm::thread::start(jvm::thread::nextName(), || {
             loop
@@ -119,6 +121,8 @@ impl MinecraftServer
     pub fn propertyManager(&self) -> Rc<PropertyManager> { self.m_propertyManagerObj.get().orNpe() }
 
     pub fn configManager(&self) -> Rc<ServerConfigurationManager> { self.m_configManager.get().orNpe() }
+
+    pub fn auth(&self) -> Option<Rc<ServerAuth>> { self.m_auth.get() }
 
     pub fn worldMngr(&self) -> Vec<Rc<World>> { self.m_worldMngr.get().orNpe().into_iter().map(OrNpe::orNpe).collect() }
 
@@ -151,6 +155,18 @@ impl MinecraftServer
         self.m_spawnPeacefulMobs.set(self.propertyManager().getBooleanProperty("spawn-animals", true));
         self.m_pvpOn.set(self.propertyManager().getBooleanProperty("pvp", true));
         self.m_allowFlight.set(self.propertyManager().getBooleanProperty("allow-flight", false));
+        if !self.m_onlineMode.get()
+        {
+            match ServerAuth::load(&self.propertyManager())
+            {
+                Ok(auth) => self.m_auth.set(auth),
+                Err(error) =>
+                {
+                    severe!("**** CANNOT START PASSWORD AUTH: {error}");
+                    return Ok(false);
+                }
+            }
+        }
         let mut inetaddress: Option<IpAddr> = None;
         if !s.is_empty()
         {
@@ -169,7 +185,11 @@ impl MinecraftServer
                 return Ok(false);
             }
         }
-        if !self.m_onlineMode.get()
+        if let Some(auth) = self.auth()
+        {
+            info!("Password auth is on with {} accounts, registration is {:?}", auth.vault().count(), auth.policy());
+        }
+        else if !self.m_onlineMode.get()
         {
             warning!("**** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!");
             warning!("The server will make no attempt to authenticate usernames. Beware.");
@@ -181,6 +201,10 @@ impl MinecraftServer
         // rewrite: the level's saved mod id map applies before the per dimension trackers and player managers exist
         modloader::remap::preload(Path::new(&self.propertyManager().getStringProperty("level-name", "world")));
         self.m_configManager.set(Some(ServerConfigurationManager::new(&this)));
+        if !self.m_onlineMode.get() && self.auth().is_none() && self.configManager().opCount() > 0
+        {
+            warning!("**** auth=off with ops listed, anyone who joins with an op name gets op commands");
+        }
         let trackers: Vec<Option<Rc<EntityTracker>>> = modloader::dimensions::serverDimensions()
             .iter()
             .map(|dimension| Some(EntityTracker::new(&this, *dimension)))
@@ -572,6 +596,8 @@ impl ICommandListener for MinecraftServer
     }
 
     fn getUsername(&self) -> String { String::from("CONSOLE") }
+
+    fn console(&self) -> bool { true }
 }
 
 static UNKNOWN_HOST: ThrowableClass =

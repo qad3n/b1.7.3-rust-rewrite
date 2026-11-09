@@ -1,5 +1,6 @@
 use crate::network::net_handler::NetHandler;
 use crate::network::packet::{self, Packet, PacketInput, PacketOutput};
+use crate::network::packets::Packet250ModPayload;
 // java monitors and null stream errors come from port
 use crate::port::network::{lock, npeError};
 use jvm::debug;
@@ -37,9 +38,72 @@ fn socketError(error: &std::io::Error) -> Throwable
     }
 }
 
+type Slot<T> = Arc<Mutex<Option<T>>>;
+
+fn cipherError(message: String) -> Throwable { ioError(&IO, &message) }
+
 struct SocketInputStream
 {
     m_socket: TcpStream,
+    // set by the read thread right after the peer's secure marker
+    m_open: Slot<auth::Opener>,
+    m_plain: Vec<u8>,
+    m_pos: usize,
+}
+
+impl SocketInputStream
+{
+    fn fill(&mut self, buf: &mut [u8]) -> IoResult<bool>
+    {
+        let mut filled: usize = 0;
+        while filled < buf.len()
+        {
+            match self.m_socket.read(&mut buf[filled..])
+            {
+                Ok(0) if filled == 0 => return Ok(false),
+                Ok(0) => return Err(ioError(&IO, "connection closed inside an encrypted frame")),
+                Ok(count) => filled += count,
+                Err(error) if error.kind() == ErrorKind::Interrupted => continue,
+                Err(error) => return Err(socketError(&error)),
+            }
+        }
+        Ok(true)
+    }
+
+    fn readFrame(&mut self, opener: &mut auth::Opener) -> IoResult<bool>
+    {
+        let mut header: [u8; auth::FRAME_HEADER] = [0; auth::FRAME_HEADER];
+        if !self.fill(&mut header)?
+        {
+            return Ok(false);
+        }
+
+        let mut sealed: Vec<u8> = vec![0; auth::Opener::length(header).map_err(cipherError)?];
+        if !self.fill(&mut sealed)?
+        {
+            return Err(ioError(&IO, "connection closed inside an encrypted frame"));
+        }
+
+        self.m_plain = opener.open(&sealed).map_err(cipherError)?;
+        self.m_pos = 0;
+        Ok(true)
+    }
+
+    fn readSecure(&mut self, buf: &mut [u8], opener: &mut auth::Opener) -> IoResult<i32>
+    {
+        while self.m_pos == self.m_plain.len()
+        {
+            if !self.readFrame(opener)?
+            {
+                return Ok(-1);
+            }
+        }
+
+        let count: usize = buf.len().min(self.m_plain.len() - self.m_pos);
+        buf[..count].copy_from_slice(&self.m_plain[self.m_pos..self.m_pos + count]);
+        self.m_pos += count;
+        Ok(count as i32)
+    }
 }
 
 impl InputStream for SocketInputStream
@@ -60,6 +124,13 @@ impl InputStream for SocketInputStream
         {
             return Ok(0);
         }
+
+        let open: Slot<auth::Opener> = Arc::clone(&self.m_open);
+        if let Some(opener) = lock(&open).as_mut()
+        {
+            return self.readSecure(&mut buf[off as usize..(off + len) as usize], opener);
+        }
+
         loop
         {
             match self.m_socket.read(&mut buf[off as usize..(off + len) as usize])
@@ -76,6 +147,8 @@ impl InputStream for SocketInputStream
 struct SocketOutputStream
 {
     m_socket: TcpStream,
+    // set by the write thread right after it flushes its own secure marker
+    m_seal: Slot<auth::Sealer>,
 }
 
 impl OutputStream for SocketOutputStream
@@ -84,7 +157,20 @@ impl OutputStream for SocketOutputStream
 
     fn writeFrom(&mut self, buf: &[u8], off: i32, len: i32) -> IoResult<()>
     {
-        self.m_socket.write_all(&buf[off as usize..(off + len) as usize]).map_err(|error| socketError(&error))
+        let plain: &[u8] = &buf[off as usize..(off + len) as usize];
+        let mut seal: std::sync::MutexGuard<'_, Option<auth::Sealer>> = lock(&self.m_seal);
+        let Some(sealer) = seal.as_mut()
+        else
+        {
+            return self.m_socket.write_all(plain).map_err(|error| socketError(&error));
+        };
+
+        for chunk in plain.chunks(auth::PLAIN_LIMIT)
+        {
+            let frame: Vec<u8> = sealer.seal(chunk).map_err(cipherError)?;
+            self.m_socket.write_all(&frame).map_err(|error| socketError(&error))?;
+        }
+        Ok(())
     }
 
     fn flush(&mut self) -> IoResult<()> { self.m_socket.flush().map_err(|error| socketError(&error)) }
@@ -136,6 +222,14 @@ struct Shared
     m_chunkDataSendCounter: AtomicI32,
     m_delay: AtomicI32,
     m_remoteSocketAddress: Option<std::net::SocketAddr>,
+    m_open: Slot<auth::Opener>,
+    m_seal: Slot<auth::Sealer>,
+    // armed by the auth handshake, each network thread takes its half at a secure marker
+    m_armedOpen: Mutex<Option<auth::Opener>>,
+    m_armedSeal: Mutex<Option<auth::Sealer>>,
+    // the stream slots stay locked through blocking reads so state is mirrored here
+    m_readSecure: AtomicBool,
+    m_writeSecure: AtomicBool,
 }
 
 impl Shared
@@ -197,6 +291,15 @@ impl Shared
             let mut guard: std::sync::MutexGuard<'_, Option<PacketOutput>> = lock(&self.m_socketOutputStream);
             let output: &mut PacketOutput = guard.as_mut().ok_or_else(npeError)?;
             packet::writePacket(packet, output)?;
+            if Packet250ModPayload::secureMarker(packet)
+            {
+                // the marker leaves in plain text and every byte after it is sealed
+                output.flush()?;
+                let sealer: auth::Sealer =
+                    lock(&self.m_armedSeal).take().ok_or_else(|| ioError(&IO, "secure marker sent without keys"))?;
+                *lock(&self.m_seal) = Some(sealer);
+                self.m_writeSecure.store(true, Ordering::Release);
+            }
         }
         TOTAL_SEND_SIZE[packet.getPacketId() as usize].fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
         Ok(())
@@ -248,6 +351,14 @@ impl Shared
         {
             Some(packet) =>
             {
+                if Packet250ModPayload::secureMarker(packet.as_ref())
+                {
+                    let opener: auth::Opener = lock(&self.m_armedOpen)
+                        .take()
+                        .ok_or_else(|| ioError(&IO, "secure marker received without keys"))?;
+                    *lock(&self.m_open) = Some(opener);
+                    self.m_readSecure.store(true, Ordering::Release);
+                }
                 TOTAL_READ_SIZE[packet.getPacketId() as usize].fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
                 lock(&self.m_readPackets).push(packet);
                 Ok(true)
@@ -356,10 +467,19 @@ impl NetworkManager
             jvm::system::errPrintln(&ex.to_string());
         }
         let remoteSocketAddress: Option<std::net::SocketAddr> = socket.peer_addr().ok();
-        let input: Box<dyn InputStream + Send> =
-            Box::new(SocketInputStream { m_socket: socket.try_clone().map_err(|error| fromStd(&error))? });
+        let open: Slot<auth::Opener> = Arc::new(Mutex::new(None));
+        let seal: Slot<auth::Sealer> = Arc::new(Mutex::new(None));
+        let input: Box<dyn InputStream + Send> = Box::new(SocketInputStream {
+            m_socket: socket.try_clone().map_err(|error| fromStd(&error))?,
+            m_open: Arc::clone(&open),
+            m_plain: Vec::new(),
+            m_pos: 0,
+        });
         let output: Box<dyn OutputStream + Send> = Box::new(BufferedOutputStream::new(
-            SocketOutputStream { m_socket: socket.try_clone().map_err(|error| fromStd(&error))? },
+            SocketOutputStream {
+                m_socket: socket.try_clone().map_err(|error| fromStd(&error))?,
+                m_seal: Arc::clone(&seal),
+            },
             5120,
         ));
         let shared: Arc<Shared> = Arc::new(Shared {
@@ -382,6 +502,12 @@ impl NetworkManager
             m_chunkDataSendCounter: AtomicI32::new(0),
             m_delay: AtomicI32::new(50),
             m_remoteSocketAddress: remoteSocketAddress,
+            m_open: open,
+            m_seal: seal,
+            m_armedOpen: Mutex::new(None),
+            m_armedSeal: Mutex::new(None),
+            m_readSecure: AtomicBool::new(false),
+            m_writeSecure: AtomicBool::new(false),
         });
         let reader: Arc<Shared> = Arc::clone(&shared);
         let readThread: JoinHandle<()> =
@@ -490,6 +616,23 @@ impl NetworkManager
 
     pub fn getRemoteAddress(&self) -> String { self.m_shared.remoteAddress() }
 
+    pub fn remoteIp(&self) -> Option<std::net::IpAddr>
+    {
+        self.m_shared.m_remoteSocketAddress.map(|address| address.ip())
+    }
+
+    // takes effect only at the next secure marker each way so no packet is ever read with the wrong cipher
+    pub fn armSecure(&self, keys: auth::Keys)
+    {
+        *lock(&self.m_shared.m_armedOpen) = Some(keys.m_open);
+        *lock(&self.m_shared.m_armedSeal) = Some(keys.m_seal);
+    }
+
+    pub fn secure(&self) -> bool
+    {
+        self.m_shared.m_readSecure.load(Ordering::Acquire) && self.m_shared.m_writeSecure.load(Ordering::Acquire)
+    }
+
     pub fn close(&self)
     {
         self.wakeThreads();
@@ -518,4 +661,63 @@ impl NetworkManager
     }
 
     pub fn getNumChunkDataPackets(&self) -> i32 { lock(&self.m_shared.m_chunkDataPackets).len() as i32 }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+    use std::net::TcpListener;
+
+    fn streams() -> (SocketOutputStream, SocketInputStream)
+    {
+        let listener: TcpListener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
+        let writer: TcpStream = TcpStream::connect(listener.local_addr().expect("local address")).expect("connect");
+        let (reader, _): (TcpStream, std::net::SocketAddr) = listener.accept().expect("accept");
+        let output: SocketOutputStream = SocketOutputStream { m_socket: writer, m_seal: Arc::new(Mutex::new(None)) };
+        let input: SocketInputStream =
+            SocketInputStream { m_socket: reader, m_open: Arc::new(Mutex::new(None)), m_plain: Vec::new(), m_pos: 0 };
+        (output, input)
+    }
+
+    fn readExact(input: &mut SocketInputStream, len: usize) -> Vec<u8>
+    {
+        let mut buf: Vec<u8> = vec![0; len];
+        let mut filled: usize = 0;
+        while filled < len
+        {
+            let count: i32 = input.readInto(&mut buf, filled as i32, (len - filled) as i32).expect("read");
+            assert!(count > 0, "stream ended early");
+            filled += count as usize;
+        }
+        buf
+    }
+
+    #[test]
+    fn streams_switch_from_plain_to_sealed_at_the_marker()
+    {
+        let (mut output, mut input): (SocketOutputStream, SocketInputStream) = streams();
+        let server: auth::Keys = auth::Keys::derive(&[3; 64], true);
+        let client: auth::Keys = auth::Keys::derive(&[3; 64], false);
+
+        output.writeFrom(b"plain", 0, 5).expect("write plain");
+        *lock(&output.m_seal) = Some(server.m_seal);
+        output.writeFrom(b"first sealed", 0, 12).expect("write sealed");
+        output.writeFrom(b"second", 0, 6).expect("write sealed");
+
+        assert_eq!(readExact(&mut input, 5), b"plain");
+        *lock(&input.m_open) = Some(client.m_open);
+        assert_eq!(readExact(&mut input, 18), b"first sealedsecond");
+    }
+
+    #[test]
+    fn sealed_bytes_read_without_the_cipher_are_not_plain_text()
+    {
+        let (mut output, mut input): (SocketOutputStream, SocketInputStream) = streams();
+        *lock(&output.m_seal) = Some(auth::Keys::derive(&[3; 64], true).m_seal);
+        output.writeFrom(b"secret", 0, 6).expect("write sealed");
+
+        let wire: Vec<u8> = readExact(&mut input, auth::FRAME_HEADER + 6);
+        assert!(!wire.windows(6).any(|window| window == b"secret"));
+    }
 }

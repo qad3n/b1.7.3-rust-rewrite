@@ -1,13 +1,13 @@
 use crate::player::entity_player_mp;
-use crate::server::{ICommandListener, MinecraftServer, ServerCommand, ServerConfigurationManager};
+use crate::server::{ICommandListener, MinecraftServer, ServerAuth, ServerCommand, ServerConfigurationManager};
 use crate::world::world_server;
 use game::entity::{Entity, entity_player};
 use game::item::{Item, ItemStack};
 use game::network::packets::Packet3Chat;
 use game::world::World;
-use jvm::info;
 use jvm::string::JString;
 use jvm::throwable::{NUMBER_FORMAT, OrNpe};
+use jvm::{info, severe};
 use std::rc::Rc;
 
 fn split(text: &JString) -> Vec<JString>
@@ -87,6 +87,7 @@ impl ConsoleCommandHandler
             serverConfigurationManager.opPlayer(&string3);
             self.sendNoticeToOps(&string2, &format!("Opping {string3}"));
             serverConfigurationManager.sendChatMessageToPlayer(&string3, &JString::from("\u{a7}eYou are now op!"));
+            self.warnUnregisteredOp(iCommandListener, &string3.to_string());
         }
         else if lower.startsWith("deop ")
         {
@@ -95,6 +96,10 @@ impl ConsoleCommandHandler
             serverConfigurationManager
                 .sendChatMessageToPlayer(&string4, &JString::from("\u{a7}eYou are no longer op!"));
             self.sendNoticeToOps(&string2, &format!("De-opping {string4}"));
+        }
+        else if lower.startsWith("auth ")
+        {
+            self.authCommand(iCommandListener, &string.to_string());
         }
         else if lower.startsWith("ban-ip ")
         {
@@ -389,6 +394,116 @@ impl ConsoleCommandHandler
         source.log("   list                      lists all currently connected players");
         source.log("   say <message>             broadcasts a message to all players");
         source.log("   time <add|set> <amount>   adds to or sets the world time (0-24000)");
+        source.log("   auth invite <player>      makes a one-time code a player needs to register");
+        source.log("   auth reset <player>       deletes a password account so the player registers again");
+    }
+
+    // an op name has no account until its owner registers with an invite
+    fn warnUnregisteredOp(&self, source: &Rc<dyn ICommandListener>, target: &str)
+    {
+        let Some(service) = self.m_minecraftServer.auth()
+        else
+        {
+            return;
+        };
+
+        if auth::canonical(target).is_some_and(|name| service.vault().account(&name).is_none())
+        {
+            source.log(&format!(
+                "{target} has no account yet and can only register with a code from: auth invite {target}"
+            ));
+        }
+    }
+
+    fn authCommand(&self, source: &Rc<dyn ICommandListener>, text: &str)
+    {
+        let Some(service) = self.m_minecraftServer.auth()
+        else
+        {
+            source.log("Password auth is off on this server");
+            return;
+        };
+
+        let words: Vec<&str> = text.split_whitespace().collect();
+        let (Some(action), Some(target)) = (words.get(1), words.get(2))
+        else
+        {
+            source.log("Usage: auth invite <player> or auth reset <player>");
+            return;
+        };
+
+        let Some(name) = auth::canonical(target)
+        else
+        {
+            source.log(&format!("{target} is not a valid player name"));
+            return;
+        };
+
+        // ops cannot take over each other's accounts, only the console can touch an op account
+        let manager: Rc<ServerConfigurationManager> = self.m_minecraftServer.configManager();
+        if manager.isOp(Some(&JString::from(name.as_str()))) && !source.console()
+        {
+            source.log("Only the console can invite or reset an op account");
+            return;
+        }
+
+        match *action
+        {
+            "invite" => self.inviteAccount(source, &service, &name, target),
+            "reset" => self.resetAccount(source, &service, &name, target),
+            _ => source.log("Usage: auth invite <player> or auth reset <player>"),
+        }
+    }
+
+    fn inviteAccount(&self, source: &Rc<dyn ICommandListener>, service: &ServerAuth, name: &str, target: &str)
+    {
+        let created: Result<String, String> = service.vault().invite(name);
+        match created
+        {
+            Ok(code) =>
+            {
+                info!("{} created an invite for {target}", source.getUsername());
+                let line: String = format!("Invite code for {target}: {code} (one use, 24 hours)");
+                // the code is a secret so it skips the logger and server.log
+                if source.console()
+                {
+                    jvm::system::errPrintln(&line);
+                }
+                else
+                {
+                    source.log(&line);
+                }
+            }
+            Err(error) =>
+            {
+                severe!("Could not save an invite for {target}: {error}");
+                source.log("Could not save the auth vault, see the server log");
+            }
+        }
+    }
+
+    fn resetAccount(&self, source: &Rc<dyn ICommandListener>, service: &ServerAuth, name: &str, target: &str)
+    {
+        let removed: Result<bool, String> = service.vault().remove(name);
+        match removed
+        {
+            Ok(true) =>
+            {
+                self.sendNoticeToOps(&source.getUsername(), &format!("Reset the account of {target}"));
+                let manager: Rc<ServerConfigurationManager> = self.m_minecraftServer.configManager();
+                if let Some(player) = manager.getPlayerEntity(&JString::from(target))
+                {
+                    entity_player_mp::netServerHandler(&player)
+                        .kickPlayer("Your account was reset, join again to register");
+                }
+            }
+            Ok(false) => source.log(&format!("{target} has no account")),
+            Err(error) =>
+            {
+                severe!("Could not reset the account of {target}: {error}");
+                source.log("Could not save the auth vault, see the server log");
+            }
+        }
     }
 
     fn sendNoticeToOps(&self, player: &str, message: &str)

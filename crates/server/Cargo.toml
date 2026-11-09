@@ -9,11 +9,13 @@ name = "beta173_server"
 path = "src/bin/beta173_server.rs"
 
 [dependencies]
+auth = { path = "../auth" }
 awt = { path = "../awt" }
 common = { path = "../common" }
 game = { path = "../game" }
 jvm = { path = "../jvm" }
 modloader = { path = "../modloader" }
+zeroize = "1"
 
 [lints]
 workspace = true

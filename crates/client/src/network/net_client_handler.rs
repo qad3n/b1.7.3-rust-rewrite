@@ -1,7 +1,8 @@
 use crate::client::Minecraft;
 use crate::controller::player_controller_mp;
 use crate::entity::{entity_client_player_mp, entity_other_player_mp};
-use crate::gui::{GuiConnectFailed, GuiDownloadTerrain};
+use crate::gui::{AuthScreen, GuiAuth, GuiConnectFailed, GuiDownloadTerrain};
+use crate::network::server_keys;
 // the java (EntityPlayer) cast is checked in port
 use crate::port::network::castToPlayer;
 use crate::render::particle::entity_pickup_fx;
@@ -33,7 +34,7 @@ use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{EXCEPTION, IO, OrNpe, Throwable, ThrowableClass, catchThrowable};
 use jvm::{debug, info, warning};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::rc::{Rc, Weak};
 
@@ -52,6 +53,10 @@ pub struct NetClientHandler
     m_started: Cell<bool>,
     pub m_savedDataStorage: Rc<MapStorage>,
     m_rand: Random,
+    // host and port the server key is pinned under
+    m_server: Field<String>,
+    m_serverKey: Field<Vec<u8>>,
+    m_auth: RefCell<Option<auth::ClientAuth>>,
 }
 
 impl NetClientHandler
@@ -87,6 +92,9 @@ impl NetClientHandler
             m_started: Cell::new(false),
             m_savedDataStorage: Rc::new(MapStorage::new(Rc::new(SaveHandlerMP))),
             m_rand: Random::new(),
+            m_server: Field::new(String::new()),
+            m_serverKey: Field::new(Vec::new()),
+            m_auth: RefCell::new(None),
         });
         let handler: Weak<dyn NetHandler> = Rc::downgrade(&this) as Weak<dyn NetHandler>;
         this.m_netManager.set(Some(NetworkManager::new(socket, "Client", handler, false)?));
@@ -102,6 +110,156 @@ impl NetClientHandler
     }
 
     fn netManager(&self) -> Rc<NetworkManager> { self.m_netManager.get().orNpe() }
+
+    pub fn setServer(&self, server: &str) { self.m_server.set(server.to_string()); }
+
+    pub fn playing(&self) -> bool { self.m_worldClient.get().is_some() }
+
+    fn username(&self) -> String { self.m_mc.m_session.get().orNpe().m_username.get().orNpe() }
+
+    fn loginPacket(&self) -> Packet1Login
+    {
+        let login: Packet1Login = Packet1Login::new(JString::from(self.username().as_str()), 14);
+        let mut login: Packet1Login = modloader::netsync::loginPacket(login);
+        // the loader sets this byte first so the flag is or'ed on top
+        login.m_dimension |= auth::LOGIN_FLAG;
+        login
+    }
+
+    fn chat(&self, text: &str) { self.m_mc.m_ingameGUI.get().orNpe().addChatMessage(text); }
+
+    fn sendAuth(&self, message: &auth::Message) { self.addToSendQueue(Box::new(Packet250ModPayload::auth(message))); }
+
+    fn authPayload(&self, data: &[u8])
+    {
+        let message: auth::Message = match auth::Message::decode(data)
+        {
+            Ok(message) => message,
+            Err(error) =>
+            {
+                warning!("Bad auth message from the server: {error}");
+                self.authFailed("Protocol error");
+                return;
+            }
+        };
+
+        match message
+        {
+            auth::Message::Start { mode, invite, key } => self.authStart(mode, invite, key),
+            // the read thread switched at the server marker, ours switches the write side
+            auth::Message::Secure => self.sendAuth(&auth::Message::Secure),
+            auth::Message::Result(text) => self.authResult(&text),
+            message => self.authStep(message),
+        }
+    }
+
+    fn authStart(&self, mode: auth::Mode, invite: bool, key: Vec<u8>)
+    {
+        if let Err(reason) = server_keys::check(&self.m_server.get(), &key)
+        {
+            self.authFailed(&reason);
+            return;
+        }
+
+        let screen: AuthScreen = match mode
+        {
+            auth::Mode::Login => AuthScreen::Login,
+            auth::Mode::Register => AuthScreen::Register { invite },
+        };
+        let fingerprint: String = server_keys::fingerprint(&key);
+        self.m_serverKey.set(key);
+        self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), screen, &fingerprint)));
+    }
+
+    pub fn submitAuth(&self, screen: AuthScreen, values: &[String]) -> Result<(), String>
+    {
+        let name: String = self.username();
+        let key: Vec<u8> = self.m_serverKey.get();
+        if key.is_empty()
+        {
+            return Err(String::from("This server has no password accounts"));
+        }
+
+        let value = |i: usize| values.get(i).map_or("", String::as_str);
+        let (state, first): (auth::ClientAuth, auth::Message) = match screen
+        {
+            AuthScreen::Login => auth::ClientAuth::login(&name, &key, value(0))?,
+            AuthScreen::Register { .. } => auth::ClientAuth::register(&name, &key, value(0), value(2))?,
+            AuthScreen::Change => auth::ClientAuth::change(&name, &key, value(0), value(1))?,
+        };
+        *self.m_auth.borrow_mut() = Some(state);
+        self.sendAuth(&first);
+        Ok(())
+    }
+
+    fn authStep(&self, message: auth::Message)
+    {
+        let step: Option<auth::AuthResult<auth::ClientStep>> =
+            self.m_auth.borrow_mut().as_mut().map(|state| state.receive(message));
+        match step
+        {
+            None => self.authFailed("Protocol error"),
+            Some(Ok(auth::ClientStep::Send(messages))) =>
+            {
+                for message in &messages
+                {
+                    self.sendAuth(message);
+                }
+            }
+            Some(Ok(auth::ClientStep::Secure(keys, ke3))) =>
+            {
+                *self.m_auth.borrow_mut() = None;
+                self.netManager().armSecure(keys);
+                self.sendAuth(&ke3);
+            }
+            Some(Err(reason)) =>
+            {
+                *self.m_auth.borrow_mut() = None;
+                self.authFailed(&reason);
+            }
+        }
+    }
+
+    fn authResult(&self, text: &str)
+    {
+        *self.m_auth.borrow_mut() = None;
+        if self.m_mc.m_currentScreen.get().is_some_and(|screen| GuiAuth::showing(&screen))
+        {
+            self.m_mc.displayGuiScreen(None);
+        }
+        self.chat(&format!("\u{a7}e{text}"));
+    }
+
+    fn authFailed(&self, reason: &str)
+    {
+        if self.playing()
+        {
+            self.authResult(reason);
+            return;
+        }
+
+        warning!("Password login failed: {reason}");
+        self.netManager().networkShutdown("disconnect.genericReason", vec![JString::from(reason)]);
+        self.m_disconnected.set(true);
+        self.m_mc.displayGuiScreen(Some(GuiConnectFailed::new(
+            "connect.failed",
+            "disconnect.genericReason",
+            &[JString::from(reason)],
+        )));
+    }
+
+    pub fn openPasswordChange(&self)
+    {
+        let key: Vec<u8> = self.m_serverKey.get();
+        if key.is_empty()
+        {
+            self.chat("\u{a7}cThis server has no password accounts");
+            return;
+        }
+
+        let fingerprint: String = server_keys::fingerprint(&key);
+        self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), AuthScreen::Change, &fingerprint)));
+    }
 
     fn worldClient(&self) -> Rc<World> { self.m_worldClient.get().orNpe() }
 
@@ -189,9 +347,7 @@ impl NetClientHandler
         {
             Ok((_, true)) =>
             {
-                let username: Option<String> = session.m_username.get();
-                let login: Packet1Login = Packet1Login::new(JString::from(username.orNpe().as_str()), 14);
-                self.addToSendQueue(Box::new(modloader::netsync::loginPacket(login)));
+                self.addToSendQueue(Box::new(self.loginPacket()));
             }
             Ok((string, false)) =>
             {
@@ -224,6 +380,12 @@ impl NetHandler for NetClientHandler
 
     fn handleModPayload(&self, packet: &Packet250ModPayload)
     {
+        if packet.m_channel == auth::CHANNEL
+        {
+            self.authPayload(&packet.m_data);
+            return;
+        }
+
         if let Some(reason) = modloader::netsync::clientPayload(packet.m_channel, &packet.m_data)
         {
             self.netManager().networkShutdown("disconnect.genericReason", vec![JString::from(reason.as_str())]);
@@ -682,9 +844,7 @@ impl NetHandler for NetClientHandler
         if *serverId == JString::from("-")
         {
             debug!("Server is in offline mode, sending login");
-            let username: Option<String> = self.m_mc.m_session.get().orNpe().m_username.get();
-            let login: Packet1Login = Packet1Login::new(JString::from(username.orNpe().as_str()), 14);
-            self.addToSendQueue(Box::new(modloader::netsync::loginPacket(login)));
+            self.addToSendQueue(Box::new(self.loginPacket()));
         }
         else
         {

@@ -5,6 +5,7 @@ edition.workspace = true
 publish.workspace = true
 
 [dependencies]
+auth = { path = "../auth" }
 common = { path = "../common" }
 jvm = { path = "../jvm" }
 

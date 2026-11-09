@@ -13,6 +13,7 @@ name = "isom_preview"
 path = "src/bin/isom_preview.rs"
 
 [dependencies]
+auth = { path = "../auth" }
 awt = { path = "../awt" }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 common = { path = "../common" }

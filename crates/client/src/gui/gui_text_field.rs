@@ -24,6 +24,8 @@ pub struct GuiTextField
     m_cursorCounter: Cell<i32>,
     pub m_isFocused: Cell<bool>,
     pub m_isEnabled: Cell<bool>,
+    // shows one star per character for password entry
+    pub m_masked: Cell<bool>,
     m_parentGuiScreen: Rc<GuiScreen>,
 }
 
@@ -52,6 +54,7 @@ impl GuiTextField
             m_cursorCounter: Cell::new(0),
             m_isFocused: Cell::new(false),
             m_isEnabled: Cell::new(true),
+            m_masked: Cell::new(false),
             m_parentGuiScreen: screen,
         };
         field.setText(message);
@@ -124,7 +127,14 @@ impl GuiTextField
         let (x, y, width, height): (i32, i32, i32, i32) = (self.m_xPos, self.m_yPos, self.m_width, self.m_height);
         self.m_gui.drawRect(x - 1, y - 1, x + width + 1, y + height + 1, -6250336);
         self.m_gui.drawRect(x, y, x + width, y + height, -16777216);
-        let text: String = self.getText().to_string();
+        let text: String = if self.m_masked.get()
+        {
+            "*".repeat(self.getText().length() as usize)
+        }
+        else
+        {
+            self.getText().to_string()
+        };
         if self.m_isEnabled.get()
         {
             let bl: bool = self.m_isFocused.get() && self.m_cursorCounter.get() / 6 % 2 == 0;

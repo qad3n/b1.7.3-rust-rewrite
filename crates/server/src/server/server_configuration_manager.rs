@@ -593,6 +593,8 @@ impl ServerConfigurationManager
             || self.m_whiteListedIPs.with(|set| set.contains(&name))
     }
 
+    pub fn opCount(&self) -> i32 { self.m_ops.with(JHashSet::size) }
+
     pub fn isOp(&self, name: Option<&JString>) -> bool
     {
         self.m_ops.with(|set| set.contains(&name.orNpe().trim().toLowerCase()))

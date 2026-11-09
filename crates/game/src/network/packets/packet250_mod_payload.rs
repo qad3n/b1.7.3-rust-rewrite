@@ -2,6 +2,7 @@ use crate::network::net_handler::NetHandler;
 use crate::network::packet::{Packet, PacketBase, PacketInput, PacketOutput};
 use jvm::io::{IoResult, ioError};
 use jvm::throwable::IO;
+use std::any::Any;
 
 // mod loader traffic, only ever sent between two modded peers, protocol 14 has no custom payload packet
 #[derive(Clone, Default)]
@@ -46,6 +47,16 @@ fn writeVarint(output: &mut PacketOutput, mut value: u32) -> IoResult<()>
 impl Packet250ModPayload
 {
     pub fn new(channel: u32, data: Vec<u8>) -> Self { Self { m_channel: channel, m_data: data, ..Self::default() } }
+
+    pub fn auth(message: &auth::Message) -> Self { Self::new(auth::CHANNEL, message.encode()) }
+
+    // the network threads switch ciphers right at this packet
+    pub fn secureMarker(packet: &dyn Packet) -> bool
+    {
+        let any: &dyn Any = packet;
+        any.downcast_ref::<Self>()
+            .is_some_and(|payload| payload.m_channel == auth::CHANNEL && auth::Message::secure(&payload.m_data))
+    }
 
     // a payload completing a chunk packet waits in the chunk queue behind it
     pub fn withChunkData(channel: u32, data: Vec<u8>) -> Self
