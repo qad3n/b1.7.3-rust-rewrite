@@ -147,7 +147,7 @@ impl MinecraftServer
         // the built in mod loader reads its server.properties switches and loads mods next to that file
         crate::modded::start(&self.propertyManager());
         let s: String = self.propertyManager().getStringProperty("server-ip", "");
-        self.m_onlineMode.set(self.propertyManager().getBooleanProperty("online-mode", true));
+        self.m_onlineMode.set(self.propertyManager().getBooleanProperty("online-mode", false));
         self.m_spawnPeacefulMobs.set(self.propertyManager().getBooleanProperty("spawn-animals", true));
         self.m_pvpOn.set(self.propertyManager().getBooleanProperty("pvp", true));
         self.m_allowFlight.set(self.propertyManager().getBooleanProperty("allow-flight", false));
