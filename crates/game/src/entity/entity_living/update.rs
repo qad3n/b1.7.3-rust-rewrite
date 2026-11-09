@@ -334,9 +334,15 @@ pub fn onLivingUpdate(this: &Rc<Entity>)
     let world: Rc<World> = this.world();
     if living.m_isMultiplayerEntity.get()
     {
-        // the server moves remote mobs so only a fresh hit runs local physics until its positions arrive
         let pose: Option<Pose> = this.m_remote.next();
-        if !this.m_remote.takeImpulse()
+        // a mount the local player steers keeps predicting and only jumps back once it strays far
+        let steered: bool = this.m_riddenByEntity.get().is_some_and(|rider| rider.instanceOf("EntityPlayerSP"));
+        if steered
+        {
+            this.m_remote.rein(this);
+        }
+        // the server moves remote mobs so only a fresh hit runs local physics until its positions arrive
+        else if !this.m_remote.takeImpulse()
         {
             if let Some(pose) = pose
             {

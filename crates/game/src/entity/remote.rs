@@ -305,6 +305,22 @@ impl Track
         this.setPosition(this.posX() + dx, this.posY() + dy, this.posZ() + dz);
     }
 
+    pub fn rein(&self, this: &Rc<Entity>)
+    {
+        let Some(latest) = self.latest()
+        else
+        {
+            return;
+        };
+
+        let [x, y, z]: [f64; 3] = latest.m_pos;
+        let (dx, dy, dz): (f64, f64, f64) = (x - this.posX(), y - this.posY(), z - this.posZ());
+        if dx * dx + dy * dy + dz * dz > correction::SNAP_DISTANCE * correction::SNAP_DISTANCE
+        {
+            place(this, &latest);
+        }
+    }
+
     // knockback runs local physics for one buffer delay so a hit shows at once
     pub fn kick(&self, motion: [f64; 3])
     {
