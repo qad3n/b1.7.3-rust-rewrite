@@ -114,7 +114,7 @@ impl EntityTrackerEntry
             let k1: i32 = j - self.m_encodedPosY.get();
             let l1: i32 = k - self.m_encodedPosZ.get();
             let mut packet: Option<Box<dyn Packet>> = None;
-            let flag: bool = i.wrapping_abs() >= 8 || j.wrapping_abs() >= 8 || k.wrapping_abs() >= 8;
+            let flag: bool = j1 != 0 || k1 != 0 || l1 != 0;
             let flag1: bool = (l - self.m_encodedRotationYaw.get()).wrapping_abs() >= 8
                 || (i1 - self.m_encodedRotationPitch.get()).wrapping_abs() >= 8;
             if j1 < -128
