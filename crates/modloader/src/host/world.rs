@@ -590,7 +590,9 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         }),
         HostCall::Give { player: id, stack } => unit(player(id).and_then(|player| {
             let stack: Rc<ItemStack> = stackFrom(&stack).ok_or("cannot give an empty or unknown stack")?;
-            if !entity_player::inventory(&player).addItemStackToInventory(&stack)
+            entity_player::inventory(&player).addItemStackToInventory(&stack);
+            // a partial fit leaves the rest in the stack
+            if stack.m_stackSize.get() > 0
             {
                 entity_player::dropPlayerItem(&player, Some(stack));
             }
