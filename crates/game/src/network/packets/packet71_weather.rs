@@ -21,9 +21,9 @@ impl Packet71Weather
     {
         let mut packet: Self = Self {
             m_id: entity.m_entityId.get(),
-            m_x: math_helper::floor_double(entity.m_posX.get() * 32.0),
-            m_y: math_helper::floor_double(entity.m_posY.get() * 32.0),
-            m_z: math_helper::floor_double(entity.m_posZ.get() * 32.0),
+            m_x: math_helper::encodePos(entity.m_posX.get()),
+            m_y: math_helper::encodePos(entity.m_posY.get()),
+            m_z: math_helper::encodePos(entity.m_posZ.get()),
             ..Self::default()
         };
         if entity.instanceOf("EntityLightningBolt")

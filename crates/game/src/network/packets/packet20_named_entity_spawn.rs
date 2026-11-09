@@ -30,9 +30,9 @@ impl Packet20NamedEntitySpawn
         Self {
             m_entityId: player.m_entityId.get(),
             m_name: entity_player::fields(player).m_username.get(),
-            m_xPosition: math_helper::floor_double(player.m_posX.get() * 32.0),
-            m_yPosition: math_helper::floor_double(player.m_posY.get() * 32.0),
-            m_zPosition: math_helper::floor_double(player.m_posZ.get() * 32.0),
+            m_xPosition: math_helper::encodePos(player.m_posX.get()),
+            m_yPosition: math_helper::encodePos(player.m_posY.get()),
+            m_zPosition: math_helper::encodePos(player.m_posZ.get()),
             m_rotation: (player.m_rotationYaw.get() * 256.0 / 360.0) as i32 as i8,
             m_pitch: (player.m_rotationPitch.get() * 256.0 / 360.0) as i32 as i8,
             m_currentItem: match itemStack

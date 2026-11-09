@@ -35,9 +35,9 @@ impl Packet34EntityTeleport
     {
         Self {
             m_entityId: entity.m_entityId.get(),
-            m_xPosition: math_helper::floor_double(entity.m_posX.get() * 32.0),
-            m_yPosition: math_helper::floor_double(entity.m_posY.get() * 32.0),
-            m_zPosition: math_helper::floor_double(entity.m_posZ.get() * 32.0),
+            m_xPosition: math_helper::encodePos(entity.m_posX.get()),
+            m_yPosition: math_helper::encodePos(entity.m_posY.get()),
+            m_zPosition: math_helper::encodePos(entity.m_posZ.get()),
             m_yaw: (entity.m_rotationYaw.get() * 256.0 / 360.0) as i32 as i8,
             m_pitch: (entity.m_rotationPitch.get() * 256.0 / 360.0) as i32 as i8,
             ..Self::default()

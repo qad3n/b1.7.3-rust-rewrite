@@ -1,6 +1,8 @@
 use jvm::math;
 use std::sync::OnceLock;
 
+pub const POS_SCALE: f64 = 32.0;
+
 fn table() -> &'static [f32]
 {
     static SIN_TABLE: OnceLock<Vec<f32>> = OnceLock::new();
@@ -27,6 +29,9 @@ pub fn floor_double(x: f64) -> i32
     if x < n as f64 { n - 1 } else { n }
 }
 
+// entity packets carry positions in 1/32 blocks and round to nearest so neither side biases into blocks
+pub fn encodePos(value: f64) -> i32 { floor_double(value * POS_SCALE + 0.5) }
+
 pub fn abs(x: f32) -> f32 { if x >= 0.0 { x } else { -x } }
 
 pub fn abs_max(a: f64, b: f64) -> f64
@@ -51,5 +56,21 @@ pub fn stringNullOrLengthZero(string: Option<&jvm::string::JString>) -> bool
     {
         None => true,
         Some(text) => text.length() == 0,
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    #[test]
+    fn encodePosRoundsToNearestStep()
+    {
+        assert_eq!(encodePos(64.0), 2048);
+        assert_eq!(encodePos(63.9999999), 2048);
+        assert_eq!(encodePos(10.3), 330);
+        assert_eq!(encodePos(-10.3), -330);
+        assert_eq!(encodePos(-0.01), 0);
     }
 }

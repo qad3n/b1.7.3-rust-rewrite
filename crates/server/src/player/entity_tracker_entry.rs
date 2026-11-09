@@ -77,9 +77,9 @@ impl EntityTrackerEntry
             m_trackingDistanceThreshold: trackingRange,
             m_updateInterval: updateInterval,
             m_shouldSendMotionUpdates: syncVelocity,
-            m_encodedPosX: Cell::new(math_helper::floor_double(entity.m_posX.get() * 32.0)),
-            m_encodedPosY: Cell::new(math_helper::floor_double(entity.m_posY.get() * 32.0)),
-            m_encodedPosZ: Cell::new(math_helper::floor_double(entity.m_posZ.get() * 32.0)),
+            m_encodedPosX: Cell::new(math_helper::encodePos(entity.m_posX.get())),
+            m_encodedPosY: Cell::new(math_helper::encodePos(entity.m_posY.get())),
+            m_encodedPosZ: Cell::new(math_helper::encodePos(entity.m_posZ.get())),
             m_encodedRotationYaw: Cell::new(math_helper::floor_float(entity.m_rotationYaw.get() * 256.0 / 360.0)),
             m_encodedRotationPitch: Cell::new(math_helper::floor_float(entity.m_rotationPitch.get() * 256.0 / 360.0)),
             m_lastTrackedEntityMotionX: Cell::new(0.0),
@@ -131,9 +131,9 @@ impl EntityTrackerEntry
     {
         let tracked: &Rc<Entity> = &self.m_trackedEntity;
         let id: i32 = tracked.m_entityId.get();
-        let x: i32 = math_helper::floor_double(tracked.m_posX.get() * 32.0);
-        let y: i32 = math_helper::floor_double(tracked.m_posY.get() * 32.0);
-        let z: i32 = math_helper::floor_double(tracked.m_posZ.get() * 32.0);
+        let x: i32 = math_helper::encodePos(tracked.m_posX.get());
+        let y: i32 = math_helper::encodePos(tracked.m_posY.get());
+        let z: i32 = math_helper::encodePos(tracked.m_posZ.get());
         let yaw: i32 = math_helper::floor_float(tracked.m_rotationYaw.get() * 256.0 / 360.0);
         let pitch: i32 = math_helper::floor_float(tracked.m_rotationPitch.get() * 256.0 / 360.0);
         let dx: i32 = x - self.m_encodedPosX.get();
