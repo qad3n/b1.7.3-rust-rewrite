@@ -108,6 +108,7 @@ impl Minecraft
         let stage: Instant = Instant::now();
         let settings: Rc<GameSettings> = GameSettings::new(Rc::clone(&this), &dataDir);
         self.m_gameSettings.set(Some(Rc::clone(&settings)));
+        self.applyDisplayOptions(&settings)?;
         let packs: Rc<TexturePackList> = TexturePackList::new(&this, &dataDir);
         self.m_texturePackList.set(Some(Rc::clone(&packs)));
         let engine: Rc<RenderEngine> = RenderEngine::new(&packs, Some(Rc::clone(&settings)));
@@ -195,6 +196,26 @@ impl Minecraft
         }
         logger().info(&format!("Startup took {}", took(started)));
         Ok(())
+    }
+
+    // options load after the window exists and the run loop picks up the fullscreen size
+    fn applyDisplayOptions(&self, settings: &GameSettings) -> Result<(), LWJGLException>
+    {
+        Display::setVSyncEnabled(settings.m_vsync.get());
+        if self.m_fullscreen.get()
+        {
+            // a fullscreen launch shows as on in the video settings
+            settings.m_fullscreen.set(true);
+            return Ok(());
+        }
+
+        if !settings.m_fullscreen.get()
+        {
+            return Ok(());
+        }
+
+        self.m_fullscreen.set(true);
+        Display::setFullscreen(true)
     }
 
     // the resource download runs on the game thread because it shares game objects

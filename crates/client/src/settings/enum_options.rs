@@ -14,6 +14,8 @@ pub enum EnumOptions
     Graphics,
     AmbientOcclusion,
     GuiScale,
+    Vsync,
+    Fullscreen,
 }
 
 struct OptionRow
@@ -29,7 +31,7 @@ const fn row(option: EnumOptions, name: &'static str, isFloat: bool, isBoolean: 
     OptionRow { m_option: option, m_enumString: name, m_enumFloat: isFloat, m_enumBoolean: isBoolean }
 }
 
-const OPTIONS: [OptionRow; 13] = [
+const OPTIONS: [OptionRow; 15] = [
     row(EnumOptions::Music, "options.music", true, false),
     row(EnumOptions::Sound, "options.sound", true, false),
     row(EnumOptions::InvertMouse, "options.invertMouse", false, true),
@@ -43,6 +45,8 @@ const OPTIONS: [OptionRow; 13] = [
     row(EnumOptions::Graphics, "options.graphics", false, false),
     row(EnumOptions::AmbientOcclusion, "options.ao", false, true),
     row(EnumOptions::GuiScale, "options.guiScale", false, false),
+    row(EnumOptions::Vsync, "options.vsync", false, true),
+    row(EnumOptions::Fullscreen, "options.fullscreen", false, true),
 ];
 
 impl EnumOptions

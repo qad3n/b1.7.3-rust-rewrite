@@ -235,6 +235,10 @@ impl Minecraft
     fn switchFullscreen(&self) -> Result<(), lwjgl::LWJGLException>
     {
         self.m_fullscreen.set(!self.m_fullscreen.get());
+        // the option follows f11 too and is set before the resize rebuilds an open video settings screen
+        let settings: Rc<GameSettings> = self.gameSettings();
+        settings.m_fullscreen.set(self.m_fullscreen.get());
+        settings.saveOptions();
         // borderless fullscreen covers the monitor holding the window and compositors may apply the size frames later
         Display::setFullscreen(self.m_fullscreen.get())?;
         Display::update();

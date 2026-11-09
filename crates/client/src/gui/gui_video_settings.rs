@@ -17,7 +17,7 @@ struct VideoSettingsExt
 
 fn fields(this: &GuiScreen) -> &VideoSettingsExt { this.ext::<VideoSettingsExt>() }
 
-const VIDEO_OPTIONS: [EnumOptions; 8] = [
+const VIDEO_OPTIONS: [EnumOptions; 10] = [
     EnumOptions::Graphics,
     EnumOptions::RenderDistance,
     EnumOptions::AmbientOcclusion,
@@ -26,6 +26,8 @@ const VIDEO_OPTIONS: [EnumOptions; 8] = [
     EnumOptions::ViewBobbing,
     EnumOptions::GuiScale,
     EnumOptions::AdvancedOpengl,
+    EnumOptions::Vsync,
+    EnumOptions::Fullscreen,
 ];
 
 const CLASS: GuiScreenClass = GuiScreenClass {

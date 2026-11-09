@@ -13,6 +13,7 @@ struct DisplayState
     m_mode: Option<DisplayMode>,
     m_title: String,
     m_fullscreen: bool,
+    m_vsync: bool,
     m_closeRequested: bool,
     m_active: bool,
     m_window: Option<Window>,
@@ -33,6 +34,7 @@ thread_local! {
         m_mode: None,
         m_title: DEFAULT_TITLE.to_owned(),
         m_fullscreen: false,
+        m_vsync: false,
         m_closeRequested: false,
         m_active: false,
         m_window: None,
@@ -55,6 +57,23 @@ fn applyFullscreen(window: &mut Window, fullscreen: bool) -> Result<(), LWJGLExc
         FullscreenType::Off
     };
     window.set_fullscreen(kind).map_err(sdlError)
+}
+
+// drivers may refuse an interval and keep their own so a failure only warns
+fn applyVSync(video: &sdl2::VideoSubsystem, vsync: bool)
+{
+    let interval: SwapInterval = if vsync
+    {
+        SwapInterval::VSync
+    }
+    else
+    {
+        SwapInterval::Immediate
+    };
+    if let Err(error) = video.gl_set_swap_interval(interval)
+    {
+        logger().warning(&format!("could not set the swap interval: {error}"));
+    }
 }
 
 impl Display
@@ -123,6 +142,20 @@ impl Display
 
     pub fn isFullscreen() -> bool { STATE.with(|state| state.borrow().m_fullscreen) }
 
+    pub fn setVSyncEnabled(vsync: bool)
+    {
+        STATE.with(|state| state.borrow_mut().m_vsync = vsync);
+        if !Self::isCreated()
+        {
+            return;
+        }
+
+        if let Err(error) = platform::with(|platform| applyVSync(&platform.m_video, vsync))
+        {
+            logger().warning(&format!("could not reach the video subsystem: {error}"));
+        }
+    }
+
     // embedding into an awt canvas has no counterpart here so the window stays top level and always resizes
     pub fn setParent<T>(_parent: Option<&T>) -> Result<(), LWJGLException> { Ok(()) }
 
@@ -183,9 +216,9 @@ impl Display
             return Err(LWJGLException::new("Only one LWJGL context may be instantiated at any one time."));
         }
         let mode: DisplayMode = Self::getDisplayMode();
-        let (title, fullscreen): (String, bool) = STATE.with(|state| {
+        let (title, fullscreen, vsync): (String, bool, bool) = STATE.with(|state| {
             let state = state.borrow();
-            (state.m_title.clone(), state.m_fullscreen)
+            (state.m_title.clone(), state.m_fullscreen, state.m_vsync)
         });
         let (mut window, context): (Window, sdl2::video::GLContext) = platform::with(|platform| {
             let attributes: sdl2::video::gl_attr::GLAttr = platform.m_video.gl_attr();
@@ -199,7 +232,7 @@ impl Display
             let window: Window = builder.build().map_err(sdlError)?;
             let context: sdl2::video::GLContext = window.gl_create_context().map_err(sdlError)?;
             window.gl_make_current(&context).map_err(sdlError)?;
-            let _ = platform.m_video.gl_set_swap_interval(SwapInterval::Immediate);
+            applyVSync(&platform.m_video, vsync);
             let video: sdl2::VideoSubsystem = platform.m_video.clone();
             GLContext::load(|name| video.gl_get_proc_address(name).cast());
             Ok::<(Window, sdl2::video::GLContext), LWJGLException>((window, context))

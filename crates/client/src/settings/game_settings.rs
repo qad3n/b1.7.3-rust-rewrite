@@ -6,6 +6,7 @@ use jvm::field::Field;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
 use lwjgl::input::Keyboard;
+use lwjgl::opengl::Display;
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -35,6 +36,8 @@ pub struct GameSettings
     pub m_limitFramerate: Cell<i32>,
     pub m_fancyGraphics: Cell<bool>,
     pub m_ambientOcclusion: Cell<bool>,
+    pub m_vsync: Cell<bool>,
+    pub m_fullscreen: Cell<bool>,
     pub m_skin: Field<String>,
     pub m_keyBindForward: Rc<KeyBinding>,
     pub m_keyBindLeft: Rc<KeyBinding>,
@@ -125,6 +128,8 @@ impl GameSettings
             m_limitFramerate: Cell::new(1),
             m_fancyGraphics: Cell::new(true),
             m_ambientOcclusion: Cell::new(true),
+            m_vsync: Cell::new(true),
+            m_fullscreen: Cell::new(false),
             m_skin: Field::new("Default".to_owned()),
             m_keyBindForward: keyBindForward,
             m_keyBindLeft: keyBindLeft,
@@ -235,6 +240,13 @@ impl GameSettings
                 self.m_ambientOcclusion.set(!self.m_ambientOcclusion.get());
                 self.mc().m_renderGlobal.get().orNpe().loadRenderers();
             }
+            EnumOptions::Vsync =>
+            {
+                self.m_vsync.set(!self.m_vsync.get());
+                Display::setVSyncEnabled(self.m_vsync.get());
+            }
+            // the toggle also stores the option so f11 and this button agree
+            EnumOptions::Fullscreen => self.mc().toggleFullscreen(),
             _ =>
             {}
         }
@@ -261,6 +273,8 @@ impl GameSettings
             EnumOptions::Anaglyph => self.m_anaglyph.get(),
             EnumOptions::AdvancedOpengl => self.m_advancedOpengl.get(),
             EnumOptions::AmbientOcclusion => self.m_ambientOcclusion.get(),
+            EnumOptions::Vsync => self.m_vsync.get(),
+            EnumOptions::Fullscreen => self.m_fullscreen.get(),
             _ => false,
         }
     }
@@ -366,6 +380,8 @@ impl GameSettings
             "difficulty" => self.m_difficulty.set(parseInt(value(1))),
             "fancyGraphics" => self.m_fancyGraphics.set(value(1) == "true"),
             "ao" => self.m_ambientOcclusion.set(value(1) == "true"),
+            "enableVsync" => self.m_vsync.set(value(1) == "true"),
+            "fullscreen" => self.m_fullscreen.set(value(1) == "true"),
             "skin" => self.m_skin.set(value(1).to_owned()),
             "lastServer" if astring.len() >= 2 => self.m_lastServer.set(value(1).to_owned()),
             _ =>
@@ -428,6 +444,8 @@ impl GameSettings
             format!("difficulty:{}", self.m_difficulty.get()),
             format!("fancyGraphics:{}", self.m_fancyGraphics.get()),
             format!("ao:{}", self.m_ambientOcclusion.get()),
+            format!("enableVsync:{}", self.m_vsync.get()),
+            format!("fullscreen:{}", self.m_fullscreen.get()),
             format!("skin:{}", self.m_skin.get()),
             format!("lastServer:{}", self.m_lastServer.get()),
         ];

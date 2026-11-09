@@ -8,6 +8,9 @@ thread_local! {
     static INSTANCE: OnceCell<Rc<StringTranslate>> = const { OnceCell::new() };
 }
 
+// rewrite options the vanilla lang files never had
+const REWRITE_KEYS: [(&str, &str); 2] = [("options.vsync", "Use VSync"), ("options.fullscreen", "Fullscreen")];
+
 pub struct StringTranslate
 {
     m_translateTable: Properties,
@@ -30,6 +33,13 @@ impl StringTranslate
         if let Err(error) = loaded
         {
             error.printStackTrace();
+        }
+        for (key, text) in REWRITE_KEYS
+        {
+            if table.getPropertyOrNull(key).is_none()
+            {
+                table.setProperty(key, text);
+            }
         }
         StringTranslate { m_translateTable: table }
     }
