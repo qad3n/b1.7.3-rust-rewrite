@@ -473,6 +473,7 @@ impl MinecraftServer
         }
         self.networkServer().handleNetworkListenThread();
         self.configManager().onTick();
+        modloader::network::loader::sendTick();
         for tracker in self.m_entityTracker.get()
         {
             tracker.orNpe().updateTrackedEntities();

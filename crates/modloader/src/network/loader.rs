@@ -14,6 +14,7 @@ pub const SOUND: &str = "loader:sound";
 pub const PARTICLE: &str = "loader:particle";
 pub const BLOCK_EVENT: &str = "loader:block_event";
 pub const ENTITY_SYNCED: &str = "loader:entity_attachment";
+pub const TICK: &str = "loader:tick";
 
 #[derive(Serialize, Deserialize)]
 pub struct EntitySynced
@@ -21,6 +22,13 @@ pub struct EntitySynced
     pub id: i32,
     pub owner: String,
     pub data: Vec<u8>,
+}
+
+// leads every server tick's entity packets so clients can place samples on the server clock
+#[derive(Serialize, Deserialize)]
+pub struct Tick
+{
+    pub tick: i32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -83,6 +91,7 @@ fn clientHandler<T: for<'de> Deserialize<'de> + 'static>(apply: fn(T)) -> Handle
 }
 
 thread_local! {
+    static SERVER_TICK: std::cell::Cell<i32> = const { std::cell::Cell::new(0) };
     // spawns that reached a client still joining its world, replayed once the world is there
     static PENDING_SPAWNS: std::cell::RefCell<Vec<SpawnEntity>> = const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -227,10 +236,26 @@ fn blockEvent(message: BlockEvent)
     }
 }
 
+fn tick(message: Tick) { game::entity::remote::setServerTick(Some(message.tick)); }
+
+pub fn sendTick()
+{
+    let tick: i32 = SERVER_TICK.with(|cell| {
+        cell.set(cell.get().wrapping_add(1));
+        cell.get()
+    });
+    let channel: Identifier = id(TICK);
+    let bytes: Vec<u8> = wire::encode(&Tick { tick });
+    for player in crate::netsync::peersWith(&channel)
+    {
+        super::sendToConnection(player, &channel, &bytes);
+    }
+}
+
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 7] = [
+    let channels: [(&str, Handler); 8] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
@@ -238,6 +263,7 @@ pub fn register()
         (PARTICLE, clientHandler(particle)),
         (BLOCK_EVENT, clientHandler(blockEvent)),
         (ENTITY_SYNCED, clientHandler(entitySynced)),
+        (TICK, clientHandler(tick)),
     ];
     for (name, handler) in channels
     {

@@ -381,6 +381,7 @@ pub fn loginPacket(mut packet: game::network::packets::Packet1Login) -> game::ne
 
 pub fn clientConnected(raw: RawSender)
 {
+    game::entity::remote::setServerTick(None);
     if !state::hasMods()
     {
         return;
@@ -437,6 +438,7 @@ pub fn clientKicked(reason: &str)
 
 pub fn clientDisconnected()
 {
+    game::entity::remote::setServerTick(None);
     if !state::hasMods()
     {
         return;
@@ -650,6 +652,18 @@ pub fn peerHasChannel(player: i32, id: &Identifier) -> bool
     }
     CONNECTIONS.with(|connections| {
         connections.borrow().get(&player).is_some_and(|connection| connection.m_peerChannels.contains(id))
+    })
+}
+
+pub fn peersWith(id: &Identifier) -> Vec<i32>
+{
+    CONNECTIONS.with(|connections| {
+        connections
+            .borrow()
+            .iter()
+            .filter(|(_, connection)| connection.m_peerChannels.contains(id))
+            .map(|(player, _)| *player)
+            .collect()
     })
 }
 

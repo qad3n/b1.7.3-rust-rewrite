@@ -146,17 +146,7 @@ pub fn hasPlayerConnection(player: i32) -> bool
 // a dedicated server writes to the connection, single player hands the bytes to the local client handler
 pub fn sendToPlayer(channel: &Identifier, player: &Rc<Entity>, data: Vec<u8>) -> bool
 {
-    let id: i32 = player.m_entityId.get();
-    let sent: bool = ROUTER.with(|router| match router.borrow().m_toPlayers.get(&id)
-    {
-        Some(sender) =>
-        {
-            sender(channel, data.clone());
-            true
-        }
-        None => false,
-    });
-    if sent
+    if sendToConnection(player.m_entityId.get(), channel, &data)
     {
         return true;
     }
@@ -165,6 +155,19 @@ pub fn sendToPlayer(channel: &Identifier, player: &Rc<Entity>, data: Vec<u8>) ->
         return deliverToClient(channel, player, &data);
     }
     false
+}
+
+pub fn sendToConnection(player: i32, channel: &Identifier, data: &[u8]) -> bool
+{
+    ROUTER.with(|router| match router.borrow().m_toPlayers.get(&player)
+    {
+        Some(sender) =>
+        {
+            sender(channel, data.to_vec());
+            true
+        }
+        None => false,
+    })
 }
 
 pub fn localPlayer() -> Option<Rc<Entity>> { ROUTER.with(|router| router.borrow().m_localPlayer.clone()) }
