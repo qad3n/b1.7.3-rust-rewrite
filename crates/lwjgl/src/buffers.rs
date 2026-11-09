@@ -40,6 +40,8 @@ pub trait Element: Copy + Default
     fn read(bytes: &[u8], order: ByteOrder) -> Self;
 
     fn write(self, bytes: &mut [u8], order: ByteOrder);
+
+    fn writeAll(values: &[Self], bytes: &mut [u8], order: ByteOrder);
 }
 
 macro_rules! element {
@@ -66,6 +68,21 @@ macro_rules! element {
                     ByteOrder::LittleEndian => self.to_le_bytes(),
                 };
                 bytes[..$size].copy_from_slice(&raw);
+            }
+
+            // one order branch for the whole run so the copy vectorizes
+            fn writeAll(values: &[Self], bytes: &mut [u8], order: ByteOrder)
+            {
+                let slots: std::iter::Zip<std::slice::ChunksExactMut<u8>, std::slice::Iter<Self>> =
+                    bytes.chunks_exact_mut($size).zip(values);
+                match order
+                {
+                    ByteOrder::BigEndian => slots.for_each(|(slot, value)| slot.copy_from_slice(&value.to_be_bytes())),
+                    ByteOrder::LittleEndian =>
+                    {
+                        slots.for_each(|(slot, value)| slot.copy_from_slice(&value.to_le_bytes()))
+                    }
+                }
             }
         }
     };
@@ -288,10 +305,7 @@ impl<T: Element> Buffer<T>
         let values: &[T] = &src[offset as usize..(offset + length) as usize];
         let mut bytes: std::cell::RefMut<Vec<u8>> = self.m_bytes.borrow_mut();
         let target: &mut [u8] = &mut bytes[start as usize * T::SIZE..(start + length) as usize * T::SIZE];
-        for (slot, value) in target.chunks_exact_mut(T::SIZE).zip(values)
-        {
-            value.write(slot, order);
-        }
+        T::writeAll(values, target, order);
         self
     }
 
