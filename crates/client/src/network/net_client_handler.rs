@@ -386,15 +386,16 @@ impl NetHandler for NetClientHandler
         let f: f32 = (packet.m_rotation as i32 * 360) as f32 / 256.0;
         let f1: f32 = (packet.m_pitch as i32 * 360) as f32 / 256.0;
         let entityotherplayermp: Rc<Entity> = entity_other_player_mp::new(&self.theWorld(), packet.m_name.clone());
+        // render interpolation starts from the decoded spawn point instead of the raw packet units
         entityotherplayermp.m_serverPosX.set(packet.m_xPosition);
-        entityotherplayermp.m_lastTickPosX.set(packet.m_xPosition as f64);
-        entityotherplayermp.m_prevPosX.set(packet.m_xPosition as f64);
+        entityotherplayermp.m_lastTickPosX.set(d0);
+        entityotherplayermp.m_prevPosX.set(d0);
         entityotherplayermp.m_serverPosY.set(packet.m_yPosition);
-        entityotherplayermp.m_lastTickPosY.set(packet.m_yPosition as f64);
-        entityotherplayermp.m_prevPosY.set(packet.m_yPosition as f64);
+        entityotherplayermp.m_lastTickPosY.set(d1);
+        entityotherplayermp.m_prevPosY.set(d1);
         entityotherplayermp.m_serverPosZ.set(packet.m_zPosition);
-        entityotherplayermp.m_lastTickPosZ.set(packet.m_zPosition as f64);
-        entityotherplayermp.m_prevPosZ.set(packet.m_zPosition as f64);
+        entityotherplayermp.m_lastTickPosZ.set(d2);
+        entityotherplayermp.m_prevPosZ.set(d2);
         let i: i32 = packet.m_currentItem;
         let inventory: Rc<InventoryPlayer> = entity_player::inventory(&entityotherplayermp);
         let currentItem: usize = inventory.m_currentItem.get() as usize;
