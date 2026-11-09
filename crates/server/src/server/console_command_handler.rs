@@ -5,12 +5,10 @@ use game::entity::{Entity, entity_player};
 use game::item::{Item, ItemStack};
 use game::network::packets::Packet3Chat;
 use game::world::World;
-use jvm::logging::Logger;
+use jvm::info;
 use jvm::string::JString;
 use jvm::throwable::{NUMBER_FORMAT, OrNpe};
 use std::rc::Rc;
-
-fn minecraftLogger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 fn split(text: &JString) -> Vec<JString>
 {
@@ -290,7 +288,7 @@ impl ConsoleCommandHandler
         else if lower.startsWith("say ")
         {
             string = string.substringFrom(string.indexOf(b' ' as u16)).trim();
-            minecraftLogger().info(&format!("[{string2}] {string}"));
+            info!("[{string2}] {string}");
             serverConfigurationManager.sendPacketToAllPlayers(Box::new(Packet3Chat::new(JString::from(
                 format!("\u{a7}d[Server] {string}").as_str(),
             ))));
@@ -302,9 +300,9 @@ impl ConsoleCommandHandler
             {
                 string = string.substringFrom(string.indexOf(b' ' as u16)).trim();
                 string = string.substringFrom(string.indexOf(b' ' as u16)).trim();
-                minecraftLogger().info(&format!("[{string2}->{}] {string}", stringArray[1]));
+                info!("[{string2}->{}] {string}", stringArray[1]);
                 string = JString::from(format!("\u{a7}7{string2} whispers {string}").as_str());
-                minecraftLogger().info(&string.to_string());
+                info!("{}", string.to_string());
                 if !serverConfigurationManager.sendPacketToPlayer(&stringArray[1], Box::new(Packet3Chat::new(string)))
                 {
                     iCommandListener.log("There's no player by that name online.");
@@ -317,7 +315,7 @@ impl ConsoleCommandHandler
         }
         else
         {
-            minecraftLogger().info("Unknown console command. Type \"help\" for help.");
+            info!("Unknown console command. Type \"help\" for help.");
         }
     }
 
@@ -399,7 +397,7 @@ impl ConsoleCommandHandler
         self.m_minecraftServer
             .configManager()
             .sendChatMessageToAllOps(&JString::from(format!("\u{a7}7({string})").as_str()));
-        minecraftLogger().info(&string);
+        info!("{}", string);
     }
 
     fn tryParse(&self, s: &JString, defaultValue: i32) -> i32
