@@ -2,7 +2,9 @@ use super::{ItemData, templates};
 use crate::atlas::Atlas;
 use crate::registry::{ItemEntry, Row};
 use game::block::Block;
-use game::item::{Item, ItemClass, ItemStack};
+use game::item::item_sword::SwordExt;
+use game::item::item_tool::ToolExt;
+use game::item::{EnumToolMaterial, Item, ItemClass, ItemStack};
 use mod_protocol::Identifier;
 use mod_protocol::spec::{ItemSpec, ItemToolSpec, ToolClass};
 use std::rc::Rc;
@@ -30,7 +32,17 @@ pub fn toolOf(item: &Rc<Item>) -> Option<(ToolClass, i32)>
         "ItemShears" => return Some((ToolClass::Shears, 0)),
         _ => return None,
     };
-    Some((class, game::item::item_tool::fields(item).m_toolMaterial.getHarvestLevel()))
+    Some((class, materialOf(item)?.getHarvestLevel()))
+}
+
+// swords are not ItemTool in vanilla so their tier sits in their own ext
+pub fn materialOf(item: &Item) -> Option<EnumToolMaterial>
+{
+    if let Some(tool) = item.tryExt::<ToolExt>()
+    {
+        return Some(tool.m_toolMaterial);
+    }
+    item.tryExt::<SwordExt>().map(|sword| sword.m_toolMaterial)
 }
 
 fn template(this: &Item) -> &'static ItemClass

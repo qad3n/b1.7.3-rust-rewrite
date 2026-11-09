@@ -51,7 +51,9 @@ impl Item
         item
     }
 
-    pub fn ext<T: 'static>(&self) -> &T { self.m_ext.downcast_ref::<T>().expect("item ext matches its class") }
+    pub fn ext<T: 'static>(&self) -> &T { self.tryExt::<T>().expect("item ext matches its class") }
+
+    pub fn tryExt<T: 'static>(&self) -> Option<&T> { self.m_ext.downcast_ref::<T>() }
 
     pub fn setIconIndex(self: Rc<Self>, sprite: i32) -> Rc<Self>
     {

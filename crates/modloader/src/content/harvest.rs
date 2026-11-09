@@ -1,4 +1,4 @@
-use super::items::toolOf;
+use super::items::{materialOf, toolOf};
 use game::block::Block;
 use game::item::{Item, ItemStack};
 use mod_protocol::Identifier;
@@ -51,9 +51,12 @@ fn taggedSpeed(block: &Rc<Block>, stack: &Rc<ItemStack>) -> Option<f32>
     {
         return Some(modTool.speed);
     }
-    let vanilla: bool =
-        game::item::item_tool::effectiveBlocks(&item).iter().any(|effective| Rc::ptr_eq(effective, block));
-    (!vanilla).then(|| game::item::item_tool::fields(&item).m_toolMaterial.getEfficiencyOnProperMaterial())
+    if game::item::item_tool::effectiveBlocks(&item).iter().any(|effective| Rc::ptr_eq(effective, block))
+    {
+        return None;
+    }
+
+    toolSpeed(&item)
 }
 
 // a modify change wins over the block's own spec
@@ -93,5 +96,7 @@ pub fn strVsBlock(block: &Rc<Block>, stack: Option<&Rc<ItemStack>>) -> Option<f3
     {
         return Some(modTool.speed);
     }
-    Some(game::item::item_tool::fields(&item).m_toolMaterial.getEfficiencyOnProperMaterial())
+    toolSpeed(&item)
 }
+
+fn toolSpeed(item: &Item) -> Option<f32> { materialOf(item).map(|material| material.getEfficiencyOnProperMaterial()) }

@@ -5,6 +5,8 @@ use std::rc::Rc;
 pub struct SwordExt
 {
     m_weaponDamage: i32,
+    // rewrite: kept so mod harvest rules can read a sword's tier
+    pub m_toolMaterial: EnumToolMaterial,
 }
 
 pub const CLASS: ItemClass = ItemClass {
@@ -33,8 +35,8 @@ pub const CLASS: ItemClass = ItemClass {
 
 pub fn create(id: i32, tier: EnumToolMaterial) -> Rc<Item>
 {
-    let item: Rc<Item> =
-        Item::construct(&CLASS, Box::new(SwordExt { m_weaponDamage: 4 + tier.getDamageVsEntity() * 2 }), id);
+    let ext: SwordExt = SwordExt { m_weaponDamage: 4 + tier.getDamageVsEntity() * 2, m_toolMaterial: tier };
+    let item: Rc<Item> = Item::construct(&CLASS, Box::new(ext), id);
     item.m_maxStackSize.set(1);
     item.setMaxDamage(tier.getMaxUses())
 }
