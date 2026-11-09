@@ -21,6 +21,13 @@ impl ChunkCoordIntPair
 
     pub fn hashCode(&self) -> i32 { Self::chunkXZ2Int(self.m_chunkXPos, self.m_chunkZPos) }
 
+    pub fn distanceSq(&self, chunkX: i32, chunkZ: i32) -> i32
+    {
+        let dx: i32 = self.m_chunkXPos - chunkX;
+        let dz: i32 = self.m_chunkZPos - chunkZ;
+        dx * dx + dz * dz
+    }
+
     pub fn equals(&self, other: &Self) -> bool
     {
         other.m_chunkXPos == self.m_chunkXPos && other.m_chunkZPos == self.m_chunkZPos

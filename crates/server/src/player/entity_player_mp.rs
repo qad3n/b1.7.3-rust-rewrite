@@ -236,7 +236,7 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
     let ext: &PlayerMPExt = fields(this);
     if syncChunks && !ext.m_loadedChunks.isEmpty()
     {
-        let chunkcoordintpair: ChunkCoordIntPair = ext.m_loadedChunks.get(0);
+        let chunkcoordintpair: ChunkCoordIntPair = nearestChunk(this, &ext.m_loadedChunks);
         let mut flag: bool = false;
         if netServerHandler(this).getNumChunkDataPackets() < 4
         {
@@ -320,6 +320,23 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
         netServerHandler(this).sendPacket(Box::new(Packet8UpdateHealth::new(health)));
         ext.m_lastHealth.set(health);
     }
+}
+
+// rewrite: the closest queued chunk goes first so rows ahead of a moving player never wait behind the login backlog
+fn nearestChunk(this: &Entity, chunks: &JArrayList<ChunkCoordIntPair>) -> ChunkCoordIntPair
+{
+    let x: i32 = this.m_posX.get() as i32 >> 4;
+    let z: i32 = this.m_posZ.get() as i32 >> 4;
+    let mut nearest: ChunkCoordIntPair = chunks.get(0);
+    for i in 1..chunks.size()
+    {
+        let chunk: ChunkCoordIntPair = chunks.get(i);
+        if chunk.distanceSq(x, z) < nearest.distanceSq(x, z)
+        {
+            nearest = chunk;
+        }
+    }
+    nearest
 }
 
 fn getTileEntityInfo(this: &Entity, blockEntity: Option<&Rc<TileEntity>>)
