@@ -477,6 +477,7 @@ impl MinecraftServer
         {
             tracker.orNpe().updateTrackedEntities();
         }
+        self.networkServer().flush();
         let mut i1: i32 = 0;
         while i1 < self.m_tickables.size()
         {

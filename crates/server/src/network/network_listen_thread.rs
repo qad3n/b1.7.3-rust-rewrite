@@ -119,6 +119,15 @@ impl NetworkListenThread
         }
     }
 
+    // tracker packets queue after handleNetworkListenThread so they would otherwise wait a whole tick
+    pub fn flush(&self)
+    {
+        for i in 0..self.m_playerList.size()
+        {
+            self.m_playerList.get(i).m_netManager.wakeThreads();
+        }
+    }
+
     pub fn handleNetworkListenThread(&self)
     {
         self.takeAccepted();
