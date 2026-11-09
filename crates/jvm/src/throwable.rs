@@ -12,6 +12,8 @@ pub struct ThrowableClass
 
 pub static THROWABLE: ThrowableClass = ThrowableClass { m_name: "java.lang.Throwable", m_parent: None };
 pub static ERROR: ThrowableClass = ThrowableClass { m_name: "java.lang.Error", m_parent: Some(&THROWABLE) };
+// rewrite: a rust panic with no java counterpart keeps its own name instead of posing as java.lang.Error
+pub static RUST_PANIC: ThrowableClass = ThrowableClass { m_name: "rust panic", m_parent: Some(&ERROR) };
 pub static EXCEPTION: ThrowableClass = ThrowableClass { m_name: "java.lang.Exception", m_parent: Some(&THROWABLE) };
 pub static RUNTIME: ThrowableClass =
     ThrowableClass { m_name: "java.lang.RuntimeException", m_parent: Some(&EXCEPTION) };
@@ -297,7 +299,7 @@ fn fromRustPanic(text: &str) -> Throwable
         return Throwable::new(&OUT_OF_MEMORY, Some("Java heap space".to_owned()));
     }
 
-    Throwable::new(&ERROR, Some(text.to_owned()))
+    Throwable::new(&RUST_PANIC, Some(text.to_owned()))
 }
 
 pub(crate) fn standsForJava(payload: &(dyn Any + Send)) -> bool
@@ -313,7 +315,7 @@ pub(crate) fn standsForJava(payload: &(dyn Any + Send)) -> bool
         return false;
     };
 
-    !std::ptr::eq(fromRustPanic(text).m_class, &ERROR)
+    !std::ptr::eq(fromRustPanic(text).m_class, &RUST_PANIC)
 }
 
 // java prints nothing when it throws, so only panics with no java counterpart keep the rust message

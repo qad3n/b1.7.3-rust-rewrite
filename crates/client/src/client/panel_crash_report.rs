@@ -5,11 +5,6 @@ use jvm::throwable::{THROWABLE, Throwable, catchThrowable};
 use lwjgl::Sys;
 use lwjgl::opengl::GL11;
 
-const JAVA_VERSION: &str = "1.6.0_26";
-const JAVA_VENDOR: &str = "Sun Microsystems Inc.";
-const JAVA_VM_NAME: &str = "Java HotSpot(TM) 64-Bit Server VM";
-const JAVA_VM_INFO: &str = "mixed mode";
-
 fn osName() -> String
 {
     match std::env::consts::OS
@@ -69,8 +64,7 @@ impl PanelCrashReport
             string3 += "\n";
             string3 += "Minecraft: Minecraft Beta 1.7.3\n";
             string3 += &format!("OS: {} ({}) version {}\n", osName(), osArch(), osVersion());
-            string3 += &format!("Java: {JAVA_VERSION}, {JAVA_VENDOR}\n");
-            string3 += &format!("VM: {JAVA_VM_NAME} ({JAVA_VM_INFO}), {JAVA_VENDOR}\n");
+            string3 += &format!("Game: beta173 {}\n", env!("CARGO_PKG_VERSION"));
             string3 += &format!("LWJGL: {}\n", Sys::getVersion());
             string2 = glString(7936);
             string3 += &format!("OpenGL: {} version {}, {}\n", glString(7937), glString(7938), glString(7936));
