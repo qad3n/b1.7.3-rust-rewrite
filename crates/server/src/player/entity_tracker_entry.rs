@@ -16,6 +16,14 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
+// vanilla resends the full position this often so clients cannot drift
+const RESYNC_TICKS: i32 = 400;
+// relative move packets carry one signed byte per axis
+const RELATIVE_RANGE: std::ops::Range<i32> = -128..128;
+// rotation is sent in 1/256 turns and only past this many steps as vanilla
+const ROTATION_STEP: i32 = 8;
+const VELOCITY_STEP: f64 = 0.02;
+
 pub struct EntityTrackerEntry
 {
     pub m_trackedEntity: Rc<Entity>,
@@ -35,7 +43,7 @@ pub struct EntityTrackerEntry
     m_lastTrackedEntityPosZ: Cell<f64>,
     m_firstUpdateDone: Cell<bool>,
     m_shouldSendMotionUpdates: bool,
-    m_ticksWithoutVehicle: Cell<i32>,
+    m_sinceTeleport: Cell<i32>,
     pub m_playerEntitiesUpdated: Cell<bool>,
     pub m_trackedPlayers: Field<JHashSet<Rc<Entity>>>,
 }
@@ -62,7 +70,7 @@ impl EntityTrackerEntry
         Rc::new(EntityTrackerEntry {
             m_updateCounter: Cell::new(0),
             m_firstUpdateDone: Cell::new(false),
-            m_ticksWithoutVehicle: Cell::new(0),
+            m_sinceTeleport: Cell::new(0),
             m_playerEntitiesUpdated: Cell::new(false),
             m_trackedPlayers: Field::new(JHashSet::new()),
             m_trackedEntity: Rc::clone(entity),
@@ -101,116 +109,126 @@ impl EntityTrackerEntry
             self.m_playerEntitiesUpdated.set(true);
             self.updatePlayerEntities(players);
         }
-        self.m_ticksWithoutVehicle.set(self.m_ticksWithoutVehicle.get() + 1);
+
+        self.m_sinceTeleport.set(self.m_sinceTeleport.get() + 1);
         self.m_updateCounter.set(self.m_updateCounter.get() + 1);
         if self.m_updateCounter.get() % self.m_updateInterval == 0
         {
-            let i: i32 = math_helper::floor_double(tracked.m_posX.get() * 32.0);
-            let j: i32 = math_helper::floor_double(tracked.m_posY.get() * 32.0);
-            let k: i32 = math_helper::floor_double(tracked.m_posZ.get() * 32.0);
-            let l: i32 = math_helper::floor_float(tracked.m_rotationYaw.get() * 256.0 / 360.0);
-            let i1: i32 = math_helper::floor_float(tracked.m_rotationPitch.get() * 256.0 / 360.0);
-            let j1: i32 = i - self.m_encodedPosX.get();
-            let k1: i32 = j - self.m_encodedPosY.get();
-            let l1: i32 = k - self.m_encodedPosZ.get();
-            let mut packet: Option<Box<dyn Packet>> = None;
-            let flag: bool = j1 != 0 || k1 != 0 || l1 != 0;
-            let flag1: bool = (l - self.m_encodedRotationYaw.get()).wrapping_abs() >= 8
-                || (i1 - self.m_encodedRotationPitch.get()).wrapping_abs() >= 8;
-            if j1 < -128
-                || j1 >= 128
-                || k1 < -128
-                || k1 >= 128
-                || l1 < -128
-                || l1 >= 128
-                || self.m_ticksWithoutVehicle.get() > 400
-            {
-                self.m_ticksWithoutVehicle.set(0);
-                tracked.m_posX.set(i as f64 / 32.0);
-                tracked.m_posY.set(j as f64 / 32.0);
-                tracked.m_posZ.set(k as f64 / 32.0);
-                packet = Some(Box::new(Packet34EntityTeleport::withPosition(
-                    tracked.m_entityId.get(),
-                    i,
-                    j,
-                    k,
-                    l as i8,
-                    i1 as i8,
-                )));
-            }
-            else if flag && flag1
-            {
-                packet = Some(Box::new(Packet33RelEntityMoveLook::new(
-                    tracked.m_entityId.get(),
-                    j1 as i8,
-                    k1 as i8,
-                    l1 as i8,
-                    l as i8,
-                    i1 as i8,
-                )));
-            }
-            else if flag
-            {
-                packet =
-                    Some(Box::new(Packet31RelEntityMove::new(tracked.m_entityId.get(), j1 as i8, k1 as i8, l1 as i8)));
-            }
-            else if flag1
-            {
-                packet = Some(Box::new(Packet32EntityLook::new(tracked.m_entityId.get(), l as i8, i1 as i8)));
-            }
-            if self.m_shouldSendMotionUpdates
-            {
-                let d0: f64 = tracked.m_motionX.get() - self.m_lastTrackedEntityMotionX.get();
-                let d1: f64 = tracked.m_motionY.get() - self.m_lastTrackedEntityMotionY.get();
-                let d2: f64 = tracked.m_motionZ.get() - self.m_lastTrackedEntityMotionZ.get();
-                let d3: f64 = 0.02;
-                let d4: f64 = d0 * d0 + d1 * d1 + d2 * d2;
-                if d4 > d3 * d3
-                    || d4 > 0.0
-                        && tracked.m_motionX.get() == 0.0
-                        && tracked.m_motionY.get() == 0.0
-                        && tracked.m_motionZ.get() == 0.0
-                {
-                    self.m_lastTrackedEntityMotionX.set(tracked.m_motionX.get());
-                    self.m_lastTrackedEntityMotionY.set(tracked.m_motionY.get());
-                    self.m_lastTrackedEntityMotionZ.set(tracked.m_motionZ.get());
-                    self.sendPacketToTrackedPlayers(Box::new(Packet28EntityVelocity::new(
-                        tracked.m_entityId.get(),
-                        self.m_lastTrackedEntityMotionX.get(),
-                        self.m_lastTrackedEntityMotionY.get(),
-                        self.m_lastTrackedEntityMotionZ.get(),
-                    )));
-                }
-            }
-            if let Some(packet) = packet
-            {
-                self.sendPacketToTrackedPlayers(packet);
-            }
-            let datawatcher: &DataWatcher = tracked.getDataWatcher();
-            if datawatcher.hasObjectChanged()
-            {
-                self.sendPacketToTrackedPlayersAndTrackedEntity(Box::new(Packet40EntityMetadata::new(
-                    tracked.m_entityId.get(),
-                    datawatcher,
-                )));
-            }
-            if flag
-            {
-                self.m_encodedPosX.set(i);
-                self.m_encodedPosY.set(j);
-                self.m_encodedPosZ.set(k);
-            }
-            if flag1
-            {
-                self.m_encodedRotationYaw.set(l);
-                self.m_encodedRotationPitch.set(i1);
-            }
+            self.sendVelocity();
+            self.sendMovement();
+            self.sendMetadata();
         }
+
         if tracked.m_beenAttacked.get()
         {
             self.sendPacketToTrackedPlayersAndTrackedEntity(Box::new(Packet28EntityVelocity::fromEntity(tracked)));
             tracked.m_beenAttacked.set(false);
         }
+    }
+
+    // the encoded position only feeds packets and never moves the real entity
+    fn sendMovement(&self)
+    {
+        let tracked: &Rc<Entity> = &self.m_trackedEntity;
+        let id: i32 = tracked.m_entityId.get();
+        let x: i32 = math_helper::floor_double(tracked.m_posX.get() * 32.0);
+        let y: i32 = math_helper::floor_double(tracked.m_posY.get() * 32.0);
+        let z: i32 = math_helper::floor_double(tracked.m_posZ.get() * 32.0);
+        let yaw: i32 = math_helper::floor_float(tracked.m_rotationYaw.get() * 256.0 / 360.0);
+        let pitch: i32 = math_helper::floor_float(tracked.m_rotationPitch.get() * 256.0 / 360.0);
+        let dx: i32 = x - self.m_encodedPosX.get();
+        let dy: i32 = y - self.m_encodedPosY.get();
+        let dz: i32 = z - self.m_encodedPosZ.get();
+        let moved: bool = dx != 0 || dy != 0 || dz != 0;
+        let turned: bool = (yaw - self.m_encodedRotationYaw.get()).wrapping_abs() >= ROTATION_STEP
+            || (pitch - self.m_encodedRotationPitch.get()).wrapping_abs() >= ROTATION_STEP;
+        let far: bool = [dx, dy, dz].iter().any(|delta| !RELATIVE_RANGE.contains(delta));
+
+        let packet: Box<dyn Packet> = if far || self.m_sinceTeleport.get() > RESYNC_TICKS
+        {
+            self.m_sinceTeleport.set(0);
+            self.setEncoded(x, y, z);
+            self.m_encodedRotationYaw.set(yaw);
+            self.m_encodedRotationPitch.set(pitch);
+            Box::new(Packet34EntityTeleport::withPosition(id, x, y, z, yaw as i8, pitch as i8))
+        }
+        else if moved && turned
+        {
+            self.setEncoded(x, y, z);
+            self.m_encodedRotationYaw.set(yaw);
+            self.m_encodedRotationPitch.set(pitch);
+            Box::new(Packet33RelEntityMoveLook::new(id, dx as i8, dy as i8, dz as i8, yaw as i8, pitch as i8))
+        }
+        else if moved
+        {
+            self.setEncoded(x, y, z);
+            Box::new(Packet31RelEntityMove::new(id, dx as i8, dy as i8, dz as i8))
+        }
+        else if turned
+        {
+            self.m_encodedRotationYaw.set(yaw);
+            self.m_encodedRotationPitch.set(pitch);
+            Box::new(Packet32EntityLook::new(id, yaw as i8, pitch as i8))
+        }
+        else
+        {
+            return;
+        };
+
+        self.sendPacketToTrackedPlayers(packet);
+    }
+
+    fn setEncoded(&self, x: i32, y: i32, z: i32)
+    {
+        self.m_encodedPosX.set(x);
+        self.m_encodedPosY.set(y);
+        self.m_encodedPosZ.set(z);
+    }
+
+    fn sendVelocity(&self)
+    {
+        if !self.m_shouldSendMotionUpdates
+        {
+            return;
+        }
+
+        let tracked: &Rc<Entity> = &self.m_trackedEntity;
+        let (motionX, motionY, motionZ): (f64, f64, f64) =
+            (tracked.m_motionX.get(), tracked.m_motionY.get(), tracked.m_motionZ.get());
+        let dx: f64 = motionX - self.m_lastTrackedEntityMotionX.get();
+        let dy: f64 = motionY - self.m_lastTrackedEntityMotionY.get();
+        let dz: f64 = motionZ - self.m_lastTrackedEntityMotionZ.get();
+        let change: f64 = dx * dx + dy * dy + dz * dz;
+        let stopped: bool = motionX == 0.0 && motionY == 0.0 && motionZ == 0.0;
+        if change <= VELOCITY_STEP * VELOCITY_STEP && !(change > 0.0 && stopped)
+        {
+            return;
+        }
+
+        self.m_lastTrackedEntityMotionX.set(motionX);
+        self.m_lastTrackedEntityMotionY.set(motionY);
+        self.m_lastTrackedEntityMotionZ.set(motionZ);
+        self.sendPacketToTrackedPlayers(Box::new(Packet28EntityVelocity::new(
+            tracked.m_entityId.get(),
+            motionX,
+            motionY,
+            motionZ,
+        )));
+    }
+
+    fn sendMetadata(&self)
+    {
+        let tracked: &Rc<Entity> = &self.m_trackedEntity;
+        let watcher: &DataWatcher = tracked.getDataWatcher();
+        if !watcher.hasObjectChanged()
+        {
+            return;
+        }
+
+        self.sendPacketToTrackedPlayersAndTrackedEntity(Box::new(Packet40EntityMetadata::new(
+            tracked.m_entityId.get(),
+            watcher,
+        )));
     }
 
     pub fn sendPacketToTrackedPlayers(&self, packet: Box<dyn Packet>)
@@ -326,11 +344,7 @@ impl EntityTrackerEntry
         let tracked: &Rc<Entity> = &self.m_trackedEntity;
         if tracked.instanceOf("EntityItem")
         {
-            let packet21pickupspawn: Packet21PickupSpawn = Packet21PickupSpawn::new(tracked);
-            tracked.m_posX.set(packet21pickupspawn.m_xPosition as f64 / 32.0);
-            tracked.m_posY.set(packet21pickupspawn.m_yPosition as f64 / 32.0);
-            tracked.m_posZ.set(packet21pickupspawn.m_zPosition as f64 / 32.0);
-            return Box::new(packet21pickupspawn);
+            return Box::new(Packet21PickupSpawn::new(tracked));
         }
         if tracked.instanceOf("EntityPlayerMP")
         {
