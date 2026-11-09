@@ -14,4 +14,10 @@ if [[ -z "${B173_SOUNDS_DIR:-}" && -d "$files/InventivetalentDev-minecraft-asset
 fi
 
 cargo build --release --bin beta173 --bin beta173_launcher
-exec target/release/beta173_launcher --dev "$@"
+# swallowing compositors hide the terminal that parents a game window so the launcher is orphaned but keeps this console
+exec 3>&1 4>&2
+pid="$( (target/release/beta173_launcher --dev "$@" >&3 2>&4 & echo $!) )"
+trap 'kill "$pid" 2>/dev/null' INT TERM
+while kill -0 "$pid" 2>/dev/null; do
+    sleep 0.5
+done
