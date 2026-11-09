@@ -116,6 +116,13 @@ impl ServerConfigurationManager
         manager.saveBannedList();
         manager.saveOps();
         manager.saveWhiteList();
+        logger().debug(&format!(
+            "Loaded {} ops, {} banned players, {} banned ips and {} white-listed players",
+            manager.m_ops.with(JHashSet::size),
+            manager.m_bannedPlayers.with(JHashSet::size),
+            manager.m_bannedIPs.with(JHashSet::size),
+            manager.m_whiteListedIPs.with(JHashSet::size)
+        ));
         manager
     }
 
@@ -676,6 +683,7 @@ impl ServerConfigurationManager
 
     pub fn savePlayerStates(&self)
     {
+        logger().debug(&format!("Saving {} players", self.m_playerEntities.size()));
         let mut i: i32 = 0;
         while i < self.m_playerEntities.size()
         {

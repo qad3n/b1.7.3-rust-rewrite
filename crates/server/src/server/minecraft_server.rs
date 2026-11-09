@@ -138,7 +138,7 @@ impl MinecraftServer
             });
         if let Err(error) = started
         {
-            jvm::io::fromStd(&error).printStackTrace();
+            logger().severe(&format!("Could not start the console thread: {error}"));
         }
         logger().info("Starting minecraft server version Beta 1.7.3");
         logger().info("Loading properties");
@@ -237,6 +237,7 @@ impl MinecraftServer
                 world_server_multi::new(&this, Rc::clone(&saveolddir), saveName, dimension, seed, &delegate)
             };
             self.m_worldMngr.update(|worlds| worlds.as_mut().orNpe()[i] = Some(Rc::clone(&world)));
+            logger().debug(&format!("Created world for dimension {dimension}"));
             // mods apply the saved id map and load world data before the start region loads
             modloader::play::worldLoaded(&world);
             world.addWorldAccess(Rc::new(WorldManager::new(&this, &world)));
@@ -331,7 +332,9 @@ impl MinecraftServer
         modloader::play::lifecycle(modloader::EventKind::ServerStopping);
         if let Some(configManager) = self.m_configManager.get()
         {
+            let saving: Instant = Instant::now();
             configManager.savePlayerStates();
+            logger().debug(&format!("Saved players in {}", took(saving)));
         }
         for worldserver in self.m_worldMngr.get().orNpe()
         {
@@ -358,7 +361,9 @@ impl MinecraftServer
                 let mut l: i64 = k - i;
                 if l > 2000
                 {
-                    logger().warning("Can't keep up! Did the system time change, or is the server overloaded?");
+                    logger().warning(&format!(
+                        "Can't keep up! Did the system time change, or is the server overloaded? Running {l}ms behind"
+                    ));
                     l = 2000;
                 }
                 if l < 0

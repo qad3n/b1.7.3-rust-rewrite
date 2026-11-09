@@ -5,6 +5,7 @@ use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::{HashCursor, JHashMap, JHashSet};
 use jvm::io::IoResult;
+use jvm::logging::{Level, logger};
 use jvm::throwable::{self, OrNpe, Throwable};
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
@@ -81,7 +82,7 @@ impl ChunkProviderServer
             }
             Err(ex) =>
             {
-                ex.printStackTrace();
+                logger().log(Level::SEVERE, &format!("Could not load chunk {chunkX}, {chunkZ}"), Some(ex));
                 None
             }
         }
@@ -98,7 +99,8 @@ impl ChunkProviderServer
             throwable::catchThrowable(&throwable::EXCEPTION, || storage.saveExtraChunkData(&self.m_world, chunk));
         if let Err(ex) = result.and_then(|inner| inner)
         {
-            ex.printStackTrace();
+            let at: String = format!("{}, {}", chunk.m_xPosition, chunk.m_zPosition);
+            logger().log(Level::SEVERE, &format!("Could not save entities of chunk {at}"), Some(ex));
         }
     }
 
@@ -116,7 +118,8 @@ impl ChunkProviderServer
             {
                 throwable::rethrow(ex);
             }
-            ex.printStackTrace();
+            let at: String = format!("{}, {}", chunk.m_xPosition, chunk.m_zPosition);
+            logger().log(Level::SEVERE, &format!("Could not save chunk {at}"), Some(ex));
         }
     }
 }

@@ -54,6 +54,7 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
                     && inetaddress.to_string() != "127.0.0.1"
                     && jvm::system::currentTimeMillis() - last < 5000
                 {
+                    logger().debug(&format!("Refused {address}, it reconnected within 5 seconds"));
                     hashmap.insert(inetaddress, jvm::system::currentTimeMillis());
                     drop(socket);
                 }
@@ -62,13 +63,14 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
                     hashmap.insert(inetaddress, jvm::system::currentTimeMillis());
                     let counter: i32 = connectionCounter;
                     connectionCounter += 1;
+                    logger().debug(&format!("Connection #{counter} from {address}"));
                     if accepted.send((socket, counter)).is_err()
                     {
                         return;
                     }
                 }
             }
-            Err(error) => jvm::io::fromStd(&error).printStackTrace(),
+            Err(error) => logger().warning(&format!("Could not accept a connection: {error}")),
         }
     }
 }
@@ -78,6 +80,10 @@ impl NetworkListenThread
     pub fn new(server: &Rc<MinecraftServer>, address: Option<IpAddr>, port: i32) -> IoResult<NetworkListenThread>
     {
         let serverSocket: TcpListener = bind(address, port)?;
+        if let Ok(local) = serverSocket.local_addr()
+        {
+            logger().debug(&format!("Listening on {local}"));
+        }
         let open: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
         let (sender, receiver): (Sender<Accepted>, Receiver<Accepted>) = channel();
         let listener: TcpListener = serverSocket.try_clone().map_err(|error| jvm::io::fromStd(&error))?;
@@ -108,7 +114,7 @@ impl NetworkListenThread
             match NetLoginHandler::new(&self.m_mcServer, socket, &format!("Connection #{counter}"))
             {
                 Ok(netloginhandler) => self.addPendingConnection(netloginhandler),
-                Err(ioexception) => ioexception.printStackTrace(),
+                Err(ioexception) => logger().warning(&format!("Could not set up connection #{counter}: {ioexception}")),
             }
         }
     }

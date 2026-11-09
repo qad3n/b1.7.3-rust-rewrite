@@ -283,6 +283,7 @@ impl NetHandler for NetLoginHandler
 
     fn handleHandshake(&self, _packet: &Packet2Handshake)
     {
+        logger().debug(&format!("Handshake from {}", self.getUserAndIPString()));
         if self.m_mcServer.m_onlineMode.get()
         {
             let serverId: String = format!("{:x}", RAND.with(Random::nextLong) as u64);

@@ -374,13 +374,13 @@ impl NetHandler for NetServerHandler
         {
             flag1 = true;
             logger().warning(&format!("{} moved wrongly!", self.username()));
-            jvm::system::println(&format!(
+            logger().debug(&format!(
                 "Got position {}, {}, {}",
                 doubleToString(d1),
                 doubleToString(d2),
                 doubleToString(d3)
             ));
-            jvm::system::println(&format!(
+            logger().debug(&format!(
                 "Expected {}, {}, {}",
                 doubleToString(player.m_posX.get()),
                 doubleToString(player.m_posY.get()),

@@ -9,6 +9,7 @@ use game::network::packets::{Packet50PreChunk, Packet51MapChunk, Packet52MultiBl
 use game::tileentity::TileEntity;
 use game::world::World;
 use jvm::array_list::JArrayList;
+use jvm::logging::logger;
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
@@ -441,7 +442,7 @@ impl PlayerInstance
                 let n5: i32 = self.m_chunkZ * 16 + (numBlocksToUpdate >> 8 & 0xF);
                 if Block::isBlockContainer(minecraftServer.getBlockId(n3, n4, n5))
                 {
-                    jvm::system::println("Sending!");
+                    logger().debug("Sending!");
                     self.updateTileEntity(minecraftServer.getBlockTileEntity(n3, n4, n5).as_ref());
                 }
             }
