@@ -54,7 +54,7 @@ pub const CHUNK: ChunkClass = ChunkClass {
     generateHeightMap: light::generateHeightMap,
     getBlockID: |this, x, y, z| this.blockAt(x << 11 | z << 7 | y),
     getBlockLightValue: light::getBlockLightValue,
-    getBlockMetadata: |this, x, y, z| this.data().getNibble(x, y, z),
+    getBlockMetadata: |this, x, y, z| this.metaAt(x, y, z),
     getChunkBlockTileEntity: entities::getChunkBlockTileEntity,
     getEntitiesOfTypeWithinAAAB: entities::getEntitiesOfTypeWithinAAAB,
     getEntitiesWithinAABBForEntity: entities::getEntitiesWithinAABBForEntity,

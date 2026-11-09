@@ -201,7 +201,7 @@ pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32
     let i: i32 = this.height(localZ << 4 | localX);
     let index: i32 = localX << 11 | localZ << 7 | y;
     let j: i32 = this.blockAt(index);
-    if j == block && this.data().getNibble(localX, y, localZ) == metadata
+    if j == block && this.metaAt(localX, y, localZ) == metadata
     {
         return false;
     }
@@ -291,8 +291,8 @@ pub fn getSavedLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: 
 {
     match kind
     {
-        EnumSkyBlock::Sky => this.skylight().getNibble(localX, y, localZ),
-        EnumSkyBlock::Block => this.blocklight().getNibble(localX, y, localZ),
+        EnumSkyBlock::Sky => this.skyAt(localX, y, localZ),
+        EnumSkyBlock::Block => this.blockLightAt(localX, y, localZ),
     }
 }
 
@@ -308,13 +308,13 @@ pub fn setLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: i32, 
 
 pub fn getBlockLightValue(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, ambientDarkness: i32) -> i32
 {
-    let mut i: i32 = this.skylight().getNibble(localX, y, localZ);
+    let mut i: i32 = this.skyAt(localX, y, localZ);
     if i > 0
     {
         IS_LIT.with(|lit| lit.set(true));
     }
     i -= ambientDarkness;
-    let j: i32 = this.blocklight().getNibble(localX, y, localZ);
+    let j: i32 = this.blockLightAt(localX, y, localZ);
     if j > i
     {
         i = j;

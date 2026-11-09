@@ -118,6 +118,12 @@ impl Chunk
 
     pub fn blocklight(&self) -> Rc<NibbleArray> { self.m_blocklightMap.get().orNpe() }
 
+    pub fn metaAt(&self, x: i32, y: i32, z: i32) -> i32 { nibble(&self.m_data, x, y, z) }
+
+    pub fn skyAt(&self, x: i32, y: i32, z: i32) -> i32 { nibble(&self.m_skylightMap, x, y, z) }
+
+    pub fn blockLightAt(&self, x: i32, y: i32, z: i32) -> i32 { nibble(&self.m_blocklightMap, x, y, z) }
+
     pub fn rawBlock(&self, index: i32) -> i8 { self.m_blocks.with(|blocks| blocks[index as usize]) }
 
     pub fn blockAt(&self, index: i32) -> i32
@@ -176,4 +182,9 @@ impl Chunk
             .wrapping_add(z.wrapping_mul(389711) as i64);
         Random::withSeed(sum ^ seed)
     }
+}
+
+fn nibble(array: &Field<Option<Rc<NibbleArray>>>, x: i32, y: i32, z: i32) -> i32
+{
+    array.with(|array| array.as_ref().orNpe().getNibble(x, y, z))
 }
