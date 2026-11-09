@@ -22,6 +22,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
     this.m_prevPosZ.set(this.posZ());
     this.m_prevRotationPitch.set(this.m_rotationPitch.get());
     this.m_prevRotationYaw.set(this.m_rotationYaw.get());
+    this.m_remote.blend(this);
     let world: Rc<World> = this.world();
     if this.handleWaterMovement()
     {

@@ -1,5 +1,6 @@
 use crate::block::{Block, StepSound};
 use crate::entity::Entity;
+use crate::entity::remote::{self, Pose};
 use crate::math::AxisAlignedBB;
 use crate::math::math_helper::{self, floor_double};
 use crate::world::World;
@@ -311,26 +312,13 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 
 impl Entity {}
 
+// items projectiles and falling blocks keep predicting locally and only glide onto the server position
 pub fn setPositionAndRotation2(this: &Rc<Entity>, x: f64, y: f64, z: f64, yaw: f32, pitch: f32, _steps: i32)
 {
-    let mut y: f64 = y;
-    this.setPosition(x, y, z);
     this.setRotation(yaw, pitch);
-    let list: Rc<JArrayList<Rc<AxisAlignedBB>>> =
-        this.world().getCollidingBoundingBoxes(this, &this.m_boundingBox.contract(0.03125, 0.0, 0.03125));
-    if !list.isEmpty()
+    if !this.m_remote.correct([this.posX(), this.posY(), this.posZ()], [x, y, z])
     {
-        let mut d0: f64 = 0.0;
-        for i in 0..list.size()
-        {
-            let axisalignedbb: Rc<AxisAlignedBB> = list.get(i);
-            if axisalignedbb.maxY() > d0
-            {
-                d0 = axisalignedbb.maxY();
-            }
-        }
-        y += d0 - this.m_boundingBox.minY();
-        this.setPosition(x, y, z);
+        remote::place(this, &Pose::new(x, y, z, yaw, pitch));
     }
 }
 
