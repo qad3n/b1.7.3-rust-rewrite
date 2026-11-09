@@ -214,6 +214,8 @@ impl Logger
     pub fn fine(&self, message: &str) { self.log(Level::FINE, message, None); }
 
     pub fn debug(&self, message: &str) { self.fine(message); }
+
+    pub fn trace(&self, message: &str) { self.log(Level::FINER, message, None); }
 }
 
 // libraries that log through the log crate land in a named logger, only targets listed here show below warnings

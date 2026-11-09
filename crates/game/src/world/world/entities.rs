@@ -6,9 +6,31 @@ use crate::pathfinding::{PathEntity, Pathfinder};
 use crate::tileentity::TileEntity;
 use crate::world::{Chunk, ChunkCache, Explosion, World};
 use jvm::array_list::JArrayList;
+use jvm::logging::logger;
 use std::rc::Rc;
 
+// mobs players and vehicles log at debug, items and projectiles at trace so drops and arrows stay quiet
+const DEBUG_KINDS: [&str; 3] = ["EntityLiving", "EntityMinecart", "EntityBoat"];
+
 fn isPlayer(entity: &Entity) -> bool { entity.instanceOf("EntityPlayer") }
+
+fn logEntity(world: &World, entity: &Entity, action: &str)
+{
+    let message: String = format!(
+        "{action} {} {} at {:.1}, {:.1}, {:.1} in dimension {}",
+        entity.className(),
+        entity.m_entityId.get(),
+        entity.posX(),
+        entity.posY(),
+        entity.posZ(),
+        world.worldProvider().m_worldType.get()
+    );
+    match DEBUG_KINDS.iter().any(|kind| entity.instanceOf(kind))
+    {
+        true => logger().debug(&message),
+        false => logger().trace(&message),
+    }
+}
 
 pub fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
 {
@@ -32,6 +54,7 @@ pub fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
     this.getChunkFromChunkCoords(i, j).addEntity(entity);
     this.m_loadedEntityList.add(Rc::clone(entity));
     this.obtainEntitySkin(entity);
+    logEntity(this, entity, "Spawned");
     true
 }
 
@@ -92,6 +115,7 @@ impl World
         }
         this.m_loadedEntityList.remove(entity);
         this.releaseEntitySkin(entity);
+        logEntity(this, entity, "Removed");
     }
 }
 
@@ -278,6 +302,7 @@ impl World
                 self.m_loadedEntityList.removeAt(j1);
                 j1 -= 1;
                 self.releaseEntitySkin(&entity2);
+                logEntity(self, &entity2, "Removed");
             }
             j1 += 1;
         }
@@ -814,6 +839,7 @@ impl World
                 self.m_loadedEntityList.removeAt(i1);
                 i1 -= 1;
                 self.releaseEntitySkin(&entity1);
+                logEntity(self, &entity1, "Removed");
             }
             i1 += 1;
         }
