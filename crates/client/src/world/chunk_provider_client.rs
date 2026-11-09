@@ -1,7 +1,6 @@
 use common::world::{ChunkCoordIntPair, IProgressUpdate};
-use game::world::{Chunk, IChunkProvider, World};
+use game::world::{Chunk, ChunkMap, IChunkProvider, World};
 use jvm::array_list::JArrayList;
-use jvm::field::Field;
 use jvm::hash_map::JHashMap;
 use jvm::trace;
 use std::rc::Rc;
@@ -9,7 +8,7 @@ use std::rc::Rc;
 pub struct ChunkProviderClient
 {
     m_blankChunk: Rc<Chunk>,
-    m_chunkMapping: Field<JHashMap<ChunkCoordIntPair, Rc<Chunk>>>,
+    m_chunkMapping: ChunkMap<ChunkCoordIntPair>,
     m_chunks: JArrayList<Rc<Chunk>>,
     m_worldObj: Rc<World>,
 }
@@ -22,7 +21,7 @@ impl ChunkProviderClient
     {
         ChunkProviderClient {
             m_blankChunk: Chunk::newEmptyWithBlocks(world, vec![0; 32768], 0, 0),
-            m_chunkMapping: Field::new(JHashMap::new()),
+            m_chunkMapping: ChunkMap::new(),
             m_chunks: JArrayList::new(),
             m_worldObj: Rc::clone(world),
         }
@@ -48,7 +47,7 @@ impl IChunkProvider for ChunkProviderClient
     fn provideChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
     {
         let chunkCoordIntPair: ChunkCoordIntPair = ChunkCoordIntPair::new(chunkX, chunkZ);
-        match self.m_chunkMapping.with(|map| map.get(&chunkCoordIntPair))
+        match self.m_chunkMapping.get(&chunkCoordIntPair)
         {
             Some(chunk) => chunk,
             None => Rc::clone(&self.m_blankChunk),

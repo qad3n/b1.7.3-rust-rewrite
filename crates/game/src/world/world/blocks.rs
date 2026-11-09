@@ -93,14 +93,14 @@ impl World
 
     pub(crate) fn chunkExists(&self, chunkX: i32, chunkZ: i32) -> bool
     {
-        self.chunkProvider().chunkExists(chunkX, chunkZ)
+        self.m_chunkProvider.with(|provider| provider.as_ref().orNpe().chunkExists(chunkX, chunkZ))
     }
 
     pub fn getChunkFromBlockCoords(&self, x: i32, z: i32) -> Rc<Chunk> { self.getChunkFromChunkCoords(x >> 4, z >> 4) }
 
     pub fn getChunkFromChunkCoords(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
     {
-        self.chunkProvider().provideChunk(chunkX, chunkZ)
+        self.m_chunkProvider.with(|provider| provider.as_ref().orNpe().provideChunk(chunkX, chunkZ))
     }
 
     pub fn getBlockMaterial(&self, x: i32, y: i32, z: i32) -> Rc<Material>

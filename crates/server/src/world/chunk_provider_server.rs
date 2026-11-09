@@ -1,9 +1,9 @@
 use crate::world::world_server;
 use common::world::{ChunkCoordIntPair, IProgressUpdate};
-use game::world::{Chunk, ChunkCoordinates, IChunkLoader, IChunkProvider, World};
+use game::world::{Chunk, ChunkCoordinates, ChunkMap, IChunkLoader, IChunkProvider, World};
 use jvm::array_list::JArrayList;
 use jvm::field::Field;
-use jvm::hash_map::{HashCursor, JHashMap, JHashSet};
+use jvm::hash_map::{HashCursor, JHashSet};
 use jvm::io::IoResult;
 use jvm::logging::Level;
 use jvm::throwable::{self, OrNpe, Throwable};
@@ -19,7 +19,7 @@ pub struct ChunkProviderServer
     m_serverChunkGenerator: Option<Rc<dyn IChunkProvider>>,
     m_storage: Option<Rc<dyn IChunkLoader>>,
     pub m_chunkLoadOverride: Cell<bool>,
-    m_id2ChunkMap: Field<JHashMap<i32, Rc<Chunk>>>,
+    m_id2ChunkMap: ChunkMap<i32>,
     m_chunks: JArrayList<Rc<Chunk>>,
     m_world: Rc<World>,
 }
@@ -36,7 +36,7 @@ impl ChunkProviderServer
             m_self: this.clone(),
             m_chunksToUnload: Field::new(JHashSet::new()),
             m_chunkLoadOverride: Cell::new(false),
-            m_id2ChunkMap: Field::new(JHashMap::new()),
+            m_id2ChunkMap: ChunkMap::new(),
             m_chunks: JArrayList::new(),
             m_dummyChunk: Chunk::newEmptyWithBlocks(world, vec![0; 32768], 0, 0),
             m_world: Rc::clone(world),
@@ -130,14 +130,14 @@ impl IChunkProvider for ChunkProviderServer
 {
     fn chunkExists(&self, chunkX: i32, chunkZ: i32) -> bool
     {
-        self.m_id2ChunkMap.with(|map| map.containsKey(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ)))
+        self.m_id2ChunkMap.containsKey(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ))
     }
 
     fn prepareChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
     {
         let chunkXZ2Int: i32 = ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ);
         self.m_chunksToUnload.update(|set| set.remove(&chunkXZ2Int));
-        if let Some(chunk) = self.m_id2ChunkMap.with(|map| map.get(&chunkXZ2Int))
+        if let Some(chunk) = self.m_id2ChunkMap.get(&chunkXZ2Int)
         {
             return chunk;
         }
@@ -199,7 +199,7 @@ impl IChunkProvider for ChunkProviderServer
 
     fn provideChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
     {
-        match self.m_id2ChunkMap.with(|map| map.get(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ)))
+        match self.m_id2ChunkMap.get(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ))
         {
             Some(chunk) => chunk,
             None =>
@@ -276,7 +276,7 @@ impl IChunkProvider for ChunkProviderServer
                         let mut cursor: HashCursor = set.cursor();
                         set.nextKey(&mut cursor)
                     });
-                    let chunk: Rc<Chunk> = self.m_id2ChunkMap.with(|map| map.get(&n)).orNpe();
+                    let chunk: Rc<Chunk> = self.m_id2ChunkMap.get(&n).orNpe();
                     trace!("Chunk {},{} unloading", chunk.m_xPosition, chunk.m_zPosition);
                     chunk.onChunkUnload();
                     self.saveChunk(&chunk);
