@@ -151,7 +151,7 @@ pub const CLASS: EntityClass = EntityClass {
     },
     setPositionAndRotation2: |this, x, y, z, yaw, pitch, _| {
         this.m_yOffset.set(0.0);
-        this.m_remote.push(Pose::of(this), Pose::new(x, y, z, yaw, pitch));
+        this.m_remote.push(Pose::new(x, y, z, yaw, pitch));
     },
     onUpdate: update::onUpdate,
     setSize: |this, width, height| (ENTITY.setSize)(this, width, height),

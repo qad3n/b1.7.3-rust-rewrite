@@ -1,7 +1,6 @@
 use super::{LivingFields, fields};
 use crate::block::{Block, Material};
-use crate::entity::remote::{self, Pose};
-use crate::entity::{ENTITY, Entity};
+use crate::entity::{ENTITY, Entity, remote};
 use crate::math::{Vec3D, math_helper};
 use crate::world::World;
 use jvm::array_list::JArrayList;
@@ -338,19 +337,17 @@ pub fn onLivingUpdate(this: &Rc<Entity>)
     let world: Rc<World> = this.world();
     if living.m_isMultiplayerEntity.get()
     {
-        let pose: Option<Pose> = this.m_remote.next();
         // a mount the local player steers keeps predicting and only jumps back once it strays far
-        let steered: bool = this.m_riddenByEntity.get().is_some_and(|rider| rider.instanceOf("EntityPlayerSP"));
-        if steered
+        if this.m_riddenByEntity.get().is_some_and(|rider| rider.instanceOf("EntityPlayerSP"))
         {
             this.m_remote.rein(this);
         }
-        // the server moves remote mobs so only a fresh hit runs local physics until its positions arrive
-        else if !this.m_remote.takeImpulse()
+        // the server moves remote mobs, the client only walks them toward its latest position
+        else
         {
-            if let Some(pose) = pose
+            if let Some(pose) = this.m_remote.next(this)
             {
-                remote::follow(this, &this.m_remote.ease(this, pose));
+                remote::follow(this, &pose);
             }
             animateWalk(this);
             pushOthers(this, &world);

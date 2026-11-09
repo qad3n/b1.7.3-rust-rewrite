@@ -39,7 +39,7 @@ fn onUpdate(this: &Rc<Entity>)
 fn onLivingUpdate(this: &Rc<Entity>)
 {
     (entity_player::CLASS.updatePlayerActionState)(this);
-    if let Some(pose) = this.m_remote.next()
+    if let Some(pose) = this.m_remote.next(this)
     {
         remote::place(this, &pose);
     }
@@ -91,9 +91,7 @@ pub const CLASS: EntityClass = EntityClass {
     m_parent: Some(&entity_player::CLASS),
     resetHeight: |this| this.m_yOffset.set(0.0),
     attackEntityFrom: |_, _, _| true,
-    setPositionAndRotation2: |this, x, y, z, yaw, pitch, _| {
-        this.m_remote.push(Pose::of(this), Pose::new(x, y, z, yaw, pitch))
-    },
+    setPositionAndRotation2: |this, x, y, z, yaw, pitch, _| this.m_remote.push(Pose::new(x, y, z, yaw, pitch)),
     onUpdate,
     getShadowSize: |_| 0.0,
     onLivingUpdate,

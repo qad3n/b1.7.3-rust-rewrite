@@ -7,16 +7,10 @@ use std::rc::Rc;
 
 mod playback
 {
-    pub const CAPACITY: usize = 4;
-    // spacing assumed until two moving samples show the real send interval
+    // vanilla's catch up length, used until two updates show how often the server sends this entity
     pub const DEFAULT_INTERVAL: i32 = 3;
-    // stamped samples play exactly one send interval behind like vanilla, arrival times get one tick of slack
-    pub const STAMPED_JITTER: i32 = 0;
-    pub const ARRIVAL_JITTER: i32 = 1;
-    // clock drift is nudged away slowly and jumped once it gets this far
-    pub const RESYNC: f64 = 8.0;
-    pub const DRIFT_RATE: f64 = 0.1;
-    pub const DRIFT_LIMIT: f64 = 0.2;
+    // the tracker sends nothing while an entity rests so a longer gap says nothing about its send rate
+    pub const REST_GAP: i32 = 20;
 }
 
 mod correction
@@ -24,8 +18,6 @@ mod correction
     pub const BLEND_TICKS: i32 = 3;
     // a predicted entity this far off snaps instead of gliding back
     pub const SNAP_DISTANCE: f64 = 4.0;
-    // knockback strong enough to show right away instead of after the buffer delay
-    pub const KICK_SPEED: f64 = 0.3;
 }
 
 mod placement
@@ -88,30 +80,18 @@ impl Pose
     }
 }
 
-#[derive(Clone, Copy, Default)]
-struct Sample
-{
-    m_tick: i32,
-    m_pose: Pose,
-}
-
-// positions the server sent for an entity this client does not simulate, played back a few ticks late
+// the latest pose the server sent for an entity this client does not simulate and the ticks left to reach it
 #[derive(Default)]
 pub struct Track
 {
-    m_samples: Cell<[Sample; playback::CAPACITY]>,
-    m_len: Cell<usize>,
-    m_clock: Cell<f64>,
-    m_arrival: Cell<i32>,
-    m_interval: Cell<i32>,
+    m_target: Cell<Option<Pose>>,
+    m_steps: Cell<i32>,
+    m_last: Cell<i32>,
     m_stamped: Cell<bool>,
+    m_interval: Cell<i32>,
     m_velocity: Cell<[f64; 3]>,
     m_correction: Cell<[f64; 3]>,
     m_blend: Cell<i32>,
-    m_impulse: Cell<i32>,
-    m_kicked: Cell<bool>,
-    m_drift: Cell<[f64; 3]>,
-    m_driftTicks: Cell<i32>,
 }
 
 impl Track
@@ -130,127 +110,50 @@ impl Track
         }
     }
 
-    fn delay(&self) -> i32
-    {
-        let jitter: i32 = if self.m_stamped.get()
-        {
-            playback::STAMPED_JITTER
-        }
-        else
-        {
-            playback::ARRIVAL_JITTER
-        };
-        self.interval() + jitter
-    }
-
-    pub fn clear(&self) { self.m_len.set(0); }
-
-    pub fn push(&self, current: Pose, pose: Pose)
+    // the entity reaches the new pose just as the server's next update is due, so it never stops or runs ahead
+    pub fn push(&self, pose: Pose)
     {
         let (tick, stamped): (i32, bool) = stamp();
-        let mut samples: [Sample; playback::CAPACITY] = self.m_samples.get();
-        let mut len: usize = self.m_len.get();
-        if stamped != self.m_stamped.get()
+        let gap: i32 = tick - self.m_last.get();
+        let known: bool = self.m_target.get().is_some() && stamped == self.m_stamped.get();
+        if known && gap > 0 && gap <= playback::REST_GAP
         {
-            len = 0;
-            self.m_stamped.set(stamped);
+            self.m_interval.set(gap);
         }
 
-        self.m_arrival.set(clientTick());
-        // once playback ran out the entity coasted or rested on its own, so the next leg starts where it is now
-        let finished: bool = len == 0 || self.m_clock.get() >= samples[len - 1].m_tick as f64;
-        if finished
+        self.m_last.set(tick);
+        self.m_stamped.set(stamped);
+        self.m_target.set(Some(pose));
+        if !known || gap > 0
         {
-            // starting one buffer delay back makes the new leg play at once with no pause
-            samples[0] = Sample { m_tick: tick - self.delay(), m_pose: current };
-            len = 1;
-            self.m_clock.set(samples[0].m_tick as f64);
+            self.m_steps.set(self.interval());
         }
-
-        let last: Sample = samples[len - 1];
-        let gap: i32 = tick - last.m_tick;
-        if gap <= 0
-        {
-            samples[len - 1].m_pose = pose;
-            self.m_samples.set(samples);
-            self.m_len.set(len);
-            return;
-        }
-
-        let interval: i32 = self.interval();
-        self.m_interval.set(
-            if gap < interval
-            {
-                gap
-            }
-            else
-            {
-                interval + (gap > interval) as i32
-            },
-        );
-
-        if len == playback::CAPACITY
-        {
-            samples.copy_within(1.., 0);
-            len -= 1;
-        }
-
-        samples[len] = Sample { m_tick: tick, m_pose: pose };
-        self.m_samples.set(samples);
-        self.m_len.set(len + 1);
     }
 
-    pub fn latest(&self) -> Option<Pose>
+    pub fn latest(&self) -> Option<Pose> { self.m_target.get() }
+
+    // vehicles and hooks coast on their own physics once they reach the target, as vanilla did
+    pub fn playing(&self) -> bool { self.m_target.get().is_some() && self.m_steps.get() > 0 }
+
+    // one tick closer to the target, starting from wherever the entity is now
+    pub fn next(&self, this: &Entity) -> Option<Pose> { self.advance(Pose::of(this)) }
+
+    fn advance(&self, from: Pose) -> Option<Pose>
     {
-        let len: usize = self.m_len.get();
-        if len == 0
+        let target: Pose = self.m_target.get()?;
+        let steps: i32 = self.m_steps.get();
+        if steps <= 0
         {
-            return None;
+            return Some(target);
         }
 
-        Some(self.m_samples.get()[len - 1].m_pose)
-    }
-
-    // vehicles and hooks coast on their own physics once playback runs out, as vanilla did
-    pub fn playing(&self) -> bool
-    {
-        let len: usize = self.m_len.get();
-        len > 0 && self.m_clock.get() < self.m_samples.get()[len - 1].m_tick as f64
-    }
-
-    // advances the playback clock one tick and returns where the entity should be
-    pub fn next(&self) -> Option<Pose>
-    {
-        let len: usize = self.m_len.get();
-        if len == 0
-        {
-            return None;
-        }
-
-        let samples: [Sample; playback::CAPACITY] = self.m_samples.get();
-        let newest: i32 = samples[len - 1].m_tick;
-        let now: i32 = newest + clientTick() - self.m_arrival.get();
-        let target: f64 = (now - self.delay()) as f64;
-        let error: f64 = target - self.m_clock.get();
-        let clock: f64 = if error.abs() > playback::RESYNC
-        {
-            target
-        }
-        else
-        {
-            self.m_clock.get()
-                + 1.0
-                + (error * playback::DRIFT_RATE).clamp(-playback::DRIFT_LIMIT, playback::DRIFT_LIMIT)
-        };
-        let clock: f64 = clock.clamp(samples[0].m_tick as f64, newest as f64);
-        self.m_clock.set(clock);
-
-        Some(sampleAt(&samples[..len], clock))
+        self.m_steps.set(steps - 1);
+        Some(from.lerp(&target, 1.0 / steps as f64))
     }
 
     pub fn step(&self, this: &Entity)
     {
-        if let Some(pose) = self.next()
+        if let Some(pose) = self.next(this)
         {
             let [x, y, z]: [f64; 3] = pose.m_pos;
             this.setPosition(x, y, z);
@@ -258,7 +161,7 @@ impl Track
         }
     }
 
-    // boats carts and hooks dead reckon with the last velocity once playback runs out
+    // boats carts and hooks dead reckon with the last velocity once they reach the target
     pub fn setVelocity(&self, this: &Entity, x: f64, y: f64, z: f64)
     {
         self.m_velocity.set([x, y, z]);
@@ -315,75 +218,12 @@ impl Track
             place(this, &latest);
         }
     }
-
-    // knockback runs local physics for one buffer delay so a hit shows at once
-    pub fn kick(&self, motion: [f64; 3])
-    {
-        let horizontal: f64 = (motion[0] * motion[0] + motion[2] * motion[2]).sqrt();
-        if horizontal < correction::KICK_SPEED && motion[1] < correction::KICK_SPEED
-        {
-            return;
-        }
-
-        self.m_impulse.set(self.delay());
-    }
-
-    pub fn takeImpulse(&self) -> bool
-    {
-        if self.m_impulse.get() <= 0
-        {
-            return false;
-        }
-
-        self.m_impulse.set(self.m_impulse.get() - 1);
-        self.m_kicked.set(true);
-        true
-    }
-
-    // after a hit the buffer still shows the moment before it, so the predicted lead fades out while the buffer catches up
-    pub fn ease(&self, this: &Entity, pose: Pose) -> Pose
-    {
-        let delay: i32 = self.delay();
-        if self.m_kicked.replace(false)
-        {
-            let current: [f64; 3] = [this.posX(), this.posY(), this.posZ()];
-            self.m_drift.set(std::array::from_fn(|i| current[i] - pose.m_pos[i]));
-            self.m_driftTicks.set(delay);
-        }
-
-        let ticks: i32 = self.m_driftTicks.get();
-        if ticks <= 0
-        {
-            return pose;
-        }
-
-        self.m_driftTicks.set(ticks - 1);
-        let share: f64 = ticks as f64 / delay as f64;
-        let drift: [f64; 3] = self.m_drift.get();
-        Pose { m_pos: std::array::from_fn(|i| pose.m_pos[i] + drift[i] * share), ..pose }
-    }
-}
-
-fn sampleAt(samples: &[Sample], clock: f64) -> Pose
-{
-    for pair in samples.windows(2)
-    {
-        let (from, to): (Sample, Sample) = (pair[0], pair[1]);
-        if clock <= to.m_tick as f64
-        {
-            let span: f64 = (to.m_tick - from.m_tick) as f64;
-            let t: f64 = ((clock - from.m_tick as f64) / span).clamp(0.0, 1.0);
-            return from.m_pose.lerp(&to.m_pose, t);
-        }
-    }
-
-    samples[samples.len() - 1].m_pose
 }
 
 // vehicles and hooks play received poses back as they are and restore the velocity the server sent
 pub fn setTarget(this: &Rc<Entity>, x: f64, y: f64, z: f64, yaw: f32, pitch: f32, _steps: i32)
 {
-    this.m_remote.push(Pose::of(this), Pose::new(x, y, z, yaw, pitch));
+    this.m_remote.push(Pose::new(x, y, z, yaw, pitch));
     this.m_remote.restoreVelocity(this);
 }
 
@@ -479,86 +319,129 @@ mod tests
 {
     use super::*;
 
-    fn pose(x: f64) -> Pose { Pose::new(x, 64.0, 0.0, 0.0, 0.0) }
-
-    fn advance(ticks: i32)
+    // plays a server path back the way an entity tick does, each tick starting from the last shown pose
+    struct Viewer
     {
-        for _ in 0..ticks
+        m_track: Track,
+        m_shown: Pose,
+    }
+
+    impl Viewer
+    {
+        fn new(start: f64) -> Viewer { Viewer { m_track: Track::new(), m_shown: pose(start) } }
+
+        fn tick(&mut self) -> f64
         {
             tick();
-        }
-    }
-
-    #[test]
-    fn playbackMovesEvenlyBetweenSamples()
-    {
-        setServerTick(None);
-        let track: Track = Track::new();
-        track.push(pose(0.0), pose(3.0));
-        let mut seen: Vec<f64> = Vec::new();
-        for step in 1..=12
-        {
-            advance(1);
-            if step % 3 == 0
+            if let Some(shown) = self.m_track.advance(self.m_shown)
             {
-                track.push(pose(0.0), pose(3.0 + step as f64));
+                self.m_shown = shown;
             }
-            seen.push(track.next().map(|pose| pose.m_pos[0]).unwrap_or_default());
+            self.m_shown.m_pos[0]
+        }
+    }
+
+    fn pose(x: f64) -> Pose { Pose::new(x, 64.0, 0.0, 0.0, 0.0) }
+
+    // a knockback arc as the server moves it, fast first then slowing, sampled every tick in the air
+    fn knockback(ticks: usize) -> Vec<f64>
+    {
+        let mut x: f64 = 0.0;
+        let mut speed: f64 = 0.4;
+        (0..ticks)
+            .map(|_| {
+                x += speed;
+                speed *= 0.6;
+                x
+            })
+            .collect()
+    }
+
+    fn neverBacktracks(shown: &[f64]) -> bool { shown.windows(2).all(|pair| pair[1] >= pair[0] - 1e-9) }
+
+    #[test]
+    fn steadyWalkMovesEvenly()
+    {
+        setServerTick(None);
+        let mut viewer: Viewer = Viewer::new(0.0);
+        let mut shown: Vec<f64> = Vec::new();
+        for tick in 1..=30
+        {
+            if tick % 3 == 0
+            {
+                viewer.m_track.push(pose(tick as f64 / 3.0));
+            }
+            shown.push(viewer.tick());
         }
 
-        let steps: Vec<f64> = seen.windows(2).map(|pair| pair[1] - pair[0]).collect();
-        assert!(steps.iter().all(|step| *step >= 0.0), "never moves backwards {seen:?}");
-        assert!(steps.iter().skip(4).all(|step| *step <= 1.5), "no jumps once buffered {seen:?}");
+        let steps: Vec<f64> = shown.windows(2).skip(6).map(|pair| pair[1] - pair[0]).collect();
+        assert!(
+            steps.iter().all(|step| (step - 1.0 / 3.0).abs() < 1e-6),
+            "even thirds once the rate is known {steps:?}"
+        );
     }
 
     #[test]
-    fn starvedPlaybackHoldsAtNewest()
+    fn knockbackNeverPullsBack()
     {
+        // packets land on uneven client ticks, as they do when client and server clocks are not lined up
+        let arrivals: [usize; 12] = [1, 1, 2, 0, 1, 2, 1, 0, 1, 1, 2, 1];
         setServerTick(None);
-        let track: Track = Track::new();
-        track.push(pose(0.0), pose(2.0));
-        advance(30);
-        let held: Option<Pose> = (0..5).map(|_| track.next()).last().flatten();
-        assert_eq!(held, Some(pose(2.0)));
-        assert!(!track.playing());
+        let mut viewer: Viewer = Viewer::new(0.0);
+        let mut shown: Vec<f64> = Vec::new();
+        for (x, wait) in knockback(12).into_iter().zip(arrivals)
+        {
+            viewer.m_track.push(pose(x));
+            for _ in 0..wait.max(1)
+            {
+                shown.push(viewer.tick());
+            }
+        }
+
+        assert!(neverBacktracks(&shown), "shown path went backwards {shown:?}");
+        assert!(shown.last().is_some_and(|x| *x <= knockback(12)[11] + 1e-9), "never passes the server {shown:?}");
     }
 
     #[test]
-    fn nextLegStartsWhereCoastingEnded()
-    {
-        setServerTick(None);
-        let track: Track = Track::new();
-        track.push(pose(0.0), pose(2.0));
-        advance(30);
-        track.next();
-        track.push(pose(5.0), pose(6.0));
-        let first: Pose = track.next().unwrap_or_default();
-        assert!((5.0..=6.0).contains(&first.m_pos[0]), "no snap back to the old sample {first:?}");
-    }
-
-    #[test]
-    fn restartAfterRestStartsFromRestingPose()
-    {
-        setServerTick(None);
-        let track: Track = Track::new();
-        track.push(pose(0.0), pose(1.0));
-        advance(100);
-        track.next();
-        track.push(pose(1.0), pose(2.0));
-        let first: Pose = track.next().unwrap_or_default();
-        assert!(first.m_pos[0] <= 1.5, "eases out of rest instead of jumping {first:?}");
-    }
-
-    #[test]
-    fn stampedSamplesUseServerTicks()
+    fn stampedTicksSetTheRate()
     {
         let track: Track = Track::new();
         setServerTick(Some(1000));
-        track.push(pose(0.0), pose(1.0));
-        setServerTick(Some(1003));
-        track.push(pose(0.0), pose(2.0));
+        track.push(pose(0.0));
+        setServerTick(Some(1001));
+        track.push(pose(1.0));
+        assert_eq!(track.interval(), 1);
+        setServerTick(Some(1004));
+        track.push(pose(2.0));
         assert_eq!(track.interval(), 3);
         setServerTick(None);
+    }
+
+    #[test]
+    fn restingKeepsTheRate()
+    {
+        setServerTick(Some(0));
+        let track: Track = Track::new();
+        track.push(pose(0.0));
+        setServerTick(Some(3));
+        track.push(pose(1.0));
+        setServerTick(Some(300));
+        track.push(pose(2.0));
+        assert_eq!(track.interval(), 3);
+        setServerTick(None);
+    }
+
+    #[test]
+    fn reachedTargetStopsPlaying()
+    {
+        setServerTick(None);
+        let mut viewer: Viewer = Viewer::new(0.0);
+        viewer.m_track.push(pose(2.0));
+        (0..5).for_each(|_| {
+            viewer.tick();
+        });
+        assert_eq!(viewer.m_shown, pose(2.0));
+        assert!(!viewer.m_track.playing());
     }
 
     #[test]
@@ -567,15 +450,5 @@ mod tests
         let track: Track = Track::new();
         assert!(track.correct([0.0; 3], [1.0, 0.0, 0.0]));
         assert!(!track.correct([0.0; 3], [10.0, 0.0, 0.0]));
-    }
-
-    #[test]
-    fn onlyStrongHitsKick()
-    {
-        let track: Track = Track::new();
-        track.kick([0.05, 0.0, 0.05]);
-        assert!(!track.takeImpulse());
-        track.kick([0.4, 0.4, 0.0]);
-        assert!(track.takeImpulse());
     }
 }
