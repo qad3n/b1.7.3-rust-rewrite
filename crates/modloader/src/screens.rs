@@ -109,6 +109,17 @@ fn overlaysOn(target: &str) -> Vec<(usize, Handle)>
     })
 }
 
+// an overlay filling the container hides every other overlay on the screen
+fn shownOn(target: &str) -> Vec<(usize, Handle)>
+{
+    let overlays: Vec<(usize, Handle)> = overlaysOn(target);
+    match overlays.iter().find(|(owner, handler)| askOverlay(*owner, *handler, OverlayOp::Exclusive))
+    {
+        Some(exclusive) => vec![*exclusive],
+        None => overlays,
+    }
+}
+
 fn callOverlay(owner: usize, handler: Handle, op: OverlayOp) -> Option<GuestReply>
 {
     state::modAt(owner)?.call(&GuestCall::Overlay { handler, op })
@@ -116,7 +127,7 @@ fn callOverlay(owner: usize, handler: Handle, op: OverlayOp) -> Option<GuestRepl
 
 pub fn drawOverlays(target: &str, size: [i32; 2], mouse: [i32; 2]) -> Vec<DrawList>
 {
-    overlaysOn(target)
+    shownOn(target)
         .into_iter()
         .filter_map(|(owner, handler)| match callOverlay(owner, handler, OverlayOp::Draw { size, mouse })?
         {
@@ -129,7 +140,7 @@ pub fn drawOverlays(target: &str, size: [i32; 2], mouse: [i32; 2]) -> Vec<DrawLi
 // the first overlay to take a click keeps it from the screen under it
 pub fn clickOverlays(target: &str, x: i32, y: i32, button: i32) -> bool
 {
-    overlaysOn(target).into_iter().any(|(owner, handler)| {
+    shownOn(target).into_iter().any(|(owner, handler)| {
         matches!(callOverlay(owner, handler, OverlayOp::Mouse { x, y, button }), Some(GuestReply::Bool(true)))
     })
 }
@@ -142,6 +153,7 @@ fn since(op: &OverlayOp) -> u32
         OverlayOp::Draw { .. } | OverlayOp::Mouse { .. } => 0,
         OverlayOp::Key { .. } | OverlayOp::Scroll { .. } => 2,
         OverlayOp::Cover { .. } => 5,
+        OverlayOp::Exclusive => 6,
     }
 }
 
@@ -159,20 +171,20 @@ fn askOverlay(owner: usize, handler: Handle, op: OverlayOp) -> bool
 // the first overlay to take a key keeps it from the screen under it
 pub fn keyOverlays(target: &str, character: u32, key: i32, hovered: Option<StackData>) -> bool
 {
-    overlaysOn(target)
+    shownOn(target)
         .into_iter()
         .any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Key { character, key, hovered: hovered.clone() }))
 }
 
 pub fn scrollOverlays(target: &str, x: i32, y: i32, delta: i32) -> bool
 {
-    overlaysOn(target).into_iter().any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Scroll { x, y, delta }))
+    shownOn(target).into_iter().any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Scroll { x, y, delta }))
 }
 
 // whether any overlay covers the point, so the vanilla slot under it is not hovered
 pub fn coverOverlays(target: &str, x: i32, y: i32) -> bool
 {
-    overlaysOn(target).into_iter().any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Cover { x, y }))
+    shownOn(target).into_iter().any(|(owner, handler)| askOverlay(owner, handler, OverlayOp::Cover { x, y }))
 }
 
 pub fn registerPlayerLayer(modIndex: usize, handler: Handle)
