@@ -1,5 +1,5 @@
 use crate::block::{Block, Material};
-use crate::entity::{ENTITY, Entity, EntityClass, EntityExt};
+use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, remote};
 use crate::item::Item;
 use crate::math::AxisAlignedBB;
 use crate::math::math_helper::floor_double;
@@ -8,94 +8,11 @@ use std::cell::Cell;
 use std::f64::consts::PI;
 use std::rc::Rc;
 
-pub struct LerpFields
-{
-    m_lerpSteps: Cell<i32>,
-    m_lerpX: Cell<f64>,
-    m_lerpY: Cell<f64>,
-    m_lerpZ: Cell<f64>,
-    m_lerpYaw: Cell<f64>,
-    m_lerpPitch: Cell<f64>,
-    m_lerpVelocityX: Cell<f64>,
-    m_lerpVelocityY: Cell<f64>,
-    m_lerpVelocityZ: Cell<f64>,
-}
-
-impl LerpFields
-{
-    pub(crate) fn new() -> LerpFields
-    {
-        LerpFields {
-            m_lerpSteps: Cell::new(0),
-            m_lerpX: Cell::new(0.0),
-            m_lerpY: Cell::new(0.0),
-            m_lerpZ: Cell::new(0.0),
-            m_lerpYaw: Cell::new(0.0),
-            m_lerpPitch: Cell::new(0.0),
-            m_lerpVelocityX: Cell::new(0.0),
-            m_lerpVelocityY: Cell::new(0.0),
-            m_lerpVelocityZ: Cell::new(0.0),
-        }
-    }
-
-    pub(crate) fn steps(&self) -> i32 { self.m_lerpSteps.get() }
-
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn setTarget(&self, this: &Entity, x: f64, y: f64, z: f64, yaw: f32, pitch: f32, steps: i32)
-    {
-        self.m_lerpX.set(x);
-        self.m_lerpY.set(y);
-        self.m_lerpZ.set(z);
-        self.m_lerpYaw.set(yaw as f64);
-        self.m_lerpPitch.set(pitch as f64);
-        self.m_lerpSteps.set(steps);
-        this.m_motionX.set(self.m_lerpVelocityX.get());
-        this.m_motionY.set(self.m_lerpVelocityY.get());
-        this.m_motionZ.set(self.m_lerpVelocityZ.get());
-    }
-
-    pub(crate) fn setVelocity(&self, this: &Entity, x: f64, y: f64, z: f64)
-    {
-        this.m_motionX.set(x);
-        self.m_lerpVelocityX.set(x);
-        this.m_motionY.set(y);
-        self.m_lerpVelocityY.set(y);
-        this.m_motionZ.set(z);
-        self.m_lerpVelocityZ.set(z);
-    }
-
-    pub(crate) fn step(&self, this: &Entity)
-    {
-        let steps: f64 = self.m_lerpSteps.get() as f64;
-        let d8: f64 = this.posX() + (self.m_lerpX.get() - this.posX()) / steps;
-        let d9: f64 = this.posY() + (self.m_lerpY.get() - this.posY()) / steps;
-        let d10: f64 = this.posZ() + (self.m_lerpZ.get() - this.posZ()) / steps;
-        let mut d7: f64 = self.m_lerpYaw.get() - this.m_rotationYaw.get() as f64;
-        while d7 < -180.0
-        {
-            d7 += 360.0;
-        }
-        while d7 >= 180.0
-        {
-            d7 -= 360.0;
-        }
-        this.m_rotationYaw.set((this.m_rotationYaw.get() as f64 + d7 / steps) as f32);
-        this.m_rotationPitch.set(
-            (this.m_rotationPitch.get() as f64 + (self.m_lerpPitch.get() - this.m_rotationPitch.get() as f64) / steps)
-                as f32,
-        );
-        self.m_lerpSteps.set(self.m_lerpSteps.get() - 1);
-        this.setPosition(d8, d9, d10);
-        this.setRotation(this.m_rotationYaw.get(), this.m_rotationPitch.get());
-    }
-}
-
 pub struct BoatFields
 {
     pub m_boatCurrentDamage: Cell<i32>,
     pub m_boatTimeSinceHit: Cell<i32>,
     pub m_boatRockDirection: Cell<i32>,
-    m_lerp: LerpFields,
 }
 
 impl EntityExt for BoatFields
@@ -113,7 +30,6 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
             m_boatCurrentDamage: Cell::new(0),
             m_boatTimeSinceHit: Cell::new(0),
             m_boatRockDirection: Cell::new(0),
-            m_lerp: LerpFields::new(),
         }),
     );
     Entity::init(&entity, world);
@@ -273,9 +189,9 @@ fn onUpdate(this: &Rc<Entity>)
     let d4: f64 = waterDepth(this, &world);
     if world.m_multiplayerWorld.get()
     {
-        if boat.m_lerp.steps() > 0
+        if this.m_remote.playing()
         {
-            boat.m_lerp.step(this);
+            this.m_remote.step(this);
         }
         else
         {
@@ -429,10 +345,8 @@ pub const CLASS: EntityClass = EntityClass {
         boat.m_boatCurrentDamage.set(boat.m_boatCurrentDamage.get() + boat.m_boatCurrentDamage.get() * 10);
     },
     canBeCollidedWith: |this| !this.m_isDead.get(),
-    setPositionAndRotation2: |this, x, y, z, yaw, pitch, steps| {
-        fields(this).m_lerp.setTarget(this, x, y, z, yaw, pitch, steps + 4)
-    },
-    setVelocity: |this, x, y, z| fields(this).m_lerp.setVelocity(this, x, y, z),
+    setPositionAndRotation2: remote::setTarget,
+    setVelocity: |this, x, y, z| this.m_remote.setVelocity(this, x, y, z),
     onUpdate,
     updateRiderPosition: |this| {
         let Some(rider) = this.m_riddenByEntity.get()

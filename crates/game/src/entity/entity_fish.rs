@@ -1,8 +1,7 @@
 use crate::block::Material;
 use crate::entity::entity_arrow::{applyHeading, launchFrom, rotateTowardsMotion};
-use crate::entity::entity_boat::LerpFields;
 use crate::entity::entity_snowball::{self, ThrowableFields, tickInGround, traceHit};
-use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_item, entity_player};
+use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_item, entity_player, remote};
 use crate::item::{Item, ItemStack};
 use crate::math::AxisAlignedBB;
 use crate::math::math_helper::{floor_double, sqrt_double};
@@ -18,7 +17,6 @@ pub struct FishFields
     pub m_throwable: ThrowableFields,
     m_ticksCatchable: Cell<i32>,
     pub m_bobber: Field<Option<Rc<Entity>>>,
-    m_lerp: LerpFields,
 }
 
 impl EntityExt for FishFields
@@ -38,7 +36,6 @@ fn alloc(world: Option<Rc<World>>) -> Rc<Entity>
             m_throwable: ThrowableFields::new(),
             m_ticksCatchable: Cell::new(0),
             m_bobber: Field::new(None),
-            m_lerp: LerpFields::new(),
         }),
     );
     Entity::init(&entity, world);
@@ -134,9 +131,9 @@ fn onUpdate(this: &Rc<Entity>)
 {
     (ENTITY.onUpdate)(this);
     let fish: &FishFields = fields(this);
-    if fish.m_lerp.steps() > 0
+    if this.m_remote.playing()
     {
-        fish.m_lerp.step(this);
+        this.m_remote.step(this);
         return;
     }
     let world: Rc<World> = this.world();
@@ -297,10 +294,8 @@ pub const CLASS: EntityClass = EntityClass {
     m_interfaces: &[],
     entityInit: |_| {},
     isInRangeToRenderDist: entity_snowball::isInRangeToRenderDist,
-    setPositionAndRotation2: |this, x, y, z, yaw, pitch, steps| {
-        fields(this).m_lerp.setTarget(this, x, y, z, yaw, pitch, steps)
-    },
-    setVelocity: |this, x, y, z| fields(this).m_lerp.setVelocity(this, x, y, z),
+    setPositionAndRotation2: remote::setTarget,
+    setVelocity: |this, x, y, z| this.m_remote.setVelocity(this, x, y, z),
     onUpdate,
     writeEntityToNBT: entity_snowball::writeEntityToNBT,
     readEntityFromNBT: entity_snowball::readEntityFromNBT,

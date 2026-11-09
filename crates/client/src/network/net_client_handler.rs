@@ -8,6 +8,7 @@ use crate::render::particle::entity_pickup_fx;
 use crate::world::world_client;
 use game::block::Block;
 use game::container::Container;
+use game::entity::remote::Pose;
 use game::entity::{
     Entity, EntityList, entity_arrow, entity_boat, entity_egg, entity_falling_sand, entity_fireball, entity_fish,
     entity_item, entity_lightning_bolt, entity_living, entity_minecart, entity_painting, entity_player,
@@ -418,7 +419,7 @@ impl NetHandler for NetClientHandler
         entity.m_serverPosY.set(packet.m_yPosition);
         entity.m_serverPosZ.set(packet.m_zPosition);
         let d: f64 = entity.m_serverPosX.get() as f64 / 32.0;
-        let d2: f64 = entity.m_serverPosY.get() as f64 / 32.0 + 0.015625;
+        let d2: f64 = entity.m_serverPosY.get() as f64 / 32.0;
         let d3: f64 = entity.m_serverPosZ.get() as f64 / 32.0;
         entity.setPositionAndRotation2(
             d,
@@ -443,23 +444,17 @@ impl NetHandler for NetClientHandler
         let d: f64 = entity.m_serverPosX.get() as f64 / 32.0;
         let d2: f64 = entity.m_serverPosY.get() as f64 / 32.0;
         let d3: f64 = entity.m_serverPosZ.get() as f64 / 32.0;
-        let f: f32 = if packet.m_rotating
+        // a move without rotation keeps the last received rotation not the one shown mid playback
+        let (yaw, pitch): (f32, f32) = if packet.m_rotating
         {
-            (packet.m_yaw as i32 * 360) as f32 / 256.0
+            ((packet.m_yaw as i32 * 360) as f32 / 256.0, (packet.m_pitch as i32 * 360) as f32 / 256.0)
         }
         else
         {
-            entity.m_rotationYaw.get()
+            let last: Pose = entity.m_remote.latest().unwrap_or_else(|| Pose::of(&entity));
+            (last.m_yaw, last.m_pitch)
         };
-        let f2: f32 = if packet.m_rotating
-        {
-            (packet.m_pitch as i32 * 360) as f32 / 256.0
-        }
-        else
-        {
-            entity.m_rotationPitch.get()
-        };
-        entity.setPositionAndRotation2(d, d2, d3, f, f2, 3);
+        entity.setPositionAndRotation2(d, d2, d3, yaw, pitch, 3);
     }
 
     fn handleDestroyEntity(&self, packet: &Packet29DestroyEntity)

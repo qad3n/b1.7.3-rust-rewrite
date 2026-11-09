@@ -1,6 +1,6 @@
 use crate::block::{Block, block_rail};
-use crate::entity::entity_boat::{LerpFields, clearDeadRider, mountBy, pushNearby, scale};
-use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_item, entity_player};
+use crate::entity::entity_boat::{clearDeadRider, mountBy, pushNearby, scale};
+use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_item, entity_player, remote};
 use crate::inventory::IInventory;
 use crate::item::{Item, ItemStack};
 use crate::math::Vec3D;
@@ -37,7 +37,6 @@ pub struct MinecartFields
     pub m_fuel: Cell<i32>,
     pub m_pushX: Cell<f64>,
     pub m_pushZ: Cell<f64>,
-    m_lerp: LerpFields,
 }
 
 impl EntityExt for MinecartFields
@@ -87,7 +86,6 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
             m_fuel: Cell::new(0),
             m_pushX: Cell::new(0.0),
             m_pushZ: Cell::new(0.0),
-            m_lerp: LerpFields::new(),
         }),
     );
     Entity::init(&entity, world);
@@ -428,9 +426,9 @@ fn onUpdate(this: &Rc<Entity>)
         cart.m_minecartCurrentDamage.set(cart.m_minecartCurrentDamage.get() - 1);
     }
     let world: Rc<World> = this.world();
-    if world.m_multiplayerWorld.get() && cart.m_lerp.steps() > 0
+    if world.m_multiplayerWorld.get() && this.m_remote.playing()
     {
-        cart.m_lerp.step(this);
+        this.m_remote.step(this);
         return;
     }
 
@@ -900,9 +898,7 @@ pub const CLASS: EntityClass = EntityClass {
     getShadowSize: |_| 0.0,
     applyEntityCollision,
     interact,
-    setPositionAndRotation2: |this, x, y, z, yaw, pitch, steps| {
-        fields(this).m_lerp.setTarget(this, x, y, z, yaw, pitch, steps + 2)
-    },
-    setVelocity: |this, x, y, z| fields(this).m_lerp.setVelocity(this, x, y, z),
+    setPositionAndRotation2: remote::setTarget,
+    setVelocity: |this, x, y, z| this.m_remote.setVelocity(this, x, y, z),
     ..ENTITY
 };

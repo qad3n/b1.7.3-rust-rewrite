@@ -1,5 +1,6 @@
 use game::entity::entity_living::LivingFields;
 use game::entity::entity_player::PlayerFields;
+use game::entity::remote::{self, Pose};
 use game::entity::{Entity, EntityClass, EntityExt, entity_living, entity_player};
 use game::inventory::InventoryPlayer;
 use game::item::ItemStack;
@@ -16,12 +17,6 @@ pub struct OtherPlayerMPExt
 {
     m_living: LivingFields,
     m_player: PlayerFields,
-    m_lerpSteps: Cell<i32>,
-    m_lerpX: Cell<f64>,
-    m_lerpY: Cell<f64>,
-    m_lerpZ: Cell<f64>,
-    m_lerpYaw: Cell<f64>,
-    m_lerpPitch: Cell<f64>,
     pub m_field_20924_a: Cell<f32>,
 }
 
@@ -33,8 +28,6 @@ impl EntityExt for OtherPlayerMPExt
 
     fn player(&self) -> Option<&PlayerFields> { Some(&self.m_player) }
 }
-
-fn fields(this: &Entity) -> &OtherPlayerMPExt { this.ext::<OtherPlayerMPExt>() }
 
 fn onUpdate(this: &Rc<Entity>)
 {
@@ -56,31 +49,11 @@ fn onUpdate(this: &Rc<Entity>)
 fn onLivingUpdate(this: &Rc<Entity>)
 {
     (entity_player::CLASS.updatePlayerActionState)(this);
-    let ext: &OtherPlayerMPExt = fields(this);
-    let lerpSteps: i32 = ext.m_lerpSteps.get();
-    if lerpSteps > 0
+    if let Some(pose) = this.m_remote.next()
     {
-        let d2: f64 = this.posX() + (ext.m_lerpX.get() - this.posX()) / lerpSteps as f64;
-        let d3: f64 = this.posY() + (ext.m_lerpY.get() - this.posY()) / lerpSteps as f64;
-        let d4: f64 = this.posZ() + (ext.m_lerpZ.get() - this.posZ()) / lerpSteps as f64;
-        let mut d: f64 = ext.m_lerpYaw.get() - this.m_rotationYaw.get() as f64;
-        while d < -180.0
-        {
-            d += 360.0;
-        }
-        while d >= 180.0
-        {
-            d -= 360.0;
-        }
-        this.m_rotationYaw.set((this.m_rotationYaw.get() as f64 + d / lerpSteps as f64) as f32);
-        this.m_rotationPitch.set(
-            (this.m_rotationPitch.get() as f64
-                + (ext.m_lerpPitch.get() - this.m_rotationPitch.get() as f64) / lerpSteps as f64) as f32,
-        );
-        ext.m_lerpSteps.set(lerpSteps - 1);
-        this.setPosition(d2, d3, d4);
-        this.setRotation(this.m_rotationYaw.get(), this.m_rotationPitch.get());
+        remote::place(this, &pose);
     }
+
     let player: &PlayerFields = entity_player::fields(this);
     let living: &LivingFields = entity_living::fields(this);
     player.m_lastBob.set(player.m_bob.get());
@@ -128,14 +101,8 @@ pub const CLASS: EntityClass = EntityClass {
     m_parent: Some(&entity_player::CLASS),
     resetHeight: |this| this.m_yOffset.set(0.0),
     attackEntityFrom: |_, _, _| true,
-    setPositionAndRotation2: |this, x, y, z, yaw, pitch, steps| {
-        let ext: &OtherPlayerMPExt = fields(this);
-        ext.m_lerpX.set(x);
-        ext.m_lerpY.set(y);
-        ext.m_lerpZ.set(z);
-        ext.m_lerpYaw.set(yaw as f64);
-        ext.m_lerpPitch.set(pitch as f64);
-        ext.m_lerpSteps.set(steps);
+    setPositionAndRotation2: |this, x, y, z, yaw, pitch, _| {
+        this.m_remote.push(Pose::of(this), Pose::new(x, y, z, yaw, pitch))
     },
     onUpdate,
     getShadowSize: |_| 0.0,

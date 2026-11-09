@@ -111,6 +111,7 @@ pub struct Entity
     pub m_serverPosY: Cell<i32>,
     pub m_serverPosZ: Cell<i32>,
     pub m_ignoreFrustumCheck: Cell<bool>,
+    pub m_remote: crate::entity::remote::Track,
 }
 
 impl Entity
@@ -192,6 +193,7 @@ impl Entity
             m_serverPosY: Cell::new(0),
             m_serverPosZ: Cell::new(0),
             m_ignoreFrustumCheck: Cell::new(false),
+            m_remote: crate::entity::remote::Track::new(),
         })
     }
 

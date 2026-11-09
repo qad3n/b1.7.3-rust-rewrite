@@ -109,6 +109,7 @@ fn tick(this: &Rc<World>)
         }
         k += 1;
     }
+    game::entity::remote::tick();
     sendQueue(this).processReadPackets();
     let mut l: i32 = 0;
     while l < ext.m_blockResets.size()

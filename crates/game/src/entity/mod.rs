@@ -35,6 +35,7 @@ pub mod entity_water_mob;
 pub mod entity_weather_effect;
 pub mod entity_wolf;
 pub mod entity_zombie;
+pub mod remote;
 mod spawner_animals;
 
 pub use data_watcher::{DataWatcher, WatchableObject, WatchedValue};

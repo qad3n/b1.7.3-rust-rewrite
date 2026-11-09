@@ -2,6 +2,8 @@ use jvm::math;
 use std::sync::OnceLock;
 
 pub const POS_SCALE: f64 = 32.0;
+const HALF_TURN: f64 = 180.0;
+const TURN: f64 = 360.0;
 
 fn table() -> &'static [f32]
 {
@@ -31,6 +33,16 @@ pub fn floor_double(x: f64) -> i32
 
 // entity packets carry positions in 1/32 blocks and round to nearest so neither side biases into blocks
 pub fn encodePos(value: f64) -> i32 { floor_double(value * POS_SCALE + 0.5) }
+
+pub fn wrapDegrees(angle: f64) -> f64 { (angle + HALF_TURN).rem_euclid(TURN) - HALF_TURN }
+
+// turns the short way round so a yaw near the seam never spins a whole circle
+pub fn lerpDegrees(from: f32, to: f32, t: f64) -> f32 { (from as f64 + wrapDegrees((to - from) as f64) * t) as f32 }
+
+pub fn lerp3(from: [f64; 3], to: [f64; 3], t: f64) -> [f64; 3]
+{
+    std::array::from_fn(|i| from[i] + (to[i] - from[i]) * t)
+}
 
 pub fn abs(x: f32) -> f32 { if x >= 0.0 { x } else { -x } }
 
@@ -72,5 +84,12 @@ mod tests
         assert_eq!(encodePos(10.3), 330);
         assert_eq!(encodePos(-10.3), -330);
         assert_eq!(encodePos(-0.01), 0);
+    }
+
+    #[test]
+    fn lerpDegreesTakesTheShortWay()
+    {
+        assert_eq!(lerpDegrees(170.0, -170.0, 0.5), 180.0);
+        assert_eq!(lerpDegrees(-10.0, 10.0, 0.5), 0.0);
     }
 }
