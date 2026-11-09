@@ -22,8 +22,16 @@ impl Frustrum
             m_zPosition: Cell::new(0.0),
         }
     }
+}
 
-    pub fn isBoxInFrustum(&self, minX: f64, minY: f64, minZ: f64, maxX: f64, maxY: f64, maxZ: f64) -> bool
+impl Default for Frustrum
+{
+    fn default() -> Self { Self::new() }
+}
+
+impl ICamera for Frustrum
+{
+    fn isBoxInFrustum(&self, minX: f64, minY: f64, minZ: f64, maxX: f64, maxY: f64, maxZ: f64) -> bool
     {
         self.m_clippingHelper.m_helper.isBoxInFrustum(
             minX - self.m_xPosition.get(),
@@ -34,15 +42,7 @@ impl Frustrum
             maxZ - self.m_zPosition.get(),
         )
     }
-}
 
-impl Default for Frustrum
-{
-    fn default() -> Self { Self::new() }
-}
-
-impl ICamera for Frustrum
-{
     fn isBoundingBoxInFrustum(&self, shape: &AxisAlignedBB) -> bool
     {
         self.isBoxInFrustum(

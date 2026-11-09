@@ -7,13 +7,32 @@ use game::block::Block;
 use game::entity::Entity;
 use game::item::ItemStack;
 use game::math::{AxisAlignedBB, EnumMovingObjectType, MovingObjectPosition, Vec3D, math_helper};
+use game::tileentity::TileEntity;
 use game::world::World;
 use jvm::array_list::JArrayList;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::{ARBOcclusionQuery, GL11};
 use std::rc::Rc;
 
+// tile special renderers draw within this many blocks of their tile
+const TILE_PADDING: f64 = 1.0;
+
 fn interpolate(last: f64, current: f64, tickDelta: f64) -> f64 { last + (current - last) * tickDelta }
+
+fn tileVisible(culler: &dyn ICamera, tileEntity: &TileEntity) -> bool
+{
+    let x: f64 = tileEntity.m_xCoord.get() as f64;
+    let y: f64 = tileEntity.m_yCoord.get() as f64;
+    let z: f64 = tileEntity.m_zCoord.get() as f64;
+    culler.isBoxInFrustum(
+        x - TILE_PADDING,
+        y - TILE_PADDING,
+        z - TILE_PADDING,
+        x + 1.0 + TILE_PADDING,
+        y + 1.0 + TILE_PADDING,
+        z + 1.0 + TILE_PADDING,
+    )
+}
 
 impl RenderGlobal
 {
@@ -92,7 +111,11 @@ impl RenderGlobal
         let mut l: i32 = 0;
         while l < self.m_tileEntities.size()
         {
-            TileEntityRenderer::instance().renderTileEntity(&self.m_tileEntities.get(l), tickDelta);
+            let tileEntity: Rc<TileEntity> = self.m_tileEntities.get(l);
+            if tileVisible(culler, &tileEntity)
+            {
+                TileEntityRenderer::instance().renderTileEntity(&tileEntity, tickDelta);
+            }
             l += 1;
         }
     }
