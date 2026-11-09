@@ -2,8 +2,8 @@ use crate::client::Minecraft;
 use crate::gui::{FontRenderer, Gui, GuiButton, GuiParticle};
 use crate::render::Tessellator;
 use jvm::array_list::JArrayList;
+use jvm::debug;
 use jvm::field::Field;
-use jvm::logging::logger;
 use jvm::throwable::OrNpe;
 use lwjgl::input::{Keyboard, Mouse};
 use lwjgl::opengl::GL11;
@@ -88,12 +88,12 @@ pub const GUI_SCREEN: GuiScreenClass = GuiScreenClass {
             if guibutton.mousePressed(&mc, mouseX, mouseY)
             {
                 this.m_selectedButton.set(Some(Rc::clone(&guibutton)));
-                logger().debug(&format!(
+                debug!(
                     "Clicked \"{}\" (button {}) on {}",
                     guibutton.m_displayString.get().unwrap_or_default(),
                     guibutton.m_id.get(),
                     this.className()
-                ));
+                );
                 mc.m_sndManager.get().orNpe().playSoundFX("random.click", 1.0, 1.0);
                 this.actionPerformed(&guibutton);
             }

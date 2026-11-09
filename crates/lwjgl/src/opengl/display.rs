@@ -1,7 +1,7 @@
 use crate::input::{keyboard, mouse};
 use crate::opengl::{DisplayMode, GLContext};
 use crate::{LWJGLException, platform};
-use jvm::logging::logger;
+use jvm::{info, warning};
 use sdl2::event::{Event, WindowEvent};
 use sdl2::video::{FullscreenType, GLProfile, SwapInterval, Window};
 use std::cell::RefCell;
@@ -72,7 +72,7 @@ fn applyVSync(video: &sdl2::VideoSubsystem, vsync: bool)
     };
     if let Err(error) = video.gl_set_swap_interval(interval)
     {
-        logger().warning(&format!("could not set the swap interval: {error}"));
+        warning!("could not set the swap interval: {error}");
     }
 }
 
@@ -86,7 +86,7 @@ impl Display
             Some(Ok(index)) => index,
             Some(Err(error)) =>
             {
-                logger().warning(&format!("could not find the monitor holding the window: {error}"));
+                warning!("could not find the monitor holding the window: {error}");
                 0
             }
             None => 0,
@@ -152,7 +152,7 @@ impl Display
 
         if let Err(error) = platform::with(|platform| applyVSync(&platform.m_video, vsync))
         {
-            logger().warning(&format!("could not reach the video subsystem: {error}"));
+            warning!("could not reach the video subsystem: {error}");
         }
     }
 
@@ -245,7 +245,7 @@ impl Display
             state.m_active = true;
             state.m_closeRequested = false;
         });
-        logger().info(&format!("Display scale {:.2}", Self::surface().m_scale));
+        info!("Display scale {:.2}", Self::surface().m_scale);
         Ok(())
     }
 

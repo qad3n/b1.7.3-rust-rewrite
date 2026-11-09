@@ -12,10 +12,11 @@ use game::world::{ChunkCoordinates, ISaveHandler, World};
 use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::JHashMap;
-use jvm::logging::{Level, logger, took};
+use jvm::logging::{Level, took};
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{self, OrNpe, Throwable, ThrowableClass};
+use jvm::{debug, info, logThrown, severe, warning};
 use std::cell::{Cell, RefCell};
 use std::net::{IpAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
@@ -68,7 +69,7 @@ impl IProgressUpdate for ConvertProgress
         if jvm::system::currentTimeMillis() - self.m_lastTimeMillis.get() >= 1000
         {
             self.m_lastTimeMillis.set(jvm::system::currentTimeMillis());
-            logger().info(&format!("Converting... {percentage}%"));
+            info!("Converting... {percentage}%");
         }
     }
 }
@@ -138,10 +139,10 @@ impl MinecraftServer
             });
         if let Err(error) = started
         {
-            logger().severe(&format!("Could not start the console thread: {error}"));
+            severe!("Could not start the console thread: {error}");
         }
-        logger().info("Starting minecraft server version Beta 1.7.3");
-        logger().info("Loading properties");
+        info!("Starting minecraft server version Beta 1.7.3");
+        info!("Loading properties");
         self.m_propertyManagerObj.set(Some(Rc::new(PropertyManager::new(Path::new("server.properties")))));
         // the built in mod loader reads its server.properties switches and loads mods next to that file
         crate::modded::start(&self.propertyManager());
@@ -156,26 +157,26 @@ impl MinecraftServer
             inetaddress = Some(getByName(&s)?);
         }
         let i: i32 = self.propertyManager().getIntProperty("server-port", 25565);
-        logger().info(&format!("Starting Minecraft server on {}:{i}", if s.is_empty() { "*" } else { s.as_str() }));
+        info!("Starting Minecraft server on {}:{i}", if s.is_empty() { "*" } else { s.as_str() });
         match NetworkListenThread::new(&this, inetaddress, i)
         {
             Ok(networkServer) => self.m_networkServer.set(Some(Rc::new(networkServer))),
             Err(ioexception) =>
             {
-                logger().warning("**** FAILED TO BIND TO PORT!");
-                logger().log(Level::WARNING, &format!("The exception was: {ioexception}"), None);
-                logger().warning("Perhaps a server is already running on that port?");
+                warning!("**** FAILED TO BIND TO PORT!");
+                warning!("The exception was: {ioexception}");
+                warning!("Perhaps a server is already running on that port?");
                 return Ok(false);
             }
         }
         if !self.m_onlineMode.get()
         {
-            logger().warning("**** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!");
-            logger().warning("The server will make no attempt to authenticate usernames. Beware.");
-            logger().warning(
+            warning!("**** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!");
+            warning!("The server will make no attempt to authenticate usernames. Beware.");
+            warning!(
                 "While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.",
             );
-            logger().warning("To change this, set \"online-mode\" to \"true\" in the server.settings file.");
+            warning!("To change this, set \"online-mode\" to \"true\" in the server.settings file.");
         }
         // rewrite: the level's saved mod id map applies before the per dimension trackers and player managers exist
         modloader::remap::preload(Path::new(&self.propertyManager().getStringProperty("level-name", "world")));
@@ -200,11 +201,11 @@ impl MinecraftServer
                 Err(exception) => throwable::rethrow(exception),
             }
         }
-        logger().info(&format!("Preparing level \"{s1}\""));
+        info!("Preparing level \"{s1}\"");
         let preparing: Instant = Instant::now();
         self.initWorld(&SaveConverterMcRegion::new(Path::new(".")), &s1, k);
-        logger().info(&format!("Level \"{s1}\" prepared in {}", took(preparing)));
-        logger().info(&format!("Done ({})! For help, type \"help\" or \"?\"", took(startup)));
+        info!("Level \"{s1}\" prepared in {}", took(preparing));
+        info!("Done ({})! For help, type \"help\" or \"?\"", took(startup));
         Ok(true)
     }
 
@@ -213,13 +214,13 @@ impl MinecraftServer
         let this: Rc<MinecraftServer> = self.this();
         if storageSource.isOldMapFormat(saveName)
         {
-            logger().info("Converting map!");
+            info!("Converting map!");
             let converting: Instant = Instant::now();
             storageSource.convertMapFormat(
                 saveName,
                 &ConvertProgress { m_lastTimeMillis: Cell::new(jvm::system::currentTimeMillis()) },
             );
-            logger().info(&format!("Converted the map in {}", took(converting)));
+            info!("Converted the map in {}", took(converting));
         }
         // mod dimensions get worlds after the overworld and the nether
         let dimensions: Vec<i32> = modloader::dimensions::serverDimensions();
@@ -237,7 +238,7 @@ impl MinecraftServer
                 world_server_multi::new(&this, Rc::clone(&saveolddir), saveName, dimension, seed, &delegate)
             };
             self.m_worldMngr.update(|worlds| worlds.as_mut().orNpe()[i] = Some(Rc::clone(&world)));
-            logger().debug(&format!("Created world for dimension {dimension}"));
+            debug!("Created world for dimension {dimension}");
             // mods apply the saved id map and load world data before the start region loads
             modloader::play::worldLoaded(&world);
             world.addWorldAccess(Rc::new(WorldManager::new(&this, &world)));
@@ -261,7 +262,7 @@ impl MinecraftServer
         let mut j: i64 = jvm::system::currentTimeMillis();
         for k in 0..2
         {
-            logger().info(&format!("Preparing start region for level {k}"));
+            info!("Preparing start region for level {k}");
             if k == 0 || self.propertyManager().getBooleanProperty("allow-nether", true)
             {
                 let preparing: Instant = Instant::now();
@@ -294,7 +295,7 @@ impl MinecraftServer
                     }
                     l += 16;
                 }
-                logger().debug(&format!("Start region for level {k} ready in {}", took(preparing)));
+                debug!("Start region for level {k} ready in {}", took(preparing));
             }
         }
         self.clearCurrentTask();
@@ -304,7 +305,7 @@ impl MinecraftServer
     {
         self.m_currentTask.set(Some(progressType.to_string()));
         self.m_percentDone.set(progress);
-        logger().info(&format!("{progressType}: {progress}%"));
+        info!("{progressType}: {progress}%");
     }
 
     fn clearCurrentTask(&self)
@@ -315,26 +316,26 @@ impl MinecraftServer
 
     fn saveServerWorld(&self)
     {
-        logger().info("Saving chunks");
+        info!("Saving chunks");
         let saving: Instant = Instant::now();
         for worldserver in self.worldMngr()
         {
             worldserver.saveWorld(true, None);
             world_server::forceSave(&worldserver);
         }
-        logger().debug(&format!("Saved chunks in {}", took(saving)));
+        debug!("Saved chunks in {}", took(saving));
     }
 
     fn stopServer(&self)
     {
-        logger().info("Stopping server");
+        info!("Stopping server");
         let stopping: Instant = Instant::now();
         modloader::play::lifecycle(modloader::EventKind::ServerStopping);
         if let Some(configManager) = self.m_configManager.get()
         {
             let saving: Instant = Instant::now();
             configManager.savePlayerStates();
-            logger().debug(&format!("Saved players in {}", took(saving)));
+            debug!("Saved players in {}", took(saving));
         }
         for worldserver in self.m_worldMngr.get().orNpe()
         {
@@ -343,7 +344,7 @@ impl MinecraftServer
                 self.saveServerWorld();
             }
         }
-        logger().info(&format!("Server stopped in {}", took(stopping)));
+        info!("Server stopped in {}", took(stopping));
     }
 
     pub fn initiateShutdown(&self) { self.m_serverRunning.store(false, Ordering::Relaxed); }
@@ -361,14 +362,14 @@ impl MinecraftServer
                 let mut l: i64 = k - i;
                 if l > 2000
                 {
-                    logger().warning(&format!(
+                    warning!(
                         "Can't keep up! Did the system time change, or is the server overloaded? Running {l}ms behind"
-                    ));
+                    );
                     l = 2000;
                 }
                 if l < 0
                 {
-                    logger().warning("Time ran backwards! Did the system time change?");
+                    warning!("Time ran backwards! Did the system time change?");
                     l = 0;
                 }
                 j += l;
@@ -407,7 +408,7 @@ impl MinecraftServer
         if let Err(throwable1) = result.and_then(|inner| inner)
         {
             throwable1.printStackTrace();
-            logger().log(Level::SEVERE, "Unexpected exception", Some(throwable1));
+            logThrown!(Level::SEVERE, Some(throwable1), "Unexpected exception");
             while self.m_serverRunning.load(Ordering::Relaxed)
             {
                 self.commandLineParser();
@@ -489,7 +490,7 @@ impl MinecraftServer
             throwable::catchThrowable(&throwable::EXCEPTION, || self.commandLineParser());
         if let Err(exception) = result
         {
-            logger().log(Level::WARNING, "Unexpected exception while parsing console command", Some(exception));
+            logThrown!(Level::WARNING, Some(exception), "Unexpected exception while parsing console command");
         }
         // the mod watchdog may stop the server when a mod keeps blowing its tick budget
         if modloader::play::tick(false)
@@ -537,14 +538,17 @@ impl MinecraftServer
         });
         if let Err(exception) = result
         {
-            logger().log(Level::SEVERE, "Failed to start the minecraft server", Some(exception));
+            logThrown!(Level::SEVERE, Some(exception), "Failed to start the minecraft server");
         }
     }
 
     pub fn getFile(&self, path: &str) -> PathBuf { PathBuf::from(path) }
 
     #[track_caller]
-    pub fn logWarning(&self, message: &str) { logger().warning(message); }
+    pub fn logWarning(&self, message: &str)
+    {
+        warning!("{}", message);
+    }
 
     // dimensions are keyed through the loader's map, without mods it is overworld then nether
     pub fn getWorldManager(&self, dimension: i32) -> Rc<World>
@@ -562,7 +566,10 @@ impl MinecraftServer
 impl ICommandListener for MinecraftServer
 {
     #[track_caller]
-    fn log(&self, message: &str) { logger().info(message); }
+    fn log(&self, message: &str)
+    {
+        info!("{}", message);
+    }
 
     fn getUsername(&self) -> String { String::from("CONSOLE") }
 }

@@ -6,7 +6,7 @@ use crate::item::ItemStack;
 use crate::locale::StatCollector;
 pub use class::{ITEM, ItemClass};
 use jvm::field::Field;
-use jvm::logging::logger;
+use jvm::severe;
 use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -45,7 +45,7 @@ impl Item
         });
         if Item::byId(256 + id).is_some()
         {
-            logger().severe(&format!("CONFLICT @ {id}"));
+            severe!("CONFLICT @ {id}");
         }
         registry::register(256 + id, &item);
         item

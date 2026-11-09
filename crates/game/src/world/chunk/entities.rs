@@ -7,8 +7,8 @@ use crate::world::{Chunk, World};
 use common::world::ChunkPosition;
 use jvm::array_list::JArrayList;
 use jvm::hash_map::JHashMap;
-use jvm::logging::logger;
 use jvm::throwable::OrNpe;
+use jvm::warning;
 use std::rc::Rc;
 
 pub fn addEntity(this: &Rc<Chunk>, entity: &Rc<Entity>)
@@ -18,7 +18,7 @@ pub fn addEntity(this: &Rc<Chunk>, entity: &Rc<Entity>)
     let j: i32 = floor_double(entity.posZ() / 16.0);
     if i != this.m_xPosition || j != this.m_zPosition
     {
-        logger().warning(&format!("Wrong location! {}", crate::entity::EntityList::objectString(entity)));
+        warning!("Wrong location! {}", crate::entity::EntityList::objectString(entity));
         jvm::system::dumpStack();
     }
 
@@ -105,7 +105,7 @@ pub fn setChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i3
     // rewrite: the isBlockContainer table BlockContainer fills, so mod blocks with tile entities on any template pass
     if id == 0 || !Block::isBlockContainer(id)
     {
-        logger().warning("Attempted to place a tile entity where there was no entity tile!");
+        warning!("Attempted to place a tile entity where there was no entity tile!");
         return;
     }
     blockEntity.cancelRemoval();

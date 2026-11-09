@@ -29,10 +29,10 @@ use game::tileentity::{TileEntity, tile_entity_dispenser, tile_entity_furnace, t
 use game::world::{ChunkCoordinates, Explosion, MapDataBase, MapStorage, World};
 use jvm::field::Field;
 use jvm::io::{IoResult, ioError};
-use jvm::logging::logger;
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{EXCEPTION, IO, OrNpe, Throwable, ThrowableClass, catchThrowable};
+use jvm::{debug, info, warning};
 use std::cell::Cell;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::rc::{Rc, Weak};
@@ -141,7 +141,7 @@ impl NetClientHandler
 
     pub fn disconnect(&self)
     {
-        logger().info("Disconnecting from the server");
+        info!("Disconnecting from the server");
         modloader::netsync::clientDisconnected();
         self.m_disconnected.set(true);
         self.netManager().wakeThreads();
@@ -195,12 +195,12 @@ impl NetClientHandler
             }
             Ok((string, false)) =>
             {
-                logger().warning(&format!("Session verification refused: {string}"));
+                warning!("Session verification refused: {string}");
                 self.netManager().networkShutdown("disconnect.loginFailedInfo", vec![string]);
             }
             Err(exception) =>
             {
-                logger().warning(&format!("Session verification failed: {exception}"));
+                warning!("Session verification failed: {exception}");
                 exception.printStackTrace();
                 self.netManager().networkShutdown(
                     "disconnect.genericReason",
@@ -240,7 +240,7 @@ impl NetHandler for NetClientHandler
             self.m_disconnected.set(true);
             return;
         }
-        logger().info(&format!("Logged in as entity {} in dimension {}", packet.m_protocolVersion, packet.m_dimension));
+        info!("Logged in as entity {} in dimension {}", packet.m_protocolVersion, packet.m_dimension);
         let this: Rc<NetClientHandler> = self.rc();
         let mc: &Rc<Minecraft> = &self.m_mc;
         mc.m_playerController.set(Some(player_controller_mp::new(mc, &this)));
@@ -598,7 +598,7 @@ impl NetHandler for NetClientHandler
         }
         self.m_disconnected.set(true);
         let detail: Vec<String> = args.iter().map(JString::to_string).collect();
-        logger().warning(&format!("Lost connection: {reason} {}", detail.join(", ")));
+        warning!("Lost connection: {reason} {}", detail.join(", "));
         self.m_mc.changeWorld1(None);
         self.m_mc.displayGuiScreen(Some(GuiConnectFailed::new("disconnect.lost", &reason.to_string(), args)));
     }
@@ -683,14 +683,14 @@ impl NetHandler for NetClientHandler
         let serverId: &JString = packet.m_username.as_ref().orNpe();
         if *serverId == JString::from("-")
         {
-            logger().debug("Server is in offline mode, sending login");
+            debug!("Server is in offline mode, sending login");
             let username: Option<String> = self.m_mc.m_session.get().orNpe().m_username.get();
             let login: Packet1Login = Packet1Login::new(JString::from(username.orNpe().as_str()), 14);
             self.addToSendQueue(Box::new(modloader::netsync::loginPacket(login)));
         }
         else
         {
-            logger().debug("Server is in online mode, verifying the session");
+            debug!("Server is in online mode, verifying the session");
             self.joinServer(serverId);
         }
     }
@@ -756,7 +756,7 @@ impl NetHandler for NetClientHandler
 
     fn handlePlayerRespawn(&self, packet: &Packet9Respawn)
     {
-        logger().debug(&format!("Respawning in dimension {}", packet.m_dimension));
+        debug!("Respawning in dimension {}", packet.m_dimension);
         if packet.m_dimension as i32 != entity_player::fields(&self.thePlayer()).m_dimension.get()
         {
             self.m_started.set(false);

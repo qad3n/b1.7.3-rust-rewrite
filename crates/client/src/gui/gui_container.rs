@@ -11,7 +11,7 @@ use game::port::text;
 use game::stats::AchievementList;
 use game::tileentity::{TileEntity, tile_entity_furnace};
 use game::world::World;
-use jvm::logging::logger;
+use jvm::debug;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use lwjgl::input::{Keyboard, Mouse};
@@ -273,7 +273,7 @@ fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
     let (left, top): (i32, i32) = origin(this);
     if modloader::screens::clickOverlays(this.className(), mouseX - left, mouseY - top, button)
     {
-        logger().debug(&format!("A mod overlay took mouse button {button} on {}", this.className()));
+        debug!("A mod overlay took mouse button {button} on {}", this.className());
         return;
     }
     (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button);
@@ -298,11 +298,11 @@ fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
     if k != -1
     {
         let flag1: bool = k != -999 && (Keyboard::isKeyDown(42) || Keyboard::isKeyDown(54));
-        logger().debug(&format!(
+        debug!(
             "Clicked slot {k} with mouse button {button}{} on {}",
             if flag1 { " and shift" } else { "" },
             this.className()
-        ));
+        );
         let mc: Rc<Minecraft> = this.mc();
         mc.m_playerController.get().orNpe().clickSlot(
             container.m_inventorySlots.m_windowId.get(),

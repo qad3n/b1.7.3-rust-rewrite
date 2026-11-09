@@ -3,6 +3,7 @@ mod assets;
 use anyhow::{Context, Result, bail};
 use jvm::log_files::{self, LogFormatter};
 use jvm::logging::logger;
+use jvm::{info, severe, warning};
 use std::io::{BufRead, IsTerminal, Write};
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -28,7 +29,7 @@ fn main() -> ExitCode
         Ok(code) => code,
         Err(error) =>
         {
-            logger().severe(&format!("{error:#}"));
+            severe!("{error:#}");
             ExitCode::FAILURE
         }
     }
@@ -51,7 +52,7 @@ fn run() -> Result<ExitCode>
         Some(path) => path,
         None => gameNextToLauncher()?,
     };
-    logger().info(&format!("Starting the game as {name}"));
+    info!("Starting the game as {name}");
     let mut command: Command = Command::new(&game);
     command.arg(&name).arg(NO_SESSION);
     // a launcher in a terminal keeps the game attached so its log stays in that window
@@ -64,7 +65,7 @@ fn run() -> Result<ExitCode>
     }
 
     let status: std::process::ExitStatus = command.status().with_context(|| format!("starting {}", game.display()))?;
-    logger().info(&format!("Game exited with {status}"));
+    info!("Game exited with {status}");
     if console && !status.success()
     {
         holdWindow();
@@ -78,7 +79,7 @@ fn holdWindow()
     print!("Press Enter to close");
     if let Err(error) = std::io::stdout().flush().and_then(|()| std::io::stdin().lock().read_line(&mut String::new()))
     {
-        logger().warning(&format!("could not wait for Enter: {error}"));
+        warning!("could not wait for Enter: {error}");
     }
 }
 

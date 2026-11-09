@@ -21,9 +21,9 @@ use game::tileentity::{TileEntity, tile_entity_sign};
 use game::world::{ChunkCoordinates, World};
 use jvm::field::Field;
 use jvm::floating_decimal::doubleToString;
-use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
+use jvm::{debug, info, warning};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -99,7 +99,7 @@ impl NetServerHandler
 
     pub fn kickPlayer(&self, reason: &str)
     {
-        logger().info(&format!("Kicking {}: {reason}", self.username()));
+        info!("Kicking {}: {reason}", self.username());
         let player: Rc<Entity> = self.player();
         entity_player_mp::onDisconnect(&player);
         self.sendPacket(Box::new(Packet255KickDisconnect::new(JString::from(reason))));
@@ -179,7 +179,7 @@ impl NetServerHandler
                 format!("* {} {}", self.username(), command.substringFrom(command.indexOf(b' ' as u16)).trim())
                     .as_str(),
             );
-            logger().info(&command.to_string());
+            info!("{}", command.to_string());
             self.m_mcServer.configManager().sendPacketToAllPlayers(Box::new(Packet3Chat::new(command)));
         }
         else if command.toLowerCase().startsWith("/kill")
@@ -197,7 +197,7 @@ impl NetServerHandler
                 command = command.substringFrom(command.indexOf(b' ' as u16)).trim();
                 command = command.substringFrom(command.indexOf(b' ' as u16)).trim();
                 command = JString::from(format!("\u{a7}7{} whispers {command}", self.username()).as_str());
-                logger().info(&format!("{command} to {}", astring[1]));
+                info!("{command} to {}", astring[1]);
                 if !self.m_mcServer.configManager().sendPacketToPlayer(&astring[1], Box::new(Packet3Chat::new(command)))
                 {
                     self.sendPacket(Box::new(Packet3Chat::new(JString::from(
@@ -209,14 +209,14 @@ impl NetServerHandler
         else if self.m_mcServer.configManager().isOp(entity_player::fields(&self.player()).m_username.get().as_ref())
         {
             let s: JString = command.substringFrom(1);
-            logger().info(&format!("{} issued server command: {s}", self.username()));
+            info!("{} issued server command: {s}", self.username());
             let listener: Rc<dyn ICommandListener> = self.m_self.upgrade().orNpe();
             self.m_mcServer.addCommand(&s.to_string(), listener);
         }
         else
         {
             let s1: JString = command.substringFrom(1);
-            logger().info(&format!("{} tried command: {s1}", self.username()));
+            info!("{} tried command: {s1}", self.username());
         }
     }
 
@@ -336,7 +336,7 @@ impl NetHandler for NetServerHandler
             if !player.isPlayerSleeping() && (d4 > 1.65 || d4 < 0.1)
             {
                 self.kickPlayer("Illegal stance");
-                logger().warning(&format!("{} had an illegal stance: {}", self.username(), doubleToString(d4)));
+                warning!("{} had an illegal stance: {}", self.username(), doubleToString(d4));
                 return;
             }
             if packet.m_xPosition.abs() > 3.2E7 || packet.m_zPosition.abs() > 3.2E7
@@ -363,7 +363,7 @@ impl NetHandler for NetServerHandler
         let mut d7: f64 = d13 * d13 + d5 * d5 + d6 * d6;
         if d7 > 100.0
         {
-            logger().warning(&format!("{} moved too quickly!", self.username()));
+            warning!("{} moved too quickly!", self.username());
             self.kickPlayer("You moved too quickly :( (Hacking?)");
             return;
         }
@@ -385,19 +385,14 @@ impl NetHandler for NetServerHandler
         if d7 > 0.0625 && !player.isPlayerSleeping()
         {
             flag1 = true;
-            logger().warning(&format!("{} moved wrongly!", self.username()));
-            logger().debug(&format!(
-                "Got position {}, {}, {}",
-                doubleToString(d1),
-                doubleToString(d2),
-                doubleToString(d3)
-            ));
-            logger().debug(&format!(
+            warning!("{} moved wrongly!", self.username());
+            debug!("Got position {}, {}, {}", doubleToString(d1), doubleToString(d2), doubleToString(d3));
+            debug!(
                 "Expected {}, {}, {}",
                 doubleToString(player.m_posX.get()),
                 doubleToString(player.m_posY.get()),
                 doubleToString(player.m_posZ.get())
-            ));
+            );
         }
         player.setPositionAndRotation(d1, d2, d3, f1, f2);
         let flag2: bool = worldserver
@@ -420,7 +415,7 @@ impl NetHandler for NetServerHandler
             self.m_playerInAirTime.set(self.m_playerInAirTime.get() + 1);
             if self.m_playerInAirTime.get() > 80
             {
-                logger().warning(&format!("{} was kicked for floating too long!", self.username()));
+                warning!("{} was kicked for floating too long!", self.username());
                 self.kickPlayer("Flying is not enabled on this server");
                 return;
             }
@@ -620,7 +615,7 @@ impl NetHandler for NetServerHandler
     fn handleErrorMessage(&self, reason: &JString, _args: &[JString])
     {
         let player: Rc<Entity> = self.player();
-        logger().info(&format!("{} lost connection: {reason}", self.username()));
+        info!("{} lost connection: {reason}", self.username());
         self.m_mcServer.configManager().sendPacketToAllPlayers(Box::new(Packet3Chat::new(JString::from(
             format!("\u{a7}e{} left the game.", self.username()).as_str(),
         ))));
@@ -630,10 +625,10 @@ impl NetHandler for NetServerHandler
 
     fn registerPacket(&self, packet: &dyn Packet)
     {
-        logger().warning(&format!(
+        warning!(
             "class net.minecraft.src.NetServerHandler wasn't prepared to deal with a class net.minecraft.src.{}",
             game::network::packet::className(packet)
-        ));
+        );
         self.kickPlayer("Protocol error, unexpected packet");
     }
 
@@ -641,7 +636,7 @@ impl NetHandler for NetServerHandler
     {
         if packet.m_id < 0 || packet.m_id > InventoryPlayer::getHotbarSize()
         {
-            logger().warning(&format!("{} tried to set an invalid carried item", self.username()));
+            warning!("{} tried to set an invalid carried item", self.username());
             return;
         }
         entity_player::inventory(&self.player()).m_currentItem.set(packet.m_id);
@@ -683,7 +678,7 @@ impl NetHandler for NetServerHandler
                 return;
             };
             let string: String = format!("<{}> {trim}", self.username());
-            logger().info(&string);
+            info!("{}", string);
             self.m_mcServer
                 .configManager()
                 .sendPacketToAllPlayers(Box::new(Packet3Chat::new(JString::from(string.as_str()))));
@@ -717,7 +712,7 @@ impl NetHandler for NetServerHandler
 
     fn handleKickDisconnect(&self, _packet: &Packet255KickDisconnect)
     {
-        logger().debug(&format!("{} is quitting", self.username()));
+        debug!("{} is quitting", self.username());
         self.m_netManager.networkShutdown("disconnect.quitting", Vec::new());
     }
 

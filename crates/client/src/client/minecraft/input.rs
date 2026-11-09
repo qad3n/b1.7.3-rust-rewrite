@@ -11,7 +11,7 @@ use game::inventory::InventoryPlayer;
 use game::item::ItemStack;
 use game::math::{EnumMovingObjectType, MovingObjectPosition, math_helper};
 use game::world::World;
-use jvm::logging::logger;
+use jvm::debug;
 use jvm::throwable::OrNpe;
 use lwjgl::input::{Keyboard, Mouse};
 use lwjgl::opengl::Display;
@@ -34,7 +34,7 @@ impl Minecraft
         // screen_open listeners may refuse a screen
         if crate::modded::screenOpening(screen.as_ref())
         {
-            logger().debug(&format!("A mod refused to open {}", screenName(screen.as_ref())));
+            debug!("A mod refused to open {}", screenName(screen.as_ref()));
             return;
         }
         if self.m_currentScreen.get().is_some_and(|current| current.instanceOf("GuiUnused"))
@@ -66,8 +66,8 @@ impl Minecraft
         self.m_currentScreen.set(screen.clone());
         match &screen
         {
-            Some(screen) => logger().debug(&format!("Opened {}", screen.className())),
-            None if previous.is_some() => logger().debug(&format!("Closed {}", screenName(previous.as_ref()))),
+            Some(screen) => debug!("Opened {}", screen.className()),
+            None if previous.is_some() => debug!("Closed {}", screenName(previous.as_ref())),
             None =>
             {}
         }

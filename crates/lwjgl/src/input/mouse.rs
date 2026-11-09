@@ -1,6 +1,6 @@
 use crate::opengl::{Display, Surface};
 use crate::{LWJGLException, platform};
-use jvm::logging::logger;
+use jvm::warning;
 use sdl2::event::{Event, EventType};
 use sdl2::mouse::{MouseButton, MouseUtil};
 use std::cell::RefCell;
@@ -88,7 +88,7 @@ fn warp(x: i32, y: i32)
     });
     if let Err(error) = warped
     {
-        logger().warning(&format!("could not move the cursor: {error}"));
+        warning!("could not move the cursor: {error}");
     }
 }
 
@@ -250,7 +250,7 @@ impl Mouse
             match platform.m_sdl.event()
             {
                 Ok(events) => events.flush_event(EventType::MouseMotion),
-                Err(error) => logger().warning(&format!("could not drop queued mouse motion: {error}")),
+                Err(error) => warning!("could not drop queued mouse motion: {error}"),
             }
             mouse.relative_mouse_mode()
         });
@@ -259,13 +259,13 @@ impl Mouse
             Ok(grabbed) => grabbed,
             Err(error) =>
             {
-                logger().warning(&format!("could not switch the mouse grab: {error}"));
+                warning!("could not switch the mouse grab: {error}");
                 false
             }
         };
         if grab && !grabbed
         {
-            logger().warning("the window system refused to grab the mouse");
+            warning!("the window system refused to grab the mouse");
         }
 
         // lwjgl drops the deltas gathered in the old mode

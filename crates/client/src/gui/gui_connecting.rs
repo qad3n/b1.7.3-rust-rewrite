@@ -5,9 +5,9 @@ use crate::network::net_client_handler::{CONNECT, NetClientHandler, UNKNOWN_HOST
 use game::locale::StringTranslate;
 use game::network::packets::Packet2Handshake;
 use jvm::field::Field;
-use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
+use jvm::{debug, info, severe, warning};
 use std::net::TcpStream;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -41,7 +41,7 @@ fn finishConnecting(ext: &ConnectingExt, connection: Connection)
             {
                 return;
             }
-            logger().debug(&format!("Connected to {}, sending handshake", ext.m_address));
+            debug!("Connected to {}, sending handshake", ext.m_address);
             let username: Option<String> = minecraft.m_session.get().orNpe().m_username.get();
             handler.addToSendQueue(Box::new(Packet2Handshake::new(JString::from(username.orNpe().as_str()))));
             return;
@@ -65,7 +65,7 @@ fn finishConnecting(ext: &ConnectingExt, connection: Connection)
         error.printStackTrace();
         error.to_string()
     };
-    logger().warning(&format!("Could not connect to {}: {detail}", ext.m_address));
+    warning!("Could not connect to {}: {detail}", ext.m_address);
     minecraft.displayGuiScreen(Some(GuiConnectFailed::new(
         "connect.failed",
         "disconnect.genericReason",
@@ -158,7 +158,7 @@ impl GuiConnecting
 {
     pub fn new(minecraft: &Rc<Minecraft>, address: &str, port: i32) -> Rc<GuiScreen>
     {
-        logger().info(&format!("Connecting to {address}:{port}"));
+        info!("Connecting to {address}:{port}");
         minecraft.changeWorld1(None);
         let ext: ConnectingExt = ConnectingExt {
             m_clientHandler: Field::new(None),
@@ -176,7 +176,7 @@ impl GuiConnecting
         });
         if let Err(error) = started
         {
-            logger().severe(&format!("Could not start the connect thread: {error}"));
+            severe!("Could not start the connect thread: {error}");
         }
         GuiScreen::construct(&CLASS, Box::new(ext))
     }

@@ -13,10 +13,10 @@ use game::world::{ChunkCoordinates, World};
 use jvm::field::Field;
 use jvm::floating_decimal::doubleToString;
 use jvm::io::IoResult;
-use jvm::logging::logger;
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
+use jvm::{debug, info};
 use modloader::netsync::{Outcome, ServerSession};
 use std::cell::{Cell, RefCell};
 use std::net::TcpStream;
@@ -133,7 +133,7 @@ impl NetLoginHandler
     pub fn kickUser(&self, reason: &str)
     {
         let result: Result<(), Throwable> = jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, || {
-            logger().info(&format!("Disconnecting {}: {reason}", self.getUserAndIPString()));
+            info!("Disconnecting {}: {reason}", self.getUserAndIPString());
             self.netManager().addToSendQueue(Box::new(Packet255KickDisconnect::new(JString::from(reason))));
             self.netManager().close();
             self.m_finishedProcessing.set(true);
@@ -187,14 +187,14 @@ impl NetLoginHandler
             self.m_mcServer.configManager().readPlayerDataFromFile(&entityPlayerMP);
             let dimension: i32 = entity_player::fields(&entityPlayerMP).m_dimension.get();
             entityPlayerMP.setWorld(Some(self.m_mcServer.getWorldManager(dimension)));
-            logger().info(&format!(
+            info!(
                 "{} logged in with entity id {} at ({}, {}, {})",
                 self.getUserAndIPString(),
                 entityPlayerMP.m_entityId.get(),
                 doubleToString(entityPlayerMP.m_posX.get()),
                 doubleToString(entityPlayerMP.m_posY.get()),
                 doubleToString(entityPlayerMP.m_posZ.get())
-            ));
+            );
             let dimension: i32 = entity_player::fields(&entityPlayerMP).m_dimension.get();
             let worldServer: Rc<World> = self.m_mcServer.getWorldManager(dimension);
             let chunkCoordinates: ChunkCoordinates = worldServer.getSpawnPoint();
@@ -277,13 +277,13 @@ impl NetHandler for NetLoginHandler
 
     fn handleErrorMessage(&self, _reason: &JString, _args: &[JString])
     {
-        logger().info(&format!("{} lost connection", self.getUserAndIPString()));
+        info!("{} lost connection", self.getUserAndIPString());
         self.m_finishedProcessing.set(true);
     }
 
     fn handleHandshake(&self, _packet: &Packet2Handshake)
     {
-        logger().debug(&format!("Handshake from {}", self.getUserAndIPString()));
+        debug!("Handshake from {}", self.getUserAndIPString());
         if self.m_mcServer.m_onlineMode.get()
         {
             let serverId: String = format!("{:x}", RAND.with(Random::nextLong) as u64);

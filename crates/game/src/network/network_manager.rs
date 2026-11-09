@@ -2,10 +2,10 @@ use crate::network::net_handler::NetHandler;
 use crate::network::packet::{self, Packet, PacketInput, PacketOutput};
 // java monitors and null stream errors come from port
 use crate::port::network::{lock, npeError};
+use jvm::debug;
 use jvm::io::{
     BufferedOutputStream, DataInputStream, DataOutputStream, InputStream, IoResult, OutputStream, fromStd, ioError,
 };
-use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::{EXCEPTION, IO, Throwable, ThrowableClass, catchThrowable};
 use std::cell::{Cell, RefCell};
@@ -310,7 +310,7 @@ impl Shared
         jvm::thread::nextName();
         self.m_isRunning.store(false, Ordering::Relaxed);
         let detail: Vec<String> = lock(&self.m_disconnectReasonArgs).iter().map(JString::to_string).collect();
-        logger().debug(&format!("Connection with {} closed: {reason} {}", self.remoteAddress(), detail.join(", ")));
+        debug!("Connection with {} closed: {reason} {}", self.remoteAddress(), detail.join(", "));
         if let Some(socket) = lock(&self.m_networkSocket).as_ref()
             && socket.shutdown(Shutdown::Both).is_ok()
         {

@@ -1,6 +1,7 @@
 use client::assets;
 use client::client::Minecraft;
 use jvm::logging::logger;
+use jvm::{info, severe};
 use std::process::ExitCode;
 
 // virtual size of the game thread stack, near a deep java -Xss so recursion depth matches more closely
@@ -54,19 +55,16 @@ fn run() -> ExitCode
         jvm::log_files::LogFormatter::boxed,
     );
     jvm::logging::bridge(logger(), LIBRARY_LOGS);
-    logger().info(&format!(
+    info!(
         "Starting beta173 client {} on {} {}",
         env!("CARGO_PKG_VERSION"),
         std::env::consts::OS,
         std::env::consts::ARCH
-    ));
-    logger().info(&format!("Game folder {}", jvm::data_dir::root().display()));
+    );
+    info!("Game folder {}", jvm::data_dir::root().display());
     if !assets::isComplete()
     {
-        logger().severe(&format!(
-            "no game assets in {}, start the game with beta173_launcher",
-            assets::assetRoot().display()
-        ));
+        severe!("no game assets in {}, start the game with beta173_launcher", assets::assetRoot().display());
         return ExitCode::FAILURE;
     }
     let args: Vec<String> = std::env::args().skip(1).collect();

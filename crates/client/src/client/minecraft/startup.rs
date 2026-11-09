@@ -11,8 +11,9 @@ use crate::stats::StatFileWriter;
 use game::stats::{Achievement, AchievementList, IStatStringFormat, StatBase};
 use game::storage::SaveConverterMcRegion;
 use game::worldgen::{ColorizerFoliage, ColorizerGrass, ColorizerWater};
-use jvm::logging::{logger, took};
+use jvm::logging::took;
 use jvm::throwable::{EXCEPTION, OrNpe, catchThrowable};
+use jvm::{debug, info, warning};
 use lwjgl::LWJGLException;
 use lwjgl::input::{Controllers, Keyboard, Mouse};
 use lwjgl::opengl::{Display, DisplayMode, GL11};
@@ -31,7 +32,7 @@ fn logDriver()
     for (label, name) in GL_DRIVER_STRINGS
     {
         let text: String = GL11::glGetString(name).unwrap_or_else(|| "unknown".to_owned());
-        logger().info(&format!("OpenGL {label}: {text}"));
+        info!("OpenGL {label}: {text}");
     }
 }
 
@@ -76,7 +77,7 @@ impl Minecraft
         Display::setTitle(WINDOW_TITLE);
         if let Err(exception) = Display::create()
         {
-            logger().warning(&format!("Display creation failed, retrying once: {exception}"));
+            warning!("Display creation failed, retrying once: {exception}");
             std::thread::sleep(CREATE_RETRY_DELAY);
             Display::create()?;
         }
@@ -84,7 +85,7 @@ impl Minecraft
         let (width, height): (i32, i32) = Display::getWindowSize();
         self.m_displayWidth.set(atLeastOne(width));
         self.m_displayHeight.set(atLeastOne(height));
-        logger().info(&format!(
+        info!(
             "Created {}x{} display{}",
             self.m_displayWidth.get(),
             self.m_displayHeight.get(),
@@ -96,7 +97,7 @@ impl Minecraft
             {
                 ""
             }
-        ));
+        );
         logDriver();
 
         let dataDir: PathBuf = Minecraft::getMinecraftDir();
@@ -117,7 +118,7 @@ impl Minecraft
         ColorizerWater::set(engine.getColors("/misc/watercolor.png"));
         ColorizerGrass::set(engine.getColors("/misc/grasscolor.png"));
         ColorizerFoliage::set(engine.getColors("/misc/foliagecolor.png"));
-        logger().debug(&format!("Settings, texture packs and fonts loaded in {}", took(stage)));
+        debug!("Settings, texture packs and fonts loaded in {}", took(stage));
 
         self.m_entityRenderer.set(Some(Rc::new(EntityRenderer::new(&this))));
         RenderManager::instance().m_itemRenderer.set(Some(Rc::new(ItemRenderer::new(Rc::clone(&this)))));
@@ -131,7 +132,7 @@ impl Minecraft
         self.m_mouseHelper.set(Some(Rc::new(MouseHelper::new(component))));
         if let Err(exception) = Controllers::create()
         {
-            logger().warning(&format!("Controllers unavailable: {exception}"));
+            warning!("Controllers unavailable: {exception}");
         }
         self.checkGLError("Pre startup");
         GL11::glEnable(3553);
@@ -158,7 +159,7 @@ impl Minecraft
                 false => self.sndManager().addSound(&path, &file),
             }
         }
-        logger().debug(&format!("Sound system started in {}", took(stage)));
+        debug!("Sound system started in {}", took(stage));
 
         let effects: [Rc<dyn TextureFX>; 9] = [
             self.m_textureLavaFX.get().orNpe(),
@@ -180,7 +181,7 @@ impl Minecraft
         self.m_effectRenderer.set(Some(Rc::new(EffectRenderer::new(self.m_theWorld.get(), &engine))));
         let stage: Instant = Instant::now();
         self.startDownloadResources(&dataDir);
-        logger().debug(&format!("Resources checked in {}", took(stage)));
+        debug!("Resources checked in {}", took(stage));
         self.sndManager().logPools();
 
         self.checkGLError("Post startup");
@@ -194,7 +195,7 @@ impl Minecraft
             // mod load problems are shown before the title screen
             None => self.displayGuiScreen(Some(crate::modded::startScreen(GuiMainMenu::new()))),
         }
-        logger().info(&format!("Startup took {}", took(started)));
+        info!("Startup took {}", took(started));
         Ok(())
     }
 

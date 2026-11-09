@@ -42,10 +42,52 @@ impl Level
     pub fn intValue(&self) -> i32 { self.m_value }
 }
 
-// where a record was logged from, game code by its caller and library code by the module the log crate names
+// the enclosing function as the compiler names it, read lazily by the formatter
+#[macro_export]
+macro_rules! function {
+    () => {{
+        fn here() {}
+        ::std::any::type_name_of_val(&here)
+    }};
+}
+
+#[macro_export]
+macro_rules! logThrown {
+    ($level:expr, $thrown:expr, $($arg:tt)+) => {
+        $crate::logging::logger().logFrom($level, &format!($($arg)+), $thrown, $crate::function!(), line!())
+    };
+}
+
+#[macro_export]
+macro_rules! severe {
+    ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::SEVERE, None, $($arg)+) };
+}
+
+#[macro_export]
+macro_rules! warning {
+    ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::WARNING, None, $($arg)+) };
+}
+
+#[macro_export]
+macro_rules! info {
+    ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::INFO, None, $($arg)+) };
+}
+
+#[macro_export]
+macro_rules! debug {
+    ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::DEBUG, None, $($arg)+) };
+}
+
+#[macro_export]
+macro_rules! trace {
+    ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::TRACE, None, $($arg)+) };
+}
+
+// where a record was logged from, macros name their function, methods their file and library code its module
 #[derive(Clone, Copy)]
 enum Site
 {
+    Function(&'static str, u32),
     Code(&'static Location<'static>),
     Module(&'static str, u32),
 }
@@ -67,6 +109,7 @@ impl LogRecord
     {
         match self.m_site
         {
+            Site::Function(function, line) => format!("{}:{line}", functionPath(function)),
             Site::Code(location) => format!("{}:{}", modulePath(location.file()), location.line()),
             Site::Module(module, line) => format!("{module}:{line}"),
         }
@@ -206,6 +249,11 @@ impl Logger
         self.publish(level, message, thrown, Site::Code(Location::caller()));
     }
 
+    pub fn logFrom(&self, level: Level, message: &str, thrown: Option<Throwable>, function: &'static str, line: u32)
+    {
+        self.publish(level, message, thrown, Site::Function(function, line));
+    }
+
     fn publish(&self, level: Level, message: &str, thrown: Option<Throwable>, site: Site)
     {
         let record: LogRecord = LogRecord {
@@ -343,6 +391,60 @@ fn modulePath(file: &str) -> String
     path
 }
 
+// client::minecraft::run::<impl client::Minecraft>::run::{{closure}}::here reads as client::minecraft::run::Minecraft::run
+fn functionPath(raw: &str) -> String
+{
+    let mut path: Vec<String> = Vec::new();
+    for segment in topSegments(raw)
+    {
+        match segment
+        {
+            "here" | "{{closure}}" =>
+            {}
+            _ if segment.starts_with("<impl ") => path.push(implType(&segment[6..segment.len() - 1])),
+            _ => path.push(segment.to_owned()),
+        }
+    }
+    path.join("::")
+}
+
+// splits on :: outside of angle brackets
+fn topSegments(raw: &str) -> Vec<&str>
+{
+    let mut segments: Vec<&str> = Vec::new();
+    let mut depth: i32 = 0;
+    let mut start: usize = 0;
+    let bytes: &[u8] = raw.as_bytes();
+    let mut i: usize = 0;
+    while i < bytes.len()
+    {
+        match bytes[i]
+        {
+            b'<' => depth += 1,
+            b'>' => depth -= 1,
+            b':' if depth == 0 && bytes.get(i + 1) == Some(&b':') =>
+            {
+                segments.push(&raw[start..i]);
+                start = i + 2;
+                i += 1;
+            }
+            _ =>
+            {}
+        }
+        i += 1;
+    }
+    segments.push(&raw[start..]);
+    segments
+}
+
+// the bare type name of an impl block, trait impls name the type after for
+fn implType(inner: &str) -> String
+{
+    let target: &str = inner.rsplit_once(" for ").map_or(inner, |(_, target)| target);
+    let name: &str = topSegments(target).last().copied().unwrap_or(target);
+    name.split('<').next().unwrap_or(name).to_owned()
+}
+
 // ansi colour only for a real terminal, piped output and NO_COLOR stay plain
 pub fn paint(color: &str, text: &str) -> String
 {
@@ -382,5 +484,21 @@ mod tests
         assert_eq!(modulePath("crates/game/src/item/item/mod.rs"), "game::item::item");
         assert_eq!(modulePath("vendor/b1.7.3-modding-sdk/b173_api/src/lib.rs"), "b173_api");
         assert_eq!(modulePath("crates\\client\\src\\bin\\beta173.rs"), "client::bin::beta173");
+    }
+
+    #[test]
+    fn function_path_names_impl_types_and_skips_closures()
+    {
+        let raw: &str =
+            "client::client::minecraft::run::<impl client::client::minecraft::Minecraft>::run::{{closure}}::here";
+        assert_eq!(functionPath(raw), "client::client::minecraft::run::Minecraft::run");
+        let raw: &str = "game::world::<impl game::Tick for game::world::World<T>>::tick::here";
+        assert_eq!(functionPath(raw), "game::world::World::tick");
+    }
+
+    #[test]
+    fn macro_names_its_function()
+    {
+        assert_eq!(functionPath(crate::function!()), "jvm::logging::tests::macro_names_its_function");
     }
 }

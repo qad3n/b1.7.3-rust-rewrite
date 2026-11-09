@@ -1,5 +1,5 @@
 use crate::LWJGLException;
-use jvm::logging::logger;
+use jvm::{debug, info};
 use sdl2::{EventPump, Sdl, VideoSubsystem};
 use std::cell::RefCell;
 
@@ -43,7 +43,7 @@ fn hint(name: &str, value: &str)
 {
     if !sdl2::hint::set(name, value)
     {
-        logger().debug(&format!("SDL hint {name} left to the environment"));
+        debug!("SDL hint {name} left to the environment");
     }
 }
 
@@ -71,7 +71,7 @@ fn start() -> Result<Platform, LWJGLException>
 
     let sdl: Sdl = sdl2::init().map_err(LWJGLException::new)?;
     let video: VideoSubsystem = sdl.video().map_err(LWJGLException::new)?;
-    logger().info(&format!("Video driver {}", video.current_video_driver()));
+    info!("Video driver {}", video.current_video_driver());
 
     let events: EventPump = sdl.event_pump().map_err(LWJGLException::new)?;
     Ok(Platform { m_sdl: sdl, m_video: video, m_events: events })

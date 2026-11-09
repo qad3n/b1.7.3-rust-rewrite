@@ -2,7 +2,7 @@ use crate::block::Block;
 use crate::item::{Item, ItemStack};
 use crate::stats::{Achievement, StatBase};
 use jvm::array_list::JArrayList;
-use jvm::logging::logger;
+use jvm::debug;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -223,7 +223,7 @@ fn initAchievements()
         ))
         .registerStat(),
     );
-    logger().debug(&format!("{} achievements", AchievementList::achievementList().size()));
+    debug!("{} achievements", AchievementList::achievementList().size());
 }
 
 impl AchievementList

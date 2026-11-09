@@ -246,10 +246,15 @@ impl GuiIngame
         fontrenderer.drawStringWithShadow(&mc.getWorldDebugInfo(), 2, 32, 16777215);
         fontrenderer.drawStringWithShadow(&mc.getChunkSourceDebugInfo(), 2, 42, 16777215);
         // per mod guest time under the vanilla debug lines
-        for (index, line) in modloader::profiler::lines().iter().enumerate()
+        let modLines: Vec<String> = modloader::profiler::lines();
+        for (index, line) in modLines.iter().enumerate()
         {
             fontrenderer.drawStringWithShadow(line, 2, 52 + index as i32 * 10, 16777215);
         }
+
+        // the position lines move down past the mod lines
+        let shift: i32 = modLines.len() as i32 * 10;
+
         // port runtimeMemory stands in for java Runtime memory figures
         let (k3, j5, j6): (i64, i64, i64) = runtime::runtimeMemory();
         let k2: i64 = j5 - j6;
@@ -259,11 +264,11 @@ impl GuiIngame
         s = format!("Allocated memory: {}% ({}MB)", j5 * 100 / k3, j5 / 1024 / 1024);
         self.m_gui.drawString(fontrenderer, &s, i - fontrenderer.getStringWidth(&s) - 2, 12, 14737632);
         let double: fn(f64) -> String = jvm::floating_decimal::doubleToString;
-        self.m_gui.drawString(fontrenderer, &format!("x: {}", double(player.posX())), 2, 64, 14737632);
-        self.m_gui.drawString(fontrenderer, &format!("y: {}", double(player.posY())), 2, 72, 14737632);
-        self.m_gui.drawString(fontrenderer, &format!("z: {}", double(player.posZ())), 2, 80, 14737632);
+        self.m_gui.drawString(fontrenderer, &format!("x: {}", double(player.posX())), 2, shift + 64, 14737632);
+        self.m_gui.drawString(fontrenderer, &format!("y: {}", double(player.posY())), 2, shift + 72, 14737632);
+        self.m_gui.drawString(fontrenderer, &format!("z: {}", double(player.posZ())), 2, shift + 80, 14737632);
         let facing: i32 = floor_double((player.m_rotationYaw.get() * 4.0 / 360.0) as f64 + 0.5) & 3;
-        self.m_gui.drawString(fontrenderer, &format!("f: {facing}"), 2, 88, 14737632);
+        self.m_gui.drawString(fontrenderer, &format!("f: {facing}"), 2, shift + 88, 14737632);
         GL11::glPopMatrix();
     }
 

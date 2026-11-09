@@ -3,9 +3,9 @@ use crate::sound::{CodecMus, SoundPool, SoundPoolEntry};
 use game::entity::Entity;
 use game::math::math_helper::{cos, sin};
 use jvm::field::Field;
-use jvm::logging::logger;
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
+use jvm::{debug, info};
 use paulscode::sound::codecs::{CodecJOrbis, CodecWav};
 use paulscode::sound::libraries::LibraryLWJGLOpenAL;
 use paulscode::sound::{SoundSystem, SoundSystemConfig};
@@ -62,7 +62,7 @@ impl SoundManager
         self.m_options.set(options);
         if silent
         {
-            logger().info("Sound and music are muted, the sound system starts once either is turned up");
+            info!("Sound and music are muted, the sound system starts once either is turned up");
         }
         if !(loaded() || silent)
         {
@@ -72,12 +72,12 @@ impl SoundManager
 
     pub fn logPools(&self)
     {
-        logger().info(&format!(
+        info!(
             "Sound pools hold {} sounds, {} records and {} music tracks",
             self.m_soundPoolSounds.m_numberOfSoundPoolEntries.get(),
             self.m_soundPoolStreaming.m_numberOfSoundPoolEntries.get(),
             self.m_soundPoolMusic.m_numberOfSoundPoolEntries.get()
-        ));
+        );
     }
 
     fn tryToSetLibraryAndCodecs(&self)
@@ -101,7 +101,7 @@ impl SoundManager
             });
         match result
         {
-            Ok(()) => logger().debug("Sound system linked"),
+            Ok(()) => debug!("Sound system linked"),
             Err(throwable) =>
             {
                 throwable.printStackTrace();

@@ -2,9 +2,10 @@ use crate::network::{NetLoginHandler, NetServerHandler};
 use crate::server::MinecraftServer;
 use jvm::array_list::JArrayList;
 use jvm::io::IoResult;
-use jvm::logging::{Level, logger};
+use jvm::logging::Level;
 use jvm::string::JString;
 use jvm::throwable::{self, Throwable};
+use jvm::{debug, logThrown, warning};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::rc::Rc;
@@ -54,7 +55,7 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
                     && inetaddress.to_string() != "127.0.0.1"
                     && jvm::system::currentTimeMillis() - last < 5000
                 {
-                    logger().debug(&format!("Refused {address}, it reconnected within 5 seconds"));
+                    debug!("Refused {address}, it reconnected within 5 seconds");
                     hashmap.insert(inetaddress, jvm::system::currentTimeMillis());
                     drop(socket);
                 }
@@ -63,14 +64,14 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
                     hashmap.insert(inetaddress, jvm::system::currentTimeMillis());
                     let counter: i32 = connectionCounter;
                     connectionCounter += 1;
-                    logger().debug(&format!("Connection #{counter} from {address}"));
+                    debug!("Connection #{counter} from {address}");
                     if accepted.send((socket, counter)).is_err()
                     {
                         return;
                     }
                 }
             }
-            Err(error) => logger().warning(&format!("Could not accept a connection: {error}")),
+            Err(error) => warning!("Could not accept a connection: {error}"),
         }
     }
 }
@@ -82,7 +83,7 @@ impl NetworkListenThread
         let serverSocket: TcpListener = bind(address, port)?;
         if let Ok(local) = serverSocket.local_addr()
         {
-            logger().debug(&format!("Listening on {local}"));
+            debug!("Listening on {local}");
         }
         let open: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
         let (sender, receiver): (Sender<Accepted>, Receiver<Accepted>) = channel();
@@ -114,7 +115,7 @@ impl NetworkListenThread
             match NetLoginHandler::new(&self.m_mcServer, socket, &format!("Connection #{counter}"))
             {
                 Ok(netloginhandler) => self.addPendingConnection(netloginhandler),
-                Err(ioexception) => logger().warning(&format!("Could not set up connection #{counter}: {ioexception}")),
+                Err(ioexception) => warning!("Could not set up connection #{counter}: {ioexception}"),
             }
         }
     }
@@ -140,7 +141,7 @@ impl NetworkListenThread
             if let Err(exception1) = result
             {
                 netloginhandler.kickUser("Internal server error");
-                logger().log(Level::WARNING, &format!("Failed to handle packet: {exception1}"), Some(exception1));
+                logThrown!(Level::WARNING, Some(exception1), "Failed to handle packet: {exception1}");
             }
             if netloginhandler.m_finishedProcessing.get()
             {
@@ -158,7 +159,7 @@ impl NetworkListenThread
                 throwable::catchThrowable(&throwable::EXCEPTION, || netserverhandler.handlePackets());
             if let Err(exception) = result
             {
-                logger().log(Level::WARNING, &format!("Failed to handle packet: {exception}"), Some(exception));
+                logThrown!(Level::WARNING, Some(exception), "Failed to handle packet: {exception}");
                 netserverhandler.kickPlayer("Internal server error");
             }
             if netserverhandler.m_connectionClosed.get()

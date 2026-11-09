@@ -1,7 +1,8 @@
 use jvm::io::{FileInputStream, FileOutputStream, IoResult};
-use jvm::logging::{Level, logger};
+use jvm::logging::Level;
 use jvm::properties::Properties;
 use jvm::throwable::{self, Throwable};
+use jvm::{info, logThrown, warning};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
@@ -26,13 +27,13 @@ impl PropertyManager
             });
             if let Err(exception) = result.and_then(|inner| inner)
             {
-                logger().log(Level::WARNING, &format!("Failed to load {}", file.display()), Some(exception));
+                logThrown!(Level::WARNING, Some(exception), "Failed to load {}", file.display());
                 manager.generateNewProperties();
             }
         }
         else
         {
-            logger().log(Level::WARNING, &format!("{} does not exist", file.display()), None);
+            warning!("{} does not exist", file.display());
             manager.generateNewProperties();
         }
         manager
@@ -40,7 +41,7 @@ impl PropertyManager
 
     pub fn generateNewProperties(&self)
     {
-        logger().log(Level::INFO, "Generating new properties file", None);
+        info!("Generating new properties file");
         self.saveProperties();
     }
 
@@ -54,11 +55,7 @@ impl PropertyManager
         });
         if let Err(exception) = result.and_then(|inner| inner)
         {
-            logger().log(
-                Level::WARNING,
-                &format!("Failed to save {}", self.m_serverPropertiesFile.display()),
-                Some(exception),
-            );
+            logThrown!(Level::WARNING, Some(exception), "Failed to save {}", self.m_serverPropertiesFile.display());
             self.generateNewProperties();
         }
     }

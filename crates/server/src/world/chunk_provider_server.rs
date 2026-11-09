@@ -5,7 +5,8 @@ use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::{HashCursor, JHashMap, JHashSet};
 use jvm::io::IoResult;
-use jvm::logging::{Level, logger};
+use jvm::logThrown;
+use jvm::logging::Level;
 use jvm::throwable::{self, OrNpe, Throwable};
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
@@ -82,7 +83,7 @@ impl ChunkProviderServer
             }
             Err(ex) =>
             {
-                logger().log(Level::SEVERE, &format!("Could not load chunk {chunkX}, {chunkZ}"), Some(ex));
+                logThrown!(Level::SEVERE, Some(ex), "Could not load chunk {chunkX}, {chunkZ}");
                 None
             }
         }
@@ -100,7 +101,7 @@ impl ChunkProviderServer
         if let Err(ex) = result.and_then(|inner| inner)
         {
             let at: String = format!("{}, {}", chunk.m_xPosition, chunk.m_zPosition);
-            logger().log(Level::SEVERE, &format!("Could not save entities of chunk {at}"), Some(ex));
+            logThrown!(Level::SEVERE, Some(ex), "Could not save entities of chunk {at}");
         }
     }
 
@@ -119,7 +120,7 @@ impl ChunkProviderServer
                 throwable::rethrow(ex);
             }
             let at: String = format!("{}, {}", chunk.m_xPosition, chunk.m_zPosition);
-            logger().log(Level::SEVERE, &format!("Could not save chunk {at}"), Some(ex));
+            logThrown!(Level::SEVERE, Some(ex), "Could not save chunk {at}");
         }
     }
 }

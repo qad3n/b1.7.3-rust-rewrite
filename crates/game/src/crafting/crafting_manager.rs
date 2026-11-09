@@ -2,7 +2,7 @@ use crate::block::Block;
 use crate::crafting::{CraftingGrid, IRecipe, ShapedRecipes, ShapelessRecipes};
 use crate::item::{Item, ItemStack};
 use jvm::array_list::JArrayList;
-use jvm::logging::logger;
+use jvm::debug;
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -377,7 +377,7 @@ impl CraftingManager
             &[('#', Ingredient::Block(Block::cloth())), ('X', Ingredient::Block(Block::planks()))],
         );
         manager.sortRecipes();
-        logger().debug(&format!("{} recipes", manager.m_recipes.size()));
+        debug!("{} recipes", manager.m_recipes.size());
         manager
     }
 

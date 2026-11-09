@@ -6,7 +6,7 @@ use crate::pathfinding::{PathEntity, Pathfinder};
 use crate::tileentity::TileEntity;
 use crate::world::{Chunk, ChunkCache, Explosion, World};
 use jvm::array_list::JArrayList;
-use jvm::logging::logger;
+use jvm::{debug, trace};
 use std::rc::Rc;
 
 // mobs players and vehicles log at debug, items and projectiles at trace so drops and arrows stay quiet
@@ -27,8 +27,8 @@ fn logEntity(world: &World, entity: &Entity, action: &str)
     );
     match DEBUG_KINDS.iter().any(|kind| entity.instanceOf(kind))
     {
-        true => logger().debug(&message),
-        false => logger().trace(&message),
+        true => debug!("{}", message),
+        false => trace!("{}", message),
     }
 }
 
