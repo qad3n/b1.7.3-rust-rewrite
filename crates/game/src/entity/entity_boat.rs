@@ -189,7 +189,7 @@ fn onUpdate(this: &Rc<Entity>)
     let d4: f64 = waterDepth(this, &world);
     if world.m_multiplayerWorld.get()
     {
-        if this.m_remote.tracking()
+        if this.m_remote.playing()
         {
             this.m_remote.step(this);
         }

@@ -131,7 +131,7 @@ fn onUpdate(this: &Rc<Entity>)
 {
     (ENTITY.onUpdate)(this);
     let fish: &FishFields = fields(this);
-    if this.m_remote.tracking()
+    if this.m_remote.playing()
     {
         this.m_remote.step(this);
         return;

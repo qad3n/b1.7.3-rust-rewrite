@@ -10,8 +10,6 @@ mod playback
     pub const CAPACITY: usize = 4;
     // spacing assumed until two moving samples show the real send interval
     pub const DEFAULT_INTERVAL: i32 = 3;
-    // the tracker sends nothing while an entity rests so a longer gap is a fresh start
-    pub const REST_GAP: i32 = 40;
     // extra ticks of buffer for packets that arrive a tick late or early
     pub const STAMPED_JITTER: i32 = 1;
     pub const ARRIVAL_JITTER: i32 = 2;
@@ -159,9 +157,12 @@ impl Track
         }
 
         self.m_arrival.set(clientTick());
-        if len == 0
+        // once playback ran out the entity coasted or rested on its own, so the next leg starts where it is now
+        let finished: bool = len == 0 || self.m_clock.get() >= samples[len - 1].m_tick as f64;
+        if finished
         {
-            samples[0] = Sample { m_tick: tick - self.interval(), m_pose: current };
+            // starting one buffer delay back makes the new leg play at once with no pause
+            samples[0] = Sample { m_tick: tick - self.delay(), m_pose: current };
             len = 1;
             self.m_clock.set(samples[0].m_tick as f64);
         }
@@ -176,27 +177,17 @@ impl Track
             return;
         }
 
-        if gap > playback::REST_GAP
-        {
-            // motion starts now so the resting pose counts as one interval back
-            samples[0] = Sample { m_tick: tick - self.interval(), m_pose: last.m_pose };
-            len = 1;
-            self.m_clock.set(samples[0].m_tick as f64);
-        }
-        else
-        {
-            let interval: i32 = self.interval();
-            self.m_interval.set(
-                if gap < interval
-                {
-                    gap
-                }
-                else
-                {
-                    interval + (gap > interval) as i32
-                },
-            );
-        }
+        let interval: i32 = self.interval();
+        self.m_interval.set(
+            if gap < interval
+            {
+                gap
+            }
+            else
+            {
+                interval + (gap > interval) as i32
+            },
+        );
 
         if len == playback::CAPACITY
         {
@@ -220,8 +211,12 @@ impl Track
         Some(self.m_samples.get()[len - 1].m_pose)
     }
 
-    // once the server has sent a pose the entity only plays poses back, so it never drifts and snaps
-    pub fn tracking(&self) -> bool { self.m_len.get() > 0 }
+    // vehicles and hooks coast on their own physics once playback runs out, as vanilla did
+    pub fn playing(&self) -> bool
+    {
+        let len: usize = self.m_len.get();
+        len > 0 && self.m_clock.get() < self.m_samples.get()[len - 1].m_tick as f64
+    }
 
     // advances the playback clock one tick and returns where the entity should be
     pub fn next(&self) -> Option<Pose>
@@ -525,6 +520,20 @@ mod tests
         advance(30);
         let held: Option<Pose> = (0..5).map(|_| track.next()).last().flatten();
         assert_eq!(held, Some(pose(2.0)));
+        assert!(!track.playing());
+    }
+
+    #[test]
+    fn nextLegStartsWhereCoastingEnded()
+    {
+        setServerTick(None);
+        let track: Track = Track::new();
+        track.push(pose(0.0), pose(2.0));
+        advance(30);
+        track.next();
+        track.push(pose(5.0), pose(6.0));
+        let first: Pose = track.next().unwrap_or_default();
+        assert!((5.0..=6.0).contains(&first.m_pos[0]), "no snap back to the old sample {first:?}");
     }
 
     #[test]
