@@ -360,11 +360,13 @@ impl NetHandler for NetClientHandler
         {
             return;
         };
-        entity.setVelocity(
-            packet.m_motionX as f64 / 8000.0,
-            packet.m_motionY as f64 / 8000.0,
-            packet.m_motionZ as f64 / 8000.0,
-        );
+        let motion: [f64; 3] =
+            [packet.m_motionX as f64 / 8000.0, packet.m_motionY as f64 / 8000.0, packet.m_motionZ as f64 / 8000.0];
+        entity.setVelocity(motion[0], motion[1], motion[2]);
+        if entity.instanceOf("EntityLiving") && entity_living::fields(&entity).m_isMultiplayerEntity.get()
+        {
+            entity.m_remote.kick(motion);
+        }
     }
 
     fn handleEntityData(&self, packet: &Packet40EntityMetadata)

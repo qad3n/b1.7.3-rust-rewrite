@@ -1,7 +1,8 @@
 use super::{LivingFields, fields};
 use crate::block::{Block, Material};
+use crate::entity::remote::{self, Pose};
 use crate::entity::{ENTITY, Entity};
-use crate::math::{AxisAlignedBB, Vec3D, math_helper};
+use crate::math::{Vec3D, math_helper};
 use crate::world::World;
 use jvm::array_list::JArrayList;
 use jvm::math;
@@ -331,46 +332,21 @@ pub fn onLivingUpdate(this: &Rc<Entity>)
 {
     let living: &LivingFields = fields(this);
     let world: Rc<World> = this.world();
-    if living.m_newPosRotationIncrements.get() > 0
+    if living.m_isMultiplayerEntity.get()
     {
-        let steps: f64 = living.m_newPosRotationIncrements.get() as f64;
-        let d0: f64 = this.posX() + (living.m_newPosX.get() - this.posX()) / steps;
-        let mut d1: f64 = this.posY() + (living.m_newPosY.get() - this.posY()) / steps;
-        let d2: f64 = this.posZ() + (living.m_newPosZ.get() - this.posZ()) / steps;
-        let mut d3: f64 = living.m_newRotationYaw.get() - this.m_rotationYaw.get() as f64;
-        while d3 < -180.0
+        // the server moves remote mobs so only a fresh hit runs local physics until its positions arrive
+        let pose: Option<Pose> = this.m_remote.next();
+        if !this.m_remote.takeImpulse()
         {
-            d3 += 360.0;
-        }
-        while d3 >= 180.0
-        {
-            d3 -= 360.0;
-        }
-        this.m_rotationYaw.set((this.m_rotationYaw.get() as f64 + d3 / steps) as f32);
-        this.m_rotationPitch.set(
-            (this.m_rotationPitch.get() as f64
-                + (living.m_newRotationPitch.get() - this.m_rotationPitch.get() as f64) / steps) as f32,
-        );
-        living.m_newPosRotationIncrements.set(living.m_newPosRotationIncrements.get() - 1);
-        this.setPosition(d0, d1, d2);
-        this.setRotation(this.m_rotationYaw.get(), this.m_rotationPitch.get());
-        let list: Rc<JArrayList<Rc<AxisAlignedBB>>> =
-            world.getCollidingBoundingBoxes(this, &this.m_boundingBox.contract(0.03125, 0.0, 0.03125));
-        if list.size() > 0
-        {
-            let mut d4: f64 = 0.0;
-            for j in 0..list.size()
+            if let Some(pose) = pose
             {
-                let axisalignedbb: Rc<AxisAlignedBB> = list.get(j);
-                if axisalignedbb.maxY() > d4
-                {
-                    d4 = axisalignedbb.maxY();
-                }
+                remote::follow(this, &pose);
             }
-            d1 += d4 - this.m_boundingBox.minY();
-            this.setPosition(d0, d1, d2);
+            pushOthers(this, &world);
+            return;
         }
     }
+
     if this.isMovementBlocked()
     {
         living.m_isJumping.set(false);
@@ -403,21 +379,20 @@ pub fn onLivingUpdate(this: &Rc<Entity>)
     living.m_moveForward.set(living.m_moveForward.get() * 0.98);
     living.m_randomYawVelocity.set(living.m_randomYawVelocity.get() * 0.9);
     this.moveEntityWithHeading(living.m_moveStrafing.get(), living.m_moveForward.get());
-    let list1: Rc<JArrayList<Rc<Entity>>> = world.getEntitiesWithinAABBExcludingEntity(
-        Some(this),
-        &this.m_boundingBox.expand(0.2f32 as f64, 0.0, 0.2f32 as f64),
-    );
-    if list1.size() > 0
+    pushOthers(this, &world);
+}
+
+fn pushOthers(this: &Rc<Entity>, world: &Rc<World>)
+{
+    let reach: f64 = 0.2f32 as f64;
+    let nearby: Rc<JArrayList<Rc<Entity>>> =
+        world.getEntitiesWithinAABBExcludingEntity(Some(this), &this.m_boundingBox.expand(reach, 0.0, reach));
+    for i in 0..nearby.size()
     {
-        let mut i: i32 = 0;
-        while i < list1.size()
+        let entity: Rc<Entity> = nearby.get(i);
+        if entity.canBePushed()
         {
-            let entity: Rc<Entity> = list1.get(i);
-            if entity.canBePushed()
-            {
-                entity.applyEntityCollision(this);
-            }
-            i += 1;
+            entity.applyEntityCollision(this);
         }
     }
 }

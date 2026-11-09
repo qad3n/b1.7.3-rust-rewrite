@@ -2,6 +2,7 @@ mod ai;
 mod combat;
 pub(crate) mod update;
 
+use crate::entity::remote::Pose;
 use crate::entity::{ENTITY, Entity, EntityClass};
 use crate::world::World;
 pub use ai::{checkDespawn, faceEntity, getCurrentTarget, getLook, getPosition, hasCurrentTarget, rayTrace};
@@ -52,12 +53,6 @@ pub struct LivingFields
     pub m_lastWalkAnimationSpeed: Cell<f32>,
     pub m_walkAnimationSpeed: Cell<f32>,
     pub m_walkAnimationProgress: Cell<f32>,
-    pub m_newPosRotationIncrements: Cell<i32>,
-    pub m_newPosX: Cell<f64>,
-    pub m_newPosY: Cell<f64>,
-    pub m_newPosZ: Cell<f64>,
-    pub m_newRotationYaw: Cell<f64>,
-    pub m_newRotationPitch: Cell<f64>,
     pub m_field_9348_ae: Cell<f32>,
     pub m_prevDamageTaken: Cell<i32>,
     pub m_entityAge: Cell<i32>,
@@ -154,15 +149,9 @@ pub const CLASS: EntityClass = EntityClass {
         living.m_lastWalkProgress.set(living.m_walkProgress.get());
         living.m_walkProgress.set(0.0);
     },
-    setPositionAndRotation2: |this, x, y, z, yaw, pitch, steps| {
-        let living: &LivingFields = fields(this);
+    setPositionAndRotation2: |this, x, y, z, yaw, pitch, _| {
         this.m_yOffset.set(0.0);
-        living.m_newPosX.set(x);
-        living.m_newPosY.set(y);
-        living.m_newPosZ.set(z);
-        living.m_newRotationYaw.set(yaw as f64);
-        living.m_newRotationPitch.set(pitch as f64);
-        living.m_newPosRotationIncrements.set(steps);
+        this.m_remote.push(Pose::of(this), Pose::new(x, y, z, yaw, pitch));
     },
     onUpdate: update::onUpdate,
     setSize: |this, width, height| (ENTITY.setSize)(this, width, height),
