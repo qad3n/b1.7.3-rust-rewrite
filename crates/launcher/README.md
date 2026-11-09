@@ -16,4 +16,4 @@ The game runs detached with no console, and the launcher exits once it has start
 
 ## Data folder
 
-The launcher, game and server share one per-user data folder, see the main README. The launcher keeps `name.txt` there, installs `assets/` (or into `B173_ASSETS`) and puts the sounds in `resources/`, as the vanilla game expects. See `assets/README.md` at the workspace root for the asset sources.
+The launcher, game and server share one per-user data folder, see the main README. The launcher keeps `name.txt` there, installs `assets/` (or into `B173_ASSETS`) and puts the sounds in `resources/`, as the vanilla game expects. See `assets/README.md` in the repo root for the asset sources.

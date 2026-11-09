@@ -5,7 +5,6 @@ The Minecraft Beta 1.7.3 client and server, reconstructed in Rust and then rewri
 - fixes general bugs from the original game
 - improves performance
 - adds a built-in mod loader: one mod file works on the client and the server, see `crates/modloader/README.md`
-- more improvements over time
 
 Game assets are not included, see `assets/README.md`.
 
