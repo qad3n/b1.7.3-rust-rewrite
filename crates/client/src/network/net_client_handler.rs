@@ -193,9 +193,14 @@ impl NetClientHandler
                 let login: Packet1Login = Packet1Login::new(JString::from(username.orNpe().as_str()), 14);
                 self.addToSendQueue(Box::new(modloader::netsync::loginPacket(login)));
             }
-            Ok((string, false)) => self.netManager().networkShutdown("disconnect.loginFailedInfo", vec![string]),
+            Ok((string, false)) =>
+            {
+                logger().warning(&format!("Session verification refused: {string}"));
+                self.netManager().networkShutdown("disconnect.loginFailedInfo", vec![string]);
+            }
             Err(exception) =>
             {
+                logger().warning(&format!("Session verification failed: {exception}"));
                 exception.printStackTrace();
                 self.netManager().networkShutdown(
                     "disconnect.genericReason",
@@ -678,12 +683,14 @@ impl NetHandler for NetClientHandler
         let serverId: &JString = packet.m_username.as_ref().orNpe();
         if *serverId == JString::from("-")
         {
+            logger().debug("Server is in offline mode, sending login");
             let username: Option<String> = self.m_mc.m_session.get().orNpe().m_username.get();
             let login: Packet1Login = Packet1Login::new(JString::from(username.orNpe().as_str()), 14);
             self.addToSendQueue(Box::new(modloader::netsync::loginPacket(login)));
         }
         else
         {
+            logger().debug("Server is in online mode, verifying the session");
             self.joinServer(serverId);
         }
     }
@@ -749,6 +756,7 @@ impl NetHandler for NetClientHandler
 
     fn handlePlayerRespawn(&self, packet: &Packet9Respawn)
     {
+        logger().debug(&format!("Respawning in dimension {}", packet.m_dimension));
         if packet.m_dimension as i32 != entity_player::fields(&self.thePlayer()).m_dimension.get()
         {
             self.m_started.set(false);

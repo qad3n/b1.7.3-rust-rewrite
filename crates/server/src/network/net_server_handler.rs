@@ -99,6 +99,7 @@ impl NetServerHandler
 
     pub fn kickPlayer(&self, reason: &str)
     {
+        logger().info(&format!("Kicking {}: {reason}", self.username()));
         let player: Rc<Entity> = self.player();
         entity_player_mp::onDisconnect(&player);
         self.sendPacket(Box::new(Packet255KickDisconnect::new(JString::from(reason))));
@@ -716,6 +717,7 @@ impl NetHandler for NetServerHandler
 
     fn handleKickDisconnect(&self, _packet: &Packet255KickDisconnect)
     {
+        logger().debug(&format!("{} is quitting", self.username()));
         self.m_netManager.networkShutdown("disconnect.quitting", Vec::new());
     }
 

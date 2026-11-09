@@ -170,6 +170,14 @@ impl ServerConfigurationManager
         }
         worldserver.entityJoinedWorld(player);
         self.getPlayerManager(dimension).addPlayer(player);
+        logger().debug(&format!(
+            "{} joined dimension {dimension} at {:.1}, {:.1}, {:.1}, {} online",
+            name(player),
+            player.m_posX.get(),
+            player.m_posY.get(),
+            player.m_posZ.get(),
+            self.m_playerEntities.size()
+        ));
     }
 
     pub fn r#move(&self, player: &Rc<Entity>)
@@ -186,6 +194,7 @@ impl ServerConfigurationManager
         self.m_mcServer.getWorldManager(dimension).setEntityDead(player);
         self.m_playerEntities.remove(player);
         self.getPlayerManager(dimension).removePlayer(player);
+        logger().debug(&format!("{} saved and removed, {} online", name(player), self.m_playerEntities.size()));
     }
 
     pub fn login(&self, networkHandler: &NetLoginHandler, name: Option<&JString>) -> Option<Rc<Entity>>
@@ -235,6 +244,11 @@ impl ServerConfigurationManager
     pub fn recreatePlayerEntity(&self, player: &Rc<Entity>, dimension: i32) -> Rc<Entity>
     {
         let playerFields: &entity_player::PlayerFields = entity_player::fields(player);
+        logger().debug(&format!(
+            "Respawning {} from dimension {} into {dimension}",
+            name(player),
+            playerFields.m_dimension.get()
+        ));
         self.m_mcServer.getEntityTracker(playerFields.m_dimension.get()).removeTrackedPlayerSymmetric(player);
         self.m_mcServer.getEntityTracker(playerFields.m_dimension.get()).untrackEntity(player);
         self.getPlayerManager(playerFields.m_dimension.get()).removePlayer(player);
@@ -317,6 +331,7 @@ impl ServerConfigurationManager
             -1
         };
         playerFields.m_dimension.set(b0 as i32);
+        logger().info(&format!("{} travelled to dimension {b0}", name(player)));
         let worldserver1: Rc<World> = self.m_mcServer.getWorldManager(playerFields.m_dimension.get());
         let handler: Rc<NetServerHandler> = entity_player_mp::netServerHandler(player);
         handler.sendPacket(Box::new(Packet9Respawn::new(playerFields.m_dimension.get() as i8)));
@@ -726,3 +741,5 @@ impl ServerConfigurationManager
         entity_player_mp::markHealthDirty(player);
     }
 }
+
+fn name(player: &Rc<Entity>) -> String { JString::display(entity_player::fields(player).m_username.get().as_ref()) }

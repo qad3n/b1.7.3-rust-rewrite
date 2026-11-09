@@ -5,6 +5,7 @@ use crate::port::network::{lock, npeError};
 use jvm::io::{
     BufferedOutputStream, DataInputStream, DataOutputStream, InputStream, IoResult, OutputStream, fromStd, ioError,
 };
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::{EXCEPTION, IO, Throwable, ThrowableClass, catchThrowable};
 use std::cell::{Cell, RefCell};
@@ -134,6 +135,7 @@ struct Shared
     m_sendQueueByteLength: AtomicI32,
     m_chunkDataSendCounter: AtomicI32,
     m_delay: AtomicI32,
+    m_remoteSocketAddress: Option<std::net::SocketAddr>,
 }
 
 impl Shared
@@ -307,6 +309,8 @@ impl Shared
         // rust has no Thread.stop so the killer thread only consumes its name
         jvm::thread::nextName();
         self.m_isRunning.store(false, Ordering::Relaxed);
+        let detail: Vec<String> = lock(&self.m_disconnectReasonArgs).iter().map(JString::to_string).collect();
+        logger().debug(&format!("Connection with {} closed: {reason} {}", self.remoteAddress(), detail.join(", ")));
         if let Some(socket) = lock(&self.m_networkSocket).as_ref()
             && socket.shutdown(Shutdown::Both).is_ok()
         {
@@ -320,12 +324,20 @@ impl Shared
         drop(output);
         lock(&self.m_networkSocket).take();
     }
+
+    fn remoteAddress(&self) -> String
+    {
+        match &self.m_remoteSocketAddress
+        {
+            Some(address) => jvm::net::socketAddressToString(address),
+            None => String::from("null"),
+        }
+    }
 }
 
 pub struct NetworkManager
 {
     m_shared: Arc<Shared>,
-    m_remoteSocketAddress: Option<std::net::SocketAddr>,
     m_netHandler: RefCell<Weak<dyn NetHandler>>,
     m_timeSinceLastRead: Cell<i32>,
 }
@@ -369,6 +381,7 @@ impl NetworkManager
             m_sendQueueByteLength: AtomicI32::new(0),
             m_chunkDataSendCounter: AtomicI32::new(0),
             m_delay: AtomicI32::new(50),
+            m_remoteSocketAddress: remoteSocketAddress,
         });
         let reader: Arc<Shared> = Arc::clone(&shared);
         let readThread: JoinHandle<()> =
@@ -384,7 +397,6 @@ impl NetworkManager
         }
         Ok(Rc::new(NetworkManager {
             m_shared: shared,
-            m_remoteSocketAddress: remoteSocketAddress,
             m_netHandler: RefCell::new(listener),
             m_timeSinceLastRead: Cell::new(0),
         }))
@@ -476,14 +488,7 @@ impl NetworkManager
         }
     }
 
-    pub fn getRemoteAddress(&self) -> String
-    {
-        match &self.m_remoteSocketAddress
-        {
-            Some(address) => jvm::net::socketAddressToString(address),
-            None => String::from("null"),
-        }
-    }
+    pub fn getRemoteAddress(&self) -> String { self.m_shared.remoteAddress() }
 
     pub fn close(&self)
     {
