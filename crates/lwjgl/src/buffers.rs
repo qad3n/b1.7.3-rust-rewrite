@@ -284,9 +284,13 @@ impl<T: Element> Buffer<T>
     pub fn putFrom(&self, src: &[T], offset: i32, length: i32) -> &Self
     {
         let start: i32 = self.nextIndex(length, &BUFFER_OVERFLOW);
-        for i in 0..length
+        let order: ByteOrder = self.m_order.get();
+        let values: &[T] = &src[offset as usize..(offset + length) as usize];
+        let mut bytes: std::cell::RefMut<Vec<u8>> = self.m_bytes.borrow_mut();
+        let target: &mut [u8] = &mut bytes[start as usize * T::SIZE..(start + length) as usize * T::SIZE];
+        for (slot, value) in target.chunks_exact_mut(T::SIZE).zip(values)
         {
-            self.putAt(start + i, src[(offset + i) as usize]);
+            value.write(slot, order);
         }
         self
     }

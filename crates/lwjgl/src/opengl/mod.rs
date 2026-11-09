@@ -30,12 +30,14 @@ macro_rules! glCall {
 pub(crate) use glCall;
 
 // runs a raw gl call, lwjgl throws the same way when no context is current
+// the context borrow is held for the call so no gl call may load or unload the context
 pub(crate) fn gl<R>(body: impl FnOnce(&bindings::Gl) -> R) -> R
 {
-    let gl: Rc<bindings::Gl> = GL.with(|gl| gl.borrow().clone()).unwrap_or_else(|| {
-        jvm::throwable::throw(&jvm::throwable::RUNTIME, "No OpenGL context found in the current thread.")
-    });
-    body(&gl)
+    GL.with(|gl| match gl.borrow().as_deref()
+    {
+        Some(gl) => body(gl),
+        None => jvm::throwable::throw(&jvm::throwable::RUNTIME, "No OpenGL context found in the current thread."),
+    })
 }
 
 // the extension flags the game reads from GLContext.getCapabilities()
