@@ -1,6 +1,6 @@
 use jvm::calendar::{DateFields, dateFields};
 use jvm::log_files;
-use jvm::logging::{Formatter, Level, LogRecord, logger};
+use jvm::logging::{Formatter, LogRecord, logger};
 use std::path::Path;
 
 pub struct ConsoleLogManager;
@@ -36,35 +36,8 @@ impl Formatter for ConsoleLogFormatter
     {
         let mut stringBuilder: String = String::new();
         stringBuilder.push_str(&ConsoleLogFormatter::formatDate(logRecord.getMillis()));
-        let level: Level = logRecord.getLevel();
-        if level == Level::FINEST
-        {
-            stringBuilder.push_str(" [FINEST] ");
-        }
-        else if level == Level::FINER
-        {
-            stringBuilder.push_str(" [FINER] ");
-        }
-        else if level == Level::FINE
-        {
-            stringBuilder.push_str(" [FINE] ");
-        }
-        else if level == Level::INFO
-        {
-            stringBuilder.push_str(" [INFO] ");
-        }
-        else if level == Level::WARNING
-        {
-            stringBuilder.push_str(" [WARNING] ");
-        }
-        else if level == Level::SEVERE
-        {
-            stringBuilder.push_str(" [SEVERE] ");
-        }
-        else if level == Level::SEVERE
-        {
-            stringBuilder.push_str(&format!(" [{}] ", level.getLocalizedName()));
-        }
+        // rewrite: every level prints its name and the call site, java dropped CONFIG and other custom levels
+        stringBuilder.push_str(&format!(" [{}] [{}] ", logRecord.getLevel().getLocalizedName(), logRecord.source()));
         stringBuilder.push_str(&logRecord.getMessage().to_string());
         stringBuilder.push('\n');
         if let Some(throwable) = logRecord.getThrown()

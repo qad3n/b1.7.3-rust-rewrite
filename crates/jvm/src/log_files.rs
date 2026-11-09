@@ -247,7 +247,7 @@ impl Formatter for LogFormatter
     {
         let fields: DateFields = dateFields(record.getMillis());
         let mut text: String = format!(
-            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} [{}] {}\n",
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} [{}] [{}] {}\n",
             fields.m_year,
             fields.m_month,
             fields.m_day,
@@ -256,6 +256,7 @@ impl Formatter for LogFormatter
             fields.m_second,
             record.getMillis().rem_euclid(1000),
             record.getLevel().getLocalizedName(),
+            record.source(),
             record.getMessage()
         );
         if let Some(thrown) = record.getThrown()

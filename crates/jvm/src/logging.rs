@@ -2,6 +2,7 @@ use crate::io::{FileOutputStream, IoResult, OutputStream};
 use crate::string::JString;
 use crate::throwable::Throwable;
 use std::io::IsTerminal;
+use std::panic::Location;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
@@ -33,13 +34,20 @@ impl Level
     pub const WARNING: Level = Level { m_name: "WARNING", m_value: 900, m_color: colors::YELLOW };
     pub const INFO: Level = Level { m_name: "INFO", m_value: 800, m_color: colors::PLAIN };
     pub const CONFIG: Level = Level { m_name: "CONFIG", m_value: 700, m_color: colors::PLAIN };
-    pub const FINE: Level = Level { m_name: "FINE", m_value: 500, m_color: colors::GREY };
-    pub const FINER: Level = Level { m_name: "FINER", m_value: 400, m_color: colors::GREY };
-    pub const FINEST: Level = Level { m_name: "FINEST", m_value: 300, m_color: colors::GREY };
+    pub const DEBUG: Level = Level { m_name: "DEBUG", m_value: 500, m_color: colors::GREY };
+    pub const TRACE: Level = Level { m_name: "TRACE", m_value: 400, m_color: colors::GREY };
 
     pub fn getLocalizedName(&self) -> &'static str { self.m_name }
 
     pub fn intValue(&self) -> i32 { self.m_value }
+}
+
+// where a record was logged from, game code by its caller and library code by the module the log crate names
+#[derive(Clone, Copy)]
+enum Site
+{
+    Code(&'static Location<'static>),
+    Module(&'static str, u32),
 }
 
 pub struct LogRecord
@@ -48,11 +56,21 @@ pub struct LogRecord
     m_message: JString,
     m_millis: i64,
     m_thrown: Option<Throwable>,
+    m_site: Site,
 }
 
 impl LogRecord
 {
     pub fn getLevel(&self) -> Level { self.m_level }
+
+    pub fn source(&self) -> String
+    {
+        match self.m_site
+        {
+            Site::Code(location) => format!("{}:{}", modulePath(location.file()), location.line()),
+            Site::Module(module, line) => format!("{module}:{line}"),
+        }
+    }
 
     pub fn getMessage(&self) -> &JString { &self.m_message }
 
@@ -182,13 +200,20 @@ impl Logger
 
     pub fn addHandler(&self, handler: Box<dyn Handler>) { self.state().m_handlers.push(handler); }
 
+    #[track_caller]
     pub fn log(&self, level: Level, message: &str, thrown: Option<Throwable>)
+    {
+        self.publish(level, message, thrown, Site::Code(Location::caller()));
+    }
+
+    fn publish(&self, level: Level, message: &str, thrown: Option<Throwable>, site: Site)
     {
         let record: LogRecord = LogRecord {
             m_level: level,
             m_message: JString::from(message),
             m_millis: crate::system::currentTimeMillis(),
             m_thrown: thrown,
+            m_site: site,
         };
         let mut state: MutexGuard<'_, LoggerState> = self.state();
         for handler in state.m_handlers.iter_mut()
@@ -205,17 +230,20 @@ impl Logger
         }
     }
 
+    #[track_caller]
     pub fn info(&self, message: &str) { self.log(Level::INFO, message, None); }
 
+    #[track_caller]
     pub fn warning(&self, message: &str) { self.log(Level::WARNING, message, None); }
 
+    #[track_caller]
     pub fn severe(&self, message: &str) { self.log(Level::SEVERE, message, None); }
 
-    pub fn fine(&self, message: &str) { self.log(Level::FINE, message, None); }
+    #[track_caller]
+    pub fn debug(&self, message: &str) { self.log(Level::DEBUG, message, None); }
 
-    pub fn debug(&self, message: &str) { self.fine(message); }
-
-    pub fn trace(&self, message: &str) { self.log(Level::FINER, message, None); }
+    #[track_caller]
+    pub fn trace(&self, message: &str) { self.log(Level::TRACE, message, None); }
 }
 
 // libraries that log through the log crate land in a named logger, only targets listed here show below warnings
@@ -245,10 +273,11 @@ impl log::Log for Bridge
             log::Level::Error => Level::SEVERE,
             log::Level::Warn => Level::WARNING,
             log::Level::Info => Level::INFO,
-            log::Level::Debug | log::Level::Trace => Level::FINE,
+            log::Level::Debug | log::Level::Trace => Level::DEBUG,
         };
-        let source: &str = record.target().split("::").next().unwrap_or_default();
-        self.m_logger.log(level, &format!("[{source}] {}", record.args()), None);
+        let module: &'static str = record.module_path_static().unwrap_or("unknown");
+        let site: Site = Site::Module(module, record.line().unwrap_or_default());
+        self.m_logger.publish(level, &record.args().to_string(), None, site);
     }
 
     fn flush(&self) {}
@@ -274,7 +303,7 @@ fn consoleLevel() -> Level
     let Some(name) = std::env::var_os(CONSOLE_LEVEL_VAR)
     else
     {
-        return Level::FINE;
+        return Level::DEBUG;
     };
 
     match name.to_string_lossy().to_ascii_lowercase().as_str()
@@ -282,14 +311,36 @@ fn consoleLevel() -> Level
         "error" | "severe" => Level::SEVERE,
         "warn" | "warning" => Level::WARNING,
         "info" => Level::INFO,
-        "debug" | "fine" => Level::FINE,
-        "trace" | "finest" => Level::FINEST,
+        "debug" | "fine" => Level::DEBUG,
+        "trace" | "finest" => Level::TRACE,
         other =>
         {
             eprintln!("unknown {CONSOLE_LEVEL_VAR} level {other}, showing debug and up");
-            Level::FINE
+            Level::DEBUG
         }
     }
+}
+
+// a call site file like crates/client/src/client/minecraft/run.rs reads as client::client::minecraft::run
+fn modulePath(file: &str) -> String
+{
+    let file: String = file.replace('\\', "/");
+    let Some((root, module)) = file.rsplit_once("/src/")
+    else
+    {
+        return file;
+    };
+
+    let crateName: &str = root.rsplit('/').next().unwrap_or(root);
+    let module: &str = module.trim_end_matches(".rs");
+    let module: &str = module.strip_suffix("/mod").unwrap_or(module);
+    let mut path: String = crateName.replace('-', "_");
+    if module != "lib" && module != "main"
+    {
+        path += "::";
+        path += &module.replace('/', "::");
+    }
+    path
 }
 
 // ansi colour only for a real terminal, piped output and NO_COLOR stay plain
@@ -316,5 +367,20 @@ pub fn took(started: Instant) -> String
     {
         millis @ 0..1000 => format!("{millis}ms"),
         _ => format!("{:.2}s", elapsed.as_secs_f64()),
+    }
+}
+
+#[cfg(test)]
+mod tests
+{
+    use super::*;
+
+    #[test]
+    fn module_path_reads_crate_and_modules()
+    {
+        assert_eq!(modulePath("crates/client/src/client/minecraft/run.rs"), "client::client::minecraft::run");
+        assert_eq!(modulePath("crates/game/src/item/item/mod.rs"), "game::item::item");
+        assert_eq!(modulePath("vendor/b1.7.3-modding-sdk/b173_api/src/lib.rs"), "b173_api");
+        assert_eq!(modulePath("crates\\client\\src\\bin\\beta173.rs"), "client::bin::beta173");
     }
 }

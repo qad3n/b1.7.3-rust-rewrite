@@ -543,6 +543,7 @@ impl MinecraftServer
 
     pub fn getFile(&self, path: &str) -> PathBuf { PathBuf::from(path) }
 
+    #[track_caller]
     pub fn logWarning(&self, message: &str) { logger().warning(message); }
 
     // dimensions are keyed through the loader's map, without mods it is overworld then nether
@@ -560,6 +561,7 @@ impl MinecraftServer
 
 impl ICommandListener for MinecraftServer
 {
+    #[track_caller]
     fn log(&self, message: &str) { logger().info(message); }
 
     fn getUsername(&self) -> String { String::from("CONSOLE") }
