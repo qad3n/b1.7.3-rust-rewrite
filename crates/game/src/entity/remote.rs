@@ -217,11 +217,8 @@ impl Track
         Some(self.m_samples.get()[len - 1].m_pose)
     }
 
-    pub fn playing(&self) -> bool
-    {
-        let len: usize = self.m_len.get();
-        len > 0 && self.m_clock.get() < self.m_samples.get()[len - 1].m_tick as f64
-    }
+    // once the server has sent a pose the entity only plays poses back, so it never drifts and snaps
+    pub fn tracking(&self) -> bool { self.m_len.get() > 0 }
 
     // advances the playback clock one tick and returns where the entity should be
     pub fn next(&self) -> Option<Pose>
@@ -501,7 +498,6 @@ mod tests
         advance(30);
         let held: Option<Pose> = (0..5).map(|_| track.next()).last().flatten();
         assert_eq!(held, Some(pose(2.0)));
-        assert!(!track.playing());
     }
 
     #[test]

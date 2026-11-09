@@ -426,7 +426,7 @@ fn onUpdate(this: &Rc<Entity>)
         cart.m_minecartCurrentDamage.set(cart.m_minecartCurrentDamage.get() - 1);
     }
     let world: Rc<World> = this.world();
-    if world.m_multiplayerWorld.get() && this.m_remote.playing()
+    if world.m_multiplayerWorld.get() && this.m_remote.tracking()
     {
         this.m_remote.step(this);
         return;
