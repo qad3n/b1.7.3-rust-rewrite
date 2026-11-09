@@ -14,9 +14,9 @@ pub struct OreExt
 fn interact(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     addParticles(world, x, y, z);
-    if this.m_blockID == Block::oreRedstone().m_blockID
+    if this.m_blockID == Block::ORE_REDSTONE
     {
-        world.setBlockWithNotify(x, y, z, Block::oreRedstoneGlowing().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::ORE_REDSTONE_GLOWING);
     }
 }
 
@@ -82,9 +82,9 @@ pub const CLASS: BlockClass = BlockClass {
         (BLOCK.blockActivated)(this, world, x, y, z, player)
     },
     updateTick: |this, world, x, y, z, _| {
-        if this.m_blockID == Block::oreRedstoneGlowing().m_blockID
+        if this.m_blockID == Block::ORE_REDSTONE_GLOWING
         {
-            world.setBlockWithNotify(x, y, z, Block::oreRedstone().m_blockID);
+            world.setBlockWithNotify(x, y, z, Block::ORE_REDSTONE);
         }
     },
     idDropped: |_, _, _| Item::redstone().m_shiftedIndex,

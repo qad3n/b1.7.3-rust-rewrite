@@ -60,7 +60,7 @@ pub(super) fn generateTree(
                 if (0..128).contains(&i)
                 {
                     let blockId: i32 = world.getBlockId(x2, i, z2);
-                    if blockId != 0 && blockId != Block::leaves().m_blockID
+                    if blockId != 0 && blockId != Block::LEAVES
                     {
                         n2 = 0;
                     }
@@ -79,11 +79,11 @@ pub(super) fn generateTree(
         return false;
     }
     let blockId2: i32 = world.getBlockId(x, y - 1, z);
-    if (blockId2 != Block::grass().m_blockID && blockId2 != Block::dirt().m_blockID) || y >= 128 - n - 1
+    if (blockId2 != Block::GRASS && blockId2 != Block::DIRT) || y >= 128 - n - 1
     {
         return false;
     }
-    world.setBlock(x, y - 1, z, Block::dirt().m_blockID);
+    world.setBlock(x, y - 1, z, Block::DIRT);
     for j in y - 3 + n..=y + n
     {
         let n4: i32 = j - (y + n);
@@ -107,7 +107,7 @@ pub(super) fn generateTree(
                 }
                 if !Block::opaqueCubeLookup(world.getBlockId(k, j, l))
                 {
-                    place(k, j, l, Block::leaves().m_blockID);
+                    place(k, j, l, Block::LEAVES);
                 }
             }
         }
@@ -115,9 +115,9 @@ pub(super) fn generateTree(
     for n6 in 0..n
     {
         let blockId3: i32 = world.getBlockId(x, y + n6, z);
-        if blockId3 == 0 || blockId3 == Block::leaves().m_blockID
+        if blockId3 == 0 || blockId3 == Block::LEAVES
         {
-            place(x, y + n6, z, Block::wood().m_blockID);
+            place(x, y + n6, z, Block::WOOD);
         }
     }
     true

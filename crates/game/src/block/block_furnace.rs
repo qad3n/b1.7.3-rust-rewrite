@@ -127,11 +127,11 @@ pub fn updateFurnaceBlockState(lit: bool, world: &Rc<World>, x: i32, y: i32, z: 
     KEEP_FURNACE_INVENTORY.with(|keep| keep.set(true));
     if lit
     {
-        world.setBlockWithNotify(x, y, z, Block::stoneOvenActive().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::STONE_OVEN_ACTIVE);
     }
     else
     {
-        world.setBlockWithNotify(x, y, z, Block::stoneOvenIdle().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::STONE_OVEN_IDLE);
     }
     KEEP_FURNACE_INVENTORY.with(|keep| keep.set(false));
     world.setBlockMetadataWithNotify(x, y, z, n);
@@ -177,7 +177,7 @@ fn onBlockRemoval(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockFurnace",
     m_parent: Some(&block_container::CLASS),
-    idDropped: |_, _, _| Block::stoneOvenIdle().m_blockID,
+    idDropped: |_, _, _| Block::STONE_OVEN_IDLE,
     onBlockAdded: |this, world, x, y, z| {
         (block_container::CLASS.onBlockAdded)(this, world, x, y, z);
         setDefaultDirection(world, x, y, z);

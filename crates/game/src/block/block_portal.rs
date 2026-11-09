@@ -6,7 +6,7 @@ use std::rc::Rc;
 pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
     let (mut x, mut z): (i32, i32) = (x, z);
-    let obsidian: i32 = Block::obsidian().m_blockID;
+    let obsidian: i32 = Block::OBSIDIAN;
     let mut n3: i32 = 0;
     let mut n4: i32 = 0;
     if world.getBlockId(x - 1, y, z) == obsidian || world.getBlockId(x + 1, y, z) == obsidian
@@ -43,7 +43,7 @@ pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
             }
             else
             {
-                n5 != 0 && n5 != Block::fire().m_blockID
+                n5 != 0 && n5 != Block::FIRE
             })
             {
                 continue;
@@ -57,7 +57,7 @@ pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
     {
         for n in 0..3
         {
-            world.setBlockWithNotify(x + n3 * n2, y + n, z + n4 * n2, Block::portal().m_blockID);
+            world.setBlockWithNotify(x + n3 * n2, y + n, z + n4 * n2, Block::PORTAL);
         }
     }
     world.m_editingBlocks.set(false);
@@ -67,7 +67,7 @@ pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _neighborBlock: i32)
 {
     let id: i32 = this.m_blockID;
-    let obsidian: i32 = Block::obsidian().m_blockID;
+    let obsidian: i32 = Block::OBSIDIAN;
     let mut n2: i32 = 0;
     let mut n3: i32 = 1;
     if world.getBlockId(x - 1, y, z) == id || world.getBlockId(x + 1, y, z) == id

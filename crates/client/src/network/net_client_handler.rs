@@ -297,8 +297,8 @@ impl NetHandler for NetClientHandler
             62 => entity = Some(entity_egg::create(&world, d0, d1, d2)),
             1 => entity = Some(entity_boat::createAt(&world, d0, d1, d2)),
             50 => entity = Some(entity_tnt_primed::create(&world, d0, d1, d2)),
-            70 => entity = Some(entity_falling_sand::create(&world, d0, d1, d2, Block::sand().m_blockID)),
-            71 => entity = Some(entity_falling_sand::create(&world, d0, d1, d2, Block::gravel().m_blockID)),
+            70 => entity = Some(entity_falling_sand::create(&world, d0, d1, d2, Block::SAND)),
+            71 => entity = Some(entity_falling_sand::create(&world, d0, d1, d2, Block::GRAVEL)),
             _ =>
             {}
         }

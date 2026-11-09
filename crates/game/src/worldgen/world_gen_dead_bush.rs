@@ -22,7 +22,7 @@ impl WorldGenerator for WorldGenDeadBush
         loop
         {
             let i: i32 = world.getBlockId(x, y, z);
-            if !((i == 0 || i == Block::leaves().m_blockID) && y > 0)
+            if !((i == 0 || i == Block::LEAVES) && y > 0)
             {
                 break;
             }

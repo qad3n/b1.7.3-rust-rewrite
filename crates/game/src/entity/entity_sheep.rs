@@ -135,7 +135,7 @@ pub const CLASS: EntityClass = EntityClass {
             this.entityDropItem(woolStack(this), 0.0);
         }
     },
-    getDropItemId: |_| Block::cloth().m_blockID,
+    getDropItemId: |_| Block::CLOTH,
     interact,
     writeEntityToNBT: |this, nbt| {
         (entity_animal::CLASS.writeEntityToNBT)(this, nbt);

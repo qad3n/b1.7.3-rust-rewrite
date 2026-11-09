@@ -24,7 +24,7 @@ fn igniteAt(world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     if world.getBlockId(x, y, z) == 0 && Block::fire().canPlaceBlockAt(world, x, y, z)
     {
-        world.setBlockWithNotify(x, y, z, Block::fire().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::FIRE);
     }
 }
 

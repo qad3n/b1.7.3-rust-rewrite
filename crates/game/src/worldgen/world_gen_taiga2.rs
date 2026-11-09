@@ -27,7 +27,7 @@ pub(super) fn canGrowSpruce(world: &Rc<World>, x: i32, y: i32, z: i32, height: i
                 if (0..128).contains(&n7)
                 {
                     let n3: i32 = world.getBlockId(n5, n7, n4);
-                    if n3 != 0 && n3 != Block::leaves().m_blockID
+                    if n3 != 0 && n3 != Block::LEAVES
                     {
                         bl = false;
                     }
@@ -62,11 +62,11 @@ impl WorldGenerator for WorldGenTaiga2
             return false;
         }
         let n7: i32 = world.getBlockId(x, y - 1, z);
-        if n7 != Block::grass().m_blockID && n7 != Block::dirt().m_blockID || y >= 128 - n8 - 1
+        if n7 != Block::GRASS && n7 != Block::DIRT || y >= 128 - n8 - 1
         {
             return false;
         }
-        world.setBlock(x, y - 1, z, Block::dirt().m_blockID);
+        world.setBlock(x, y - 1, z, Block::DIRT);
         let mut n6: i32 = random.nextIntBounded(2);
         let mut n5: i32 = 1;
         let mut n4: i32 = 0;
@@ -84,7 +84,7 @@ impl WorldGenerator for WorldGenTaiga2
                     {
                         continue;
                     }
-                    world.setBlockAndMetadata(n, n2, i, Block::leaves().m_blockID, 1);
+                    world.setBlockAndMetadata(n, n2, i, Block::LEAVES, 1);
                 }
             }
             if n6 >= n5
@@ -105,11 +105,11 @@ impl WorldGenerator for WorldGenTaiga2
         for n2 in 0..n8 - n3
         {
             let n: i32 = world.getBlockId(x, y + n2, z);
-            if n != 0 && n != Block::leaves().m_blockID
+            if n != 0 && n != Block::LEAVES
             {
                 continue;
             }
-            world.setBlockAndMetadata(x, y + n2, z, Block::wood().m_blockID, 1);
+            world.setBlockAndMetadata(x, y + n2, z, Block::WOOD, 1);
         }
         true
     }

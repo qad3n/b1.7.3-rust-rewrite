@@ -20,9 +20,9 @@ struct CraftAchievement
 }
 
 const CRAFT_ACHIEVEMENTS: [CraftAchievement; 8] = [
-    CraftAchievement { m_itemID: || Block::workbench().m_blockID, m_achievement: AchievementList::buildWorkBench },
+    CraftAchievement { m_itemID: || Block::WORKBENCH, m_achievement: AchievementList::buildWorkBench },
     CraftAchievement { m_itemID: || Item::pickaxeWood().m_shiftedIndex, m_achievement: AchievementList::buildPickaxe },
-    CraftAchievement { m_itemID: || Block::stoneOvenIdle().m_blockID, m_achievement: AchievementList::buildFurnace },
+    CraftAchievement { m_itemID: || Block::STONE_OVEN_IDLE, m_achievement: AchievementList::buildFurnace },
     CraftAchievement { m_itemID: || Item::hoeWood().m_shiftedIndex, m_achievement: AchievementList::buildHoe },
     CraftAchievement { m_itemID: || Item::bread().m_shiftedIndex, m_achievement: AchievementList::makeBread },
     CraftAchievement { m_itemID: || Item::cake().m_shiftedIndex, m_achievement: AchievementList::bakeCake },

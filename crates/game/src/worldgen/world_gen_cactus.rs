@@ -22,7 +22,7 @@ impl WorldGenerator for WorldGenCactus
                 {
                     if Block::cactus().canBlockStay(world, j, k + j1, l)
                     {
-                        world.setBlock(j, k + j1, l, Block::cactus().m_blockID);
+                        world.setBlock(j, k + j1, l, Block::CACTUS);
                     }
                 }
             }

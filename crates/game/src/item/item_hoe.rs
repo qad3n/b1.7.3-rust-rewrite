@@ -8,7 +8,7 @@ pub const CLASS: ItemClass = ItemClass {
     onItemUse: |_, stack, player, world, x, y, z, face| {
         let n: i32 = world.getBlockId(x, y, z);
         let n2: i32 = world.getBlockId(x, y + 1, z);
-        if face != 0 && n2 == 0 && n == Block::grass().m_blockID || n == Block::dirt().m_blockID
+        if face != 0 && n2 == 0 && n == Block::GRASS || n == Block::DIRT
         {
             let block: Rc<Block> = Block::tilledField();
             let sound: Rc<StepSound> = block.m_stepSound.get();

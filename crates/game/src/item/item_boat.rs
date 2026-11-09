@@ -52,7 +52,7 @@ fn onItemRightClick(
         let k: i32 = movingobjectposition.m_blockZ;
         if !world.m_multiplayerWorld.get()
         {
-            if world.getBlockId(i, j, k) == Block::snow().m_blockID
+            if world.getBlockId(i, j, k) == Block::SNOW
             {
                 j -= 1;
             }

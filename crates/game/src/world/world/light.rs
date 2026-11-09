@@ -35,10 +35,10 @@ impl World
         if useNeighborLight
         {
             let blockId: i32 = self.getBlockId(x, y, z);
-            if blockId == Block::stairSingle().m_blockID
-                || blockId == Block::tilledField().m_blockID
-                || blockId == Block::stairCompactCobblestone().m_blockID
-                || blockId == Block::stairCompactPlanks().m_blockID
+            if blockId == Block::STAIR_SINGLE
+                || blockId == Block::TILLED_FIELD
+                || blockId == Block::STAIR_COMPACT_COBBLESTONE
+                || blockId == Block::STAIR_COMPACT_PLANKS
             {
                 let mut value: i32 = self.getBlockLightValue_do(x, y + 1, z, false);
                 let value2: i32 = self.getBlockLightValue_do(x + 1, y, z, false);

@@ -13,7 +13,7 @@ fn canBlockStay(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) ->
         return false;
     }
     let n: i32 = world.getBlockId(x, y - 1, z);
-    n == Block::cactus().m_blockID || n == Block::sand().m_blockID
+    n == Block::CACTUS || n == Block::SAND
 }
 
 pub const CLASS: BlockClass = BlockClass {

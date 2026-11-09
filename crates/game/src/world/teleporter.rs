@@ -27,7 +27,7 @@ impl Teleporter
     pub fn findNetherPortal(&self, world: &Rc<World>, entity: &Rc<Entity>) -> bool
     {
         let short1: i32 = 128;
-        let portal: i32 = Block::portal().m_blockID;
+        let portal: i32 = Block::PORTAL;
         let mut d0: f64 = -1.0;
         let mut i: i32 = 0;
         let mut j: i32 = 0;
@@ -262,7 +262,7 @@ impl Teleporter
                         let i11: i32 = j2 + i9;
                         let i12: i32 = k6 + (i8 - 1) * l2 - j7 * l6;
                         let flag: bool = i9 < 0;
-                        world.setBlockWithNotify(i10, i11, i12, if flag { Block::obsidian().m_blockID } else { 0 });
+                        world.setBlockWithNotify(i10, i11, i12, if flag { Block::OBSIDIAN } else { 0 });
                     }
                 }
             }
@@ -280,11 +280,11 @@ impl Teleporter
                     let flag1: bool = j8 == 0 || j8 == 3 || j9 == -1 || j9 == 3;
                     let block: i32 = if flag1
                     {
-                        Block::obsidian().m_blockID
+                        Block::OBSIDIAN
                     }
                     else
                     {
-                        Block::portal().m_blockID
+                        Block::PORTAL
                     };
                     world.setBlockWithNotify(j10, j11, j12, block);
                 }

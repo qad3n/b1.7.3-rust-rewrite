@@ -284,17 +284,17 @@ impl Minecraft
             return;
         };
         let mut n: i32 = self.theWorld().getBlockId(hit.m_blockX, hit.m_blockY, hit.m_blockZ);
-        if n == Block::grass().m_blockID
+        if n == Block::GRASS
         {
-            n = Block::dirt().m_blockID;
+            n = Block::DIRT;
         }
-        if n == Block::stairDouble().m_blockID
+        if n == Block::STAIR_DOUBLE
         {
-            n = Block::stairSingle().m_blockID;
+            n = Block::STAIR_SINGLE;
         }
-        if n == Block::bedrock().m_blockID
+        if n == Block::BEDROCK
         {
-            n = Block::stone().m_blockID;
+            n = Block::STONE;
         }
         inventory(&self.thePlayer()).setCurrentItem(n, self.playerController().instanceOf("PlayerControllerTest"));
     }

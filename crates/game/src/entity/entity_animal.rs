@@ -12,7 +12,7 @@ pub const CLASS: EntityClass = EntityClass {
     m_interfaces: &["IAnimals"],
     getBlockPathWeight: |this, x, y, z| {
         let world: Rc<World> = this.world();
-        if world.getBlockId(x, y - 1, z) == Block::grass().m_blockID
+        if world.getBlockId(x, y - 1, z) == Block::GRASS
         {
             return 10.0;
         }
@@ -25,7 +25,7 @@ pub const CLASS: EntityClass = EntityClass {
         let x: i32 = math_helper::floor_double(this.posX());
         let y: i32 = math_helper::floor_double(this.m_boundingBox.minY());
         let z: i32 = math_helper::floor_double(this.posZ());
-        world.getBlockId(x, y - 1, z) == Block::grass().m_blockID
+        world.getBlockId(x, y - 1, z) == Block::GRASS
             && world.getFullBlockLightValue(x, y, z) > 8
             && (entity_creature::CLASS.getCanSpawnHere)(this)
     },

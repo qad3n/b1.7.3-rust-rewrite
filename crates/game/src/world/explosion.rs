@@ -157,7 +157,7 @@ impl Explosion
                 let k1: i32 = world.getBlockId(j4, k4 - 1, j1);
                 if l4 == 0 && Block::opaqueCubeLookup(k1) && self.m_explosionRNG.nextIntBounded(3) == 0
                 {
-                    world.setBlockWithNotify(j4, k4, j1, Block::fire().m_blockID);
+                    world.setBlockWithNotify(j4, k4, j1, Block::FIRE);
                 }
             }
         }

@@ -324,7 +324,7 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
 pub fn isPowerProviderOrWire(world: &dyn IBlockAccess, x: i32, y: i32, z: i32, side: i32) -> bool
 {
     let n: i32 = world.getBlockId(x, y, z);
-    if n == Block::redstoneWire().m_blockID
+    if n == Block::REDSTONE_WIRE
     {
         return true;
     }
@@ -341,7 +341,7 @@ pub fn isPowerProviderOrWire(world: &dyn IBlockAccess, x: i32, y: i32, z: i32, s
     {
         return true;
     }
-    if n == Block::redstoneRepeaterIdle().m_blockID || n == Block::redstoneRepeaterActive().m_blockID
+    if n == Block::REDSTONE_REPEATER_IDLE || n == Block::REDSTONE_REPEATER_ACTIVE
     {
         let n2: i32 = world.getBlockMetadata(x, y, z);
         return side == model_bed::OPPOSITE[(n2 & 3) as usize];

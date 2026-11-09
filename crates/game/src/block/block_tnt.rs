@@ -50,7 +50,7 @@ pub const CLASS: BlockClass = BlockClass {
         }
         if (metadata & 1) == 0
         {
-            this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::tnt().m_blockID, 1, 0));
+            this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::TNT, 1, 0));
         }
         else
         {

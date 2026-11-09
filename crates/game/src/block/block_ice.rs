@@ -9,7 +9,7 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
     let material: Rc<Material> = world.getBlockMaterial(x, y - 1, z);
     if material.getIsSolid() || material.getIsLiquid()
     {
-        world.setBlockWithNotify(x, y, z, Block::waterMoving().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::WATER_MOVING);
     }
 }
 
@@ -18,7 +18,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     if world.getSavedLightValue(EnumSkyBlock::Block, x, y, z) > 11 - Block::lightOpacity(this.m_blockID)
     {
         this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
-        world.setBlockWithNotify(x, y, z, Block::waterStill().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::WATER_STILL);
     }
 }
 

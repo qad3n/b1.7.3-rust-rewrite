@@ -5,7 +5,7 @@ pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockObsidian",
     m_parent: Some(&block_stone::CLASS),
     quantityDropped: |_, _| 1,
-    idDropped: |_, _, _| Block::obsidian().m_blockID,
+    idDropped: |_, _, _| Block::OBSIDIAN,
     ..block_stone::CLASS
 };
 

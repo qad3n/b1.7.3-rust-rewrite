@@ -37,7 +37,7 @@ fn canPlaceBlockAt(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) 
     {
         return true;
     }
-    if n != Block::grass().m_blockID && n != Block::dirt().m_blockID
+    if n != Block::GRASS && n != Block::DIRT
     {
         return false;
     }

@@ -26,20 +26,20 @@ pub fn setFlammable(block: i32, flammability: i32, burnChance: i32)
 
 fn initializeBlock(this: &Rc<Block>)
 {
-    setBurnRate(this, Block::planks().m_blockID, 5, 20);
-    setBurnRate(this, Block::fence().m_blockID, 5, 20);
-    setBurnRate(this, Block::stairCompactPlanks().m_blockID, 5, 20);
-    setBurnRate(this, Block::wood().m_blockID, 5, 5);
-    setBurnRate(this, Block::leaves().m_blockID, 30, 60);
-    setBurnRate(this, Block::bookShelf().m_blockID, 30, 20);
-    setBurnRate(this, Block::tnt().m_blockID, 15, 100);
-    setBurnRate(this, Block::tallGrass().m_blockID, 60, 100);
-    setBurnRate(this, Block::cloth().m_blockID, 30, 60);
+    setBurnRate(this, Block::PLANKS, 5, 20);
+    setBurnRate(this, Block::FENCE, 5, 20);
+    setBurnRate(this, Block::STAIR_COMPACT_PLANKS, 5, 20);
+    setBurnRate(this, Block::WOOD, 5, 5);
+    setBurnRate(this, Block::LEAVES, 30, 60);
+    setBurnRate(this, Block::BOOK_SHELF, 30, 20);
+    setBurnRate(this, Block::TNT, 15, 100);
+    setBurnRate(this, Block::TALL_GRASS, 60, 100);
+    setBurnRate(this, Block::CLOTH, 30, 60);
 }
 
 fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
-    let bl: bool = world.getBlockId(x, y - 1, z) == Block::netherrack().m_blockID;
+    let bl: bool = world.getBlockId(x, y - 1, z) == Block::NETHERRACK;
     if !this.canPlaceBlockAt(world, x, y, z)
     {
         world.setBlockWithNotify(x, y, z, 0);
@@ -140,7 +140,7 @@ fn tryToCatchBlockOnFire(
     {
         return;
     }
-    let flag: bool = world.getBlockId(x, y, z) == Block::tnt().m_blockID;
+    let flag: bool = world.getBlockId(x, y, z) == Block::TNT;
     if random.nextIntBounded(metadata + 10) < 5 && !world.canBlockBeRainedOn(x, y, z)
     {
         let mut j: i32 = metadata + random.nextIntBounded(5) / 4;
@@ -305,7 +305,7 @@ pub const CLASS: BlockClass = BlockClass {
         }
     },
     onBlockAdded: |this, world, x, y, z| {
-        if world.getBlockId(x, y - 1, z) == Block::obsidian().m_blockID
+        if world.getBlockId(x, y - 1, z) == Block::OBSIDIAN
             && crate::block::block_portal::tryToCreatePortal(world, x, y, z)
         {
             return;

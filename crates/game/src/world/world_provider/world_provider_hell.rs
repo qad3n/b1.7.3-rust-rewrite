@@ -20,7 +20,7 @@ fn generateLightBrightnessTable(this: &Rc<WorldProvider>)
 fn canCoordinateBeSpawn(this: &Rc<WorldProvider>, x: i32, z: i32) -> bool
 {
     let n: i32 = this.world().getFirstUncoveredBlock(x, z);
-    if n == Block::bedrock().m_blockID || n == 0
+    if n == Block::BEDROCK || n == 0
     {
         return false;
     }

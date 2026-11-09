@@ -84,7 +84,7 @@ impl GuiIngame
         let inventoryplayer: Rc<InventoryPlayer> = entity_player::inventory(&player);
         let itemstack: Option<Rc<ItemStack>> = inventoryplayer.armorItemInSlot(3);
         if !self.settings().m_thirdPersonView.get()
-            && itemstack.is_some_and(|stack| stack.m_itemID.get() == Block::pumpkin().m_blockID)
+            && itemstack.is_some_and(|stack| stack.m_itemID.get() == Block::PUMPKIN)
         {
             self.renderPumpkinBlur(i, j);
         }

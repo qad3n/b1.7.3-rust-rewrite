@@ -6,19 +6,19 @@ pub const CLASS: ItemClass = ItemClass {
     m_name: "ItemShears",
     m_parent: Some(&ITEM),
     onBlockDestroyed: |this, stack, block, x, y, z, entity| {
-        if block == Block::leaves().m_blockID || block == Block::web().m_blockID
+        if block == Block::LEAVES || block == Block::WEB
         {
             stack.damageItem(1, entity);
         }
         (ITEM.onBlockDestroyed)(this, stack, block, x, y, z, entity)
     },
-    canHarvestBlock: |_, block| block.m_blockID == Block::web().m_blockID,
+    canHarvestBlock: |_, block| block.m_blockID == Block::WEB,
     getStrVsBlock: |this, stack, block| {
-        if block.m_blockID == Block::web().m_blockID || block.m_blockID == Block::leaves().m_blockID
+        if block.m_blockID == Block::WEB || block.m_blockID == Block::LEAVES
         {
             return 15.0;
         }
-        if block.m_blockID == Block::cloth().m_blockID
+        if block.m_blockID == Block::CLOTH
         {
             return 5.0;
         }

@@ -20,7 +20,7 @@ pub const CLASS: BlockClass = BlockClass {
             && this.canThisPlantGrowOnThisBlockID(world.getBlockId(x, y - 1, z))
     },
     canThisPlantGrowOnThisBlockID: |_, block| {
-        block == Block::grass().m_blockID || block == Block::dirt().m_blockID || block == Block::tilledField().m_blockID
+        block == Block::GRASS || block == Block::DIRT || block == Block::TILLED_FIELD
     },
     onNeighborBlockChange: |this, world, x, y, z, neighborBlock| {
         (BLOCK.onNeighborBlockChange)(this, world, x, y, z, neighborBlock);

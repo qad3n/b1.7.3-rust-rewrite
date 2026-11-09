@@ -97,11 +97,11 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
                 n15 = n15.wrapping_mul(n15).wrapping_mul(31287121).wrapping_add(n15.wrapping_mul(11));
                 if ((n15 >> 20) & 1) == 0
                 {
-                    nArray[Block::dirt().m_blockID as usize] += 10;
+                    nArray[Block::DIRT as usize] += 10;
                 }
                 else
                 {
-                    nArray[Block::stone().m_blockID as usize] += 10;
+                    nArray[Block::STONE as usize] += 10;
                 }
                 d2 = 100.0;
             }

@@ -29,11 +29,11 @@ impl WorldGenerator for WorldGenTaiga1
             return false;
         }
         let n5: i32 = world.getBlockId(x, y - 1, z);
-        if n5 != Block::grass().m_blockID && n5 != Block::dirt().m_blockID || y >= 128 - n6 - 1
+        if n5 != Block::GRASS && n5 != Block::DIRT || y >= 128 - n6 - 1
         {
             return false;
         }
-        world.setBlock(x, y - 1, z, Block::dirt().m_blockID);
+        world.setBlock(x, y - 1, z, Block::DIRT);
         let mut n4: i32 = 0;
         for n3 in (y + n7..=y + n6).rev()
         {
@@ -48,7 +48,7 @@ impl WorldGenerator for WorldGenTaiga1
                     {
                         continue;
                     }
-                    world.setBlockAndMetadata(n2, n3, i, Block::leaves().m_blockID, 1);
+                    world.setBlockAndMetadata(n2, n3, i, Block::LEAVES, 1);
                 }
             }
             if n4 >= 1 && n3 == y + n7 + 1
@@ -65,11 +65,11 @@ impl WorldGenerator for WorldGenTaiga1
         for n3 in 0..n6 - 1
         {
             let n2: i32 = world.getBlockId(x, y + n3, z);
-            if n2 != 0 && n2 != Block::leaves().m_blockID
+            if n2 != 0 && n2 != Block::LEAVES
             {
                 continue;
             }
-            world.setBlockAndMetadata(x, y + n3, z, Block::wood().m_blockID, 1);
+            world.setBlockAndMetadata(x, y + n3, z, Block::WOOD, 1);
         }
         true
     }

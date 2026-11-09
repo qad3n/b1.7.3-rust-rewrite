@@ -42,7 +42,7 @@ fn updateTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rand
         {
             return;
         }
-        world.setBlockWithNotify(x, y, z, Block::dirt().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::DIRT);
     }
     else if world.getBlockLightValue(x, y + 1, z) >= 9
     {
@@ -50,11 +50,11 @@ fn updateTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rand
         let n2: i32 = y + random.nextIntBounded(5) - 3;
         let n3: i32 = z + random.nextIntBounded(3) - 1;
         let n4: i32 = world.getBlockId(n, n2 + 1, n3);
-        if world.getBlockId(n, n2, n3) == Block::dirt().m_blockID
+        if world.getBlockId(n, n2, n3) == Block::DIRT
             && world.getBlockLightValue(n, n2 + 1, n3) >= 4
             && Block::lightOpacity(n4) <= 2
         {
-            world.setBlockWithNotify(n, n2, n3, Block::grass().m_blockID);
+            world.setBlockWithNotify(n, n2, n3, Block::GRASS);
         }
     }
 }

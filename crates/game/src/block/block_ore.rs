@@ -5,15 +5,15 @@ use std::rc::Rc;
 
 fn idDropped(this: &Rc<Block>, _metadata: i32, _random: &Random) -> i32
 {
-    if this.m_blockID == Block::oreCoal().m_blockID
+    if this.m_blockID == Block::ORE_COAL
     {
         return Item::coal().m_shiftedIndex;
     }
-    if this.m_blockID == Block::oreDiamond().m_blockID
+    if this.m_blockID == Block::ORE_DIAMOND
     {
         return Item::diamond().m_shiftedIndex;
     }
-    if this.m_blockID == Block::oreLapis().m_blockID
+    if this.m_blockID == Block::ORE_LAPIS
     {
         return Item::dyePowder().m_shiftedIndex;
     }
@@ -25,7 +25,7 @@ pub const CLASS: BlockClass = BlockClass {
     m_parent: Some(&BLOCK),
     idDropped,
     quantityDropped: |this, random| {
-        if this.m_blockID == Block::oreLapis().m_blockID
+        if this.m_blockID == Block::ORE_LAPIS
         {
             4 + random.nextIntBounded(5)
         }
@@ -35,7 +35,7 @@ pub const CLASS: BlockClass = BlockClass {
         }
     },
     damageDropped: |this, _| {
-        if this.m_blockID == Block::oreLapis().m_blockID
+        if this.m_blockID == Block::ORE_LAPIS
         {
             4
         }

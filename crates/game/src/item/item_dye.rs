@@ -45,7 +45,7 @@ fn onItemUse(
         return false;
     }
     let i: i32 = world.getBlockId(x, y, z);
-    if i == Block::sapling().m_blockID
+    if i == Block::SAPLING
     {
         if !world.m_multiplayerWorld.get()
         {
@@ -54,7 +54,7 @@ fn onItemUse(
         }
         return true;
     }
-    if i == Block::crops().m_blockID
+    if i == Block::CROPS
     {
         if !world.m_multiplayerWorld.get()
         {
@@ -63,7 +63,7 @@ fn onItemUse(
         }
         return true;
     }
-    if i == Block::grass().m_blockID
+    if i == Block::GRASS
     {
         if !world.m_multiplayerWorld.get()
         {
@@ -79,7 +79,7 @@ fn onItemUse(
                     k += itemRand.nextIntBounded(3) - 1;
                     l += (itemRand.nextIntBounded(3) - 1) * itemRand.nextIntBounded(3) / 2;
                     i1 += itemRand.nextIntBounded(3) - 1;
-                    if world.getBlockId(k, l - 1, i1) != Block::grass().m_blockID || world.isBlockNormalCube(k, l, i1)
+                    if world.getBlockId(k, l - 1, i1) != Block::GRASS || world.isBlockNormalCube(k, l, i1)
                     {
                         continue 'label53;
                     }
@@ -88,15 +88,15 @@ fn onItemUse(
                 {
                     if itemRand.nextIntBounded(10) != 0
                     {
-                        world.setBlockAndMetadataWithNotify(k, l, i1, Block::tallGrass().m_blockID, 1);
+                        world.setBlockAndMetadataWithNotify(k, l, i1, Block::TALL_GRASS, 1);
                     }
                     else if itemRand.nextIntBounded(3) != 0
                     {
-                        world.setBlockWithNotify(k, l, i1, Block::plantYellow().m_blockID);
+                        world.setBlockWithNotify(k, l, i1, Block::PLANT_YELLOW);
                     }
                     else
                     {
-                        world.setBlockWithNotify(k, l, i1, Block::plantRed().m_blockID);
+                        world.setBlockWithNotify(k, l, i1, Block::PLANT_RED);
                     }
                 }
             }

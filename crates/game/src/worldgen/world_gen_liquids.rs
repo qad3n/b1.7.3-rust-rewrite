@@ -19,7 +19,7 @@ impl WorldGenerator for WorldGenLiquids
 {
     fn generate(&self, world: &Rc<World>, random: &Random, x: i32, y: i32, z: i32) -> bool
     {
-        let stone: i32 = Block::stone().m_blockID;
+        let stone: i32 = Block::STONE;
         if world.getBlockId(x, y + 1, z) != stone
         {
             return false;

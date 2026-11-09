@@ -39,7 +39,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
                 || isFlammable(world, x, y - 1, z)
                 || isFlammable(world, x, y + 1, z)
             {
-                world.setBlockWithNotify(x, y, z, Block::fire().m_blockID);
+                world.setBlockWithNotify(x, y, z, Block::FIRE);
                 return;
             }
         }

@@ -72,10 +72,10 @@ impl ChunkCache
         if useNeighborLight
         {
             let n: i32 = self.getBlockId(x, y, z);
-            if n == Block::stairSingle().m_blockID
-                || n == Block::tilledField().m_blockID
-                || n == Block::stairCompactPlanks().m_blockID
-                || n == Block::stairCompactCobblestone().m_blockID
+            if n == Block::STAIR_SINGLE
+                || n == Block::TILLED_FIELD
+                || n == Block::STAIR_COMPACT_PLANKS
+                || n == Block::STAIR_COMPACT_COBBLESTONE
             {
                 let mut n2: i32 = self.getLightValueExt(x, y + 1, z, false);
                 let n3: i32 = self.getLightValueExt(x + 1, y, z, false);

@@ -57,7 +57,7 @@ fn dropParts(this: &Rc<Entity>)
 {
     for _ in 0..3
     {
-        this.dropItemWithOffset(Block::planks().m_blockID, 1, 0.0);
+        this.dropItemWithOffset(Block::PLANKS, 1, 0.0);
     }
     for _ in 0..2
     {
@@ -277,7 +277,7 @@ fn onUpdate(this: &Rc<Entity>)
         let n6: i32 = floor_double(this.posX() + ((i % 2) as f64 - 0.5) * 0.8);
         let n5: i32 = floor_double(this.posY());
         let n4: i32 = floor_double(this.posZ() + ((i / 2) as f64 - 0.5) * 0.8);
-        if world.getBlockId(n6, n5, n4) == Block::snow().m_blockID
+        if world.getBlockId(n6, n5, n4) == Block::SNOW
         {
             world.setBlockWithNotify(n6, n5, n4, 0);
         }

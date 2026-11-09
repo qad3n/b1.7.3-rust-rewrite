@@ -94,7 +94,7 @@ pub fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSl
     this.resetHeight();
     let chunkcoordinates: Option<ChunkCoordinates> = player.m_bedChunkCoordinates.get();
     if let Some(bed) = chunkcoordinates
-        && world.getBlockId(bed.m_x, bed.m_y, bed.m_z) == Block::blockBed().m_blockID
+        && world.getBlockId(bed.m_x, bed.m_y, bed.m_z) == Block::BLOCK_BED
     {
         block_bed::setBedOccupied(&world, bed.m_x, bed.m_y, bed.m_z, false);
         let chunkcoordinates1: ChunkCoordinates =

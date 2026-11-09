@@ -227,7 +227,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
         let k: i32 = floor_double(this.posY() - 0.2f32 as f64 - this.m_yOffset.get() as f64);
         let j3: i32 = floor_double(this.posZ());
         let mut k4: i32 = world.getBlockId(k2, k, j3);
-        if world.getBlockId(k2, k - 1, j3) == Block::fence().m_blockID
+        if world.getBlockId(k2, k - 1, j3) == Block::FENCE
         {
             k4 = world.getBlockId(k2, k - 1, j3);
         }
@@ -237,7 +237,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
             this.m_nextStepDistance.set(this.m_nextStepDistance.get() + 1);
             let block: Rc<Block> = Block::byId(k4).orNpe();
             let mut stepsound: Rc<StepSound> = block.m_stepSound.get();
-            if world.getBlockId(k2, k + 1, j3) == Block::snow().m_blockID
+            if world.getBlockId(k2, k + 1, j3) == Block::SNOW
             {
                 stepsound = Block::snow().m_stepSound.get();
                 world.playSoundAtEntity(

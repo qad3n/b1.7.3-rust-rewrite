@@ -109,11 +109,11 @@ impl ChunkProviderHell
                                 let mut n8: i32 = 0;
                                 if k * 8 + i2 < n2
                                 {
-                                    n8 = Block::lavaStill().m_blockID;
+                                    n8 = Block::LAVA_STILL;
                                 }
                                 if d16 > 0.0
                                 {
-                                    n8 = Block::netherrack().m_blockID;
+                                    n8 = Block::NETHERRACK;
                                 }
                                 blocks[n6 as usize] = n8 as i8;
                                 n6 += n7;
@@ -166,8 +166,8 @@ impl ChunkProviderHell
             d0 * 2.0,
             d0 * 2.0,
         );
-        let netherrack: i8 = Block::netherrack().m_blockID as i8;
-        let bedrock: i8 = Block::bedrock().m_blockID as i8;
+        let netherrack: i8 = Block::NETHERRACK as i8;
+        let bedrock: i8 = Block::BEDROCK as i8;
         for i in 0..16
         {
             for j in 0..16
@@ -211,7 +211,7 @@ impl ChunkProviderHell
                                 b2 = netherrack;
                                 if flag1
                                 {
-                                    b1 = Block::gravel().m_blockID as i8;
+                                    b1 = Block::GRAVEL as i8;
                                 }
                                 if flag1
                                 {
@@ -219,16 +219,16 @@ impl ChunkProviderHell
                                 }
                                 if flag
                                 {
-                                    b1 = Block::slowSand().m_blockID as i8;
+                                    b1 = Block::SLOW_SAND as i8;
                                 }
                                 if flag
                                 {
-                                    b2 = Block::slowSand().m_blockID as i8;
+                                    b2 = Block::SLOW_SAND as i8;
                                 }
                             }
                             if i1 < b0 && b1 == 0
                             {
-                                b1 = Block::lavaStill().m_blockID as i8;
+                                b1 = Block::LAVA_STILL as i8;
                             }
                             l = k;
                             blocks[j1] = if i1 >= b0 - 1 { b1 } else { b2 };
@@ -413,7 +413,7 @@ impl IChunkProvider for ChunkProviderHell
             let l: i32 = i + rng.nextIntBounded(16) + 8;
             let i1: i32 = rng.nextIntBounded(120) + 4;
             let j1: i32 = j + rng.nextIntBounded(16) + 8;
-            WorldGenHellLava::new(Block::lavaMoving().m_blockID).generate(world, rng, l, i1, j1);
+            WorldGenHellLava::new(Block::LAVA_MOVING).generate(world, rng, l, i1, j1);
         }
         let mut l1: i32 = rng.nextIntBounded(rng.nextIntBounded(10) + 1) + 1;
         for _ in 0..l1
@@ -438,7 +438,7 @@ impl IChunkProvider for ChunkProviderHell
             let i6: i32 = j + rng.nextIntBounded(16) + 8;
             WorldGenGlowStone2.generate(world, rng, l3, i5, i6);
         }
-        for mushroom in [Block::mushroomBrown().m_blockID, Block::mushroomRed().m_blockID]
+        for mushroom in [Block::MUSHROOM_BROWN, Block::MUSHROOM_RED]
         {
             if rng.nextIntBounded(1) == 0
             {

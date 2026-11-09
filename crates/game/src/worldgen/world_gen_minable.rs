@@ -59,7 +59,7 @@ impl WorldGenerator for WorldGenMinable
                             {
                                 let d14: f64 = (j2 as f64 + 0.5 - d8) / (d10 / 2.0);
                                 if d12 * d12 + d13 * d13 + d14 * d14 < 1.0
-                                    && world.getBlockId(l1, i2, j2) == Block::stone().m_blockID
+                                    && world.getBlockId(l1, i2, j2) == Block::STONE
                                 {
                                     world.setBlock(l1, i2, j2, self.m_minableBlockId);
                                 }

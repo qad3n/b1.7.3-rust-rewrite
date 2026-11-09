@@ -15,9 +15,9 @@ impl WorldGenerator for WorldGenFire
             let j: i32 = x + random.nextIntBounded(8) - random.nextIntBounded(8);
             let k: i32 = y + random.nextIntBounded(4) - random.nextIntBounded(4);
             let l: i32 = z + random.nextIntBounded(8) - random.nextIntBounded(8);
-            if world.isAirBlock(j, k, l) && world.getBlockId(j, k - 1, l) == Block::netherrack().m_blockID
+            if world.isAirBlock(j, k, l) && world.getBlockId(j, k - 1, l) == Block::NETHERRACK
             {
-                world.setBlockWithNotify(j, k, l, Block::fire().m_blockID);
+                world.setBlockWithNotify(j, k, l, Block::FIRE);
             }
         }
         true

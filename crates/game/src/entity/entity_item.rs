@@ -136,7 +136,7 @@ fn onCollideWithPlayer(this: &Rc<Entity>, player: &Rc<Entity>)
     let n: i32 = stack.m_stackSize.get();
     if fields.m_delayBeforeCanPickup.get() == 0 && entity_player::inventory(player).addItemStackToInventory(&stack)
     {
-        if stack.m_itemID.get() == Block::wood().m_blockID
+        if stack.m_itemID.get() == Block::WOOD
         {
             entity_player::triggerAchievement(player, AchievementList::mineWood());
         }

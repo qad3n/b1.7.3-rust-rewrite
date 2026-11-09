@@ -108,10 +108,10 @@ impl WorldGenerator for WorldGenLakes
                 for l3 in 4..8
                 {
                     if shape[index(i2, i3, l3)]
-                        && world.getBlockId(x + i2, y + l3 - 1, z + i3) == Block::dirt().m_blockID
+                        && world.getBlockId(x + i2, y + l3 - 1, z + i3) == Block::DIRT
                         && world.getSavedLightValue(EnumSkyBlock::Sky, x + i2, y + l3, z + i3) > 0
                     {
-                        world.setBlock(x + i2, y + l3 - 1, z + i3, Block::grass().m_blockID);
+                        world.setBlock(x + i2, y + l3 - 1, z + i3, Block::GRASS);
                     }
                 }
             }
@@ -128,7 +128,7 @@ impl WorldGenerator for WorldGenLakes
                             && (i4 < 4 || random.nextIntBounded(2) != 0)
                             && world.getBlockMaterial(x + j2, y + i4, z + j3).isSolid()
                         {
-                            world.setBlock(x + j2, y + i4, z + j3, Block::stone().m_blockID);
+                            world.setBlock(x + j2, y + i4, z + j3, Block::STONE);
                         }
                     }
                 }

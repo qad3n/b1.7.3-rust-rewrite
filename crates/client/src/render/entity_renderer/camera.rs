@@ -102,7 +102,7 @@ impl EntityRenderer
                 let x: i32 = math_helper::floor_double(entityliving.posX());
                 let y: i32 = math_helper::floor_double(entityliving.posY());
                 let z: i32 = math_helper::floor_double(entityliving.posZ());
-                if world.getBlockId(x, y, z) == Block::blockBed().m_blockID
+                if world.getBlockId(x, y, z) == Block::BLOCK_BED
                 {
                     let k: i32 = world.getBlockMetadata(x, y, z) & 3;
                     GL11::glRotatef((k * 90) as f32, 0.0, 1.0, 0.0);

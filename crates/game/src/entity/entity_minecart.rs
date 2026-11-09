@@ -212,7 +212,7 @@ fn moveOnRail(
     this.m_posY.set(j as f64);
     let mut flag1: bool = false;
     let mut flag2: bool = false;
-    if l == Block::railPowered().m_blockID
+    if l == Block::RAIL_POWERED
     {
         flag1 = (i1 & 8) != 0;
         flag2 = !flag1;
@@ -868,11 +868,11 @@ pub const CLASS: EntityClass = EntityClass {
                 1 =>
                 {
                     dropCargo(this);
-                    this.dropItemWithOffset(Block::chest().m_blockID, 1, 0.0);
+                    this.dropItemWithOffset(Block::CHEST, 1, 0.0);
                 }
                 2 =>
                 {
-                    this.dropItemWithOffset(Block::stoneOvenIdle().m_blockID, 1, 0.0);
+                    this.dropItemWithOffset(Block::STONE_OVEN_IDLE, 1, 0.0);
                 }
                 _ =>
                 {}

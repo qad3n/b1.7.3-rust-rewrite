@@ -446,9 +446,7 @@ impl World
                     for i2 in i1..j1
                     {
                         let j2: i32 = self.getBlockId(k1, l1, i2);
-                        if j2 == Block::fire().m_blockID
-                            || j2 == Block::lavaMoving().m_blockID
-                            || j2 == Block::lavaStill().m_blockID
+                        if j2 == Block::FIRE || j2 == Block::LAVA_MOVING || j2 == Block::LAVA_STILL
                         {
                             return true;
                         }
@@ -621,7 +619,7 @@ impl World
             5 => x += 1,
             _ => (),
         }
-        if self.getBlockId(x, y, z) == Block::fire().m_blockID
+        if self.getBlockId(x, y, z) == Block::FIRE
         {
             self.doEventFrom(player, 1004, x, y, z, 0);
             self.setBlockWithNotify(x, y, z, 0);

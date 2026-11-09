@@ -252,11 +252,11 @@ fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32,
 fn blockBlocksFlow(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
     let n: i32 = world.getBlockId(x, y, z);
-    if n == Block::doorWood().m_blockID
-        || n == Block::doorSteel().m_blockID
-        || n == Block::signPost().m_blockID
-        || n == Block::ladder().m_blockID
-        || n == Block::reed().m_blockID
+    if n == Block::DOOR_WOOD
+        || n == Block::DOOR_STEEL
+        || n == Block::SIGN_POST
+        || n == Block::LADDER
+        || n == Block::REED
     {
         return true;
     }

@@ -136,16 +136,16 @@ impl ChunkProviderGenerate
                                 {
                                     if d17 < 0.5 && i1 * 8 + j1 >= b1 - 1
                                     {
-                                        j2 = Block::ice().m_blockID;
+                                        j2 = Block::ICE;
                                     }
                                     else
                                     {
-                                        j2 = Block::waterStill().m_blockID;
+                                        j2 = Block::WATER_STILL;
                                     }
                                 }
                                 if d15 > 0.0
                                 {
-                                    j2 = Block::stone().m_blockID;
+                                    j2 = Block::STONE;
                                 }
                                 blocks[l1 as usize] = j2 as i8;
                                 l1 += short1;
@@ -193,8 +193,8 @@ impl ChunkProviderGenerate
             d0 * 2.0,
             d0 * 2.0,
         );
-        let stone: i32 = Block::stone().m_blockID;
-        let sand: i32 = Block::sand().m_blockID;
+        let stone: i32 = Block::STONE;
+        let sand: i32 = Block::SAND;
         for i in 0..16
         {
             for j in 0..16
@@ -211,7 +211,7 @@ impl ChunkProviderGenerate
                     let j1: usize = ((j * 16 + i) * 128 + i1) as usize;
                     if i1 <= 0 + self.m_rand.nextIntBounded(5)
                     {
-                        blocks[j1] = Block::bedrock().m_blockID as i8;
+                        blocks[j1] = Block::BEDROCK as i8;
                         continue;
                     }
                     let b3: i32 = blocks[j1] as i32;
@@ -238,7 +238,7 @@ impl ChunkProviderGenerate
                                 }
                                 if flag1
                                 {
-                                    b2 = Block::gravel().m_blockID as i8;
+                                    b2 = Block::GRAVEL as i8;
                                 }
                                 if flag
                                 {
@@ -251,7 +251,7 @@ impl ChunkProviderGenerate
                             }
                             if i1 < b0 && b1 == 0
                             {
-                                b1 = Block::waterStill().m_blockID as i8;
+                                b1 = Block::WATER_STILL as i8;
                             }
                             l = k;
                             blocks[j1] = if i1 >= b0 - 1 { b1 } else { b2 };
@@ -263,7 +263,7 @@ impl ChunkProviderGenerate
                             if l == 0 && b2 as i32 == sand
                             {
                                 l = self.m_rand.nextIntBounded(4);
-                                b2 = Block::sandStone().m_blockID as i8;
+                                b2 = Block::SAND_STONE as i8;
                             }
                         }
                     }
@@ -447,7 +447,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         let i1: i32 = i + rand.nextIntBounded(16) + 8;
         let j1: i32 = rand.nextIntBounded(128);
         let k1: i32 = j + rand.nextIntBounded(16) + 8;
-        WorldGenLakes::new(Block::waterStill().m_blockID).generate(world, rand, i1, j1, k1);
+        WorldGenLakes::new(Block::WATER_STILL).generate(world, rand, i1, j1, k1);
     }
     if rand.nextIntBounded(8) == 0
     {
@@ -456,7 +456,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         let j9: i32 = j + rand.nextIntBounded(16) + 8;
         if j6 < 64 || rand.nextIntBounded(10) == 0
         {
-            WorldGenLakes::new(Block::lavaStill().m_blockID).generate(world, rand, j3, j6, j9);
+            WorldGenLakes::new(Block::LAVA_STILL).generate(world, rand, j3, j6, j9);
         }
     }
     for _ in 0..8
@@ -474,13 +474,13 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         WorldGenClay::new(32).generate(world, rand, l6, l9, j12);
     }
     let ores: [(i32, i32, i32, i32); 7] = [
-        (Block::dirt().m_blockID, 32, 20, 128),
-        (Block::gravel().m_blockID, 32, 10, 128),
-        (Block::oreCoal().m_blockID, 16, 20, 128),
-        (Block::oreIron().m_blockID, 8, 20, 64),
-        (Block::oreGold().m_blockID, 8, 2, 32),
-        (Block::oreRedstone().m_blockID, 7, 8, 16),
-        (Block::oreDiamond().m_blockID, 7, 1, 16),
+        (Block::DIRT, 32, 20, 128),
+        (Block::GRAVEL, 32, 10, 128),
+        (Block::ORE_COAL, 16, 20, 128),
+        (Block::ORE_IRON, 8, 20, 64),
+        (Block::ORE_GOLD, 8, 2, 32),
+        (Block::ORE_REDSTONE, 7, 8, 16),
+        (Block::ORE_DIAMOND, 7, 1, 16),
     ];
     for (block, size, count, maxY) in ores
     {
@@ -496,7 +496,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         let l8: i32 = i + rand.nextIntBounded(16);
         let l11: i32 = rand.nextIntBounded(16) + rand.nextIntBounded(16);
         let j14: i32 = j + rand.nextIntBounded(16);
-        WorldGenMinable::new(Block::oreLapis().m_blockID, 6).generate(world, rand, l8, l11, j14);
+        WorldGenMinable::new(Block::ORE_LAPIS, 6).generate(world, rand, l8, l11, j14);
     }
 }
 
@@ -557,8 +557,7 @@ pub(super) fn populateTrees(
 
 pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<BiomeGenBase>, i: i32, j: i32)
 {
-    let flowers: [(i32, i32); 3] =
-        [(Block::plantRed().m_blockID, 2), (Block::mushroomBrown().m_blockID, 4), (Block::mushroomRed().m_blockID, 8)];
+    let flowers: [(i32, i32); 3] = [(Block::PLANT_RED, 2), (Block::MUSHROOM_BROWN, 4), (Block::MUSHROOM_RED, 8)];
     for (flower, chance) in flowers
     {
         if rand.nextIntBounded(chance) == 0
@@ -600,14 +599,14 @@ pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<B
         let l21: i32 = i + rand.nextIntBounded(16) + 8;
         let j23: i32 = rand.nextIntBounded(rand.nextIntBounded(120) + 8);
         let j24: i32 = j + rand.nextIntBounded(16) + 8;
-        WorldGenLiquids::new(Block::waterMoving().m_blockID).generate(world, rand, l21, j23, j24);
+        WorldGenLiquids::new(Block::WATER_MOVING).generate(world, rand, l21, j23, j24);
     }
     for _ in 0..20
     {
         let i22: i32 = i + rand.nextIntBounded(16) + 8;
         let k23: i32 = rand.nextIntBounded(rand.nextIntBounded(rand.nextIntBounded(112) + 8) + 8);
         let k24: i32 = j + rand.nextIntBounded(16) + 8;
-        WorldGenLiquids::new(Block::lavaMoving().m_blockID).generate(world, rand, i22, k23, k24);
+        WorldGenLiquids::new(Block::LAVA_MOVING).generate(world, rand, i22, k23, k24);
     }
 }
 
@@ -630,7 +629,7 @@ pub(super) fn populateSnow(world: &Rc<World>, temperatures: &Field<Option<Vec<f6
                 && world.getBlockMaterial(k19, i3 - 1, j22).getIsSolid()
                 && !Rc::ptr_eq(&world.getBlockMaterial(k19, i3 - 1, j22), &Material::ice())
             {
-                world.setBlockWithNotify(k19, i3, j22, Block::snow().m_blockID);
+                world.setBlockWithNotify(k19, i3, j22, Block::SNOW);
             }
         }
     }
@@ -697,7 +696,7 @@ impl IChunkProvider for ChunkProviderGenerate
             let i15: i32 = i + rand.nextIntBounded(16) + 8;
             let i17: i32 = rand.nextIntBounded(128);
             let j2: i32 = j + rand.nextIntBounded(16) + 8;
-            WorldGenFlowers::new(Block::plantYellow().m_blockID).generate(world, rand, i15, i17, j2);
+            WorldGenFlowers::new(Block::PLANT_YELLOW).generate(world, rand, i15, i17, j2);
         }
         let mut b1: i32 = 0;
         if is(BiomeGenBase::forest())
@@ -730,7 +729,7 @@ impl IChunkProvider for ChunkProviderGenerate
             let l19: i32 = i + rand.nextIntBounded(16) + 8;
             let k2: i32 = rand.nextIntBounded(128);
             let l2: i32 = j + rand.nextIntBounded(16) + 8;
-            WorldGenTallGrass::new(Block::tallGrass().m_blockID, b3).generate(world, rand, l19, k2, l2);
+            WorldGenTallGrass::new(Block::TALL_GRASS, b3).generate(world, rand, l19, k2, l2);
         }
         b1 = 0;
         if is(BiomeGenBase::desert())
@@ -742,7 +741,7 @@ impl IChunkProvider for ChunkProviderGenerate
             let j17: i32 = i + rand.nextIntBounded(16) + 8;
             let i20: i32 = rand.nextIntBounded(128);
             let k22: i32 = j + rand.nextIntBounded(16) + 8;
-            WorldGenDeadBush::new(Block::deadBush().m_blockID).generate(world, rand, j17, i20, k22);
+            WorldGenDeadBush::new(Block::DEAD_BUSH).generate(world, rand, j17, i20, k22);
         }
         populateDecorations(world, rand, &biome, i, j);
         populateSnow(world, &self.m_generatedTemperatures, i, j);

@@ -249,7 +249,7 @@ impl Pathfinder
                     {
                         continue;
                     }
-                    if l != Block::doorSteel().m_blockID && l != Block::doorWood().m_blockID
+                    if l != Block::DOOR_STEEL && l != Block::DOOR_WOOD
                     {
                         let material: Rc<Material> = Rc::clone(&Block::byId(l).orNpe().m_blockMaterial);
                         if material.getIsSolid()

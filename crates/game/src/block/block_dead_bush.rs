@@ -4,7 +4,7 @@ use std::rc::Rc;
 pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockDeadBush",
     m_parent: Some(&block_flower::CLASS),
-    canThisPlantGrowOnThisBlockID: |_, block| block == Block::sand().m_blockID,
+    canThisPlantGrowOnThisBlockID: |_, block| block == Block::SAND,
     getBlockTextureFromSideAndMetadata: |this, _, _| this.m_blockIndexInTexture.get(),
     idDropped: |_, _, _| -1,
     ..block_flower::CLASS

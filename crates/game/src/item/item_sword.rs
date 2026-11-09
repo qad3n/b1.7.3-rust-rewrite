@@ -13,7 +13,7 @@ pub const CLASS: ItemClass = ItemClass {
     m_name: "ItemSword",
     m_parent: Some(&ITEM),
     getStrVsBlock: |_, _, block| {
-        if block.m_blockID == Block::web().m_blockID
+        if block.m_blockID == Block::WEB
         {
             return 15.0;
         }
@@ -29,7 +29,7 @@ pub const CLASS: ItemClass = ItemClass {
     },
     getDamageVsEntity: |this, _| this.ext::<SwordExt>().m_weaponDamage,
     isFull3D: |_| true,
-    canHarvestBlock: |_, block| block.m_blockID == Block::web().m_blockID,
+    canHarvestBlock: |_, block| block.m_blockID == Block::WEB,
     ..ITEM
 };
 

@@ -487,7 +487,7 @@ impl RenderBlocks
         d1 = (((k + 16) as f32 + 15.99) / 256.0) as f64;
         d2 = (l as f32 / 256.0) as f64;
         d3 = ((l as f32 + 15.99) / 256.0) as f64;
-        let wireId: i32 = Block::redstoneWire().m_blockID;
+        let wireId: i32 = Block::REDSTONE_WIRE;
         let high: f64 = ((y + 1) as f32 + 0.021875) as f64;
         let low: f64 = y as f64;
         let w = |x: f64, y: f64, z: f64, u: f64, t: f64| tessellator.addVertexWithUV(x, y, z, u, t);

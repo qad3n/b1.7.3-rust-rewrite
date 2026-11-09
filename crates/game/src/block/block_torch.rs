@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 fn canSitOnTop(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
-    world.isBlockNormalCube(x, y, z) || world.getBlockId(x, y, z) == Block::fence().m_blockID
+    world.isBlockNormalCube(x, y, z) || world.getBlockId(x, y, z) == Block::FENCE
 }
 
 fn canPlaceBlockAt(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool

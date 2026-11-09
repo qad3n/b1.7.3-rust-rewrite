@@ -41,7 +41,7 @@ pub const CLASS: ItemClass = ItemClass {
                 1.0,
                 Item::itemRand().nextFloat() * 0.4 + 0.8,
             );
-            world.setBlockWithNotify(x, y, z, Block::fire().m_blockID);
+            world.setBlockWithNotify(x, y, z, Block::FIRE);
         }
         stack.damageItem(1, player);
         true

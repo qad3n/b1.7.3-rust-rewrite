@@ -6,7 +6,7 @@ pub const CLASS: ItemClass = ItemClass {
     m_name: "ItemRedstone",
     m_parent: Some(&ITEM),
     onItemUse: |_, stack, _, world, mut x, mut y, mut z, face| {
-        if world.getBlockId(x, y, z) != Block::snow().m_blockID
+        if world.getBlockId(x, y, z) != Block::SNOW
         {
             if face == 0
             {
@@ -40,7 +40,7 @@ pub const CLASS: ItemClass = ItemClass {
         if Block::redstoneWire().canPlaceBlockAt(world, x, y, z)
         {
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
-            world.setBlockWithNotify(x, y, z, Block::redstoneWire().m_blockID);
+            world.setBlockWithNotify(x, y, z, Block::REDSTONE_WIRE);
         }
         true
     },

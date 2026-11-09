@@ -111,10 +111,10 @@ impl WorldGenerator for WorldGenDungeons
                         }
                         if n2 == y - 1 && random.nextIntBounded(4) != 0
                         {
-                            world.setBlockWithNotify(n3, n2, n, Block::cobblestoneMossy().m_blockID);
+                            world.setBlockWithNotify(n3, n2, n, Block::COBBLESTONE_MOSSY);
                             continue;
                         }
-                        world.setBlockWithNotify(n3, n2, n, Block::cobblestone().m_blockID);
+                        world.setBlockWithNotify(n3, n2, n, Block::COBBLESTONE);
                         continue;
                     }
                     world.setBlockWithNotify(n3, n2, n, 0);
@@ -153,7 +153,7 @@ impl WorldGenerator for WorldGenDungeons
                 {
                     continue;
                 }
-                world.setBlockWithNotify(n, n9, n8, Block::chest().m_blockID);
+                world.setBlockWithNotify(n, n9, n8, Block::CHEST);
                 let chest: Rc<TileEntity> = world.getBlockTileEntity(n, n9, n8).orNpe();
                 for _ in 0..8
                 {
@@ -167,7 +167,7 @@ impl WorldGenerator for WorldGenDungeons
                 continue 'chests;
             }
         }
-        world.setBlockWithNotify(x, y, z, Block::mobSpawner().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::MOB_SPAWNER);
         let spawner: Rc<TileEntity> = world.getBlockTileEntity(x, y, z).orNpe();
         tile_entity_mob_spawner::setMobID(&spawner, Some(JString::from(self.pickMobSpawner(random))));
         true

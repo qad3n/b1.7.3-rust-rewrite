@@ -22,7 +22,7 @@ fn updateTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rand
     }
     else if !isCropsNearby(world, x, y, z)
     {
-        world.setBlockWithNotify(x, y, z, Block::dirt().m_blockID);
+        world.setBlockWithNotify(x, y, z, Block::DIRT);
     }
 }
 
@@ -33,7 +33,7 @@ fn isCropsNearby(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
     {
         for j in (z - n)..=(z + n)
         {
-            if world.getBlockId(i, y + 1, j) == Block::crops().m_blockID
+            if world.getBlockId(i, y + 1, j) == Block::CROPS
             {
                 return true;
             }
@@ -91,14 +91,14 @@ pub const CLASS: BlockClass = BlockClass {
     onEntityWalking: |_, world, x, y, z, _| {
         if world.m_rand.nextIntBounded(4) == 0
         {
-            world.setBlockWithNotify(x, y, z, Block::dirt().m_blockID);
+            world.setBlockWithNotify(x, y, z, Block::DIRT);
         }
     },
     onNeighborBlockChange: |this, world, x, y, z, neighborBlock| {
         (BLOCK.onNeighborBlockChange)(this, world, x, y, z, neighborBlock);
         if world.getBlockMaterial(x, y + 1, z).isSolid()
         {
-            world.setBlockWithNotify(x, y, z, Block::dirt().m_blockID);
+            world.setBlockWithNotify(x, y, z, Block::DIRT);
         }
     },
     idDropped: |_, _, random| Block::dirt().idDropped(0, random),

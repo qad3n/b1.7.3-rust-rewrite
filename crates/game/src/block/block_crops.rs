@@ -46,7 +46,7 @@ fn getGrowthRate(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) ->
         {
             let n9: i32 = world.getBlockId(i, y - 1, j);
             let mut f2: f32 = 0.0;
-            if n9 == Block::tilledField().m_blockID
+            if n9 == Block::TILLED_FIELD
             {
                 f2 = 1.0;
                 if world.getBlockMetadata(i, y - 1, j) > 0
@@ -100,7 +100,7 @@ fn dropBlockAsItemWithChance(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32
 pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockCrops",
     m_parent: Some(&block_flower::CLASS),
-    canThisPlantGrowOnThisBlockID: |_, block| block == Block::tilledField().m_blockID,
+    canThisPlantGrowOnThisBlockID: |_, block| block == Block::TILLED_FIELD,
     updateTick,
     getBlockTextureFromSideAndMetadata: |this, _, metadata| {
         let metadata: i32 = if metadata < 0 { 7 } else { metadata };

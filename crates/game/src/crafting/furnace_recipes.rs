@@ -23,16 +23,16 @@ impl FurnaceRecipes
     fn new() -> FurnaceRecipes
     {
         let recipes: FurnaceRecipes = FurnaceRecipes { m_smeltingList: RefCell::new(JHashMap::new()) };
-        recipes.addSmelting(Block::oreIron().m_blockID, ItemStack::withItem(&Item::ingotIron()));
-        recipes.addSmelting(Block::oreGold().m_blockID, ItemStack::withItem(&Item::ingotGold()));
-        recipes.addSmelting(Block::oreDiamond().m_blockID, ItemStack::withItem(&Item::diamond()));
-        recipes.addSmelting(Block::sand().m_blockID, ItemStack::withBlock(&Block::glass()));
+        recipes.addSmelting(Block::ORE_IRON, ItemStack::withItem(&Item::ingotIron()));
+        recipes.addSmelting(Block::ORE_GOLD, ItemStack::withItem(&Item::ingotGold()));
+        recipes.addSmelting(Block::ORE_DIAMOND, ItemStack::withItem(&Item::diamond()));
+        recipes.addSmelting(Block::SAND, ItemStack::withBlock(&Block::glass()));
         recipes.addSmelting(Item::porkRaw().m_shiftedIndex, ItemStack::withItem(&Item::porkCooked()));
         recipes.addSmelting(Item::fishRaw().m_shiftedIndex, ItemStack::withItem(&Item::fishCooked()));
-        recipes.addSmelting(Block::cobblestone().m_blockID, ItemStack::withBlock(&Block::stone()));
+        recipes.addSmelting(Block::COBBLESTONE, ItemStack::withBlock(&Block::stone()));
         recipes.addSmelting(Item::clay().m_shiftedIndex, ItemStack::withItem(&Item::brick()));
-        recipes.addSmelting(Block::cactus().m_blockID, ItemStack::withItemDamage(&Item::dyePowder(), 1, 2));
-        recipes.addSmelting(Block::wood().m_blockID, ItemStack::withItemDamage(&Item::coal(), 1, 1));
+        recipes.addSmelting(Block::CACTUS, ItemStack::withItemDamage(&Item::dyePowder(), 1, 2));
+        recipes.addSmelting(Block::WOOD, ItemStack::withItemDamage(&Item::coal(), 1, 1));
         recipes
     }
 

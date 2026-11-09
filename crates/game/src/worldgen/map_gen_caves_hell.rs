@@ -32,11 +32,11 @@ fn carveTunnel(
     widthHeightRatio: f64,
 )
 {
-    let lavaMoving: i32 = Block::lavaMoving().m_blockID;
-    let lavaStill: i32 = Block::lavaStill().m_blockID;
-    let netherrack: i32 = Block::netherrack().m_blockID;
-    let dirt: i32 = Block::dirt().m_blockID;
-    let grass: i32 = Block::grass().m_blockID;
+    let lavaMoving: i32 = Block::LAVA_MOVING;
+    let lavaStill: i32 = Block::LAVA_STILL;
+    let netherrack: i32 = Block::NETHERRACK;
+    let dirt: i32 = Block::DIRT;
+    let grass: i32 = Block::GRASS;
     let d0: f64 = (chunkX * 16 + 8) as f64;
     let d1: f64 = (chunkZ * 16 + 8) as f64;
     let mut f: f32 = 0.0f32;

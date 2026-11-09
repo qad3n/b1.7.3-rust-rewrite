@@ -27,7 +27,7 @@ fn onBlockRemoval(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, m
     y += Y_OFFSET[j];
     z += Z_OFFSET[j];
     let k: i32 = world.getBlockId(x, y, z);
-    if k == Block::pistonBase().m_blockID || k == Block::pistonStickyBase().m_blockID
+    if k == Block::PISTON_BASE || k == Block::PISTON_STICKY_BASE
     {
         i = world.getBlockMetadata(x, y, z);
         if block_piston_base::isPowered(i)
@@ -133,7 +133,7 @@ fn onNeighborBlockChange(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z
 {
     let i: usize = getFacing(world.getBlockMetadata(x, y, z)) as usize;
     let j: i32 = world.getBlockId(x - X_OFFSET[i], y - Y_OFFSET[i], z - Z_OFFSET[i]);
-    if j != Block::pistonBase().m_blockID && j != Block::pistonStickyBase().m_blockID
+    if j != Block::PISTON_BASE && j != Block::PISTON_STICKY_BASE
     {
         world.setBlockWithNotify(x, y, z, 0);
     }

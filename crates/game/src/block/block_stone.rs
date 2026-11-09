@@ -1,12 +1,8 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
-    m_name: "BlockStone",
-    m_parent: Some(&BLOCK),
-    idDropped: |_, _, _| Block::cobblestone().m_blockID,
-    ..BLOCK
-};
+pub const CLASS: BlockClass =
+    BlockClass { m_name: "BlockStone", m_parent: Some(&BLOCK), idDropped: |_, _, _| Block::COBBLESTONE, ..BLOCK };
 
 pub fn construct(class: &'static BlockClass, id: i32, sprite: i32) -> Rc<Block>
 {

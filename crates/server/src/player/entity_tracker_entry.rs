@@ -427,11 +427,11 @@ impl EntityTrackerEntry
         if tracked.instanceOf("EntityFallingSand")
         {
             let blockID: i32 = entity_falling_sand::fields(tracked).m_blockID.get();
-            if blockID == Block::sand().m_blockID
+            if blockID == Block::SAND
             {
                 return Box::new(Packet23VehicleSpawn::new(tracked, 70));
             }
-            if blockID == Block::gravel().m_blockID
+            if blockID == Block::GRAVEL
             {
                 return Box::new(Packet23VehicleSpawn::new(tracked, 71));
             }

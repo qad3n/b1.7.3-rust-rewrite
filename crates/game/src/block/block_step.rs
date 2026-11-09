@@ -57,13 +57,13 @@ pub const CLASS: BlockClass = BlockClass {
         {
             return;
         }
-        if n2 == Block::stairSingle().m_blockID
+        if n2 == Block::STAIR_SINGLE
         {
             world.setBlockWithNotify(x, y, z, 0);
-            world.setBlockAndMetadataWithNotify(x, y - 1, z, Block::stairDouble().m_blockID, n3);
+            world.setBlockAndMetadataWithNotify(x, y - 1, z, Block::STAIR_DOUBLE, n3);
         }
     },
-    idDropped: |_, _, _| Block::stairSingle().m_blockID,
+    idDropped: |_, _, _| Block::STAIR_SINGLE,
     quantityDropped: |this, _| if blockType(this) { 2 } else { 1 },
     damageDropped: |_, metadata| metadata,
     renderAsNormalBlock: |this| blockType(this),

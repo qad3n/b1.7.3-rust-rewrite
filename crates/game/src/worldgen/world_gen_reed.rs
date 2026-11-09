@@ -28,7 +28,7 @@ impl WorldGenerator for WorldGenReed
                 {
                     if Block::reed().canBlockStay(world, j, k + j1, l)
                     {
-                        world.setBlock(j, k + j1, l, Block::reed().m_blockID);
+                        world.setBlock(j, k + j1, l, Block::REED);
                     }
                 }
             }

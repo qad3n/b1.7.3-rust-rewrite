@@ -157,7 +157,7 @@ pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockDispenser",
     m_parent: Some(&block_container::CLASS),
     tickRate: |_| 4,
-    idDropped: |_, _, _| Block::dispenser().m_blockID,
+    idDropped: |_, _, _| Block::DISPENSER,
     onBlockAdded: |this, world, x, y, z| {
         (block_container::CLASS.onBlockAdded)(this, world, x, y, z);
         setDispenserDefaultDirection(world, x, y, z);

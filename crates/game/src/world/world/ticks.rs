@@ -189,14 +189,14 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
                     && k6 == 0
                     && Block::snow().canPlaceBlockAt(this, i4 + i2, k5, l4 + j2)
                     && i6 != 0
-                    && i6 != Block::ice().m_blockID
+                    && i6 != Block::ICE
                     && Block::byId(i6).orNpe().m_blockMaterial.getIsSolid()
                 {
-                    this.setBlockWithNotify(i4 + i2, k5, l4 + j2, Block::snow().m_blockID);
+                    this.setBlockWithNotify(i4 + i2, k5, l4 + j2, Block::SNOW);
                 }
-                if i6 == Block::waterStill().m_blockID && chunk.getBlockMetadata(i4, k5 - 1, l4) == 0
+                if i6 == Block::WATER_STILL && chunk.getBlockMetadata(i4, k5 - 1, l4) == 0
                 {
-                    this.setBlockWithNotify(i4 + i2, k5 - 1, l4 + j2, Block::ice().m_blockID);
+                    this.setBlockWithNotify(i4 + i2, k5 - 1, l4 + j2, Block::ICE);
                 }
             }
         }

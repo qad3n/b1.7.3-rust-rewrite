@@ -226,7 +226,7 @@ fn getItemBurnTime(item: Option<Rc<ItemStack>>) -> i32
     {
         return 20000;
     }
-    if n == Block::sapling().m_blockID
+    if n == Block::SAPLING
     {
         return 100;
     }

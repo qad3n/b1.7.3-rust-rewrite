@@ -48,7 +48,7 @@ fn onCraftGuiClosed(this: &Rc<Container>, player: &Rc<Entity>)
 fn isUsableByPlayer(this: &Rc<Container>, player: &Rc<Entity>) -> bool
 {
     let ext: &WorkbenchExt = fields(this);
-    if ext.m_world.getBlockId(ext.m_x, ext.m_y, ext.m_z) != Block::workbench().m_blockID
+    if ext.m_world.getBlockId(ext.m_x, ext.m_y, ext.m_z) != Block::WORKBENCH
     {
         return false;
     }

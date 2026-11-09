@@ -121,7 +121,7 @@ impl ChunkProviderSky
                                 let mut n7: i32 = 0;
                                 if d16 > 0.0
                                 {
-                                    n7 = Block::stone().m_blockID;
+                                    n7 = Block::STONE;
                                 }
                                 blocks[n5 as usize] = n7 as i8;
                                 n5 += n6;
@@ -172,8 +172,8 @@ impl ChunkProviderSky
             d0 * 2.0,
             d0 * 2.0,
         );
-        let stone: i32 = Block::stone().m_blockID;
-        let sand: i32 = Block::sand().m_blockID;
+        let stone: i32 = Block::STONE;
+        let sand: i32 = Block::SAND;
         for i in 0..16
         {
             for j in 0..16
@@ -211,7 +211,7 @@ impl ChunkProviderSky
                             if l == 0 && b1 as i32 == sand
                             {
                                 l = self.m_random.nextIntBounded(4);
-                                b1 = Block::sandStone().m_blockID as i8;
+                                b1 = Block::SAND_STONE as i8;
                             }
                         }
                     }
@@ -405,7 +405,7 @@ impl IChunkProvider for ChunkProviderSky
             let l15: i32 = i + random.nextIntBounded(16) + 8;
             let j18: i32 = random.nextIntBounded(128);
             let l20: i32 = j + random.nextIntBounded(16) + 8;
-            WorldGenFlowers::new(Block::plantYellow().m_blockID).generate(world, random, l15, j18, l20);
+            WorldGenFlowers::new(Block::PLANT_YELLOW).generate(world, random, l15, j18, l20);
         }
         populateDecorations(world, random, &biome, i, j);
         populateSnow(world, &self.m_temperatures, i, j);

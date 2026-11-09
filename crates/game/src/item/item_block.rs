@@ -24,7 +24,7 @@ fn onItemUse(
 ) -> bool
 {
     let id: i32 = blockID(this);
-    if world.getBlockId(x, y, z) == Block::snow().m_blockID
+    if world.getBlockId(x, y, z) == Block::SNOW
     {
         face = 0;
     }

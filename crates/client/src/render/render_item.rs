@@ -245,9 +245,7 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
         this.loadTexture("/terrain.png");
         let block: Rc<Block> = Block::byId(itemID).orNpe();
         let mut f5: f32 = 0.25;
-        if !block.renderAsNormalBlock()
-            && itemID != Block::stairSingle().m_blockID
-            && block.getRenderType() != PISTON_RENDER_TYPE
+        if !block.renderAsNormalBlock() && itemID != Block::STAIR_SINGLE && block.getRenderType() != PISTON_RENDER_TYPE
         {
             f5 = 0.5;
         }

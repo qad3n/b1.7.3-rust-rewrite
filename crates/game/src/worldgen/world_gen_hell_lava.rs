@@ -19,7 +19,7 @@ impl WorldGenerator for WorldGenHellLava
 {
     fn generate(&self, world: &Rc<World>, random: &Random, x: i32, y: i32, z: i32) -> bool
     {
-        let netherrack: i32 = Block::netherrack().m_blockID;
+        let netherrack: i32 = Block::NETHERRACK;
         if world.getBlockId(x, y + 1, z) != netherrack
         {
             return false;

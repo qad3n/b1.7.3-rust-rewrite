@@ -244,11 +244,11 @@ fn checkForHarden(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
         let n: i32 = world.getBlockMetadata(x, y, z);
         if n == 0
         {
-            world.setBlockWithNotify(x, y, z, Block::obsidian().m_blockID);
+            world.setBlockWithNotify(x, y, z, Block::OBSIDIAN);
         }
         else if n <= 4
         {
-            world.setBlockWithNotify(x, y, z, Block::cobblestone().m_blockID);
+            world.setBlockWithNotify(x, y, z, Block::COBBLESTONE);
         }
         triggerLavaMixEffects(world, x, y, z);
     }

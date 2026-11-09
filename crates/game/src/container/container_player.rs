@@ -28,7 +28,7 @@ const ARMOR_SLOT: SlotClass = SlotClass {
         {
             item_armor::fields(&item.getItem()).m_armorType == j1
         }
-        else if item.getItem().m_shiftedIndex == Block::pumpkin().m_blockID
+        else if item.getItem().m_shiftedIndex == Block::PUMPKIN
         {
             j1 == 0
         }

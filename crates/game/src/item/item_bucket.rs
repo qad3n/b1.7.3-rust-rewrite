@@ -72,7 +72,7 @@ fn onItemRightClick(
             }
             if world.isAirBlock(i, j, k) || !world.getBlockMaterial(i, j, k).isSolid()
             {
-                if world.worldProvider().m_isHellWorld.get() && isFull == Block::waterMoving().m_blockID
+                if world.worldProvider().m_isHellWorld.get() && isFull == Block::WATER_MOVING
                 {
                     world.playSoundEffect(
                         d0 + 0.5,

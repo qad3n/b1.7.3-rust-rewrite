@@ -32,12 +32,12 @@ fn releaseEntitySkin(
     widthHeightRatio: f64,
 )
 {
-    let waterMoving: i32 = Block::waterMoving().m_blockID;
-    let waterStill: i32 = Block::waterStill().m_blockID;
-    let grass: i32 = Block::grass().m_blockID;
-    let stone: i32 = Block::stone().m_blockID;
-    let dirt: i32 = Block::dirt().m_blockID;
-    let lavaMoving: i32 = Block::lavaMoving().m_blockID;
+    let waterMoving: i32 = Block::WATER_MOVING;
+    let waterStill: i32 = Block::WATER_STILL;
+    let grass: i32 = Block::GRASS;
+    let stone: i32 = Block::STONE;
+    let dirt: i32 = Block::DIRT;
+    let lavaMoving: i32 = Block::LAVA_MOVING;
     let d0: f64 = (chunkX * 16 + 8) as f64;
     let d1: f64 = (chunkZ * 16 + 8) as f64;
     let mut f: f32 = 0.0f32;

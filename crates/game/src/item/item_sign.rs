@@ -44,11 +44,11 @@ pub const CLASS: ItemClass = ItemClass {
         {
             let rotation: i32 =
                 math_helper::floor_double(((player.m_rotationYaw.get() + 180.0) * 16.0 / 360.0) as f64 + 0.5) & 0xF;
-            world.setBlockAndMetadataWithNotify(x, y, z, Block::signPost().m_blockID, rotation);
+            world.setBlockAndMetadataWithNotify(x, y, z, Block::SIGN_POST, rotation);
         }
         else
         {
-            world.setBlockAndMetadataWithNotify(x, y, z, Block::signWall().m_blockID, face);
+            world.setBlockAndMetadataWithNotify(x, y, z, Block::SIGN_WALL, face);
         }
         stack.m_stackSize.set(stack.m_stackSize.get() - 1);
         if let Some(tileEntitySign) = TileEntity::castNullable(world.getBlockTileEntity(x, y, z), "TileEntitySign")

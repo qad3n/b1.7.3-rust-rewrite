@@ -13,10 +13,7 @@ pub struct WorldGenClay
 
 impl WorldGenClay
 {
-    pub fn new(size: i32) -> WorldGenClay
-    {
-        WorldGenClay { m_clayBlockId: Block::blockClay().m_blockID, m_numberOfBlocks: size }
-    }
+    pub fn new(size: i32) -> WorldGenClay { WorldGenClay { m_clayBlockId: Block::BLOCK_CLAY, m_numberOfBlocks: size } }
 }
 
 impl WorldGenerator for WorldGenClay
@@ -61,7 +58,7 @@ impl WorldGenerator for WorldGenClay
                         if d12 * d12 + d13 * d13 + d14 * d14 < 1.0
                         {
                             let k2: i32 = world.getBlockId(l1, i2, j2);
-                            if k2 == Block::sand().m_blockID
+                            if k2 == Block::SAND
                             {
                                 world.setBlock(l1, i2, j2, self.m_clayBlockId);
                             }

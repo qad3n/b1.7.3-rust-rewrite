@@ -112,8 +112,7 @@ fn settle(this: &Rc<TileEntity>)
     let world: Rc<World> = this.world();
     world.removeBlockTileEntity(this.m_xCoord.get(), this.m_yCoord.get(), this.m_zCoord.get());
     this.markRemoved();
-    if world.getBlockId(this.m_xCoord.get(), this.m_yCoord.get(), this.m_zCoord.get())
-        == Block::pistonMoving().m_blockID
+    if world.getBlockId(this.m_xCoord.get(), this.m_yCoord.get(), this.m_zCoord.get()) == Block::PISTON_MOVING
     {
         world.setBlockAndMetadataWithNotify(
             this.m_xCoord.get(),

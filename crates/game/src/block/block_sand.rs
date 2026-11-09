@@ -49,7 +49,7 @@ fn tryToFall(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 pub fn canFallBelow(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
     let n: i32 = world.getBlockId(x, y, z);
-    if n == 0 || n == Block::fire().m_blockID
+    if n == 0 || n == Block::FIRE
     {
         return true;
     }

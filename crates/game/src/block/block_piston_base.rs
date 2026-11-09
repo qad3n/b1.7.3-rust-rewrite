@@ -176,7 +176,7 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
         {
             tile_entity_piston::finish(&tileEntity);
         }
-        world.setBlockAndMetadata(x, y, z, Block::pistonMoving().m_blockID, n);
+        world.setBlockAndMetadata(x, y, z, Block::PISTON_MOVING, n);
         world.setBlockTileEntity(
             x,
             y,
@@ -191,7 +191,7 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
             let mut n5: i32 = world.getBlockId(n2, n3, n4);
             let mut n6: i32 = world.getBlockMetadata(n2, n3, n4);
             let mut bl: bool = false;
-            if n5 == Block::pistonMoving().m_blockID
+            if n5 == Block::PISTON_MOVING
                 && let Some(tileEntityPiston) = asPiston(world.getBlockTileEntity(n2, n3, n4))
                 && tile_entity_piston::getFacing(&tileEntityPiston) == n
                 && tile_entity_piston::isExtending(&tileEntityPiston)
@@ -205,8 +205,8 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
                 && n5 > 0
                 && canPushBlock(n5, world, n2, n3, n4, false)
                 && (Block::byId(n5).orNpe().getMobilityFlag() == 0
-                    || n5 == Block::pistonBase().m_blockID
-                    || n5 == Block::pistonStickyBase().m_blockID)
+                    || n5 == Block::PISTON_BASE
+                    || n5 == Block::PISTON_STICKY_BASE)
             {
                 deaf.set(false);
                 world.setBlockWithNotify(n2, n3, n4, 0);
@@ -214,7 +214,7 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
                 x += X_OFFSET[dir];
                 y += Y_OFFSET[dir];
                 z += Z_OFFSET[dir];
-                world.setBlockAndMetadata(x, y, z, Block::pistonMoving().m_blockID, n6);
+                world.setBlockAndMetadata(x, y, z, Block::PISTON_MOVING, n6);
                 world.setBlockTileEntity(
                     x,
                     y,
@@ -311,11 +311,11 @@ fn getFacingForPlacement(_world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc
 
 fn canPushBlock(block: i32, world: &Rc<World>, x: i32, y: i32, z: i32, allowBreaking: bool) -> bool
 {
-    if block == Block::obsidian().m_blockID
+    if block == Block::OBSIDIAN
     {
         return false;
     }
-    if block == Block::pistonBase().m_blockID || block == Block::pistonStickyBase().m_blockID
+    if block == Block::PISTON_BASE || block == Block::PISTON_STICKY_BASE
     {
         if isPowered(world.getBlockMetadata(x, y, z))
         {
@@ -424,23 +424,17 @@ fn push(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -
         let n8: i32 = world.getBlockMetadata(n2, n, n6);
         if n7 == this.m_blockID && n2 == x && n == y && n6 == z
         {
-            world.setBlockAndMetadata(n3, n4, n5, Block::pistonMoving().m_blockID, dir | sticky);
+            world.setBlockAndMetadata(n3, n4, n5, Block::PISTON_MOVING, dir | sticky);
             world.setBlockTileEntity(
                 n3,
                 n4,
                 n5,
-                &block_piston_moving::createMovingBlockEntity(
-                    Block::pistonExtension().m_blockID,
-                    dir | sticky,
-                    dir,
-                    true,
-                    false,
-                ),
+                &block_piston_moving::createMovingBlockEntity(Block::PISTON_EXTENSION, dir | sticky, dir, true, false),
             );
         }
         else
         {
-            world.setBlockAndMetadata(n3, n4, n5, Block::pistonMoving().m_blockID, n8);
+            world.setBlockAndMetadata(n3, n4, n5, Block::PISTON_MOVING, n8);
             world.setBlockTileEntity(
                 n3,
                 n4,

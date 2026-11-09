@@ -180,28 +180,13 @@ impl Item
     {
         let set = |id: i32, item: Rc<Item>| register(id, &item);
         ensureInit();
-        set(
-            Block::cloth().m_blockID,
-            crate::item::item_cloth::create(Block::cloth().m_blockID - 256).setItemName("cloth"),
-        );
-        set(Block::wood().m_blockID, crate::item::item_log::create(Block::wood().m_blockID - 256).setItemName("log"));
-        set(
-            Block::stairSingle().m_blockID,
-            crate::item::item_slab::create(Block::stairSingle().m_blockID - 256).setItemName("stoneSlab"),
-        );
-        set(
-            Block::sapling().m_blockID,
-            crate::item::item_sapling::create(Block::sapling().m_blockID - 256).setItemName("sapling"),
-        );
-        set(
-            Block::leaves().m_blockID,
-            crate::item::item_leaves::create(Block::leaves().m_blockID - 256).setItemName("leaves"),
-        );
-        set(Block::pistonBase().m_blockID, crate::item::item_piston::create(Block::pistonBase().m_blockID - 256));
-        set(
-            Block::pistonStickyBase().m_blockID,
-            crate::item::item_piston::create(Block::pistonStickyBase().m_blockID - 256),
-        );
+        set(Block::CLOTH, crate::item::item_cloth::create(Block::CLOTH - 256).setItemName("cloth"));
+        set(Block::WOOD, crate::item::item_log::create(Block::WOOD - 256).setItemName("log"));
+        set(Block::STAIR_SINGLE, crate::item::item_slab::create(Block::STAIR_SINGLE - 256).setItemName("stoneSlab"));
+        set(Block::SAPLING, crate::item::item_sapling::create(Block::SAPLING - 256).setItemName("sapling"));
+        set(Block::LEAVES, crate::item::item_leaves::create(Block::LEAVES - 256).setItemName("leaves"));
+        set(Block::PISTON_BASE, crate::item::item_piston::create(Block::PISTON_BASE - 256));
+        set(Block::PISTON_STICKY_BASE, crate::item::item_piston::create(Block::PISTON_STICKY_BASE - 256));
         for i in 0..256
         {
             let Some(block) = Block::byId(i)
@@ -261,7 +246,7 @@ fn initItems()
     crate::item::item_hoe::create(36, EnumToolMaterial::Iron).setIconCoord(2, 8).setItemName("hoeIron");
     crate::item::item_hoe::create(37, EnumToolMaterial::Emerald).setIconCoord(3, 8).setItemName("hoeDiamond");
     crate::item::item_hoe::create(38, EnumToolMaterial::Gold).setIconCoord(4, 8).setItemName("hoeGold");
-    crate::item::item_seeds::create(39, Block::crops().m_blockID).setIconCoord(9, 0).setItemName("seeds");
+    crate::item::item_seeds::create(39, Block::CROPS).setIconCoord(9, 0).setItemName("seeds");
     Item::basic(40).setIconCoord(9, 1).setItemName("wheat");
     crate::item::item_food::create(41, 5, false).setIconCoord(9, 2).setItemName("bread");
     crate::item::item_armor::create(42, 0, 0, 0).setIconCoord(0, 0).setItemName("helmetCloth");
@@ -292,11 +277,11 @@ fn initItems()
     crate::item::item_sign::create(67).setIconCoord(10, 2).setItemName("sign");
     crate::item::item_door::create(68, Material::wood()).setIconCoord(11, 2).setItemName("doorWood");
     crate::item::item_bucket::create(69, 0).setIconCoord(10, 4).setItemName("bucket");
-    crate::item::item_bucket::create(70, Block::waterMoving().m_blockID)
+    crate::item::item_bucket::create(70, Block::WATER_MOVING)
         .setIconCoord(11, 4)
         .setItemName("bucketWater")
         .setContainerItem(Some(Item::bucketEmpty()));
-    crate::item::item_bucket::create(71, Block::lavaMoving().m_blockID)
+    crate::item::item_bucket::create(71, Block::LAVA_MOVING)
         .setIconCoord(12, 4)
         .setItemName("bucketLava")
         .setContainerItem(Some(Item::bucketEmpty()));

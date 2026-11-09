@@ -162,7 +162,7 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
     if !world.m_multiplayerWorld.get() && shears
     {
         player.addStat(crate::stats::StatList::mineBlockStat(this.m_blockID).as_ref(), 1);
-        this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::leaves().m_blockID, 1, metadata & 3));
+        this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::LEAVES, 1, metadata & 3));
     }
     else
     {
@@ -184,7 +184,7 @@ pub const CLASS: BlockClass = BlockClass {
     onBlockRemoval,
     updateTick,
     quantityDropped: |_, random| if random.nextIntBounded(20) == 0 { 1 } else { 0 },
-    idDropped: |_, _, _| Block::sapling().m_blockID,
+    idDropped: |_, _, _| Block::SAPLING,
     harvestBlock,
     damageDropped: |_, metadata| metadata & 3,
     isOpaqueCube: |this| !ext(this).m_graphicsLevel.get(),

@@ -16,7 +16,7 @@ pub const CLASS: ItemClass = ItemClass {
             return false;
         }
         let n: i32 = world.getBlockId(x, y, z);
-        if n == Block::tilledField().m_blockID && world.isAirBlock(x, y + 1, z)
+        if n == Block::TILLED_FIELD && world.isAirBlock(x, y + 1, z)
         {
             world.setBlockWithNotify(x, y + 1, z, this.ext::<SeedsExt>().m_plantBlock);
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);

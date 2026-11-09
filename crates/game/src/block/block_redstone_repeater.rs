@@ -19,7 +19,7 @@ fn powered(this: &Block) -> bool { this.ext::<RepeaterExt>().m_isRepeaterPowered
 
 fn shouldBePowered(world: &Rc<World>, x: i32, y: i32, z: i32, metadata: i32) -> bool
 {
-    let wire: i32 = Block::redstoneWire().m_blockID;
+    let wire: i32 = Block::REDSTONE_WIRE;
     match metadata & 3
     {
         0 =>
@@ -52,21 +52,15 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     let bl: bool = shouldBePowered(world, x, y, z, n);
     if powered(this) && !bl
     {
-        world.setBlockAndMetadataWithNotify(x, y, z, Block::redstoneRepeaterIdle().m_blockID, n);
+        world.setBlockAndMetadataWithNotify(x, y, z, Block::REDSTONE_REPEATER_IDLE, n);
     }
     else if !powered(this)
     {
-        world.setBlockAndMetadataWithNotify(x, y, z, Block::redstoneRepeaterActive().m_blockID, n);
+        world.setBlockAndMetadataWithNotify(x, y, z, Block::REDSTONE_REPEATER_ACTIVE, n);
         if !bl
         {
             let n2: i32 = (n & 0xC) >> 2;
-            world.scheduleBlockUpdate(
-                x,
-                y,
-                z,
-                Block::redstoneRepeaterActive().m_blockID,
-                DELAY_SETTINGS[n2 as usize] * 2,
-            );
+            world.scheduleBlockUpdate(x, y, z, Block::REDSTONE_REPEATER_ACTIVE, DELAY_SETTINGS[n2 as usize] * 2);
         }
     }
 }

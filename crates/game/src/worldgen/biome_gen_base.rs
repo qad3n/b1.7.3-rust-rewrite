@@ -140,7 +140,7 @@ impl Biomes
                     Some(self.getBiome(i as f32 / lookup::MAX, j as f32 / lookup::MAX));
             }
         }
-        let sand: i8 = Block::sand().m_blockID as i8;
+        let sand: i8 = Block::SAND as i8;
         self.m_desert.m_fillerBlock.set(sand);
         self.m_desert.m_topBlock.set(sand);
         self.m_iceDesert.m_fillerBlock.set(sand);
@@ -212,8 +212,8 @@ impl BiomeGenBase
             m_class: class,
             m_biomeName: Cell::new(""),
             m_color: Cell::new(0),
-            m_topBlock: Cell::new(Block::grass().m_blockID as i8),
-            m_fillerBlock: Cell::new(Block::dirt().m_blockID as i8),
+            m_topBlock: Cell::new(Block::GRASS as i8),
+            m_fillerBlock: Cell::new(Block::DIRT as i8),
             m_mutatedColor: Cell::new(5169201),
             m_spawnableMonsterList: Rc::new(JArrayList::new()),
             m_spawnableCreatureList: Rc::new(JArrayList::new()),

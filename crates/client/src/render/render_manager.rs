@@ -142,7 +142,7 @@ impl RenderManager
         let z: i32 = math_helper::floor_double(camera.posZ());
         if camera.isPlayerSleeping()
         {
-            if world.getBlockId(x, y, z) == Block::blockBed().m_blockID
+            if world.getBlockId(x, y, z) == Block::BLOCK_BED
             {
                 let k: i32 = world.getBlockMetadata(x, y, z) & 3;
                 self.m_playerViewY.set((k * 90 + 180) as f32);

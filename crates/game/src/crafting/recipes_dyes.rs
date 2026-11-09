@@ -17,10 +17,7 @@ pub(super) fn addRecipes(manager: &CraftingManager)
                 1,
                 crate::block::block_cloth::getItemMetadataForBlockMetadata(i),
             ),
-            &[
-                dye(1, i),
-                Ingredient::Stack(ItemStack::withItemDamage(&Item::byIdOrNpe(Block::cloth().m_blockID), 1, 0)),
-            ],
+            &[dye(1, i), Ingredient::Stack(ItemStack::withItemDamage(&Item::byIdOrNpe(Block::CLOTH), 1, 0))],
         );
     }
 

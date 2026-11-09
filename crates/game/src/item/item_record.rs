@@ -13,7 +13,7 @@ pub const CLASS: ItemClass = ItemClass {
     m_name: "ItemRecord",
     m_parent: Some(&ITEM),
     onItemUse: |this, stack, _, world, x, y, z, _| {
-        if world.getBlockId(x, y, z) == Block::jukebox().m_blockID && world.getBlockMetadata(x, y, z) == 0
+        if world.getBlockId(x, y, z) == Block::JUKEBOX && world.getBlockMetadata(x, y, z) == 0
         {
             if world.m_multiplayerWorld.get()
             {

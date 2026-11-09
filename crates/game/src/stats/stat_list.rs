@@ -221,17 +221,17 @@ fn initItemsCraftedStats()
 
 fn replaceAllSimilarBlocks(stats: &mut [Option<Rc<StatBase>>])
 {
-    replaceSimilarBlocks(stats, Block::waterStill().m_blockID, Block::waterMoving().m_blockID);
-    replaceSimilarBlocks(stats, Block::lavaStill().m_blockID, Block::lavaStill().m_blockID);
-    replaceSimilarBlocks(stats, Block::pumpkinLantern().m_blockID, Block::pumpkin().m_blockID);
-    replaceSimilarBlocks(stats, Block::stoneOvenActive().m_blockID, Block::stoneOvenIdle().m_blockID);
-    replaceSimilarBlocks(stats, Block::oreRedstoneGlowing().m_blockID, Block::oreRedstone().m_blockID);
-    replaceSimilarBlocks(stats, Block::redstoneRepeaterActive().m_blockID, Block::redstoneRepeaterIdle().m_blockID);
-    replaceSimilarBlocks(stats, Block::torchRedstoneActive().m_blockID, Block::torchRedstoneIdle().m_blockID);
-    replaceSimilarBlocks(stats, Block::mushroomRed().m_blockID, Block::mushroomBrown().m_blockID);
-    replaceSimilarBlocks(stats, Block::stairDouble().m_blockID, Block::stairSingle().m_blockID);
-    replaceSimilarBlocks(stats, Block::grass().m_blockID, Block::dirt().m_blockID);
-    replaceSimilarBlocks(stats, Block::tilledField().m_blockID, Block::dirt().m_blockID);
+    replaceSimilarBlocks(stats, Block::WATER_STILL, Block::WATER_MOVING);
+    replaceSimilarBlocks(stats, Block::LAVA_STILL, Block::LAVA_STILL);
+    replaceSimilarBlocks(stats, Block::PUMPKIN_LANTERN, Block::PUMPKIN);
+    replaceSimilarBlocks(stats, Block::STONE_OVEN_ACTIVE, Block::STONE_OVEN_IDLE);
+    replaceSimilarBlocks(stats, Block::ORE_REDSTONE_GLOWING, Block::ORE_REDSTONE);
+    replaceSimilarBlocks(stats, Block::REDSTONE_REPEATER_ACTIVE, Block::REDSTONE_REPEATER_IDLE);
+    replaceSimilarBlocks(stats, Block::TORCH_REDSTONE_ACTIVE, Block::TORCH_REDSTONE_IDLE);
+    replaceSimilarBlocks(stats, Block::MUSHROOM_RED, Block::MUSHROOM_BROWN);
+    replaceSimilarBlocks(stats, Block::STAIR_DOUBLE, Block::STAIR_SINGLE);
+    replaceSimilarBlocks(stats, Block::GRASS, Block::DIRT);
+    replaceSimilarBlocks(stats, Block::TILLED_FIELD, Block::DIRT);
 }
 
 fn replaceSimilarBlocks(stats: &mut [Option<Rc<StatBase>>], block1: i32, block2: i32)

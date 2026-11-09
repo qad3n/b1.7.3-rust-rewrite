@@ -111,13 +111,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     {
         if bl
         {
-            world.setBlockAndMetadataWithNotify(
-                x,
-                y,
-                z,
-                Block::torchRedstoneIdle().m_blockID,
-                world.getBlockMetadata(x, y, z),
-            );
+            world.setBlockAndMetadataWithNotify(x, y, z, Block::TORCH_REDSTONE_IDLE, world.getBlockMetadata(x, y, z));
             if checkForBurnout(world, x, y, z, true)
             {
                 let pitch: f32 = 2.6 + (world.m_rand.nextFloat() - world.m_rand.nextFloat()) * 0.8;
@@ -141,13 +135,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     }
     else if !bl && !checkForBurnout(world, x, y, z, false)
     {
-        world.setBlockAndMetadataWithNotify(
-            x,
-            y,
-            z,
-            Block::torchRedstoneActive().m_blockID,
-            world.getBlockMetadata(x, y, z),
-        );
+        world.setBlockAndMetadataWithNotify(x, y, z, Block::TORCH_REDSTONE_ACTIVE, world.getBlockMetadata(x, y, z));
     }
 }
 
@@ -217,7 +205,7 @@ pub const CLASS: BlockClass = BlockClass {
             false
         }
     },
-    idDropped: |_, _, _| Block::torchRedstoneActive().m_blockID,
+    idDropped: |_, _, _| Block::TORCH_REDSTONE_ACTIVE,
     canProvidePower: |_| true,
     randomDisplayTick,
     ..block_torch::CLASS

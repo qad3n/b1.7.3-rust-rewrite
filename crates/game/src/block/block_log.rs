@@ -49,7 +49,7 @@ pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockLog",
     m_parent: Some(&BLOCK),
     quantityDropped: |_, _| 1,
-    idDropped: |_, _, _| Block::wood().m_blockID,
+    idDropped: |_, _, _| Block::WOOD,
     harvestBlock: |this, world, player, x, y, z, metadata| (BLOCK.harvestBlock)(this, world, player, x, y, z, metadata),
     onBlockRemoval,
     getBlockTextureFromSideAndMetadata,

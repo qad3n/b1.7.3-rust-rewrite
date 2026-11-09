@@ -20,11 +20,11 @@ pub(super) fn generateGlowStone(world: &Rc<World>, random: &Random, x: i32, y: i
     {
         return false;
     }
-    if world.getBlockId(x, y + 1, z) != Block::netherrack().m_blockID
+    if world.getBlockId(x, y + 1, z) != Block::NETHERRACK
     {
         return false;
     }
-    world.setBlockWithNotify(x, y, z, Block::glowStone().m_blockID);
+    world.setBlockWithNotify(x, y, z, Block::GLOW_STONE);
     for _ in 0..1500
     {
         let j: i32 = x + random.nextIntBounded(8) - random.nextIntBounded(8);
@@ -44,14 +44,14 @@ pub(super) fn generateGlowStone(world: &Rc<World>, random: &Random, x: i32, y: i
                     4 => world.getBlockId(j, k, l - 1),
                     _ => world.getBlockId(j, k, l + 1),
                 };
-                if k1 == Block::glowStone().m_blockID
+                if k1 == Block::GLOW_STONE
                 {
                     i1 += 1;
                 }
             }
             if i1 == 1
             {
-                world.setBlockWithNotify(j, k, l, Block::glowStone().m_blockID);
+                world.setBlockWithNotify(j, k, l, Block::GLOW_STONE);
             }
         }
     }

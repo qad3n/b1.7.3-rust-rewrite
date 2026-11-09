@@ -14,16 +14,12 @@ pub struct RailExt
 pub fn isRailBlockAt(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
     let blockId: i32 = world.getBlockId(x, y, z);
-    blockId == Block::rail().m_blockID
-        || blockId == Block::railPowered().m_blockID
-        || blockId == Block::railDetector().m_blockID
+    blockId == Block::RAIL || blockId == Block::RAIL_POWERED || blockId == Block::RAIL_DETECTOR
 }
 
 pub fn isRailBlock(block: i32) -> bool
 {
-    block == Block::rail().m_blockID
-        || block == Block::railPowered().m_blockID
-        || block == Block::railDetector().m_blockID
+    block == Block::RAIL || block == Block::RAIL_POWERED || block == Block::RAIL_DETECTOR
 }
 
 pub fn getIsPowered(this: &Block) -> bool { this.ext::<RailExt>().m_isPowered }
@@ -45,7 +41,7 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, _face: i32, metadata: i3
 {
     if getIsPowered(this)
     {
-        if this.m_blockID == Block::railPowered().m_blockID && (metadata & 0x8) == 0x0
+        if this.m_blockID == Block::RAIL_POWERED && (metadata & 0x8) == 0x0
         {
             return this.m_blockIndexInTexture.get() - 16;
         }
@@ -95,7 +91,7 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
         this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
         world.setBlockWithNotify(x, y, z, 0);
     }
-    else if this.m_blockID == Block::railPowered().m_blockID
+    else if this.m_blockID == Block::RAIL_POWERED
     {
         let b2: bool = world.isBlockIndirectlyGettingPowered(x, y, z)
             || world.isBlockIndirectlyGettingPowered(x, y + 1, z)
@@ -245,7 +241,7 @@ fn isPoweredByConnectedRails(
 fn isPoweredByRail(world: &Rc<World>, x: i32, y: i32, z: i32, towardsNegative: bool, depth: i32, shape: i32) -> bool
 {
     let n: i32 = world.getBlockId(x, y, z);
-    if n == Block::railPowered().m_blockID
+    if n == Block::RAIL_POWERED
     {
         let n2: i32 = world.getBlockMetadata(x, y, z);
         let n3: i32 = n2 & 7;

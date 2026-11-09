@@ -162,7 +162,7 @@ pub const WORLD_PROVIDER: WorldProviderClass = WorldProviderClass {
         let world: Rc<World> = this.world();
         ChunkProviderGenerate::new(&world, world.getRandomSeed())
     },
-    canCoordinateBeSpawn: |this, x, z| this.world().getFirstUncoveredBlock(x, z) == Block::sand().m_blockID,
+    canCoordinateBeSpawn: |this, x, z| this.world().getFirstUncoveredBlock(x, z) == Block::SAND,
     calculateCelestialAngle,
     calcSunriseSunsetColors,
     getFogColor,

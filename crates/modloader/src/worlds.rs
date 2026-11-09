@@ -70,8 +70,8 @@ fn biomeFor(dimension: &ModDimension) -> Rc<BiomeGenBase>
         {
             let biome: Rc<BiomeGenBase> = BiomeGenBase::alloc(&MOD_BIOME);
             biome.m_biomeName.set(Box::leak(modBiome.m_spec.name.clone().into_boxed_str()));
-            biome.m_topBlock.set(blockId(modBiome.m_spec.top_block.as_ref(), Block::grass().m_blockID) as i8);
-            biome.m_fillerBlock.set(blockId(modBiome.m_spec.filler_block.as_ref(), Block::dirt().m_blockID) as i8);
+            biome.m_topBlock.set(blockId(modBiome.m_spec.top_block.as_ref(), Block::GRASS) as i8);
+            biome.m_fillerBlock.set(blockId(modBiome.m_spec.filler_block.as_ref(), Block::DIRT) as i8);
             // a mod biome spawns only what mods list for it, never the vanilla default animals and monsters
             biome.m_spawnableMonsterList.clear();
             biome.m_spawnableCreatureList.clear();
@@ -154,7 +154,7 @@ impl IChunkProvider for FlatGenerator
         for column in 0..256_i32
         {
             let base: usize = (column << 7) as usize;
-            blocks[base] = Block::bedrock().m_blockID as i8;
+            blocks[base] = Block::BEDROCK as i8;
             for y in 1..self.m_ground.clamp(1, chunk::HEIGHT)
             {
                 blocks[base + y as usize] = low;
@@ -237,8 +237,7 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
     getChunkProvider: |this| {
         let world: Rc<World> = this.world();
         let flat: Option<ModDimension> = spec(this);
-        let fill: i32 =
-            blockId(flat.as_ref().and_then(|spec| spec.m_spec.fill_block.as_ref()), Block::stone().m_blockID);
+        let fill: i32 = blockId(flat.as_ref().and_then(|spec| spec.m_spec.fill_block.as_ref()), Block::STONE);
         let ground: i32 = flat.map_or(DEFAULT_GROUND, |spec| {
             if spec.m_spec.ground_height > 0
             {

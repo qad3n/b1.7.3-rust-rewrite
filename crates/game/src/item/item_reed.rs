@@ -22,7 +22,7 @@ fn onItemUse(
 ) -> bool
 {
     let id: i32 = this.ext::<ReedExt>().m_block;
-    if world.getBlockId(x, y, z) == Block::snow().m_blockID
+    if world.getBlockId(x, y, z) == Block::SNOW
     {
         face = 0;
     }
