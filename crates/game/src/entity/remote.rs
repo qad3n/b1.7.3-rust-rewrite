@@ -10,9 +10,9 @@ mod playback
     pub const CAPACITY: usize = 4;
     // spacing assumed until two moving samples show the real send interval
     pub const DEFAULT_INTERVAL: i32 = 3;
-    // extra ticks of buffer for packets that arrive a tick late or early
-    pub const STAMPED_JITTER: i32 = 1;
-    pub const ARRIVAL_JITTER: i32 = 2;
+    // stamped samples play exactly one send interval behind like vanilla, arrival times get one tick of slack
+    pub const STAMPED_JITTER: i32 = 0;
+    pub const ARRIVAL_JITTER: i32 = 1;
     // clock drift is nudged away slowly and jumped once it gets this far
     pub const RESYNC: f64 = 8.0;
     pub const DRIFT_RATE: f64 = 0.1;
