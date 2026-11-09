@@ -49,16 +49,17 @@ impl ChunkCache
         })
     }
 
-    fn chunkAt(&self, x: i32, z: i32) -> Rc<Chunk>
+    fn chunkAt(&self, x: i32, z: i32) -> &Rc<Chunk>
     {
         let column: &Vec<Rc<Chunk>> = &self.m_chunkArray[arrayIndex((x >> 4) - self.m_chunkX, self.m_chunkArray.len())];
-        Rc::clone(&column[arrayIndex((z >> 4) - self.m_chunkZ, column.len())])
+        &column[arrayIndex((z >> 4) - self.m_chunkZ, column.len())]
     }
 
     fn brightness(&self, light: i32) -> f32
     {
-        let table: [f32; 16] = self.m_worldObj.m_worldProvider.get().orNpe().m_lightBrightnessTable.get();
-        table[arrayIndex(light, table.len())]
+        self.m_worldObj.m_worldProvider.with(|provider| {
+            provider.as_ref().orNpe().m_lightBrightnessTable.with(|table| table[arrayIndex(light, table.len())])
+        })
     }
 
     pub fn getLightValue(&self, x: i32, y: i32, z: i32) -> i32 { self.getLightValueExt(x, y, z, true) }
