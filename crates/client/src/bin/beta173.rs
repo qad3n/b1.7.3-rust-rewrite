@@ -60,7 +60,7 @@ fn run() -> ExitCode
         std::env::consts::OS,
         std::env::consts::ARCH
     ));
-    logger().debug(&format!("Game folder {}", jvm::data_dir::root().display()));
+    logger().info(&format!("Game folder {}", jvm::data_dir::root().display()));
     if !assets::isComplete()
     {
         logger().severe(&format!(

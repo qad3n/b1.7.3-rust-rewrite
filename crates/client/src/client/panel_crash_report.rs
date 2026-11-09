@@ -1,9 +1,13 @@
 use crate::client::UnexpectedThrowable;
 use crate::gui::calendar::formatDefault;
+use jvm::calendar::{DateFields, dateFields};
 use jvm::string::JString;
 use jvm::throwable::{THROWABLE, Throwable, catchThrowable};
 use lwjgl::Sys;
 use lwjgl::opengl::GL11;
+use std::path::PathBuf;
+
+const REPORT_DIR: &str = "crash-reports";
 
 fn osName() -> String
 {
@@ -42,11 +46,31 @@ impl PanelCrashReport
 {
     pub fn new(report: &UnexpectedThrowable) -> PanelCrashReport
     {
-        // the awt crash panel is not ported so its text goes to stderr and the log
+        // the awt crash panel is not ported so its text goes to stderr the log and its own file
         let text: String = PanelCrashReport::text(report);
         eprint!("{text}");
         jvm::log_files::write(&text);
+        PanelCrashReport::save(&text);
         PanelCrashReport
+    }
+
+    fn save(text: &str)
+    {
+        let fields: DateFields = dateFields(jvm::system::currentTimeMillis());
+        let name: String = format!(
+            "crash-{:04}-{:02}-{:02}_{:02}.{:02}.{:02}-client.txt",
+            fields.m_year, fields.m_month, fields.m_day, fields.m_hour, fields.m_minute, fields.m_second
+        );
+        let dir: PathBuf = jvm::data_dir::root().join(REPORT_DIR);
+        let path: PathBuf = dir.join(name);
+        match std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, text))
+        {
+            Ok(()) => jvm::system::errPrintln(&format!("Crash report saved to {}", path.display())),
+            Err(error) =>
+            {
+                jvm::system::errPrintln(&format!("could not save crash report to {}: {error}", path.display()))
+            }
+        }
     }
 
     fn text(report: &UnexpectedThrowable) -> String
