@@ -133,10 +133,21 @@ impl NetServerHandler
     {
         // 12-bit block ids reach modded clients through a loader extension after the vanilla packet
         let (packet, extension) = modloader::network::blocks::outgoing(&self.player(), packet);
+        let chunkData: bool = packet.base().m_isChunkDataPacket;
         self.m_netManager.addToSendQueue(packet);
         if let Some(extension) = extension
+            && let Some((channel, body)) = modloader::network::blocks::encodeExtension(&self.player(), &extension)
         {
-            modloader::network::blocks::sendExtension(&self.player(), &extension);
+            // the extension must land after the chunk data it patches or that data overwrites it
+            let payload: Packet250ModPayload = if chunkData
+            {
+                Packet250ModPayload::withChunkData(channel, body)
+            }
+            else
+            {
+                Packet250ModPayload::new(channel, body)
+            };
+            self.m_netManager.addToSendQueue(Box::new(payload));
         }
         self.m_lastKeepAliveTime.set(self.m_ticks.get());
     }

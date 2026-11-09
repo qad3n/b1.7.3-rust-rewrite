@@ -629,13 +629,24 @@ pub fn serverPlayerJoined(player: i32, session: &ServerSession, raw: Rc<dyn Fn(u
     network::setPlayerConnection(
         player,
         Some(Box::new(move |id: &Identifier, data: Vec<u8>| {
-            if let Some(index) = channels.iter().position(|channel| channel == id)
+            if let Some((channel, body)) = frame(&channels, id, &data)
             {
-                let (channel, body): (u32, Vec<u8>) = wire::compress(index as u32 + 1, &data);
                 raw(channel, body);
             }
         })),
     );
+}
+
+fn frame(channels: &[Identifier], id: &Identifier, data: &[u8]) -> Option<(u32, Vec<u8>)>
+{
+    let index: usize = channels.iter().position(|channel| channel == id)?;
+    Some(wire::compress(index as u32 + 1, data))
+}
+
+// the wire channel and body for a player connection, for callers that queue the payload packet themselves
+pub fn encode(player: i32, id: &Identifier, data: &[u8]) -> Option<(u32, Vec<u8>)>
+{
+    CONNECTIONS.with(|connections| frame(&connections.borrow().get(&player)?.m_channels, id, data))
 }
 
 pub fn serverPlayerLeft(player: i32)

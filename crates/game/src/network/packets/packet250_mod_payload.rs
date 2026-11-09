@@ -46,6 +46,12 @@ fn writeVarint(output: &mut PacketOutput, mut value: u32) -> IoResult<()>
 impl Packet250ModPayload
 {
     pub fn new(channel: u32, data: Vec<u8>) -> Self { Self { m_channel: channel, m_data: data, ..Self::default() } }
+
+    // a payload completing a chunk packet waits in the chunk queue behind it
+    pub fn withChunkData(channel: u32, data: Vec<u8>) -> Self
+    {
+        Self { m_base: PacketBase::chunkData(), m_channel: channel, m_data: data }
+    }
 }
 
 impl Packet for Packet250ModPayload

@@ -152,7 +152,7 @@ pub fn outgoing(player: &Rc<Entity>, mut packet: Box<dyn Packet>) -> (Box<dyn Pa
     (packet, Some(ChunkExt { world: dimension(&world), blocks }))
 }
 
-pub fn sendExtension(player: &Rc<Entity>, message: &ChunkExt)
+pub fn encodeExtension(player: &Rc<Entity>, message: &ChunkExt) -> Option<(u32, Vec<u8>)>
 {
-    super::sendToPlayer(&id(), player, wire::encode(message));
+    crate::netsync::encode(player.m_entityId.get(), &id(), &wire::encode(message))
 }
