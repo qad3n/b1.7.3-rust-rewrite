@@ -25,6 +25,13 @@ impl Packet40EntityMetadata
         }
     }
 
+    // every watched value without touching dirty flags, for a tracker that has never seen the entity
+    pub fn withAll(id: i32, syncedData: &DataWatcher) -> Self
+    {
+        let all: Vec<Rc<WatchableObject>> = syncedData.getAllWatched();
+        Self { m_entityId: id, m_dataEntries: WatchableData::fromWatchableObjects(Some(&all)), ..Self::default() }
+    }
+
     pub fn getDataEntries(&self) -> Option<Vec<Rc<WatchableObject>>>
     {
         WatchableData::toWatchableObjects(self.m_dataEntries.as_deref())

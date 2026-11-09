@@ -282,6 +282,14 @@ impl EntityTrackerEntry
                 if !modloader::entities::sendSpawn(&self.m_trackedEntity, player)
                 {
                     handler.sendPacket(self.getSpawnPacket());
+                    // the named spawn packet carries no metadata so sneaking fire and riding flags follow it
+                    if self.m_trackedEntity.instanceOf("EntityPlayer")
+                    {
+                        handler.sendPacket(Box::new(Packet40EntityMetadata::withAll(
+                            self.m_trackedEntity.m_entityId.get(),
+                            self.m_trackedEntity.getDataWatcher(),
+                        )));
+                    }
                     // rewrite: mod data synced on vanilla entities, as players' equipment, follows their spawn
                     modloader::entities::sendSynced(&self.m_trackedEntity, player);
                 }
