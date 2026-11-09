@@ -3,7 +3,7 @@ mod assets;
 use anyhow::{Context, Result, bail};
 use jvm::log_files::{self, LogFormatter};
 use jvm::logging::logger;
-use std::io::{BufRead, Write};
+use std::io::{BufRead, IsTerminal, Write};
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
@@ -54,18 +54,35 @@ fn run() -> Result<ExitCode>
     logger().info(&format!("Starting the game as {name}"));
     let mut command: Command = Command::new(&game);
     command.arg(&name).arg(NO_SESSION);
-    if !options.m_dev
+    // a launcher in a terminal keeps the game attached so its log stays in that window
+    let console: bool = std::io::stdout().is_terminal();
+    if !(options.m_dev || console)
     {
         detach(&mut command);
         command.spawn().with_context(|| format!("starting {}", game.display()))?;
         return Ok(ExitCode::SUCCESS);
     }
+
     let status: std::process::ExitStatus = command.status().with_context(|| format!("starting {}", game.display()))?;
     logger().info(&format!("Game exited with {status}"));
+    if console && !status.success()
+    {
+        holdWindow();
+    }
     Ok(status.code().map_or(ExitCode::FAILURE, |code| ExitCode::from(code as u8)))
 }
 
-// the game outlives the launcher with no console, it still writes its log file
+// a terminal the desktop opened for the launcher closes with it, so a failed run waits until the log is read
+fn holdWindow()
+{
+    print!("Press Enter to close");
+    if let Err(error) = std::io::stdout().flush().and_then(|()| std::io::stdin().lock().read_line(&mut String::new()))
+    {
+        logger().warning(&format!("could not wait for Enter: {error}"));
+    }
+}
+
+// without a terminal the game outlives the launcher, it still writes its log file
 fn detach(command: &mut Command)
 {
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
