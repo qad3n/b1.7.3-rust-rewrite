@@ -84,6 +84,8 @@ impl<T: Clone> JArrayList<T>
 
     pub fn toVec(&self) -> Vec<T> { self.m_items.borrow().clone() }
 
+    pub fn with<R>(&self, body: impl FnOnce(&[T]) -> R) -> R { body(&self.m_items.borrow()) }
+
     pub fn replaceAll(&self, values: Vec<T>) { *self.m_items.borrow_mut() = values; }
 
     pub fn iterator(&self) -> ListIterator

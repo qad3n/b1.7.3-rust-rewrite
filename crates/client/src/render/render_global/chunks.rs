@@ -100,9 +100,7 @@ impl RenderGlobal
     fn containsRenderer(&self, renderer: &Rc<WorldRenderer>) -> bool
     {
         self.m_worldRenderersToUpdate
-            .toVec()
-            .iter()
-            .any(|entry| entry.as_ref().is_some_and(|entry| Rc::ptr_eq(entry, renderer)))
+            .with(|list| list.iter().any(|entry| entry.as_ref().is_some_and(|entry| Rc::ptr_eq(entry, renderer))))
     }
 
     pub fn sortAndRender(&self, camera: &Rc<Entity>, layer: i32, tickDelta: f64) -> i32
