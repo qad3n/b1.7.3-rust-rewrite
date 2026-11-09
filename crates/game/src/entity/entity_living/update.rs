@@ -240,7 +240,6 @@ fn liquidMove(this: &Rc<Entity>, sideways: f32, forwards: f32, drag: f64)
 
 pub fn moveEntityWithHeading(this: &Rc<Entity>, sideways: f32, forwards: f32)
 {
-    let living: &LivingFields = fields(this);
     let world: Rc<World> = this.world();
     if this.isInWater()
     {
@@ -306,15 +305,20 @@ pub fn moveEntityWithHeading(this: &Rc<Entity>, sideways: f32, forwards: f32)
         this.m_motionX.set(this.m_motionX.get() * f as f64);
         this.m_motionZ.set(this.m_motionZ.get() * f as f64);
     }
+    animateWalk(this);
+}
+
+// leg swing follows how far the entity moved this tick
+pub fn animateWalk(this: &Entity)
+{
+    let living: &LivingFields = fields(this);
     living.m_lastWalkAnimationSpeed.set(living.m_walkAnimationSpeed.get());
-    let d: f64 = this.posX() - this.m_prevPosX.get();
-    let d2: f64 = this.posZ() - this.m_prevPosZ.get();
-    let mut f: f32 = math_helper::sqrt_double(d * d + d2 * d2) * 4.0;
-    if f > 1.0
-    {
-        f = 1.0;
-    }
-    living.m_walkAnimationSpeed.set(living.m_walkAnimationSpeed.get() + (f - living.m_walkAnimationSpeed.get()) * 0.4);
+    let dx: f64 = this.posX() - this.m_prevPosX.get();
+    let dz: f64 = this.posZ() - this.m_prevPosZ.get();
+    let speed: f32 = (math_helper::sqrt_double(dx * dx + dz * dz) * 4.0).min(1.0);
+    living
+        .m_walkAnimationSpeed
+        .set(living.m_walkAnimationSpeed.get() + (speed - living.m_walkAnimationSpeed.get()) * 0.4);
     living.m_walkAnimationProgress.set(living.m_walkAnimationProgress.get() + living.m_walkAnimationSpeed.get());
 }
 
@@ -348,6 +352,7 @@ pub fn onLivingUpdate(this: &Rc<Entity>)
             {
                 remote::follow(this, &pose);
             }
+            animateWalk(this);
             pushOthers(this, &world);
             return;
         }

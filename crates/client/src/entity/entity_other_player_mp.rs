@@ -33,17 +33,7 @@ fn onUpdate(this: &Rc<Entity>)
 {
     entity_player::fields(this).m_sleepingCameraOffsetY.set(0.0);
     (entity_player::CLASS.onUpdate)(this);
-    let living: &LivingFields = entity_living::fields(this);
-    living.m_lastWalkAnimationSpeed.set(living.m_walkAnimationSpeed.get());
-    let d: f64 = this.posX() - this.m_prevPosX.get();
-    let d2: f64 = this.posZ() - this.m_prevPosZ.get();
-    let mut f: f32 = math_helper::sqrt_double(d * d + d2 * d2) * 4.0;
-    if f > 1.0
-    {
-        f = 1.0;
-    }
-    living.m_walkAnimationSpeed.set(living.m_walkAnimationSpeed.get() + (f - living.m_walkAnimationSpeed.get()) * 0.4);
-    living.m_walkAnimationProgress.set(living.m_walkAnimationProgress.get() + living.m_walkAnimationSpeed.get());
+    entity_living::animateWalk(this);
 }
 
 fn onLivingUpdate(this: &Rc<Entity>)
