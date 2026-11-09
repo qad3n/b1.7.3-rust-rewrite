@@ -128,7 +128,7 @@ impl GameSettings
             m_limitFramerate: Cell::new(1),
             m_fancyGraphics: Cell::new(true),
             m_ambientOcclusion: Cell::new(true),
-            m_vsync: Cell::new(true),
+            m_vsync: Cell::new(false),
             m_fullscreen: Cell::new(false),
             m_skin: Field::new("Default".to_owned()),
             m_keyBindForward: keyBindForward,
