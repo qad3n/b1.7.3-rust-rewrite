@@ -118,6 +118,11 @@ impl EntityTrackerEntry
             self.sendMovement();
             self.sendMetadata();
         }
+        // knockback jumps and falls change fast so clients see them every tick instead of every few
+        else if !tracked.m_onGround.get() && tracked.instanceOf("EntityLiving")
+        {
+            self.sendMovement();
+        }
 
         if tracked.m_beenAttacked.get()
         {
