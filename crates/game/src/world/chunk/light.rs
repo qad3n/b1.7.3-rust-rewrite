@@ -344,6 +344,7 @@ pub fn setChunkData(
             this.m_blocks.update(|blocks| {
                 blocks[k as usize..(k + l) as usize].copy_from_slice(&data[size as usize..(size + l) as usize])
             });
+            this.clearHigh(k, l);
             size += l;
         }
     }

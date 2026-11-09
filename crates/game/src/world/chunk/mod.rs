@@ -129,6 +129,20 @@ impl Chunk
         low | high << 8
     }
 
+    // chunk packets carry only low id bytes so a resent region drops high nibbles a chunk extension then restores
+    pub fn clearHigh(&self, start: i32, len: i32)
+    {
+        if self.m_addBlocks.with(Option::is_none)
+        {
+            return;
+        }
+
+        for index in start..start + len
+        {
+            self.setBlockHigh(index, 0);
+        }
+    }
+
     pub fn setBlockHigh(&self, index: i32, block: i32)
     {
         let high: u8 = (block >> 8) as u8 & 0xF;
