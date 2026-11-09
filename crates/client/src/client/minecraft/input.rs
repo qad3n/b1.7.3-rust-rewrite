@@ -11,6 +11,7 @@ use game::inventory::InventoryPlayer;
 use game::item::ItemStack;
 use game::math::{EnumMovingObjectType, MovingObjectPosition, math_helper};
 use game::world::World;
+use jvm::logging::logger;
 use jvm::throwable::OrNpe;
 use lwjgl::input::{Keyboard, Mouse};
 use lwjgl::opengl::Display;
@@ -18,6 +19,11 @@ use std::rc::Rc;
 
 const LICENSE_CHECK_TICK: i32 = 6000;
 const PAID_RESPONSE_CODE: i32 = 400;
+
+fn screenName(screen: Option<&Rc<GuiScreen>>) -> &'static str
+{
+    screen.map_or("no screen", |screen| screen.className())
+}
 
 fn inventory(player: &Entity) -> Rc<InventoryPlayer> { entity_player::fields(player).m_inventory.get().orNpe() }
 
@@ -28,6 +34,7 @@ impl Minecraft
         // screen_open listeners may refuse a screen
         if crate::modded::screenOpening(screen.as_ref())
         {
+            logger().debug(&format!("A mod refused to open {}", screenName(screen.as_ref())));
             return;
         }
         if self.m_currentScreen.get().is_some_and(|current| current.instanceOf("GuiUnused"))
@@ -55,7 +62,15 @@ impl Minecraft
         {
             self.ingameGUI().clearChatMessages();
         }
+        let previous: Option<Rc<GuiScreen>> = self.m_currentScreen.get();
         self.m_currentScreen.set(screen.clone());
+        match &screen
+        {
+            Some(screen) => logger().debug(&format!("Opened {}", screen.className())),
+            None if previous.is_some() => logger().debug(&format!("Closed {}", screenName(previous.as_ref()))),
+            None =>
+            {}
+        }
         match screen
         {
             Some(screen) =>
