@@ -142,7 +142,8 @@ impl Throwable
     pub fn getMessage(&self) -> Option<&str> { self.m_message.as_deref() }
 
     // the jvm also prints one at line per stack frame, which has no counterpart here
-    pub fn printStackTrace(&self) { crate::system::errPrintln(&self.to_string()); }
+    // rewrite: the rust frames print too, java printed its own frames here
+    pub fn printStackTrace(&self) { crate::system::errPrintln(self.stackTrace().trim_end()); }
 
     // the throwable, the rust frames that threw it and what the code it unwound through was doing
     pub fn stackTrace(&self) -> String
