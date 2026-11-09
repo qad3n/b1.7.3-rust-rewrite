@@ -118,6 +118,58 @@ fn readGuest(memory: &Memory, context: impl wasmtime::AsContext, pointer: u32, l
     Ok(bytes)
 }
 
+// longest call text a crash trace shows
+const TRACE_CALL_CHARS: usize = 300;
+
+// pops the reentry slot of a host call even when it unwinds, and names the call in the crash trace
+struct HostFrame<'a>
+{
+    m_mod: usize,
+    m_call: &'a [u8],
+}
+
+impl Drop for HostFrame<'_>
+{
+    fn drop(&mut self)
+    {
+        REENTRY.with(|stack| stack.borrow_mut().pop());
+        if !std::thread::panicking()
+        {
+            return;
+        }
+
+        jvm::throwable::noteUnwind(|| {
+            let call: String = wire::decode::<HostCall>(self.m_call)
+                .map_or_else(|error| error.to_string(), |call| format!("{call:?}"));
+            format!("host call from mod {}: {}", crate::state::modId(self.m_mod), clip(&call))
+        });
+    }
+}
+
+// names a call into a mod in the crash trace when it unwinds
+struct GuestFrame<'a>
+{
+    m_mod: usize,
+    m_call: &'a GuestCall,
+}
+
+impl Drop for GuestFrame<'_>
+{
+    fn drop(&mut self)
+    {
+        if !std::thread::panicking()
+        {
+            return;
+        }
+
+        jvm::throwable::noteUnwind(|| {
+            format!("call into mod {}: {}", crate::state::modId(self.m_mod), clip(&format!("{:?}", self.m_call)))
+        });
+    }
+}
+
+fn clip(text: &str) -> &str { text.char_indices().nth(TRACE_CALL_CHARS).map_or(text, |(end, _)| &text[..end]) }
+
 fn hostCall(mut caller: Caller<'_, HostState>, pointer: u32, length: u32) -> wasmtime::Result<u64>
 {
     let memory: Memory = caller
@@ -131,11 +183,10 @@ fn hostCall(mut caller: Caller<'_, HostState>, pointer: u32, length: u32) -> was
         Ok(call) =>
         {
             let pointer: *mut Caller<'_, HostState> = &mut caller;
-            // SAFETY: the pointer is popped before this function touches caller again, so it never outlives the borrow
+            // SAFETY: the frame pops the pointer before this function touches caller again, so it never outlives the borrow
             REENTRY.with(|stack| stack.borrow_mut().push((modIndex, pointer.cast())));
-            let reply: HostReply = crate::host::handle(modIndex, call);
-            REENTRY.with(|stack| stack.borrow_mut().pop());
-            reply
+            let _frame: HostFrame<'_> = HostFrame { m_mod: modIndex, m_call: &bytes };
+            crate::host::handle(modIndex, call)
         }
         Err(error) => HostReply::Error(format!("bad host call: {error}")),
     };
@@ -255,6 +306,7 @@ impl ModInstance
 
     pub fn call(&self, call: &GuestCall) -> Result<GuestReply, String>
     {
+        let _frame: GuestFrame<'_> = GuestFrame { m_mod: self.m_modIndex, m_call: call };
         let request: Vec<u8> = wire::encode(call);
         let started: Instant = Instant::now();
         let result: wasmtime::Result<Vec<u8>> = match self.m_store.try_borrow_mut()

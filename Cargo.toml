@@ -64,6 +64,8 @@ panic = "unwind"
 opt-level = 3
 
 [profile.release]
+# file and line numbers in crash traces
+debug = "line-tables-only"
 overflow-checks = false
 panic = "unwind"
 

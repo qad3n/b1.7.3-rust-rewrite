@@ -1,4 +1,6 @@
 use std::any::Any;
+use std::backtrace::Backtrace;
+use std::cell::RefCell;
 use std::fmt;
 use std::panic::{self, AssertUnwindSafe};
 
@@ -49,17 +51,76 @@ pub static OUT_OF_MEMORY: ThrowableClass =
 pub static STACK_OVERFLOW: ThrowableClass =
     ThrowableClass { m_name: "java.lang.StackOverflowError", m_parent: Some(&ERROR) };
 
+// crate paths whose frames belong to the game, everything else is std, the runtime or a library
+// release builds keep only line tables, so frames are told apart by source path and not by module path
+const GAME_SOURCES: [&str; 2] = ["crates/", "vendor/"];
+// the throw machinery itself, above the code that threw
+const THROW_SOURCE: &str = "crates/jvm/src/throwable.rs";
+const MAX_FRAMES: usize = 48;
+
+thread_local! {
+    // the trace of the panic now unwinding, taken by whoever catches it
+    static THROWN: RefCell<Option<Trace>> = const { RefCell::new(None) };
+}
+
+// where a throwable came from, the rust frames and what the code it unwound through was doing
+pub struct Trace
+{
+    m_location: String,
+    m_frames: Backtrace,
+    m_context: Vec<String>,
+}
+
+impl Trace
+{
+    // java style at lines for the game's own frames, innermost first
+    fn frames(&self) -> Vec<String>
+    {
+        let text: String = self.m_frames.to_string();
+        let mut frames: Vec<String> = Vec::new();
+        let mut name: &str = "";
+        for line in text.lines().map(str::trim)
+        {
+            let Some(location) = line.strip_prefix("at ")
+            else
+            {
+                name = line.split_once(": ").map_or("", |(_, symbol)| symbol);
+                continue;
+            };
+
+            let source: &str = relative(location);
+            if GAME_SOURCES.iter().any(|root| source.starts_with(root)) && !source.starts_with(THROW_SOURCE)
+            {
+                frames.push(format!("{name} ({source})"));
+            }
+        }
+        frames.truncate(MAX_FRAMES);
+        frames
+    }
+}
+
+// source paths from the workspace down so a shared report carries no home folder
+fn relative(location: &str) -> &str
+{
+    ["/crates/", "/vendor/"]
+        .iter()
+        .filter_map(|root| location.find(root))
+        .min()
+        .map_or(location, |start| &location[start + 1..])
+}
+
 pub struct Throwable
 {
     pub m_class: &'static ThrowableClass,
     pub m_message: Option<String>,
+    pub m_trace: Option<Box<Trace>>,
 }
 
 impl Throwable
 {
     pub fn new(class: &'static ThrowableClass, message: Option<String>) -> Self
     {
-        Self { m_class: class, m_message: message }
+        Self { m_class: class, m_message: message, m_trace: None }
     }
 
     pub fn instanceOf(&self, class: &ThrowableClass) -> bool
@@ -80,6 +141,34 @@ impl Throwable
 
     // the jvm also prints one at line per stack frame, which has no counterpart here
     pub fn printStackTrace(&self) { crate::system::errPrintln(&self.to_string()); }
+
+    // the throwable, the rust frames that threw it and what the code it unwound through was doing
+    pub fn stackTrace(&self) -> String
+    {
+        let mut text: String = format!("{self}\n");
+        let Some(trace) = &self.m_trace
+        else
+        {
+            return text;
+        };
+
+        text += &format!("\tthrown at {}\n", relative(&trace.m_location));
+        for frame in trace.frames()
+        {
+            text += &format!("\tat {frame}\n");
+        }
+        if trace.m_context.is_empty()
+        {
+            return text;
+        }
+
+        text += "while\n";
+        for context in &trace.m_context
+        {
+            text += &format!("\t{context}\n");
+        }
+        text
+    }
 }
 
 impl fmt::Display for Throwable
@@ -99,15 +188,19 @@ impl fmt::Debug for Throwable
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { fmt::Display::fmt(self, formatter) }
 }
 
+#[track_caller]
 pub fn throw(class: &'static ThrowableClass, message: &str) -> !
 {
     rethrow(Throwable::new(class, Some(message.to_owned())))
 }
 
+#[track_caller]
 pub fn throwBare(class: &'static ThrowableClass) -> ! { rethrow(Throwable::new(class, None)) }
 
+#[track_caller]
 pub fn rethrow(throwable: Throwable) -> ! { panic::panic_any(throwable) }
 
+#[track_caller]
 pub fn npe() -> ! { throwBare(&NULL_POINTER) }
 
 pub trait OrNpe<T>
@@ -117,6 +210,7 @@ pub trait OrNpe<T>
 
 impl<T> OrNpe<T> for Option<T>
 {
+    #[track_caller]
     fn orNpe(self) -> T
     {
         match self
@@ -145,27 +239,42 @@ pub fn catchThrowable<R>(class: &ThrowableClass, body: impl FnOnce() -> R) -> Re
     }
 }
 
+// a rethrown throwable keeps the trace of its first throw
 pub fn fromPayload(payload: Box<dyn Any + Send>) -> Throwable
 {
-    let payload: Box<dyn Any + Send> = match payload.downcast::<Throwable>()
+    let mut throwable: Throwable = match payload.downcast::<Throwable>()
     {
-        Ok(throwable) => return *throwable,
-        Err(other) => other,
+        Ok(throwable) => *throwable,
+        Err(other) => fromRustPanic(panicText(other.as_ref()).unwrap_or_default()),
     };
+    let thrown: Option<Trace> = THROWN.with(RefCell::take);
+    if throwable.m_trace.is_none()
+    {
+        throwable.m_trace = thrown.map(Box::new);
+    }
+    throwable
+}
 
-    let text: String = if let Some(text) = payload.downcast_ref::<String>()
+// records what unwinding code was doing, call from a drop guard while std::thread::panicking
+pub fn noteUnwind(context: impl FnOnce() -> String)
+{
+    THROWN.with(|slot| {
+        if let Ok(mut thrown) = slot.try_borrow_mut()
+            && let Some(trace) = thrown.as_mut()
+        {
+            trace.m_context.push(context());
+        }
+    });
+}
+
+fn panicText(payload: &(dyn Any + Send)) -> Option<&str>
+{
+    if let Some(text) = payload.downcast_ref::<String>()
     {
-        text.clone()
+        return Some(text);
     }
-    else if let Some(text) = payload.downcast_ref::<&str>()
-    {
-        (*text).to_owned()
-    }
-    else
-    {
-        String::new()
-    };
-    fromRustPanic(&text)
+
+    payload.downcast_ref::<&str>().copied()
 }
 
 fn fromRustPanic(text: &str) -> Throwable
@@ -198,18 +307,12 @@ pub(crate) fn standsForJava(payload: &(dyn Any + Send)) -> bool
         return true;
     }
 
-    let text: &str = if let Some(text) = payload.downcast_ref::<String>()
-    {
-        text
-    }
-    else if let Some(text) = payload.downcast_ref::<&str>()
-    {
-        text
-    }
+    let Some(text) = panicText(payload)
     else
     {
         return false;
     };
+
     !std::ptr::eq(fromRustPanic(text).m_class, &ERROR)
 }
 
@@ -218,6 +321,14 @@ pub fn installHook()
 {
     let previous = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
+        let location: String = info.location().map_or_else(String::new, ToString::to_string);
+        let trace: Trace = Trace { m_location: location, m_frames: Backtrace::force_capture(), m_context: Vec::new() };
+        THROWN.with(|slot| {
+            if let Ok(mut thrown) = slot.try_borrow_mut()
+            {
+                *thrown = Some(trace);
+            }
+        });
         if !standsForJava(info.payload())
         {
             previous(info);

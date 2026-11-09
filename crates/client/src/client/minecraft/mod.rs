@@ -1,3 +1,4 @@
+mod crash;
 mod debug;
 mod input;
 mod launch;

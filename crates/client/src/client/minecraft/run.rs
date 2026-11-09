@@ -61,9 +61,12 @@ impl Minecraft
         if let Err(throwable) = catchThrowable(&THROWABLE, || self.runLoop())
             && !throwable.instanceOf(&MINECRAFT_ERROR)
         {
+            let details: String = self.crashDetails();
             self.cleanHeap();
             throwable.printStackTrace();
-            self.onMinecraftCrash(UnexpectedThrowable::new("Unexpected error".to_owned(), throwable));
+            self.onMinecraftCrash(
+                UnexpectedThrowable::new("Unexpected error".to_owned(), throwable).withDetails(details),
+            );
         }
         self.shutdownMinecraftApplet();
     }

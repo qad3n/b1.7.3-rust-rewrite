@@ -47,14 +47,21 @@ impl PanelCrashReport
 {
     pub fn new(report: &UnexpectedThrowable) -> PanelCrashReport
     {
-        // the awt crash panel is not ported so its text goes to stderr
-        eprint!("{}", PanelCrashReport::text(report));
+        // the awt crash panel is not ported so its text goes to stderr and the log
+        let text: String = PanelCrashReport::text(report);
+        eprint!("{text}");
+        jvm::log_files::write(&text);
         PanelCrashReport
     }
 
     fn text(report: &UnexpectedThrowable) -> String
     {
-        let string: String = format!("{}\n", report.m_exception);
+        let string: String = format!(
+            "Description: {}\n\n{}\n{}",
+            report.m_description,
+            report.m_exception.stackTrace(),
+            report.m_details
+        );
         let mut string2: String = String::new();
         let mut string3: String = String::new();
         let properties: Result<(), Throwable> = catchThrowable(&THROWABLE, || {
