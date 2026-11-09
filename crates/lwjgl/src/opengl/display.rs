@@ -1,6 +1,7 @@
 use crate::input::{keyboard, mouse};
 use crate::opengl::{DisplayMode, GLContext};
 use crate::{LWJGLException, platform};
+use jvm::logging::logger;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::video::{FullscreenType, GLProfile, SwapInterval, Window};
 use std::cell::RefCell;
@@ -12,11 +13,19 @@ struct DisplayState
     m_mode: Option<DisplayMode>,
     m_title: String,
     m_fullscreen: bool,
-    m_parented: bool,
     m_closeRequested: bool,
     m_active: bool,
     m_window: Option<Window>,
     m_context: Option<sdl2::video::GLContext>,
+}
+
+// the drawable in pixels and how many pixels one window point covers
+#[derive(Clone, Copy)]
+pub(crate) struct Surface
+{
+    pub m_width: i32,
+    pub m_height: i32,
+    pub m_scale: f64,
 }
 
 thread_local! {
@@ -24,7 +33,6 @@ thread_local! {
         m_mode: None,
         m_title: DEFAULT_TITLE.to_owned(),
         m_fullscreen: false,
-        m_parented: false,
         m_closeRequested: false,
         m_active: false,
         m_window: None,
@@ -51,10 +59,21 @@ fn applyFullscreen(window: &mut Window, fullscreen: bool) -> Result<(), LWJGLExc
 
 impl Display
 {
+    // the monitor holding the window or the primary one before it exists
     pub fn getDesktopDisplayMode() -> DisplayMode
     {
+        let index: i32 = match Self::withWindow(|window| window.display_index())
+        {
+            Some(Ok(index)) => index,
+            Some(Err(error)) =>
+            {
+                logger().warning(&format!("could not find the monitor holding the window: {error}"));
+                0
+            }
+            None => 0,
+        };
         let mode: Result<sdl2::video::DisplayMode, String> =
-            platform::with(|platform| platform.m_video.desktop_display_mode(0))
+            platform::with(|platform| platform.m_video.desktop_display_mode(index))
                 .unwrap_or_else(|error| jvm::throwable::throw(&jvm::throwable::RUNTIME, &error.to_string()));
         match mode
         {
@@ -104,20 +123,40 @@ impl Display
 
     pub fn isFullscreen() -> bool { STATE.with(|state| state.borrow().m_fullscreen) }
 
-    // embedding into an awt canvas has no counterpart here, the window stays top level and resizes like the frame
-    pub fn setParent<T>(parent: Option<&T>) -> Result<(), LWJGLException>
-    {
-        STATE.with(|state| state.borrow_mut().m_parented = parent.is_some());
-        Ok(())
-    }
+    // embedding into an awt canvas has no counterpart here so the window stays top level and always resizes
+    pub fn setParent<T>(_parent: Option<&T>) -> Result<(), LWJGLException> { Ok(()) }
 
-    // the drawable size an awt parent canvas would report, the display mode before the window exists
+    // the drawable size in pixels an awt parent canvas would report
     pub fn getWindowSize() -> (i32, i32)
     {
-        match Self::withWindow(|window| window.size())
+        let surface: Surface = Self::surface();
+        (surface.m_width, surface.m_height)
+    }
+
+    // the display mode stands in before the window exists
+    pub(crate) fn surface() -> Surface
+    {
+        let sizes: Option<((u32, u32), u32)> = Self::withWindow(|window| (window.drawable_size(), window.size().0));
+        match sizes
         {
-            Some((width, height)) => (width as i32, height as i32),
-            None => (Self::getDisplayMode().getWidth(), Self::getDisplayMode().getHeight()),
+            Some(((width, height), points)) => Surface {
+                m_width: width as i32,
+                m_height: height as i32,
+                // minimized windows report zero sizes
+                m_scale: if width == 0 || points == 0
+                {
+                    1.0
+                }
+                else
+                {
+                    width as f64 / points as f64
+                },
+            },
+            None =>
+            {
+                let mode: DisplayMode = Self::getDisplayMode();
+                Surface { m_width: mode.getWidth(), m_height: mode.getHeight(), m_scale: 1.0 }
+            }
         }
     }
 
@@ -144,9 +183,9 @@ impl Display
             return Err(LWJGLException::new("Only one LWJGL context may be instantiated at any one time."));
         }
         let mode: DisplayMode = Self::getDisplayMode();
-        let (title, fullscreen, parented): (String, bool, bool) = STATE.with(|state| {
+        let (title, fullscreen): (String, bool) = STATE.with(|state| {
             let state = state.borrow();
-            (state.m_title.clone(), state.m_fullscreen, state.m_parented)
+            (state.m_title.clone(), state.m_fullscreen)
         });
         let (mut window, context): (Window, sdl2::video::GLContext) = platform::with(|platform| {
             let attributes: sdl2::video::gl_attr::GLAttr = platform.m_video.gl_attr();
@@ -156,11 +195,7 @@ impl Display
             attributes.set_depth_size(24);
             let mut builder: sdl2::video::WindowBuilder =
                 platform.m_video.window(&title, mode.getWidth() as u32, mode.getHeight() as u32);
-            builder.opengl().position_centered();
-            if parented
-            {
-                builder.resizable();
-            }
+            builder.opengl().position_centered().resizable().allow_highdpi();
             let window: Window = builder.build().map_err(sdlError)?;
             let context: sdl2::video::GLContext = window.gl_create_context().map_err(sdlError)?;
             window.gl_make_current(&context).map_err(sdlError)?;
@@ -177,6 +212,7 @@ impl Display
             state.m_active = true;
             state.m_closeRequested = false;
         });
+        logger().info(&format!("Display scale {:.2}", Self::surface().m_scale));
         Ok(())
     }
 
@@ -216,7 +252,7 @@ impl Display
 
     pub fn processMessages()
     {
-        let height: i32 = Self::getWindowSize().1;
+        let surface: Surface = Self::surface();
         let events: Vec<Event> = platform::with(|platform| platform.m_events.poll_iter().collect()).unwrap_or_default();
         for event in events
         {
@@ -233,11 +269,14 @@ impl Display
                 Event::Window { win_event: WindowEvent::FocusLost, .. } =>
                 {
                     STATE.with(|state| state.borrow_mut().m_active = false);
+                    // keys and buttons let go over another window never send their release here
+                    keyboard::release();
+                    mouse::release();
                 }
                 _ =>
                 {
                     keyboard::handleEvent(&event);
-                    mouse::handleEvent(&event, height);
+                    mouse::handleEvent(&event, surface);
                 }
             }
         }

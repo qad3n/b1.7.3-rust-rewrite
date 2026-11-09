@@ -1,4 +1,3 @@
-use super::atLeastOne;
 use crate::client::{MINECRAFT_ERROR, MINECRAFT_EXCEPTION, Minecraft, ScreenShotHelper, UnexpectedThrowable};
 use crate::gui::{GuiConflictWarning, GuiErrorScreen};
 use crate::render::{CHUNKS_UPDATED, GLAllocation, RenderBlocks, Tessellator};
@@ -158,10 +157,6 @@ impl Minecraft
         }
         if !Display::isActive()
         {
-            if self.m_fullscreen.get()
-            {
-                self.toggleFullscreen();
-            }
             std::thread::sleep(INACTIVE_SLEEP);
         }
         if self.gameSettings().m_showDebugInfo.get()
@@ -200,21 +195,25 @@ impl Minecraft
         true
     }
 
-    fn followCanvasSize(&self)
+    pub(super) fn followCanvasSize(&self)
     {
         let Some(canvas) = self.m_mcCanvas.get()
         else
         {
             return;
         };
-        if self.m_fullscreen.get()
-            || (canvas.getWidth() == self.m_displayWidth.get() && canvas.getHeight() == self.m_displayHeight.get())
+        let (width, height): (i32, i32) = (canvas.getWidth(), canvas.getHeight());
+        // minimized windows report no size and keep the last layout
+        if width <= 0 || height <= 0
         {
             return;
         }
-        self.m_displayWidth.set(atLeastOne(canvas.getWidth()));
-        self.m_displayHeight.set(atLeastOne(canvas.getHeight()));
-        self.resize(self.m_displayWidth.get(), self.m_displayHeight.get());
+        if width == self.m_displayWidth.get() && height == self.m_displayHeight.get()
+        {
+            return;
+        }
+
+        self.resize(width, height);
     }
 
     pub fn cleanHeap(&self)

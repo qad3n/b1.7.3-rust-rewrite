@@ -1,7 +1,8 @@
-use crate::opengl::Display;
+use crate::opengl::{Display, Surface};
 use crate::{LWJGLException, platform};
-use sdl2::event::Event;
-use sdl2::mouse::MouseButton;
+use jvm::logging::logger;
+use sdl2::event::{Event, EventType};
+use sdl2::mouse::{MouseButton, MouseUtil};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 
@@ -42,6 +43,8 @@ struct MouseState
     m_dx: i32,
     m_dy: i32,
     m_dwheel: i32,
+    // touchpads and smooth wheels scroll in fractions of a notch
+    m_notches: f32,
     m_buttons: [bool; BUTTON_COUNT],
     m_queue: VecDeque<MouseEvent>,
     m_current: MouseEvent,
@@ -71,8 +74,26 @@ fn queue(state: &mut MouseState, button: i32, buttonState: bool, dx: i32, dy: i3
     state.m_queue.push_back(event);
 }
 
-// positions have their origin at the bottom left like gl, deltas grow upwards
-pub(crate) fn handleEvent(event: &Event, height: i32)
+// lwjgl positions stay inside the drawable
+fn limit(value: i32, size: i32) -> i32 { value.clamp(0, (size - 1).max(0)) }
+
+// moves the cursor from lwjgl pixels at the bottom left to window points at the top left
+fn warp(x: i32, y: i32)
+{
+    let surface: Surface = Display::surface();
+    let pointX: i32 = (x as f64 / surface.m_scale) as i32;
+    let pointY: i32 = ((surface.m_height - 1 - y) as f64 / surface.m_scale) as i32;
+    let warped: Result<Option<()>, LWJGLException> = platform::with(|platform| {
+        Display::withWindow(|window| platform.m_sdl.mouse().warp_mouse_in_window(window, pointX, pointY))
+    });
+    if let Err(error) = warped
+    {
+        logger().warning(&format!("could not move the cursor: {error}"));
+    }
+}
+
+// positions are drawable pixels with their origin at the bottom left like gl, deltas grow upwards
+pub(crate) fn handleEvent(event: &Event, surface: Surface)
 {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
@@ -80,20 +101,19 @@ pub(crate) fn handleEvent(event: &Event, height: i32)
         {
             return;
         }
-        let width: i32 = Display::getDisplayMode().getWidth();
         match *event
         {
             Event::MouseMotion { x, y, xrel, yrel, .. } =>
             {
                 if state.m_grabbed
                 {
-                    state.m_x = (state.m_x + xrel).clamp(0, width - 1);
-                    state.m_y = (state.m_y - yrel).clamp(0, height - 1);
+                    state.m_x = limit(state.m_x + xrel, surface.m_width);
+                    state.m_y = limit(state.m_y - yrel, surface.m_height);
                 }
                 else
                 {
-                    state.m_x = x;
-                    state.m_y = height - 1 - y;
+                    state.m_x = limit((x as f64 * surface.m_scale) as i32, surface.m_width);
+                    state.m_y = limit(surface.m_height - 1 - (y as f64 * surface.m_scale) as i32, surface.m_height);
                 }
                 state.m_dx += xrel;
                 state.m_dy -= yrel;
@@ -110,14 +130,39 @@ pub(crate) fn handleEvent(event: &Event, height: i32)
                 state.m_buttons[button as usize] = pressed;
                 queue(&mut state, button, pressed, 0, 0, 0);
             }
-            Event::MouseWheel { y, .. } =>
+            Event::MouseWheel { precise_y, .. } =>
             {
-                let dwheel: i32 = y * WHEEL_DELTA;
+                state.m_notches += precise_y;
+                let notches: f32 = state.m_notches.trunc();
+                if notches == 0.0
+                {
+                    return;
+                }
+
+                state.m_notches -= notches;
+                let dwheel: i32 = notches as i32 * WHEEL_DELTA;
                 state.m_dwheel += dwheel;
                 queue(&mut state, -1, false, 0, 0, dwheel);
             }
             _ =>
             {}
+        }
+    });
+}
+
+pub(crate) fn release()
+{
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
+        for (_, button) in BUTTONS
+        {
+            if !state.m_buttons[button as usize]
+            {
+                continue;
+            }
+
+            state.m_buttons[button as usize] = false;
+            queue(&mut state, button, false, 0, 0, 0);
         }
     });
 }
@@ -198,8 +243,47 @@ impl Mouse
 
     pub fn setGrabbed(grab: bool)
     {
-        STATE.with(|state| state.borrow_mut().m_grabbed = grab);
-        let _ = platform::with(|platform| platform.m_sdl.mouse().set_relative_mouse_mode(grab));
+        let switched: Result<bool, LWJGLException> = platform::with(|platform| {
+            let mouse: MouseUtil = platform.m_sdl.mouse();
+            mouse.set_relative_mouse_mode(grab);
+            // motion queued in the old mode would jolt the camera or the cursor
+            match platform.m_sdl.event()
+            {
+                Ok(events) => events.flush_event(EventType::MouseMotion),
+                Err(error) => logger().warning(&format!("could not drop queued mouse motion: {error}")),
+            }
+            mouse.relative_mouse_mode()
+        });
+        let grabbed: bool = match switched
+        {
+            Ok(grabbed) => grabbed,
+            Err(error) =>
+            {
+                logger().warning(&format!("could not switch the mouse grab: {error}"));
+                false
+            }
+        };
+        if grab && !grabbed
+        {
+            logger().warning("the window system refused to grab the mouse");
+        }
+
+        // lwjgl drops the deltas gathered in the old mode
+        let (x, y): (i32, i32) = STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            state.m_grabbed = grabbed;
+            state.m_dx = 0;
+            state.m_dy = 0;
+            state.m_dwheel = 0;
+            (state.m_x, state.m_y)
+        });
+        if grabbed
+        {
+            return;
+        }
+
+        // the released cursor shows up where the game last saw it
+        warp(x, y);
     }
 
     pub fn setCursorPosition(x: i32, y: i32)
@@ -209,9 +293,6 @@ impl Mouse
             state.m_x = x;
             state.m_y = y;
         });
-        let height: i32 = Display::getDisplayMode().getHeight();
-        let _ = platform::with(|platform| {
-            Display::withWindow(|window| platform.m_sdl.mouse().warp_mouse_in_window(window, x, height - 1 - y))
-        });
+        warp(x, y);
     }
 }

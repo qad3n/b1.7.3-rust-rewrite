@@ -75,8 +75,6 @@ pub struct Minecraft
     pub m_downloadResourcesThread: Field<Option<Rc<ThreadDownloadResources>>>,
     pub m_ticksRan: Cell<i32>,
     pub m_leftClickCounter: Cell<i32>,
-    pub m_tempDisplayWidth: Cell<i32>,
-    pub m_tempDisplayHeight: Cell<i32>,
     pub m_guiAchievement: Field<Option<Rc<GuiAchievement>>>,
     pub m_ingameGUI: Field<Option<Rc<GuiIngame>>>,
     pub m_skipRenderWorld: Cell<bool>,
@@ -172,8 +170,6 @@ impl Minecraft
             m_downloadResourcesThread: Field::new(None),
             m_ticksRan: Cell::new(0),
             m_leftClickCounter: Cell::new(0),
-            m_tempDisplayWidth: Cell::new(0),
-            m_tempDisplayHeight: Cell::new(0),
             m_guiAchievement: Field::new(None),
             m_ingameGUI: Field::new(None),
             m_skipRenderWorld: Cell::new(false),
@@ -206,7 +202,6 @@ impl Minecraft
         minecraft.m_loadingScreen.set(Some(Rc::new(LoadingScreenRenderer::new(Rc::clone(&minecraft)))));
         minecraft.m_guiAchievement.set(Some(Rc::new(GuiAchievement::new(Rc::clone(&minecraft)))));
         StatList::init();
-        minecraft.m_tempDisplayHeight.set(height);
         minecraft.m_fullscreen.set(fullscreen);
         minecraft.m_mcApplet.set(applet.clone());
         minecraft.m_mcCanvas.set(canvas);

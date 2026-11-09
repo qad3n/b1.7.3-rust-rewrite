@@ -80,6 +80,10 @@ impl Minecraft
             std::thread::sleep(CREATE_RETRY_DELAY);
             Display::create()?;
         }
+        // hidpi drawables hold more pixels than the window has points
+        let (width, height): (i32, i32) = Display::getWindowSize();
+        self.m_displayWidth.set(atLeastOne(width));
+        self.m_displayHeight.set(atLeastOne(height));
         logger().info(&format!(
             "Created {}x{} display{}",
             self.m_displayWidth.get(),

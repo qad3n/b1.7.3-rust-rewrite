@@ -339,6 +339,37 @@ fn attachText(state: &mut KeyboardState, text: &str, nanos: i64)
     }
 }
 
+fn released(key: i32, nanos: i64) -> KeyEvent
+{
+    KeyEvent {
+        m_key: key,
+        m_state: false,
+        m_character: Keyboard::CHAR_NONE,
+        m_nanos: nanos,
+        m_repeat: false,
+        m_hasText: true,
+    }
+}
+
+pub(crate) fn release()
+{
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
+        let nanos: i64 = jvm::system::nanoTime();
+        state.m_droppedRepeat = false;
+        for key in 0..state.m_keyDown.len()
+        {
+            if !state.m_keyDown[key]
+            {
+                continue;
+            }
+
+            state.m_keyDown[key] = false;
+            state.m_queue.push_back(released(key as i32, nanos));
+        }
+    });
+}
+
 pub(crate) fn handleEvent(event: &Event)
 {
     STATE.with(|state| {
@@ -374,14 +405,7 @@ pub(crate) fn handleEvent(event: &Event)
                 let key: i32 = lwjglKey(*keycode);
                 state.m_droppedRepeat = false;
                 state.m_keyDown[key as usize] = false;
-                state.m_queue.push_back(KeyEvent {
-                    m_key: key,
-                    m_state: false,
-                    m_character: Keyboard::CHAR_NONE,
-                    m_nanos: nanos,
-                    m_repeat: false,
-                    m_hasText: true,
-                });
+                state.m_queue.push_back(released(key, nanos));
             }
             Event::TextInput { text, .. } if !state.m_droppedRepeat => attachText(&mut state, text, nanos),
             _ =>

@@ -7,6 +7,7 @@ mod texture_scale;
 
 pub use arb::{ARBOcclusionQuery, ARBVertexBufferObject, NVFogDistance};
 pub use display::Display;
+pub(crate) use display::Surface;
 pub use display_mode::DisplayMode;
 pub use gl11::{GL11, GL12};
 use std::cell::RefCell;

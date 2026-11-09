@@ -4,7 +4,7 @@ use crate::entity::entity_player_sp;
 use crate::gui::{
     GuiChat, GuiGameOver, GuiIngameMenu, GuiInventory, GuiMainMenu, GuiScreen, ScaledResolution, newSleepMP,
 };
-use crate::settings::{Component, EnumOptions, GameSettings};
+use crate::settings::{EnumOptions, GameSettings};
 use game::block::Block;
 use game::entity::{Entity, entity_player};
 use game::inventory::InventoryPlayer;
@@ -235,36 +235,10 @@ impl Minecraft
     fn switchFullscreen(&self) -> Result<(), lwjgl::LWJGLException>
     {
         self.m_fullscreen.set(!self.m_fullscreen.get());
-        if self.m_fullscreen.get()
-        {
-            Display::setDisplayMode(Display::getDesktopDisplayMode())?;
-            self.m_displayWidth.set(atLeastOne(Display::getDisplayMode().getWidth()));
-            self.m_displayHeight.set(atLeastOne(Display::getDisplayMode().getHeight()));
-        }
-        else
-        {
-            match self.m_mcCanvas.get()
-            {
-                Some(canvas) =>
-                {
-                    self.m_displayWidth.set(canvas.getWidth());
-                    self.m_displayHeight.set(canvas.getHeight());
-                }
-                None =>
-                {
-                    self.m_displayWidth.set(self.m_tempDisplayWidth.get());
-                    self.m_displayHeight.set(self.m_tempDisplayHeight.get());
-                }
-            }
-            self.m_displayWidth.set(atLeastOne(self.m_displayWidth.get()));
-            self.m_displayHeight.set(atLeastOne(self.m_displayHeight.get()));
-        }
-        if self.m_currentScreen.with(Option::is_some)
-        {
-            self.resize(self.m_displayWidth.get(), self.m_displayHeight.get());
-        }
+        // borderless fullscreen covers the monitor holding the window and compositors may apply the size frames later
         Display::setFullscreen(self.m_fullscreen.get())?;
         Display::update();
+        self.followCanvasSize();
         Ok(())
     }
 
