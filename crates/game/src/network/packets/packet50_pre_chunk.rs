@@ -15,7 +15,8 @@ impl Packet50PreChunk
 {
     pub fn new(chunkX: i32, chunkZ: i32, load: bool) -> Self
     {
-        Self { m_xPosition: chunkX, m_yPosition: chunkZ, m_mode: load, ..Self::default() }
+        // rewrite: shares the chunk queue so a load or unload never passes the chunk data queued before it
+        Self { m_base: PacketBase::chunkData(), m_xPosition: chunkX, m_yPosition: chunkZ, m_mode: load }
     }
 }
 
