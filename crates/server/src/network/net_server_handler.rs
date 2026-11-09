@@ -229,7 +229,8 @@ impl NetServerHandler
 
     fn authPayload(&self, data: &[u8])
     {
-        let (Some(service), Ok(message)) = (self.m_mcServer.auth(), auth::Message::decode(data))
+        let service: Rc<ServerAuth> = self.m_mcServer.auth();
+        let Ok(message) = auth::Message::decode(data)
         else
         {
             self.kickPlayer("Protocol error");

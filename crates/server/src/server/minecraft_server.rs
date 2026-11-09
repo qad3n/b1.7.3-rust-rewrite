@@ -47,7 +47,6 @@ pub struct MinecraftServer
     m_consoleLines: Arc<Mutex<Vec<String>>>,
     // one tracker per dimension, vanilla dimensions first and mod dimensions after them
     pub m_entityTracker: Field<Vec<Option<Rc<EntityTracker>>>>,
-    pub m_onlineMode: Cell<bool>,
     pub m_spawnPeacefulMobs: Cell<bool>,
     pub m_pvpOn: Cell<bool>,
     pub m_allowFlight: Cell<bool>,
@@ -95,7 +94,6 @@ impl MinecraftServer
             m_commands: RefCell::new(Vec::new()),
             m_consoleLines: Arc::new(Mutex::new(Vec::new())),
             m_entityTracker: Field::new(Vec::new()),
-            m_onlineMode: Cell::new(false),
             m_spawnPeacefulMobs: Cell::new(false),
             m_pvpOn: Cell::new(false),
             m_allowFlight: Cell::new(false),
@@ -122,7 +120,7 @@ impl MinecraftServer
 
     pub fn configManager(&self) -> Rc<ServerConfigurationManager> { self.m_configManager.get().orNpe() }
 
-    pub fn auth(&self) -> Option<Rc<ServerAuth>> { self.m_auth.get() }
+    pub fn auth(&self) -> Rc<ServerAuth> { self.m_auth.get().orNpe() }
 
     pub fn worldMngr(&self) -> Vec<Rc<World>> { self.m_worldMngr.get().orNpe().into_iter().map(OrNpe::orNpe).collect() }
 
@@ -151,20 +149,16 @@ impl MinecraftServer
         // the built in mod loader reads its server.properties switches and loads mods next to that file
         crate::modded::start(&self.propertyManager());
         let s: String = self.propertyManager().getStringProperty("server-ip", "");
-        self.m_onlineMode.set(self.propertyManager().getBooleanProperty("online-mode", false));
         self.m_spawnPeacefulMobs.set(self.propertyManager().getBooleanProperty("spawn-animals", true));
         self.m_pvpOn.set(self.propertyManager().getBooleanProperty("pvp", true));
         self.m_allowFlight.set(self.propertyManager().getBooleanProperty("allow-flight", false));
-        if !self.m_onlineMode.get()
+        match ServerAuth::load(&self.propertyManager())
         {
-            match ServerAuth::load(&self.propertyManager())
+            Ok(auth) => self.m_auth.set(Some(auth)),
+            Err(error) =>
             {
-                Ok(auth) => self.m_auth.set(auth),
-                Err(error) =>
-                {
-                    severe!("**** CANNOT START PASSWORD AUTH: {error}");
-                    return Ok(false);
-                }
+                severe!("**** CANNOT START PASSWORD AUTH: {error}");
+                return Ok(false);
             }
         }
         let mut inetaddress: Option<IpAddr> = None;
@@ -185,26 +179,11 @@ impl MinecraftServer
                 return Ok(false);
             }
         }
-        if let Some(auth) = self.auth()
-        {
-            info!("Password auth is on with {} accounts, registration is {:?}", auth.vault().count(), auth.policy());
-        }
-        else if !self.m_onlineMode.get()
-        {
-            warning!("**** SERVER IS RUNNING IN OFFLINE/INSECURE MODE!");
-            warning!("The server will make no attempt to authenticate usernames. Beware.");
-            warning!(
-                "While this makes the game possible to play without internet access, it also opens up the ability for hackers to connect with any username they choose.",
-            );
-            warning!("To change this, set \"online-mode\" to \"true\" in the server.settings file.");
-        }
+        let auth: Rc<ServerAuth> = self.auth();
+        info!("Password auth has {} accounts, registration is {:?}", auth.vault().count(), auth.policy());
         // rewrite: the level's saved mod id map applies before the per dimension trackers and player managers exist
         modloader::remap::preload(Path::new(&self.propertyManager().getStringProperty("level-name", "world")));
         self.m_configManager.set(Some(ServerConfigurationManager::new(&this)));
-        if !self.m_onlineMode.get() && self.auth().is_none() && self.configManager().opCount() > 0
-        {
-            warning!("**** auth=off with ops listed, anyone who joins with an op name gets op commands");
-        }
         let trackers: Vec<Option<Rc<EntityTracker>>> = modloader::dimensions::serverDimensions()
             .iter()
             .map(|dimension| Some(EntityTracker::new(&this, *dimension)))

@@ -32,7 +32,7 @@ use jvm::field::Field;
 use jvm::io::{IoResult, ioError};
 use jvm::random::Random;
 use jvm::string::JString;
-use jvm::throwable::{EXCEPTION, IO, OrNpe, Throwable, ThrowableClass, catchThrowable};
+use jvm::throwable::{IO, OrNpe, ThrowableClass};
 use jvm::{debug, info, warning};
 use std::cell::{Cell, RefCell};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
@@ -324,46 +324,6 @@ impl NetClientHandler
         self.m_mc.changeWorld1(Some(worldClient));
         entity_player::fields(&self.thePlayer()).m_dimension.set(dimension as i32);
         self.m_mc.displayGuiScreen(Some(GuiDownloadTerrain::new(self)));
-    }
-
-    fn joinServer(&self, serverId: &JString)
-    {
-        let session: Rc<crate::client::Session> = self.m_mc.m_session.get().orNpe();
-        let result: Result<IoResult<(JString, bool)>, Throwable> = catchThrowable(&EXCEPTION, || {
-            let url: String = format!(
-                "http://www.minecraft.net/game/joinserver.jsp?user={}&sessionId={}&serverId={serverId}",
-                session.m_username.get().unwrap_or_else(|| "null".to_string()),
-                session.m_sessionId.get().unwrap_or_else(|| "null".to_string()),
-            );
-            let body: Vec<u8> = jvm::net::openStream(&url)?;
-            let text: String = String::from_utf8_lossy(&body).into_owned();
-            let line: Option<JString> =
-                (!text.is_empty()).then(|| JString::from(text.split(['\n', '\r']).next().unwrap_or("")));
-            let string: JString = line.orNpe();
-            let ok: bool = string.equalsIgnoreCase(Some(&JString::from("ok")));
-            Ok((string, ok))
-        });
-        match result.and_then(|line| line)
-        {
-            Ok((_, true)) =>
-            {
-                self.addToSendQueue(Box::new(self.loginPacket()));
-            }
-            Ok((string, false)) =>
-            {
-                warning!("Session verification refused: {string}");
-                self.netManager().networkShutdown("disconnect.loginFailedInfo", vec![string]);
-            }
-            Err(exception) =>
-            {
-                warning!("Session verification failed: {exception}");
-                exception.printStackTrace();
-                self.netManager().networkShutdown(
-                    "disconnect.genericReason",
-                    vec![JString::from(format!("Internal client error: {exception}").as_str())],
-                );
-            }
-        }
     }
 
     fn openWindow(&self, windowId: i32)
@@ -838,20 +798,8 @@ impl NetHandler for NetClientHandler
         }
     }
 
-    fn handleHandshake(&self, packet: &Packet2Handshake)
-    {
-        let serverId: &JString = packet.m_username.as_ref().orNpe();
-        if *serverId == JString::from("-")
-        {
-            debug!("Server is in offline mode, sending login");
-            self.addToSendQueue(Box::new(self.loginPacket()));
-        }
-        else
-        {
-            debug!("Server is in online mode, verifying the session");
-            self.joinServer(serverId);
-        }
-    }
+    // rewrite servers never verify a session so the server id is ignored and passwords do the auth
+    fn handleHandshake(&self, _packet: &Packet2Handshake) { self.addToSendQueue(Box::new(self.loginPacket())); }
 
     fn handleMobSpawn(&self, packet: &Packet24MobSpawn)
     {

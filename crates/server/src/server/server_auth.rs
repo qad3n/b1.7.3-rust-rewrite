@@ -31,16 +31,8 @@ pub struct ServerAuth
 
 impl ServerAuth
 {
-    pub fn load(properties: &PropertyManager) -> Result<Option<Rc<ServerAuth>>, String>
+    pub fn load(properties: &PropertyManager) -> Result<Rc<ServerAuth>, String>
     {
-        match properties.getStringProperty("auth", "required").as_str()
-        {
-            "off" => return Ok(None),
-            "required" =>
-            {}
-            other => return Err(format!("unknown auth mode \"{other}\" in server.properties, use required or off")),
-        }
-
         let key: String = properties.getStringProperty("auth-registration", "open");
         let policy: Registration =
             POLICIES.iter().find(|row| row.m_key == key).map(|row| row.m_policy).ok_or_else(|| {
@@ -51,11 +43,11 @@ impl ServerAuth
             format!("auth is required but {PASSPHRASE_VAR} is not set, it encrypts {VAULT_PATH} and needs 12 or more characters")
         })?);
         let vault: Vault = Vault::open(Path::new(VAULT_PATH), passphrase.as_bytes())?;
-        Ok(Some(Rc::new(ServerAuth {
+        Ok(Rc::new(ServerAuth {
             m_vault: RefCell::new(vault),
             m_limiter: RefCell::new(Limiter::new()),
             m_policy: policy,
-        })))
+        }))
     }
 
     pub fn vault(&self) -> RefMut<'_, Vault> { self.m_vault.borrow_mut() }

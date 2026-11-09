@@ -14,7 +14,6 @@ use game::world::{ChunkCoordinates, World};
 use jvm::field::Field;
 use jvm::floating_decimal::doubleToString;
 use jvm::io::IoResult;
-use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
 use jvm::{debug, info, severe};
@@ -22,18 +21,7 @@ use modloader::netsync::{Outcome, ServerSession};
 use std::cell::{Cell, RefCell};
 use std::net::TcpStream;
 use std::rc::{Rc, Weak};
-use std::sync::{Arc, Mutex};
 use std::time::Instant;
-
-thread_local! {
-    static RAND: Random = Random::new();
-}
-
-enum VerifyOutcome
-{
-    Verified,
-    Kick(String, Option<Throwable>),
-}
 
 pub struct NetLoginHandler
 {
@@ -44,9 +32,6 @@ pub struct NetLoginHandler
     m_loginTimer: Cell<i32>,
     m_username: Field<Option<JString>>,
     m_packet1login: Field<Option<Packet1Login>>,
-    m_serverId: Field<String>,
-    m_verification: Arc<Mutex<Option<VerifyOutcome>>>,
-    m_pendingLogin: Field<Option<Packet1Login>>,
     // the mod loader configuration phase of a modded client, between auth and play
     m_session: RefCell<Option<ServerSession>>,
     m_configured: Cell<bool>,
@@ -79,9 +64,6 @@ impl NetLoginHandler
             m_loginTimer: Cell::new(0),
             m_username: Field::new(None),
             m_packet1login: Field::new(None),
-            m_serverId: Field::new(String::new()),
-            m_verification: Arc::new(Mutex::new(None)),
-            m_pendingLogin: Field::new(None),
             m_session: RefCell::new(None),
             m_configured: Cell::new(false),
             m_configuringLogin: Field::new(None),
@@ -101,29 +83,8 @@ impl NetLoginHandler
 
     pub fn netManager(&self) -> Rc<NetworkManager> { self.m_netManager.get().orNpe() }
 
-    fn pollVerification(&self)
-    {
-        let outcome: Option<VerifyOutcome> = game::port::network::lock(&self.m_verification).take();
-        match outcome
-        {
-            Some(VerifyOutcome::Verified) => self.m_packet1login.set(self.m_pendingLogin.get()),
-            Some(VerifyOutcome::Kick(reason, exception)) =>
-            {
-                self.kickUser(&reason);
-                if let Some(exception) = exception
-                {
-                    exception.printStackTrace();
-                }
-            }
-            None =>
-            {}
-        }
-    }
-
     pub fn tryLogin(&self)
     {
-        // the verifier thread cannot touch rc game state so its result is applied here on the server thread
-        self.pollVerification();
         if let Some(packet1login) = self.m_packet1login.get()
         {
             self.doLogin(&packet1login);
@@ -274,25 +235,19 @@ impl NetLoginHandler
         self.m_finishedProcessing.set(true);
     }
 
-    // true when password auth holds the login or refused it
-    fn startAuth(&self, packet: &Packet1Login) -> bool
+    fn startAuth(&self, packet: &Packet1Login)
     {
-        let Some(service) = self.m_mcServer.auth()
-        else
-        {
-            return false;
-        };
-
+        let service: Rc<ServerAuth> = self.m_mcServer.auth();
         if packet.m_dimension & auth::LOGIN_FLAG == 0
         {
             self.kickUser("This server needs the b1.7.3 rewrite client to log in with a password");
-            return true;
+            return;
         }
         let Some(ip) = self.netManager().remoteIp()
         else
         {
             self.kickUser(PROTOCOL_ERROR);
-            return true;
+            return;
         };
 
         match service.ticket(ip)
@@ -301,7 +256,7 @@ impl NetLoginHandler
             Err(reason) =>
             {
                 self.kickUser(&reason);
-                return true;
+                return;
             }
         }
 
@@ -315,21 +270,20 @@ impl NetLoginHandler
             Err(reason) =>
             {
                 self.kickUser(&reason);
-                return true;
+                return;
             }
         };
 
         if let Err(reason) = Self::admit(&service, ip, handshake.name(), &start)
         {
             self.kickUser(&reason);
-            return true;
+            return;
         }
 
         info!("{} is logging in with a password", self.getUserAndIPString());
         *self.m_auth.borrow_mut() = Some(handshake);
         self.m_authLogin.set(Some(packet.clone()));
         self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&start)));
-        true
     }
 
     fn admit(service: &ServerAuth, ip: std::net::IpAddr, name: &str, start: &Message) -> Result<(), String>
@@ -367,13 +321,7 @@ impl NetLoginHandler
             return;
         }
 
-        let Some(service) = self.m_mcServer.auth()
-        else
-        {
-            self.kickUser(PROTOCOL_ERROR);
-            return;
-        };
-
+        let service: Rc<ServerAuth> = self.m_mcServer.auth();
         let mut current: std::cell::RefMut<'_, Option<auth::Handshake>> = self.m_auth.borrow_mut();
         let Some(handshake) = current.as_mut()
         else
@@ -451,19 +399,6 @@ impl NetLoginHandler
         }
         self.netManager().getRemoteAddress()
     }
-
-    fn verify(username: &str, serverId: &str) -> Result<bool, Throwable>
-    {
-        let url: String = format!(
-            "http://www.minecraft.net/game/checkserver.jsp?user={}&serverId={}",
-            jvm::net::urlEncode(username),
-            jvm::net::urlEncode(serverId)
-        );
-        let bytes: Vec<u8> = jvm::net::openStream(&url)?;
-        let line: String =
-            game::port::text::decodePlatform(&bytes).split(['\n', '\r']).next().unwrap_or_default().to_string();
-        Ok(line == "YES")
-    }
 }
 
 impl NetHandler for NetLoginHandler
@@ -482,16 +417,8 @@ impl NetHandler for NetLoginHandler
     {
         self.m_handshakeName.set(packet.m_username.clone());
         debug!("Handshake from {}", self.getUserAndIPString());
-        if self.m_mcServer.m_onlineMode.get()
-        {
-            let serverId: String = format!("{:x}", RAND.with(Random::nextLong) as u64);
-            self.m_serverId.set(serverId.clone());
-            self.netManager().addToSendQueue(Box::new(Packet2Handshake::new(JString::from(serverId.as_str()))));
-        }
-        else
-        {
-            self.netManager().addToSendQueue(Box::new(Packet2Handshake::new(JString::from("-"))));
-        }
+        // no session server check so players prove their name with a password after the login packet
+        self.netManager().addToSendQueue(Box::new(Packet2Handshake::new(JString::from("-"))));
     }
 
     fn handleModPayload(&self, packet: &Packet250ModPayload)
@@ -545,36 +472,6 @@ impl NetHandler for NetLoginHandler
             }
             return;
         }
-        if !self.m_mcServer.m_onlineMode.get()
-        {
-            if !self.startAuth(packet)
-            {
-                self.doLogin(packet);
-            }
-        }
-        else
-        {
-            self.m_pendingLogin.set(Some(packet.clone()));
-            let username: String = JString::display(packet.m_username.as_ref());
-            let serverId: String = self.m_serverId.get();
-            let outcome: Arc<Mutex<Option<VerifyOutcome>>> = Arc::clone(&self.m_verification);
-            let started: std::io::Result<std::thread::JoinHandle<()>> =
-                jvm::thread::start(jvm::thread::nextName(), move || {
-                    let result: VerifyOutcome = match NetLoginHandler::verify(&username, &serverId)
-                    {
-                        Ok(true) => VerifyOutcome::Verified,
-                        Ok(false) => VerifyOutcome::Kick(String::from("Failed to verify username!"), None),
-                        Err(exception) => VerifyOutcome::Kick(
-                            format!("Failed to verify username! [internal error {exception}]"),
-                            Some(exception),
-                        ),
-                    };
-                    *game::port::network::lock(&outcome) = Some(result);
-                });
-            if let Err(error) = started
-            {
-                jvm::io::fromStd(&error).printStackTrace();
-            }
-        }
+        self.startAuth(packet);
     }
 }
