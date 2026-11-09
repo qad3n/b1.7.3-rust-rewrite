@@ -1,25 +1,41 @@
 use crate::io::{FileOutputStream, IoResult, OutputStream};
 use crate::string::JString;
 use crate::throwable::Throwable;
+use std::io::IsTerminal;
 use std::path::Path;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
+use std::time::{Duration, Instant};
+
+pub mod colors
+{
+    pub const RED: &str = "\x1b[31m";
+    pub const YELLOW: &str = "\x1b[33m";
+    pub const GREY: &str = "\x1b[90m";
+    pub const RESET: &str = "\x1b[0m";
+    // info keeps the terminal's own foreground so light themes stay readable
+    pub const PLAIN: &str = "";
+}
+
+// B173_LOG picks the lowest level the console shows, the log file keeps every level
+const CONSOLE_LEVEL_VAR: &str = "B173_LOG";
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Level
 {
     pub m_name: &'static str,
     pub m_value: i32,
+    pub m_color: &'static str,
 }
 
 impl Level
 {
-    pub const SEVERE: Level = Level { m_name: "SEVERE", m_value: 1000 };
-    pub const WARNING: Level = Level { m_name: "WARNING", m_value: 900 };
-    pub const INFO: Level = Level { m_name: "INFO", m_value: 800 };
-    pub const CONFIG: Level = Level { m_name: "CONFIG", m_value: 700 };
-    pub const FINE: Level = Level { m_name: "FINE", m_value: 500 };
-    pub const FINER: Level = Level { m_name: "FINER", m_value: 400 };
-    pub const FINEST: Level = Level { m_name: "FINEST", m_value: 300 };
+    pub const SEVERE: Level = Level { m_name: "SEVERE", m_value: 1000, m_color: colors::RED };
+    pub const WARNING: Level = Level { m_name: "WARNING", m_value: 900, m_color: colors::YELLOW };
+    pub const INFO: Level = Level { m_name: "INFO", m_value: 800, m_color: colors::PLAIN };
+    pub const CONFIG: Level = Level { m_name: "CONFIG", m_value: 700, m_color: colors::PLAIN };
+    pub const FINE: Level = Level { m_name: "FINE", m_value: 500, m_color: colors::GREY };
+    pub const FINER: Level = Level { m_name: "FINER", m_value: 400, m_color: colors::GREY };
+    pub const FINEST: Level = Level { m_name: "FINEST", m_value: 300, m_color: colors::GREY };
 
     pub fn getLocalizedName(&self) -> &'static str { self.m_name }
 
@@ -69,7 +85,7 @@ impl ConsoleHandler
 {
     pub fn new(formatter: Box<dyn Formatter>) -> ConsoleHandler
     {
-        ConsoleHandler { m_formatter: formatter, m_level: Level::INFO }
+        ConsoleHandler { m_formatter: formatter, m_level: consoleLevel() }
     }
 }
 
@@ -81,7 +97,7 @@ impl Handler for ConsoleHandler
         {
             return;
         }
-        eprint!("{}", self.m_formatter.format(record));
+        eprint!("{}", paint(record.m_level.m_color, &self.m_formatter.format(record)));
     }
 
     fn flush(&mut self) {}
@@ -196,4 +212,107 @@ impl Logger
     pub fn severe(&self, message: &str) { self.log(Level::SEVERE, message, None); }
 
     pub fn fine(&self, message: &str) { self.log(Level::FINE, message, None); }
+
+    pub fn debug(&self, message: &str) { self.fine(message); }
+}
+
+// libraries that log through the log crate land in a named logger, only targets listed here show below warnings
+struct Bridge
+{
+    m_logger: &'static Logger,
+    m_targets: &'static [&'static str],
+}
+
+impl log::Log for Bridge
+{
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool
+    {
+        metadata.level() <= log::Level::Warn
+            || self.m_targets.iter().any(|target| metadata.target().starts_with(target))
+    }
+
+    fn log(&self, record: &log::Record<'_>)
+    {
+        if !self.enabled(record.metadata())
+        {
+            return;
+        }
+
+        let level: Level = match record.level()
+        {
+            log::Level::Error => Level::SEVERE,
+            log::Level::Warn => Level::WARNING,
+            log::Level::Info => Level::INFO,
+            log::Level::Debug | log::Level::Trace => Level::FINE,
+        };
+        let source: &str = record.target().split("::").next().unwrap_or_default();
+        self.m_logger.log(level, &format!("[{source}] {}", record.args()), None);
+    }
+
+    fn flush(&self) {}
+}
+
+// the one game logger, every crate logs through it
+pub fn logger() -> &'static Logger { &MINECRAFT }
+
+pub fn bridge(logger: &'static Logger, targets: &'static [&'static str])
+{
+    static BRIDGE: OnceLock<Bridge> = OnceLock::new();
+    let bridge: &'static Bridge = BRIDGE.get_or_init(|| Bridge { m_logger: logger, m_targets: targets });
+    match log::set_logger(bridge)
+    {
+        // trace stays off so cranelift never builds its per instruction records
+        Ok(()) => log::set_max_level(log::LevelFilter::Debug),
+        Err(error) => logger.warning(&format!("library logging stays off: {error}")),
+    }
+}
+
+fn consoleLevel() -> Level
+{
+    let Some(name) = std::env::var_os(CONSOLE_LEVEL_VAR)
+    else
+    {
+        return Level::FINE;
+    };
+
+    match name.to_string_lossy().to_ascii_lowercase().as_str()
+    {
+        "error" | "severe" => Level::SEVERE,
+        "warn" | "warning" => Level::WARNING,
+        "info" => Level::INFO,
+        "debug" | "fine" => Level::FINE,
+        "trace" | "finest" => Level::FINEST,
+        other =>
+        {
+            eprintln!("unknown {CONSOLE_LEVEL_VAR} level {other}, showing debug and up");
+            Level::FINE
+        }
+    }
+}
+
+// ansi colour only for a real terminal, piped output and NO_COLOR stay plain
+pub fn paint(color: &str, text: &str) -> String
+{
+    static COLORED: OnceLock<bool> = OnceLock::new();
+    let colored: bool =
+        *COLORED.get_or_init(|| std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none());
+    if !colored || color.is_empty()
+    {
+        return text.to_owned();
+    }
+
+    let body: &str = text.trim_end_matches('\n');
+    let newlines: &str = &text[body.len()..];
+    format!("{color}{body}{}{newlines}", colors::RESET)
+}
+
+// load timing for log lines, milliseconds under a second and seconds above
+pub fn took(started: Instant) -> String
+{
+    let elapsed: Duration = started.elapsed();
+    match elapsed.as_millis()
+    {
+        millis @ 0..1000 => format!("{millis}ms"),
+        _ => format!("{:.2}s", elapsed.as_secs_f64()),
+    }
 }

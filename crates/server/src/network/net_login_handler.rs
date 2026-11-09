@@ -13,7 +13,7 @@ use game::world::{ChunkCoordinates, World};
 use jvm::field::Field;
 use jvm::floating_decimal::doubleToString;
 use jvm::io::IoResult;
-use jvm::logging::Logger;
+use jvm::logging::logger;
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
@@ -26,8 +26,6 @@ use std::sync::{Arc, Mutex};
 thread_local! {
     static RAND: Random = Random::new();
 }
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 enum VerifyOutcome
 {

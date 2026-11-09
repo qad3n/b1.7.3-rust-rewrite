@@ -233,7 +233,7 @@ impl Handler for FileLogHandler
     fn close(&mut self) {}
 }
 
-// date, level and message, the same line shape as the server log
+// date with milliseconds, level and message
 pub struct LogFormatter;
 
 impl LogFormatter
@@ -247,13 +247,14 @@ impl Formatter for LogFormatter
     {
         let fields: DateFields = dateFields(record.getMillis());
         let mut text: String = format!(
-            "{:04}-{:02}-{:02} {:02}:{:02}:{:02} [{}] {}\n",
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} [{}] {}\n",
             fields.m_year,
             fields.m_month,
             fields.m_day,
             fields.m_hour,
             fields.m_minute,
             fields.m_second,
+            record.getMillis().rem_euclid(1000),
             record.getLevel().getLocalizedName(),
             record.getMessage()
         );

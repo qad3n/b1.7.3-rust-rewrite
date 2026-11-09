@@ -1,9 +1,7 @@
 use jvm::calendar::{DateFields, dateFields};
 use jvm::log_files;
-use jvm::logging::{Formatter, Level, LogRecord, Logger};
+use jvm::logging::{Formatter, Level, LogRecord, logger};
 use std::path::Path;
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 pub struct ConsoleLogManager;
 

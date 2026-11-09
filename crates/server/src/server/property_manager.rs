@@ -1,11 +1,9 @@
 use jvm::io::{FileInputStream, FileOutputStream, IoResult};
-use jvm::logging::{Level, Logger};
+use jvm::logging::{Level, logger};
 use jvm::properties::Properties;
 use jvm::throwable::{self, Throwable};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 pub struct PropertyManager
 {

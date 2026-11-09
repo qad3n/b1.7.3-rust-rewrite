@@ -2,7 +2,7 @@ mod assets;
 
 use anyhow::{Context, Result, bail};
 use jvm::log_files::{self, LogFormatter};
-use jvm::logging::Logger;
+use jvm::logging::logger;
 use std::io::{BufRead, Write};
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -20,8 +20,6 @@ struct Options
     m_help: bool,
     m_dev: bool,
 }
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 fn main() -> ExitCode
 {

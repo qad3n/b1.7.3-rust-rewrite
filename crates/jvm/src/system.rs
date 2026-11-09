@@ -29,10 +29,10 @@ pub fn println(line: &str)
     crate::log_files::write(&format!("{line}\n"));
 }
 
-// System.err.println
+// System.err.println, red on a terminal since it carries stack traces
 pub fn errPrintln(line: &str)
 {
-    eprintln!("{line}");
+    eprintln!("{}", crate::logging::paint(crate::logging::colors::RED, line));
     crate::log_files::write(&format!("{line}\n"));
 }
 

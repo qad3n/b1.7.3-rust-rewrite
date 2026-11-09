@@ -1,8 +1,6 @@
-use jvm::logging::Logger;
+use jvm::logging::logger;
 
 pub const LOADER: &str = "loader";
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 // every line names the mod it came from so a modpack log stays readable
 pub fn info(modId: &str, message: &str) { logger().info(&format!("[{modId}] {message}")); }

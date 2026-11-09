@@ -12,14 +12,12 @@ use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::JHashSet;
 use jvm::io::{FileInputStream, FileOutputStream, InputStream, IoResult, OutputStream};
-use jvm::logging::Logger;
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 fn readAllLines(file: &Path) -> IoResult<Vec<JString>>
 {

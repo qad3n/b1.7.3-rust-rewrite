@@ -12,7 +12,7 @@ use game::world::{ChunkCoordinates, ISaveHandler, World};
 use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::JHashMap;
-use jvm::logging::{Level, Logger};
+use jvm::logging::{Level, logger};
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::{self, OrNpe, Throwable, ThrowableClass};
@@ -23,8 +23,6 @@ use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 thread_local! {
     pub static GIVE_COMMANDS_COOLDOWNS: RefCell<JHashMap<JString, i32>> = RefCell::new(JHashMap::new());

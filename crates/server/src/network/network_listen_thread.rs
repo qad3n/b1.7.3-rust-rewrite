@@ -2,7 +2,7 @@ use crate::network::{NetLoginHandler, NetServerHandler};
 use crate::server::MinecraftServer;
 use jvm::array_list::JArrayList;
 use jvm::io::IoResult;
-use jvm::logging::{Level, Logger};
+use jvm::logging::{Level, logger};
 use jvm::string::JString;
 use jvm::throwable::{self, Throwable};
 use std::collections::HashMap;
@@ -14,8 +14,6 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 
 type Accepted = (TcpStream, i32);
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 pub struct NetworkListenThread
 {

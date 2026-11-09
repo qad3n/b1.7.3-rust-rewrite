@@ -21,14 +21,12 @@ use game::tileentity::{TileEntity, tile_entity_sign};
 use game::world::{ChunkCoordinates, World};
 use jvm::field::Field;
 use jvm::floating_decimal::doubleToString;
-use jvm::logging::Logger;
+use jvm::logging::logger;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-
-fn logger() -> &'static Logger { Logger::getLogger("Minecraft") }
 
 pub struct NetServerHandler
 {
