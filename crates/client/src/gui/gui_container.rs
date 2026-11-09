@@ -14,7 +14,7 @@ use game::world::World;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use lwjgl::input::{Keyboard, Mouse};
-use lwjgl::opengl::GL11;
+use lwjgl::opengl::{GL11, GL12};
 use std::cell::{Cell, OnceCell};
 use std::rc::Rc;
 
@@ -174,20 +174,6 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
         k += 1;
     }
     let inventoryplayer: Rc<InventoryPlayer> = entity_player::inventory(&player(this));
-    let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
-    if let Some(held) = inventoryplayer.getItemStack()
-    {
-        GL11::glTranslatef(0.0, 0.0, 32.0);
-        let renderEngine: Rc<RenderEngine> = renderEngine(this);
-        itemRenderer().renderItemIntoGUI(&fontRenderer, &renderEngine, Some(&held), mouseX - i - 8, mouseY - j - 8);
-        itemRenderer().renderItemOverlayIntoGUI(
-            &fontRenderer,
-            &renderEngine,
-            Some(&held),
-            mouseX - i - 8,
-            mouseY - j - 8,
-        );
-    }
     GL11::glDisable(32826);
     RenderHelper::disableStandardItemLighting();
     GL11::glDisable(2896);
@@ -203,6 +189,8 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
         [fields(this).m_xSize.get(), fields(this).m_ySize.get()],
         [mouseX, mouseY],
     );
+    // rewrite: the held stack draws after mod overlays so overlay panels never cover it
+    drawHeld(this, &inventoryplayer, mouseX, mouseY);
     if let Some(slot) = tooltip
     {
         GL11::glPushMatrix();
@@ -212,6 +200,34 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
     }
     GL11::glEnable(2896);
     GL11::glEnable(2929);
+}
+
+fn drawHeld(this: &Rc<GuiScreen>, inventory: &InventoryPlayer, mouseX: i32, mouseY: i32)
+{
+    let Some(held) = inventory.getItemStack()
+    else
+    {
+        return;
+    };
+
+    // overlay items leave depth that would hide the held stack
+    GL11::glClear(GL11::GL_DEPTH_BUFFER_BIT);
+    GL11::glPushMatrix();
+    GL11::glRotatef(120.0, 1.0, 0.0, 0.0);
+    RenderHelper::enableStandardItemLighting();
+    GL11::glPopMatrix();
+    GL11::glEnable(GL12::GL_RESCALE_NORMAL);
+    GL11::glEnable(GL11::GL_DEPTH_TEST);
+
+    let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
+    let renderEngine: Rc<RenderEngine> = renderEngine(this);
+    itemRenderer().renderItemIntoGUI(&fontRenderer, &renderEngine, Some(&held), mouseX - 8, mouseY - 8);
+    itemRenderer().renderItemOverlayIntoGUI(&fontRenderer, &renderEngine, Some(&held), mouseX - 8, mouseY - 8);
+
+    GL11::glDisable(GL12::GL_RESCALE_NORMAL);
+    RenderHelper::disableStandardItemLighting();
+    GL11::glDisable(GL11::GL_LIGHTING);
+    GL11::glDisable(GL11::GL_DEPTH_TEST);
 }
 
 fn drawTooltip(this: &GuiScreen, slot: &Slot, x: i32, y: i32)
