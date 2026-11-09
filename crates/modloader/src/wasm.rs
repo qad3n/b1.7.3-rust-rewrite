@@ -60,12 +60,18 @@ fn compile(wasm: &[u8], cacheDir: &Path) -> Result<Module, String>
     if cached.is_file()
     {
         // SAFETY: the file name hashes the wasm bytes and the engine compatibility key, and only this loader writes the cache
-        if let Ok(module) = unsafe { Module::deserialize_file(engine, &cached) }
+        match unsafe { Module::deserialize_file(engine, &cached) }
         {
-            return Ok(module);
+            Ok(module) => return Ok(module),
+            Err(error) => crate::log::warn(
+                crate::log::LOADER,
+                &format!("compiled mod cache {} is unusable, compiling again: {error}", cached.display()),
+            ),
         }
     }
+    let compiling: Instant = Instant::now();
     let module: Module = Module::new(engine, wasm).map_err(|error| format!("mod.wasm does not compile: {error:#}"))?;
+    crate::log::debug(crate::log::LOADER, &format!("compiled mod.wasm in {}", jvm::logging::took(compiling)));
     if let Ok(bytes) = module.serialize()
     {
         let written: std::io::Result<()> =

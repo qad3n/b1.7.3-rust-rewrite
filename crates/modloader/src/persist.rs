@@ -24,6 +24,20 @@ pub fn loaderDir(world: &World) -> Option<PathBuf> { worldDir(world).map(|dir| d
 
 pub fn read(world: &World, name: &str) -> Option<Vec<u8>> { std::fs::read(loaderDir(world)?.join(name)).ok() }
 
+// a saved file that no longer decodes is reported and then treated as missing
+pub fn decode<T: serde::de::DeserializeOwned>(name: &str, bytes: &[u8]) -> Option<T>
+{
+    match wire::decode(bytes)
+    {
+        Ok(value) => Some(value),
+        Err(error) =>
+        {
+            crate::log::warn(crate::log::LOADER, &format!("could not decode {name}, ignoring it: {error}"));
+            None
+        }
+    }
+}
+
 pub fn write(world: &World, name: &str, bytes: &[u8]) -> std::io::Result<()>
 {
     let Some(dir) = loaderDir(world)
@@ -41,7 +55,8 @@ pub fn write(world: &World, name: &str, bytes: &[u8]) -> std::io::Result<()>
 pub fn loadWorld(world: &World)
 {
     let loaded: BTreeMap<String, Vec<u8>> =
-        read(world, WORLD_DATA_FILE).and_then(|bytes| wire::decode(&bytes).ok()).unwrap_or_default();
+        read(world, WORLD_DATA_FILE).and_then(|bytes| decode(WORLD_DATA_FILE, &bytes)).unwrap_or_default();
+    crate::log::debug(crate::log::LOADER, &format!("loaded world data for {} mod keys", loaded.len()));
     WORLD_DATA.with(|data| *data.borrow_mut() = loaded);
 }
 

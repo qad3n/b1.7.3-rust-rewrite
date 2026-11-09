@@ -204,7 +204,8 @@ pub fn preload(worldDir: &std::path::Path)
         crate::state::setKeeper(false);
     }
     let path: std::path::PathBuf = worldDir.join(persist::LOADER_DIR).join(REGISTRY_FILE);
-    let Some(saved) = std::fs::read(&path).ok().and_then(|bytes| wire::decode::<RegistrySnapshot>(&bytes).ok())
+    let Some(saved) =
+        std::fs::read(&path).ok().and_then(|bytes| persist::decode::<RegistrySnapshot>(REGISTRY_FILE, &bytes))
     else
     {
         return;
@@ -220,6 +221,7 @@ pub fn preload(worldDir: &std::path::Path)
     }
     if saved != snapshot()
     {
+        crate::log::debug(crate::log::LOADER, &format!("applying the id map saved in {}", worldDir.display()));
         applySaved(Some(worldDir), &saved);
     }
     PRELOADED.with(|preloaded| *preloaded.borrow_mut() = Some(saved));
@@ -251,7 +253,7 @@ pub fn onWorldLoad(world: &Rc<World>)
 {
     crate::palette::clear();
     let saved: Option<RegistrySnapshot> =
-        persist::read(world, REGISTRY_FILE).and_then(|bytes| wire::decode(&bytes).ok());
+        persist::read(world, REGISTRY_FILE).and_then(|bytes| persist::decode(REGISTRY_FILE, &bytes));
     // the same map, as on a nether trip, needs no rebuild
     let preloaded: Option<RegistrySnapshot> = PRELOADED.with(|preloaded| preloaded.borrow_mut().take());
     if let Some(saved) = saved.as_ref().filter(|saved| **saved != snapshot() && Some(*saved) != preloaded.as_ref())

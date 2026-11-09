@@ -7,10 +7,12 @@ use crate::resolver::{self, Candidate, Problem, Resolution};
 use crate::state::{self, ModRuntime, Phase};
 use crate::wasm::ModInstance;
 use crate::{atlas, dimensions, events, log, services, side, tiles};
+use jvm::logging::took;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{EventData, EventKind, GuestCall, Handle, Lifecycle};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Instant;
 
 pub mod ids
 {
@@ -89,9 +91,13 @@ fn instantiate(runtime: &mut ModRuntime, paths: &LoaderPaths) -> Result<(), Stri
     let Some(wasm) = runtime.m_source.borrow_mut().read(WASM_FILE)
     else
     {
+        log::debug(runtime.id(), "data only mod, no mod.wasm");
         return Ok(());
     };
+
+    let started: Instant = Instant::now();
     runtime.m_instance = Some(ModInstance::load(runtime.m_index, &wasm, &paths.m_cache)?);
+    log::debug(runtime.id(), &format!("mod.wasm ({} KiB) instantiated in {}", wasm.len() / 1024, took(started)));
     Ok(())
 }
 
@@ -318,9 +324,27 @@ pub fn load(paths: &LoaderPaths)
 {
     if !discovery::hasMods(&paths.m_mods)
     {
+        log::info(log::LOADER, &format!("no mods in {}, playing vanilla", paths.m_mods.display()));
         return;
     }
+
     start(paths);
+}
+
+fn registryCounts() -> String
+{
+    registry::with(|registries| {
+        format!(
+            "{} blocks, {} items, {} entities, {} tile entities, {} recipes, {} dimensions, {} biomes",
+            registries.m_blocks.modded().count(),
+            registries.m_items.modded().count(),
+            registries.m_entities.modded().count(),
+            registries.m_tileEntities.modded().count(),
+            registries.m_recipes.modded().count() + registries.m_smelting.modded().count(),
+            registries.m_dimensions.modded().count(),
+            registries.m_biomes.modded().count()
+        )
+    })
 }
 
 // a world saved with mods opens in a game without any, the loader starts with no mods so placeholders keep that
@@ -343,7 +367,22 @@ pub fn keep()
 
 fn start(paths: &LoaderPaths)
 {
+    let started: Instant = Instant::now();
+    log::info(log::LOADER, &format!("loading mods from {}", paths.m_mods.display()));
     let (found, errors) = discovery::discover(&paths.m_mods);
+    for discovered in &found
+    {
+        log::debug(
+            log::LOADER,
+            &format!(
+                "found {} {} in {}",
+                discovered.m_manifest.id,
+                discovered.m_manifest.version,
+                fileName(discovered)
+            ),
+        );
+    }
+
     for error in errors
     {
         state::problem(state::UNKNOWN_MOD, &error.m_path.display().to_string(), &error.m_reason);
@@ -353,6 +392,9 @@ fn start(paths: &LoaderPaths)
         .map(|discovered| Candidate { m_manifest: discovered.m_manifest.clone(), m_file: fileName(discovered) })
         .collect();
     let resolution: Resolution = resolver::resolve(&candidates, physicalSide());
+    let order: Vec<&str> = resolution.m_order.iter().map(|index| candidates[*index].m_manifest.id.as_str()).collect();
+    log::debug(log::LOADER, &format!("load order: {}", order.join(", ")));
+
     state::addProblems(resolution.m_problems.clone());
     state::setSkipped(resolution.m_skipped.clone());
     let mut found: Vec<Option<Discovered>> = found.into_iter().map(Some).collect();
@@ -378,6 +420,7 @@ fn start(paths: &LoaderPaths)
     game::item::Item::byId(256);
     registry::with(|_| ());
     state::setPhase(Phase::Register);
+    let stage: Instant = Instant::now();
     content::harvest::seedTags();
     for runtime in &mut runtimes
     {
@@ -402,17 +445,22 @@ fn start(paths: &LoaderPaths)
         state::problem(&owner, "", &reason);
     }
     atlas::assign();
+    log::debug(log::LOADER, &format!("register phase took {}", took(stage)));
     if let Err(error) = freezeRegistries()
     {
         state::problem(log::LOADER, "", &error.to_string());
     }
     state::setPhase(Phase::Frozen);
+    log::debug(log::LOADER, &format!("registries frozen with {}", registryCounts()));
+
+    let stage: Instant = Instant::now();
     crate::netsync::checkSides();
     buildContent();
     removeVanillaRecipes();
     applyRecipes();
     applyLate();
     loadSprites();
+    log::debug(log::LOADER, &format!("content, recipes and sprites built in {}", took(stage)));
     post(EventKind::Setup);
     post(
         if side::isClient()
@@ -434,23 +482,28 @@ fn start(paths: &LoaderPaths)
         log::info(log::LOADER, &format!("loaded {} {} ({})", runtime.id(), runtime.m_manifest.version, runtime.m_file));
     }
     logReport(&state::problems(), &resolution.m_skipped);
+    let active: usize = state::mods().iter().filter(|runtime| runtime.isActive()).count();
+    log::info(log::LOADER, &format!("{active} of {} mods loaded in {}", found.len(), took(started)));
 }
 
 // a new id map from a world or a server, every mod object is built again at its new id
 pub fn rebuild()
 {
+    let started: Instant = Instant::now();
     tiles::clearBindings();
     buildContent();
     applyRecipes();
     applyWorldgen();
     dimensions::finish();
     callAll(GuestCall::Lifecycle(Lifecycle::Remapped));
+    log::info(log::LOADER, &format!("rebuilt mod content for the new id map in {}", took(started)));
 }
 
 pub fn shutdown()
 {
     if state::hasMods()
     {
+        log::debug(log::LOADER, "posting shutdown to mods");
         post(EventKind::Shutdown);
     }
 }
