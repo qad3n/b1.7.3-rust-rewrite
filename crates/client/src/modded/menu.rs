@@ -454,7 +454,7 @@ pub fn drawModCount(screen: &GuiScreen, font: &FontRenderer)
     const BOTTOM: i32 = 20;
     const RIGHT: i32 = 2;
     let count: usize = state::mods().len();
-    let text: String = format!("{count} {} loaded", if count == 1 { "mod" } else { "mods" });
+    let text: String = format!("{count} {} loaded.", if count == 1 { "mod" } else { "mods" });
     let x: i32 = screen.m_width.get() - font.getStringWidth(&text) - RIGHT;
     screen.m_gui.drawString(font, &text, x, screen.m_height.get() - BOTTOM, WHITE);
 }
