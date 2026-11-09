@@ -9,9 +9,17 @@ use game::network::packets::{Packet50PreChunk, Packet51MapChunk, Packet52MultiBl
 use game::tileentity::TileEntity;
 use game::world::World;
 use jvm::array_list::JArrayList;
-use jvm::logging::logger;
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
+
+// a queued block change packs local x, local z and y into one short
+mod packed
+{
+    pub const X_SHIFT: i32 = 12;
+    pub const Z_SHIFT: i32 = 8;
+    pub const LOCAL_MASK: i32 = 0xF;
+    pub const Y_MASK: i32 = 0xFF;
+}
 
 pub struct PlayerManager
 {
@@ -434,20 +442,25 @@ impl PlayerInstance
                 self.m_numBlocksToUpdate.get(),
                 &minecraftServer,
             )));
-            for _ in 0..self.m_numBlocksToUpdate.get()
+            // rewrite: vanilla decoded the change count here so batched tile entities such as sign text never synced
+            for block in &blocksToUpdate[..self.m_numBlocksToUpdate.get() as usize]
             {
-                let numBlocksToUpdate: i32 = self.m_numBlocksToUpdate.get();
-                let n3: i32 = self.m_chunkX * 16 + (numBlocksToUpdate >> 12 & 0xF);
-                let n4: i32 = numBlocksToUpdate & 0xFF;
-                let n5: i32 = self.m_chunkZ * 16 + (numBlocksToUpdate >> 8 & 0xF);
-                if Block::isBlockContainer(minecraftServer.getBlockId(n3, n4, n5))
+                let (x, y, z): (i32, i32, i32) = self.unpack(*block);
+                if Block::isBlockContainer(minecraftServer.getBlockId(x, y, z))
                 {
-                    logger().debug("Sending!");
-                    self.updateTileEntity(minecraftServer.getBlockTileEntity(n3, n4, n5).as_ref());
+                    self.updateTileEntity(minecraftServer.getBlockTileEntity(x, y, z).as_ref());
                 }
             }
         }
         self.m_numBlocksToUpdate.set(0);
+    }
+
+    fn unpack(&self, block: i16) -> (i32, i32, i32)
+    {
+        let block: i32 = block as i32;
+        let x: i32 = self.m_chunkX * 16 + (block >> packed::X_SHIFT & packed::LOCAL_MASK);
+        let z: i32 = self.m_chunkZ * 16 + (block >> packed::Z_SHIFT & packed::LOCAL_MASK);
+        (x, block & packed::Y_MASK, z)
     }
 
     fn updateTileEntity(&self, blockEntity: Option<&Rc<TileEntity>>)
