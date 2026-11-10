@@ -672,12 +672,10 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 .and_then(|container| container.m_slots.get(slot).getStack());
             HostReply::Stack(stack.map(|stack| stackData(&stack)))
         }),
-        HostCall::DisplayName { stack } => HostReply::Text(
-            stackFrom(&stack)
-                .and_then(|stack| stack.getItemName())
-                .map(|name| game::locale::StatCollector::translateToLocal(&format!("{name}.name")))
-                .unwrap_or_default(),
-        ),
+        HostCall::DisplayName { stack } =>
+        {
+            HostReply::Text(stackFrom(&stack).map(|stack| crate::viewer::displayName(&stack)).unwrap_or_default())
+        }
         HostCall::Explode { world: dimension, pos, power } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
             world.createExplosion(None, pos[0], pos[1], pos[2], power);
