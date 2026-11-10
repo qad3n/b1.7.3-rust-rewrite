@@ -69,7 +69,7 @@ fn collect(
     {
         for z in minZ..minZ + sizeZ
         {
-            for y in minY.max(0)..(minY + sizeY).min(128)
+            for y in minY.max(0)..(minY + sizeY).min(world.height())
             {
                 let block: i32 = world.getBlockId(x, y, z);
                 if block >= VANILLA_LIMIT

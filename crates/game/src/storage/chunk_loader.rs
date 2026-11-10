@@ -12,6 +12,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 const HEIGHT_MAP_SIZE: usize = 256;
+// rewrite: a column of a dimension taller than a byte can count saves its height map as two big endian bytes
+const WIDE_HEIGHT_MAP_SIZE: usize = HEIGHT_MAP_SIZE * 2;
+const BYTE_MASK: i32 = 0xFF;
 const FOLDER_MASK: i32 = 63;
 
 pub struct ChunkLoader
@@ -32,6 +35,61 @@ pub(super) fn catchException<R>(body: impl FnOnce() -> IoResult<R>) -> Option<R>
             None
         }
     }
+}
+
+// a byte per column at the vanilla height, as McRegion stores it, two once a column can reach past 255
+fn heightBytes(chunk: &Chunk) -> Vec<i8>
+{
+    let heights: Vec<i16> = chunk.m_heightMap.get();
+    if chunk.height() <= crate::world::HEIGHT
+    {
+        return heights.iter().map(|height| *height as i8).collect();
+    }
+    heights.iter().flat_map(|height| height.to_be_bytes()).map(|byte| byte as i8).collect()
+}
+
+fn readHeights(bytes: &[i8]) -> Option<Vec<i16>>
+{
+    match bytes.len()
+    {
+        HEIGHT_MAP_SIZE => Some(bytes.iter().map(|byte| (*byte as i32 & BYTE_MASK) as i16).collect()),
+        WIDE_HEIGHT_MAP_SIZE =>
+        {
+            Some(bytes.chunks(2).map(|pair| i16::from_be_bytes([pair[0] as u8, pair[1] as u8])).collect())
+        }
+        _ => None,
+    }
+}
+
+fn nibbles(chunk: &Chunk, nbt: &NBTTagCompound, key: &str) -> Vec<i8>
+{
+    refit(chunk, (*nbt.getByteArray(key).orNpe()).clone(), 2)
+}
+
+// a dimension whose height changed since the save keeps each column's bottom, cells per byte is 1 or 2
+fn refit(chunk: &Chunk, data: Vec<i8>, cellsPerByte: usize) -> Vec<i8>
+{
+    let columns: usize = crate::world::COLUMNS as usize;
+    let wanted: usize = chunk.volume() as usize / cellsPerByte;
+    if data.len() == wanted || !data.len().is_multiple_of(columns)
+    {
+        return data;
+    }
+    warning!(
+        "Chunk {},{} was saved {} high, refitting to {}",
+        chunk.m_xPosition,
+        chunk.m_zPosition,
+        data.len() * cellsPerByte / columns,
+        chunk.height()
+    );
+    let (from, to): (usize, usize) = (data.len() / columns, wanted / columns);
+    let mut fitted: Vec<i8> = vec![0; wanted];
+    for column in 0..columns
+    {
+        let len: usize = from.min(to);
+        fitted[column * to..column * to + len].copy_from_slice(&data[column * from..column * from + len]);
+    }
+    fitted
 }
 
 impl ChunkLoader
@@ -98,7 +156,7 @@ impl ChunkLoader
         }
         nbt.setByteArray("SkyLight", Rc::new(chunk.skylight().m_data.get()));
         nbt.setByteArray("BlockLight", Rc::new(chunk.blocklight().m_data.get()));
-        nbt.setByteArray("HeightMap", Rc::new(chunk.m_heightMap.get()));
+        nbt.setByteArray("HeightMap", Rc::new(heightBytes(chunk)));
         nbt.setBoolean("TerrainPopulated", chunk.m_isTerrainPopulated.get());
         chunk.m_hasEntities.set(false);
         let nbttaglist: Rc<NBTBase> = NBTTagList::create();
@@ -148,21 +206,24 @@ impl ChunkLoader
         }
         else
         {
-            chunk.m_blocks.set((*nbt.getByteArray("Blocks").orNpe()).clone());
+            chunk.m_blocks.set(refit(&chunk, (*nbt.getByteArray("Blocks").orNpe()).clone(), 1));
             if nbt.hasKey("Add")
             {
-                chunk.m_addBlocks.set(nbt.getByteArray("Add").map(|add| add.iter().map(|byte| *byte as u8).collect()));
+                chunk.m_addBlocks.set(
+                    nbt.getByteArray("Add")
+                        .map(|add| refit(&chunk, (*add).clone(), 2).iter().map(|byte| *byte as u8).collect()),
+                );
             }
-            chunk.m_data.set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("Data").orNpe()).clone()))));
+            chunk.m_data.set(Some(Rc::new(NibbleArray::withData(nibbles(&chunk, nbt, "Data")))));
         }
-        chunk.m_skylightMap.set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("SkyLight").orNpe()).clone()))));
-        chunk
-            .m_blocklightMap
-            .set(Some(Rc::new(NibbleArray::withData((*nbt.getByteArray("BlockLight").orNpe()).clone()))));
-        let heightMap: Option<Rc<Vec<i8>>> = nbt.getByteArray("HeightMap");
+        chunk.m_skylightMap.set(Some(Rc::new(NibbleArray::withData(nibbles(&chunk, nbt, "SkyLight")))));
+        chunk.m_blocklightMap.set(Some(Rc::new(NibbleArray::withData(nibbles(&chunk, nbt, "BlockLight")))));
+        let fits: bool = nbt.getByteArray("SkyLight").is_some_and(|light| light.len() * 2 == chunk.volume() as usize);
+        let heightMap: Option<Vec<i16>> =
+            nbt.getByteArray("HeightMap").and_then(|bytes| readHeights(&bytes)).filter(|_| fits);
         if let Some(heightMap) = &heightMap
         {
-            chunk.m_heightMap.set((**heightMap).clone());
+            chunk.m_heightMap.set(heightMap.clone());
         }
         chunk.m_isTerrainPopulated.set(nbt.getBoolean("TerrainPopulated"));
         let blockCount: i32 = chunk.m_blocks.with(Vec::len) as i32;

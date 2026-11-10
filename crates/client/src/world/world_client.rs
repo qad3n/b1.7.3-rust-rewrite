@@ -178,7 +178,7 @@ pub fn doPreChunk(this: &World, chunkX: i32, chunkZ: i32, load: bool)
     }
     if !load
     {
-        this.markBlocksDirty(chunkX * 16, 0, chunkZ * 16, chunkX * 16 + 15, 128, chunkZ * 16 + 15);
+        this.markBlocksDirty(chunkX * 16, 0, chunkZ * 16, chunkX * 16 + 15, this.height(), chunkZ * 16 + 15);
     }
 }
 

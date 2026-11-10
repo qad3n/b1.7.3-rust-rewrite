@@ -21,6 +21,7 @@ use jvm::hash_map::JHashSet;
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
 use jvm::{debug, trace};
+pub(crate) use light::LightReader;
 use std::any::Any;
 use std::cell::Cell;
 use std::collections::BTreeSet;
@@ -76,6 +77,11 @@ pub struct World
     pub m_soundCounter: Cell<i32>,
     pub m_entitiesInArea: Rc<JArrayList<Rc<Entity>>>,
     pub m_multiplayerWorld: Cell<bool>,
+    // rewrite: the provider's world height and player build limit, cached for the block access hot paths
+    pub m_height: Cell<i32>,
+    pub m_buildLimit: Cell<i32>,
+    // rewrite: true while a player's item use edits the world, which then stops at the build limit
+    pub m_playerEdit: Cell<bool>,
 }
 
 impl World
@@ -130,12 +136,44 @@ impl World
             m_soundCounter: Cell::new(soundCounter),
             m_entitiesInArea: Rc::new(JArrayList::new()),
             m_multiplayerWorld: Cell::new(false),
+            m_height: Cell::new(crate::world::HEIGHT),
+            m_buildLimit: Cell::new(crate::world::HEIGHT),
+            m_playerEdit: Cell::new(false),
         }
     }
 
     pub fn ext<T: 'static>(&self) -> &T { self.m_ext.downcast_ref::<T>().expect("world ext matches its class") }
 
     pub fn worldProvider(&self) -> Rc<WorldProvider> { self.m_worldProvider.get().orNpe() }
+
+    pub fn height(&self) -> i32 { self.m_height.get() }
+
+    pub fn buildLimit(&self) -> i32 { self.m_buildLimit.get() }
+
+    // blocks in one chunk of this world
+    pub fn volume(&self) -> usize { (crate::world::COLUMNS * self.m_height.get()) as usize }
+
+    // the top a block may be placed below, the build limit while a player edits and the world height otherwise
+    pub fn limit(&self) -> i32
+    {
+        if self.m_playerEdit.get()
+        {
+            self.m_buildLimit.get()
+        }
+        else
+        {
+            self.m_height.get()
+        }
+    }
+
+    // runs a player's item use so blocks it places stop at the build limit
+    pub fn playerEdit<T>(&self, edit: impl FnOnce() -> T) -> T
+    {
+        let outer: bool = self.m_playerEdit.replace(true);
+        let result: T = edit();
+        self.m_playerEdit.set(outer);
+        result
+    }
 
     pub fn worldInfo(&self) -> Rc<WorldInfo> { self.m_worldInfo.get().orNpe() }
 

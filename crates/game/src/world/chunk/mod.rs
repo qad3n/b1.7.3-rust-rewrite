@@ -16,6 +16,9 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
+// block columns in a chunk
+pub const COLUMNS: i32 = 256;
+
 thread_local! {
     pub static IS_LIT: Cell<bool> = const { Cell::new(false) };
 }
@@ -31,7 +34,8 @@ pub struct Chunk
     pub m_data: Field<Option<Rc<NibbleArray>>>,
     pub m_skylightMap: Field<Option<Rc<NibbleArray>>>,
     pub m_blocklightMap: Field<Option<Rc<NibbleArray>>>,
-    pub m_heightMap: Field<Vec<i8>>,
+    // rewrite: wider than a byte so a column of a taller dimension can reach its top
+    pub m_heightMap: Field<Vec<i16>>,
     pub m_lowestBlockHeight: Cell<i32>,
     pub m_xPosition: i32,
     pub m_zPosition: i32,
@@ -44,6 +48,8 @@ pub struct Chunk
     pub m_lastSaveTime: Cell<i64>,
     // rewrite: per mod chunk data, saved under loader:attachments
     pub m_attachments: std::cell::RefCell<common::nbt::attachments::Attachments>,
+    // rewrite: blocks per column, the world height when the chunk was made
+    pub m_height: i32,
 }
 
 impl Chunk
@@ -59,7 +65,7 @@ impl Chunk
             m_data: Field::new(None),
             m_skylightMap: Field::new(None),
             m_blocklightMap: Field::new(None),
-            m_heightMap: Field::new(vec![0; 256]),
+            m_heightMap: Field::new(vec![0; COLUMNS as usize]),
             m_lowestBlockHeight: Cell::new(0),
             m_xPosition: chunkX,
             m_zPosition: chunkZ,
@@ -71,6 +77,7 @@ impl Chunk
             m_hasEntities: Cell::new(false),
             m_lastSaveTime: Cell::new(0),
             m_attachments: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
+            m_height: world.height(),
         }
     }
 
@@ -165,7 +172,14 @@ impl Chunk
         });
     }
 
-    fn height(&self, index: i32) -> i32 { self.m_heightMap.with(|map| map[index as usize] as i32 & 255) }
+    fn heightAt(&self, index: i32) -> i32 { self.m_heightMap.with(|map| map[index as usize] as i32) }
+
+    pub fn height(&self) -> i32 { self.m_height }
+
+    pub fn volume(&self) -> i32 { COLUMNS * self.m_height }
+
+    // McRegion order, x << 11 | z << 7 | y at the vanilla height
+    pub fn index(&self, x: i32, y: i32, z: i32) -> i32 { (x << 4 | z) * self.m_height + y }
 
     pub fn fill(&self) { self.m_blocks.update(|blocks| crate::world::ChunkBlockMap::fill(blocks)); }
 

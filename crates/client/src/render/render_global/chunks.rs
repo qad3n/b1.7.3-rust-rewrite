@@ -95,7 +95,7 @@ impl RenderGlobal
                     || self.gameSettings().m_thirdPersonView.get()
                     || viewEntity.isPlayerSleeping())
             {
-                let j: i32 = math_helper::floor_double(entity1.posY()).clamp(0, 127);
+                let j: i32 = math_helper::floor_double(entity1.posY()).clamp(0, world.height() - 1);
                 if world.blockExists(
                     math_helper::floor_double(entity1.posX()),
                     j,

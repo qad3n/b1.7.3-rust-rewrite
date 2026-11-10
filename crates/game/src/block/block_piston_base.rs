@@ -348,7 +348,7 @@ fn canExtend(world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -> bool
     let mut n3: i32 = z + Z_OFFSET[dir];
     for i in 0..13
     {
-        if n2 <= 0 || n2 >= 127
+        if n2 <= 0 || n2 >= world.height() - 1
         {
             return false;
         }
@@ -386,7 +386,7 @@ fn push(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -
     let mut n5: i32 = z + Z_OFFSET[side];
     while n2 < 13
     {
-        if n4 <= 0 || n4 >= 127
+        if n4 <= 0 || n4 >= world.height() - 1
         {
             return false;
         }

@@ -7,9 +7,22 @@ use std::rc::Rc;
 
 fn outside(x: i32, z: i32) -> bool { x < -32000000 || z < -32000000 || x >= 32000000 || z > 32000000 }
 
+// rewrite: a player's edit places blocks only below the build limit, clearing one works up to the world height
+fn top(world: &World, block: i32) -> i32
+{
+    if block == 0
+    {
+        world.height()
+    }
+    else
+    {
+        world.limit()
+    }
+}
+
 pub fn setBlockAndMetadata(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32, metadata: i32) -> bool
 {
-    if outside(x, z) || y < 0 || y >= 128
+    if outside(x, z) || y < 0 || y >= top(this, block)
     {
         return false;
     }
@@ -19,7 +32,7 @@ pub fn setBlockAndMetadata(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32,
 
 pub fn setBlock(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32) -> bool
 {
-    if outside(x, z) || y < 0 || y >= 128
+    if outside(x, z) || y < 0 || y >= top(this, block)
     {
         return false;
     }
@@ -29,7 +42,7 @@ pub fn setBlock(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32) -> bool
 
 pub fn setBlockMetadata(this: &Rc<World>, x: i32, y: i32, z: i32, metadata: i32) -> bool
 {
-    if outside(x, z) || y < 0 || y >= 128
+    if outside(x, z) || y < 0 || y >= this.height()
     {
         return false;
     }
@@ -42,7 +55,7 @@ impl World
 {
     pub fn getBlockId(&self, x: i32, y: i32, z: i32) -> i32
     {
-        if outside(x, z) || y < 0 || y >= 128
+        if outside(x, z) || y < 0 || y >= self.height()
         {
             return 0;
         }
@@ -53,7 +66,7 @@ impl World
 
     pub fn blockExists(&self, x: i32, y: i32, z: i32) -> bool
     {
-        if y >= 0 && y < 128
+        if y >= 0 && y < self.height()
         {
             self.chunkExists(x >> 4, z >> 4)
         }
@@ -70,7 +83,7 @@ impl World
 
     pub fn checkChunksExist(&self, minX: i32, minY: i32, minZ: i32, maxX: i32, maxY: i32, maxZ: i32) -> bool
     {
-        if maxY < 0 || minY >= 128
+        if maxY < 0 || minY >= self.height()
         {
             return false;
         }
@@ -96,6 +109,11 @@ impl World
         self.m_chunkProvider.with(|provider| provider.as_ref().orNpe().chunkExists(chunkX, chunkZ))
     }
 
+    pub(crate) fn loadedChunk(&self, chunkX: i32, chunkZ: i32) -> Option<Rc<Chunk>>
+    {
+        self.m_chunkProvider.with(|provider| provider.as_ref().orNpe().loadedChunk(chunkX, chunkZ))
+    }
+
     pub fn getChunkFromBlockCoords(&self, x: i32, z: i32) -> Rc<Chunk> { self.getChunkFromChunkCoords(x >> 4, z >> 4) }
 
     pub fn getChunkFromChunkCoords(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
@@ -115,7 +133,7 @@ impl World
 
     pub fn getBlockMetadata(&self, x: i32, y: i32, z: i32) -> i32
     {
-        if outside(x, z) || y < 0 || y >= 128
+        if outside(x, z) || y < 0 || y >= self.height()
         {
             return 0;
         }
@@ -244,7 +262,7 @@ impl World
     pub fn findTopSolidBlockServer(&self, x: i32, z: i32) -> i32
     {
         let chunk: Rc<Chunk> = self.getChunkFromBlockCoords(x, z);
-        let mut i: i32 = 127;
+        let mut i: i32 = self.height() - 1;
         let x: i32 = x & 15;
         let z: i32 = z & 15;
         while i > 0
@@ -309,9 +327,9 @@ impl World
         {
             j1 = 0;
         }
-        if k1 > 128
+        if k1 > self.height()
         {
-            k1 = 128;
+            k1 = self.height();
         }
         for l1 in i..=k
         {
@@ -346,7 +364,7 @@ impl World
     pub fn findTopSolidBlock(&self, x: i32, z: i32) -> i32
     {
         let chunk: Rc<Chunk> = self.getChunkFromBlockCoords(x, z);
-        let mut i: i32 = 127;
+        let mut i: i32 = self.height() - 1;
         let x: i32 = x & 15;
         let z: i32 = z & 15;
         while i > 0
@@ -487,9 +505,9 @@ impl World
         {
             j1 = 0;
         }
-        if k1 > 128
+        if k1 > self.height()
         {
-            k1 = 128;
+            k1 = self.height();
         }
         for l1 in i..=k
         {

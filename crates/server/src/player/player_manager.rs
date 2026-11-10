@@ -21,6 +21,9 @@ mod packed
     pub const Y_MASK: i32 = 0xFF;
 }
 
+// the region packet stores its height less one in a byte
+const REGION_HEIGHT: i32 = 256;
+
 pub struct PlayerManager
 {
     m_self: Weak<PlayerManager>,
@@ -407,7 +410,8 @@ impl PlayerInstance
             let minY2: i32 = self.m_minY.get();
             let n2: i32 = self.m_minZ.get() + self.m_chunkZ * 16;
             let widthX: i32 = self.m_maxX.get() - self.m_minX.get() + 1;
-            let height: i32 = self.m_maxY.get() - self.m_minY.get() + 2;
+            // rewrite: a region of a dimension 256 high would overflow the packet's height byte
+            let height: i32 = (self.m_maxY.get() - self.m_minY.get() + 2).min(REGION_HEIGHT - minY2);
             let widthZ: i32 = self.m_maxZ.get() - self.m_minZ.get() + 1;
             self.sendPacketToPlayersInInstance(Box::new(Packet51MapChunk::new(
                 n,

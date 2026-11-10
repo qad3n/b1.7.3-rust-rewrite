@@ -74,11 +74,13 @@ impl ItemStack
     pub fn useItem(self: &Rc<Self>, player: &Rc<Entity>, world: &Rc<World>, x: i32, y: i32, z: i32, face: i32) -> bool
     {
         // mods may take the use before the item does, a canceled use counts as used so the right click stops here
-        if crate::hooks::fire(crate::hooks::GameEvent::ItemUseOnBlock { world, player, stack: self, x, y, z, face })
+        if world.playerEdit(|| {
+            crate::hooks::fire(crate::hooks::GameEvent::ItemUseOnBlock { world, player, stack: self, x, y, z, face })
+        })
         {
             return true;
         }
-        let bl: bool = self.getItem().onItemUse(self, player, world, x, y, z, face);
+        let bl: bool = world.playerEdit(|| self.getItem().onItemUse(self, player, world, x, y, z, face));
         if bl
         {
             player.addStat(StatList::itemsUsed(self.m_itemID.get()).as_ref(), 1);
@@ -91,11 +93,11 @@ impl ItemStack
     pub fn useItemRightClick(self: &Rc<Self>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<ItemStack>>
     {
         // mods may take the right click before the item does
-        if crate::hooks::fire(crate::hooks::GameEvent::ItemUse { world, player, stack: self })
+        if world.playerEdit(|| crate::hooks::fire(crate::hooks::GameEvent::ItemUse { world, player, stack: self }))
         {
             return Some(Rc::clone(self));
         }
-        self.getItem().onItemRightClick(self, world, player)
+        world.playerEdit(|| self.getItem().onItemRightClick(self, world, player))
     }
 
     pub fn writeToNBT<'a>(&self, nbt: &'a NBTTagCompound) -> &'a NBTTagCompound

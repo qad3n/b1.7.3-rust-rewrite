@@ -201,7 +201,7 @@ pub const CLASS: BlockClass = BlockClass {
         (BLOCK.collisionRayTrace)(this, world, x, y, z, from, to)
     },
     canPlaceBlockAt: |this, world, x, y, z| {
-        if y >= 127
+        if y >= world.buildLimit() - 1
         {
             return false;
         }

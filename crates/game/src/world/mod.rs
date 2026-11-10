@@ -20,7 +20,10 @@ mod world;
 mod world_info;
 mod world_provider;
 
-pub use chunk::{CHUNK, Chunk, ChunkClass, EMPTY_CHUNK, IS_LIT};
+// the vanilla world height, every vanilla dimension and the default for mod dimensions
+pub const HEIGHT: i32 = 128;
+
+pub use chunk::{CHUNK, COLUMNS, Chunk, ChunkClass, EMPTY_CHUNK, IS_LIT};
 pub use chunk_block_map::ChunkBlockMap;
 pub use chunk_cache::ChunkCache;
 pub use chunk_coordinates::ChunkCoordinates;
@@ -38,6 +41,7 @@ pub use map_data_base::{MapDataBase, MapDataKind};
 pub use map_storage::MapStorage;
 pub use metadata_chunk_block::MetadataChunkBlock;
 pub use teleporter::Teleporter;
+pub(crate) use world::LightReader;
 pub use world::{WORLD, World, WorldClass};
 pub use world_info::WorldInfo;
 pub use world_provider::{

@@ -6,6 +6,66 @@ use std::rc::Rc;
 
 fn outside(x: i32, z: i32) -> bool { x < -32000000 || z < -32000000 || x >= 32000000 || z > 32000000 }
 
+// one cell's light reads with its own chunk looked up once since reads load and unload no chunks
+pub(crate) struct LightReader<'a>
+{
+    m_world: &'a World,
+    m_chunk: Option<Rc<Chunk>>,
+    m_chunkX: i32,
+    m_chunkZ: i32,
+}
+
+impl<'a> LightReader<'a>
+{
+    pub(crate) fn new(world: &'a World, x: i32, z: i32) -> Self
+    {
+        Self { m_world: world, m_chunk: world.loadedChunk(x >> 4, z >> 4), m_chunkX: x >> 4, m_chunkZ: z >> 4 }
+    }
+
+    // blockExists for a cell in the reader's own chunk
+    pub(crate) fn loaded(&self, y: i32) -> bool { self.m_chunk.is_some() && y >= 0 && y < self.m_world.height() }
+
+    fn local(&self, x: i32, y: i32, z: i32) -> Option<&Rc<Chunk>>
+    {
+        let inside: bool = x >> 4 == self.m_chunkX && z >> 4 == self.m_chunkZ && !outside(x, z);
+        if !inside || y < 0 || y >= self.m_world.height()
+        {
+            return None;
+        }
+
+        self.m_chunk.as_ref()
+    }
+
+    pub(crate) fn chunk(&self) -> Option<&Rc<Chunk>> { self.m_chunk.as_ref() }
+
+    pub(crate) fn savedLight(&self, kind: EnumSkyBlock, x: i32, y: i32, z: i32) -> i32
+    {
+        match self.local(x, y, z)
+        {
+            Some(chunk) => chunk.getSavedLightValue(kind, x & 15, y, z & 15),
+            None => self.m_world.getSavedLightValue(kind, x, y, z),
+        }
+    }
+
+    pub(crate) fn blockId(&self, x: i32, y: i32, z: i32) -> i32
+    {
+        match self.local(x, y, z)
+        {
+            Some(chunk) => chunk.getBlockID(x & 15, y, z & 15),
+            None => self.m_world.getBlockId(x, y, z),
+        }
+    }
+
+    pub(crate) fn seesSky(&self, x: i32, y: i32, z: i32) -> bool
+    {
+        match self.local(x, y, z)
+        {
+            Some(chunk) => chunk.canBlockSeeTheSky(x & 15, y, z & 15),
+            None => self.m_world.canExistingBlockSeeTheSky(x, y, z),
+        }
+    }
+}
+
 impl World
 {
     pub fn canBlockSeeTheSky(&self, x: i32, y: i32, z: i32) -> bool
@@ -19,7 +79,7 @@ impl World
         {
             return 0;
         }
-        let y: i32 = if y >= 128 { 127 } else { y };
+        let y: i32 = y.min(self.height() - 1);
         self.getChunkFromChunkCoords(x >> 4, z >> 4).getBlockLightValue(x & 15, y, z & 15, 0)
     }
 
@@ -69,7 +129,7 @@ impl World
         {
             return 0;
         }
-        let y: i32 = if y >= 128 { 127 } else { y };
+        let y: i32 = y.min(self.height() - 1);
         let chunk: Rc<Chunk> = self.getChunkFromChunkCoords(x >> 4, z >> 4);
         chunk.getBlockLightValue(x & 0xF, y, z & 0xF, self.m_skylightSubtracted.get())
     }
@@ -80,15 +140,15 @@ impl World
         {
             return false;
         }
-        if y >= 128
+        if y >= self.height()
         {
             return true;
         }
-        if !self.chunkExists(x >> 4, z >> 4)
+        match self.loadedChunk(x >> 4, z >> 4)
         {
-            return false;
+            Some(chunk) => chunk.canBlockSeeTheSky(x & 15, y, z & 15),
+            None => false,
         }
-        self.getChunkFromChunkCoords(x >> 4, z >> 4).canBlockSeeTheSky(x & 15, y, z & 15)
     }
 
     pub fn getHeightValue(&self, x: i32, z: i32) -> i32
@@ -107,28 +167,29 @@ impl World
         {
             return;
         }
-        if !self.blockExists(x, y, z)
+        let reader: LightReader = LightReader::new(self, x, z);
+        if !reader.loaded(y)
         {
             return;
         }
 
         if kind == EnumSkyBlock::Sky
         {
-            if self.canExistingBlockSeeTheSky(x, y, z)
+            if reader.seesSky(x, y, z)
             {
                 light = 15;
             }
         }
         else if kind == EnumSkyBlock::Block
         {
-            let blockId: i32 = self.getBlockId(x, y, z);
+            let blockId: i32 = reader.blockId(x, y, z);
             if Block::lightValue(blockId) > light
             {
                 light = Block::lightValue(blockId);
             }
         }
 
-        if self.getSavedLightValue(kind, x, y, z) != light
+        if reader.savedLight(kind, x, y, z) != light
         {
             self.scheduleLightingUpdate(kind, x, y, z, x, y, z);
         }
@@ -141,30 +202,35 @@ impl World
         {
             y = 0;
         }
-        if y >= 128
+        if y >= self.height()
         {
-            y = 127;
+            y = self.height() - 1;
         }
-        if y >= 0 && y < 128 && !outside(x, z)
+        if y >= 0 && y < self.height() && !outside(x, z)
         {
-            let i: i32 = x >> 4;
-            let j: i32 = z >> 4;
-            if !self.chunkExists(i, j)
+            return match self.loadedChunk(x >> 4, z >> 4)
             {
-                return 0;
-            }
-            return self.getChunkFromChunkCoords(i, j).getSavedLightValue(kind, x & 15, y, z & 15);
+                Some(chunk) => chunk.getSavedLightValue(kind, x & 15, y, z & 15),
+                None => 0,
+            };
         }
         kind.defaultValue()
     }
 
     pub fn setLightValue(&self, kind: EnumSkyBlock, x: i32, y: i32, z: i32, light: i32)
     {
-        if outside(x, z) || y < 0 || y >= 128 || !self.chunkExists(x >> 4, z >> 4)
+        if outside(x, z) || y < 0 || y >= self.height()
         {
             return;
         }
-        self.getChunkFromChunkCoords(x >> 4, z >> 4).setLightValue(kind, x & 15, y, z & 15, light);
+
+        let Some(chunk) = self.loadedChunk(x >> 4, z >> 4)
+        else
+        {
+            return;
+        };
+
+        chunk.setLightValue(kind, x & 15, y, z & 15, light);
         let mut i: i32 = 0;
         while i < self.m_worldAccesses.size()
         {
@@ -263,7 +329,9 @@ impl World
 
                 let i: i32 = (maxX + minX) / 2;
                 let j: i32 = (maxZ + minZ) / 2;
-                if !self.blockExists(i, 64, j) || self.getChunkFromBlockCoords(i, j).isEmpty()
+                let reader: LightReader = LightReader::new(self, i, j);
+                let column: Option<&Rc<Chunk>> = reader.chunk().filter(|_| reader.loaded(64));
+                if column.is_none_or(|chunk| chunk.isEmpty())
                 {
                     return;
                 }

@@ -15,5 +15,16 @@ pub trait IChunkProvider
 
     fn asLoadOrGenerate(&self) -> Option<Rc<ChunkProviderLoadOrGenerate>> { None }
 
+    // chunkExists then provideChunk in one lookup
+    fn loadedChunk(&self, chunkX: i32, chunkZ: i32) -> Option<Rc<Chunk>>
+    {
+        if self.chunkExists(chunkX, chunkZ)
+        {
+            return Some(self.provideChunk(chunkX, chunkZ));
+        }
+
+        None
+    }
+
     fn releaseChunks(&self) -> Vec<Rc<Chunk>> { Vec::new() }
 }

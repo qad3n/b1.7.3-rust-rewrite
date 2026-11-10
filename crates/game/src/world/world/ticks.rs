@@ -138,7 +138,7 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
             let k2: i32 = nextLcg(this) >> 2;
             let mut k3: i32 = k2 & 15;
             let mut j1: i32 = k2 >> 8 & 15;
-            let k1: i32 = k2 >> 16 & 127;
+            let k1: i32 = (k2 >> 16).rem_euclid(chunk.height());
             let l1: i32 = chunk.getBlockID(k3, k1, j1);
             k3 += i2;
             j1 += j2;
@@ -180,7 +180,7 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
             let k5: i32 = this.findTopSolidBlock(i4 + i2, l4 + j2);
             if this.getWorldChunkManager().getBiomeGenAt(i4 + i2, l4 + j2).getEnableSnow()
                 && k5 >= 0
-                && k5 < 128
+                && k5 < this.height()
                 && chunk.getSavedLightValue(EnumSkyBlock::Block, i4, k5, l4) < 10
             {
                 let i6: i32 = chunk.getBlockID(i4, k5 - 1, l4);
@@ -206,8 +206,8 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
             let j4: i32 = nextLcg(this) >> 2;
             let i5: i32 = j4 & 15;
             let l5: i32 = j4 >> 8 & 15;
-            let j6: i32 = j4 >> 16 & 127;
-            let l6: i32 = chunk.blockAt(i5 << 11 | l5 << 7 | j6);
+            let j6: i32 = (j4 >> 16).rem_euclid(chunk.height());
+            let l6: i32 = chunk.blockAt(chunk.index(i5, j6, l5));
             if Block::tickOnLoad(l6)
             {
                 Block::byId(l6).orNpe().updateTick(this, i5 + i2, j6, l5 + j2, &this.m_rand);

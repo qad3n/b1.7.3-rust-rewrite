@@ -21,13 +21,10 @@ mod keys
 
 mod layout
 {
-    pub const SECTION_COUNT: i32 = 8;
     pub const SECTION_HEIGHT: i32 = 16;
     pub const SECTION_VOLUME: usize = 4096;
-    pub const CHUNK_VOLUME: usize = 32768;
-    // McRegion arrays index blocks as x << 11 | z << 7 | y, sections as y << 8 | z << 4 | x
-    pub const CHUNK_X_SHIFT: usize = 11;
-    pub const CHUNK_Z_SHIFT: usize = 7;
+    // McRegion arrays index blocks as (x << 4 | z) * height + y, sections as y << 8 | z << 4 | x
+    pub const CHUNK_X_SHIFT: usize = 4;
     pub const SECTION_Z_SHIFT: usize = 4;
     pub const SECTION_Y_SHIFT: usize = 8;
     pub const AXIS_MASK: usize = 15;
@@ -54,12 +51,12 @@ struct Stored
     m_meta: i32,
 }
 
-fn chunkIndex(section: i32, entry: usize) -> usize
+fn chunkIndex(height: usize, section: i32, entry: usize) -> usize
 {
     let x: usize = entry & layout::AXIS_MASK;
     let z: usize = (entry >> layout::SECTION_Z_SHIFT) & layout::AXIS_MASK;
     let y: usize = entry >> layout::SECTION_Y_SHIFT;
-    (x << layout::CHUNK_X_SHIFT) | (z << layout::CHUNK_Z_SHIFT) | (section * layout::SECTION_HEIGHT) as usize + y
+    ((x << layout::CHUNK_X_SHIFT) | z) * height + (section * layout::SECTION_HEIGHT) as usize + y
 }
 
 // two blocks share a byte, the even index in the low nibble as NibbleArray stores them
@@ -162,14 +159,15 @@ pub fn write(chunk: &Chunk, nbt: &NBTTagCompound)
     let blocks: Vec<i8> = chunk.m_blocks.get();
     let add: Option<Vec<u8>> = chunk.m_addBlocks.get();
     let data: Vec<u8> = chunk.data().m_data.get().into_iter().map(|byte| byte as u8).collect();
+    let height: usize = chunk.height() as usize;
     let sections: Rc<NBTBase> = NBTTagList::create();
-    for section in 0..layout::SECTION_COUNT
+    for section in 0..chunk.height() / layout::SECTION_HEIGHT
     {
         let mut palette: Vec<Stored> = Vec::new();
         let mut lookup: HashMap<Stored, usize> = HashMap::new();
         let indices: Vec<usize> = (0..layout::SECTION_VOLUME)
             .map(|entry| {
-                let at: usize = chunkIndex(section, entry);
+                let at: usize = chunkIndex(height, section, entry);
                 let high: i32 = add.as_deref().map_or(0, |add| nibble(add, at));
                 let low: i32 = blocks[at] as i32 & bits::LOW_BYTE_MASK;
                 let stored: Stored = Stored { m_block: low | high << bits::BYTE, m_meta: nibble(&data, at) };
@@ -202,16 +200,18 @@ pub fn write(chunk: &Chunk, nbt: &NBTTagCompound)
 
 pub fn read(chunk: &Chunk, nbt: &NBTTagCompound)
 {
-    let mut blocks: Vec<i8> = vec![0; layout::CHUNK_VOLUME];
-    let mut add: Vec<u8> = vec![0; layout::CHUNK_VOLUME / 2];
-    let mut data: Vec<u8> = vec![0; layout::CHUNK_VOLUME / 2];
+    let height: usize = chunk.height() as usize;
+    let volume: usize = chunk.volume() as usize;
+    let mut blocks: Vec<i8> = vec![0; volume];
+    let mut add: Vec<u8> = vec![0; volume / 2];
+    let mut data: Vec<u8> = vec![0; volume / 2];
     let mut high: bool = false;
     let sections: Rc<NBTBase> = nbt.getTagList(keys::SECTIONS);
     for slot in 0..sections.list().tagCount()
     {
         let tag: Rc<NBTBase> = sections.list().tagAt(slot);
         let section: i32 = tag.compound().getByte(keys::Y) as i32;
-        if !(0..layout::SECTION_COUNT).contains(&section)
+        if !(0..chunk.height() / layout::SECTION_HEIGHT).contains(&section)
         {
             continue;
         }
@@ -229,7 +229,7 @@ pub fn read(chunk: &Chunk, nbt: &NBTTagCompound)
         {
             let stored: Stored =
                 packed.as_ref().and_then(|packed| palette.get(unpack(packed, width, entry)).copied()).unwrap_or(first);
-            let at: usize = chunkIndex(section, entry);
+            let at: usize = chunkIndex(height, section, entry);
             blocks[at] = stored.m_block as i8;
             setNibble(&mut add, at, stored.m_block >> bits::BYTE);
             setNibble(&mut data, at, stored.m_meta);

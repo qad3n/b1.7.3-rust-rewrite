@@ -20,7 +20,7 @@ impl ChunkProviderClient
     pub fn new(world: &Rc<World>) -> ChunkProviderClient
     {
         ChunkProviderClient {
-            m_blankChunk: Chunk::newEmptyWithBlocks(world, vec![0; 32768], 0, 0),
+            m_blankChunk: Chunk::newEmptyWithBlocks(world, vec![0; world.volume()], 0, 0),
             m_chunkMapping: ChunkMap::new(),
             m_chunks: JArrayList::new(),
             m_worldObj: Rc::clone(world),
@@ -57,7 +57,7 @@ impl IChunkProvider for ChunkProviderClient
     fn prepareChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
     {
         let chunkCoordIntPair: ChunkCoordIntPair = ChunkCoordIntPair::new(chunkX, chunkZ);
-        let byArray: Vec<i8> = vec![0; 32768];
+        let byArray: Vec<i8> = vec![0; self.m_worldObj.volume()];
         let chunk: Rc<Chunk> = Chunk::withBlocks(&self.world(), byArray, chunkX, chunkZ);
         chunk.skylight().m_data.update(|data| data.fill(-1));
         self.m_chunkMapping.update(|map| map.put(chunkCoordIntPair, Rc::clone(&chunk)));

@@ -42,6 +42,9 @@ pub struct WorldProvider
     pub m_lightBrightnessTable: Field<[f32; 16]>,
     pub m_worldType: Cell<i32>,
     m_colorsSunriseSunset: Field<[f32; 4]>,
+    // rewrite: a mod dimension may be taller than vanilla, players still build only below the build limit
+    pub m_height: Cell<i32>,
+    pub m_buildLimit: Cell<i32>,
 }
 
 impl WorldProvider
@@ -58,6 +61,8 @@ impl WorldProvider
             m_lightBrightnessTable: Field::new([0.0; 16]),
             m_worldType: Cell::new(0),
             m_colorsSunriseSunset: Field::new([0.0; 4]),
+            m_height: Cell::new(crate::world::HEIGHT),
+            m_buildLimit: Cell::new(crate::world::HEIGHT),
         })
     }
 
@@ -68,6 +73,8 @@ impl WorldProvider
     pub fn registerWorld(self: &Rc<Self>, world: &Rc<World>)
     {
         self.m_worldObj.set(Some(Rc::clone(world)));
+        world.m_height.set(self.m_height.get());
+        world.m_buildLimit.set(self.m_buildLimit.get());
         self.registerWorldChunkManager();
         self.generateLightBrightnessTable();
     }

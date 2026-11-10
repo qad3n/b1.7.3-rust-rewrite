@@ -33,7 +33,7 @@ impl ChunkProvider
         let provider: Rc<Self> = Rc::new_cyclic(|this| Self {
             m_self: this.clone(),
             m_droppedChunksSet: Field::new(JHashSet::new()),
-            m_empty: Chunk::newEmptyWithBlocks(world, vec![0; 32768], 0, 0),
+            m_empty: Chunk::newEmptyWithBlocks(world, vec![0; world.volume()], 0, 0),
             m_chunkProvider: generator,
             m_chunkLoader: Some(storage),
             m_chunkMap: ChunkMap::new(),
@@ -110,6 +110,11 @@ impl IChunkProvider for ChunkProvider
     fn chunkExists(&self, chunkX: i32, chunkZ: i32) -> bool
     {
         self.m_chunkMap.containsKey(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ))
+    }
+
+    fn loadedChunk(&self, chunkX: i32, chunkZ: i32) -> Option<Rc<Chunk>>
+    {
+        self.m_chunkMap.get(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ))
     }
 
     fn prepareChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>

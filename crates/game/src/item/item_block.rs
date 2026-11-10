@@ -59,7 +59,7 @@ fn onItemUse(
     {
         return false;
     }
-    if y == 127 && Block::byId(id).orNpe().m_blockMaterial.isSolid()
+    if y == world.buildLimit() - 1 && Block::byId(id).orNpe().m_blockMaterial.isSolid()
     {
         return false;
     }

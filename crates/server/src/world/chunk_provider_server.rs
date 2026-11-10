@@ -38,7 +38,7 @@ impl ChunkProviderServer
             m_chunkLoadOverride: Cell::new(false),
             m_id2ChunkMap: ChunkMap::new(),
             m_chunks: JArrayList::new(),
-            m_dummyChunk: Chunk::newEmptyWithBlocks(world, vec![0; 32768], 0, 0),
+            m_dummyChunk: Chunk::newEmptyWithBlocks(world, vec![0; world.volume()], 0, 0),
             m_world: Rc::clone(world),
             m_storage: Some(storage),
             m_serverChunkGenerator: Some(generator),
@@ -131,6 +131,11 @@ impl IChunkProvider for ChunkProviderServer
     fn chunkExists(&self, chunkX: i32, chunkZ: i32) -> bool
     {
         self.m_id2ChunkMap.containsKey(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ))
+    }
+
+    fn loadedChunk(&self, chunkX: i32, chunkZ: i32) -> Option<Rc<Chunk>>
+    {
+        self.m_id2ChunkMap.get(&ChunkCoordIntPair::chunkXZ2Int(chunkX, chunkZ))
     }
 
     fn prepareChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>

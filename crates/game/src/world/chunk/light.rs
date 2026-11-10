@@ -7,18 +7,19 @@ use std::rc::Rc;
 
 pub fn generateHeightMap(this: &Rc<Chunk>)
 {
-    let mut i: i32 = 127;
+    let top: i32 = this.height() - 1;
+    let mut i: i32 = top;
     for j in 0..16
     {
         for k in 0..16
         {
-            let mut l: i32 = 127;
-            let i1: i32 = j << 11 | k << 7;
+            let mut l: i32 = top;
+            let i1: i32 = this.index(j, 0, k);
             while l > 0 && Block::lightOpacity(this.blockAt(i1 + l - 1)) == 0
             {
                 l -= 1;
             }
-            this.m_heightMap.update(|map| map[(k << 4 | j) as usize] = l as i8);
+            this.m_heightMap.update(|map| map[(k << 4 | j) as usize] = l as i16);
             if l < i
             {
                 i = l;
@@ -31,20 +32,21 @@ pub fn generateHeightMap(this: &Rc<Chunk>)
 
 pub fn populateHeightMap(this: &Rc<Chunk>)
 {
-    let mut lowestBlockHeight: i32 = 127;
+    let top: i32 = this.height() - 1;
+    let mut lowestBlockHeight: i32 = top;
     let hasNoSky: bool = this.world().worldProvider().m_hasNoSky.get();
     let skylight: Rc<NibbleArray> = this.skylight();
     for i in 0..16
     {
         for j in 0..16
         {
-            let mut n: i32 = 127;
-            let n2: i32 = i << 11 | j << 7;
+            let mut n: i32 = top;
+            let n2: i32 = this.index(i, 0, j);
             while n > 0 && Block::lightOpacity(this.blockAt(n2 + n - 1)) == 0
             {
                 n -= 1;
             }
-            this.m_heightMap.update(|map| map[(j << 4 | i) as usize] = n as i8);
+            this.m_heightMap.update(|map| map[(j << 4 | i) as usize] = n as i16);
             if n < lowestBlockHeight
             {
                 lowestBlockHeight = n;
@@ -52,7 +54,7 @@ pub fn populateHeightMap(this: &Rc<Chunk>)
             if !hasNoSky
             {
                 let mut value: i32 = 15;
-                let mut y: i32 = 127;
+                let mut y: i32 = top;
                 loop
                 {
                     value -= Block::lightOpacity(this.blockAt(n2 + y));
@@ -110,13 +112,13 @@ fn lightGap(this: &Rc<Chunk>, x: i32, z: i32, y: i32)
 fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
 {
     let world: Rc<World> = this.world();
-    let i: i32 = this.height(localZ << 4 | localX);
+    let i: i32 = this.heightAt(localZ << 4 | localX);
     let mut j: i32 = i;
     if y > i
     {
         j = y;
     }
-    let k: i32 = localX << 11 | localZ << 7;
+    let k: i32 = this.index(localX, 0, localZ);
     while j > 0 && Block::lightOpacity(this.blockAt(k + j - 1)) == 0
     {
         j -= 1;
@@ -127,21 +129,21 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
     }
 
     world.markBlocksDirtyVertical(localX, localZ, j, i);
-    this.m_heightMap.update(|map| map[(localZ << 4 | localX) as usize] = j as i8);
+    this.m_heightMap.update(|map| map[(localZ << 4 | localX) as usize] = j as i16);
     if j < this.m_lowestBlockHeight.get()
     {
         this.m_lowestBlockHeight.set(j);
     }
     else
     {
-        let mut l: i32 = 127;
+        let mut l: i32 = this.height() - 1;
         for i1 in 0..16
         {
             for j1 in 0..16
             {
-                if this.height(j1 << 4 | i1) < l
+                if this.heightAt(j1 << 4 | i1) < l
                 {
-                    l = this.height(j1 << 4 | i1);
+                    l = this.heightAt(j1 << 4 | i1);
                 }
             }
         }
@@ -198,8 +200,8 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
 pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32, metadata: i32) -> bool
 {
     let b0: i8 = block as i8;
-    let i: i32 = this.height(localZ << 4 | localX);
-    let index: i32 = localX << 11 | localZ << 7 | y;
+    let i: i32 = this.heightAt(localZ << 4 | localX);
+    let index: i32 = this.index(localX, y, localZ);
     let j: i32 = this.blockAt(index);
     if j == block && this.metaAt(localX, y, localZ) == metadata
     {
@@ -246,8 +248,8 @@ pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32
 pub fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32) -> bool
 {
     let b0: i8 = block as i8;
-    let i: i32 = this.height(localZ << 4 | localX);
-    let index: i32 = localX << 11 | localZ << 7 | y;
+    let i: i32 = this.heightAt(localZ << 4 | localX);
+    let index: i32 = this.index(localX, y, localZ);
     let j: i32 = this.blockAt(index);
     if j == block
     {
@@ -339,7 +341,7 @@ pub fn setChunkData(
     {
         for j in minZ..maxZ
         {
-            let k: i32 = i << 11 | j << 7 | minY;
+            let k: i32 = this.index(i, minY, j);
             let l: i32 = maxY - minY;
             this.m_blocks.update(|blocks| {
                 blocks[k as usize..(k + l) as usize].copy_from_slice(&data[size as usize..(size + l) as usize])
@@ -356,7 +358,7 @@ pub fn setChunkData(
         {
             for l1 in minZ..maxZ
             {
-                let k2: i32 = (i1 << 11 | l1 << 7 | minY) >> 1;
+                let k2: i32 = this.index(i1, minY, l1) >> 1;
                 let j3: i32 = (maxY - minY) / 2;
                 target.m_data.update(|nibbles| {
                     nibbles[k2 as usize..(k2 + j3) as usize].copy_from_slice(&data[size as usize..(size + j3) as usize])
@@ -399,7 +401,7 @@ pub fn getChunkData(
     {
         for i1 in minZ..maxZ
         {
-            let j1: i32 = l << 11 | i1 << 7 | minY;
+            let j1: i32 = this.index(l, minY, i1);
             let k1: i32 = maxY - minY;
             this.m_blocks.with(|blocks| {
                 data[size as usize..(size + k1) as usize].copy_from_slice(&blocks[j1 as usize..(j1 + k1) as usize])
@@ -413,7 +415,7 @@ pub fn getChunkData(
         {
             for k2 in minZ..maxZ
             {
-                let j3: i32 = (l1 << 11 | k2 << 7 | minY) >> 1;
+                let j3: i32 = this.index(l1, minY, k2) >> 1;
                 let i4: i32 = (maxY - minY) / 2;
                 source.m_data.with(|nibbles| {
                     data[size as usize..(size + i4) as usize].copy_from_slice(&nibbles[j3 as usize..(j3 + i4) as usize])

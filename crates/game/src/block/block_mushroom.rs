@@ -29,7 +29,7 @@ pub const CLASS: BlockClass = BlockClass {
     updateTick,
     canThisPlantGrowOnThisBlockID: |_, block| Block::opaqueCubeLookup(block),
     canBlockStay: |this, world, x, y, z| {
-        if y < 0 || y >= 128
+        if y < 0 || y >= world.height()
         {
             return false;
         }

@@ -21,6 +21,9 @@ use lwjgl::opengl::{ARBOcclusionQuery, GL11};
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
+// blocks per side of one world renderer section
+const SECTION: i32 = 16;
+
 pub struct RenderGlobal
 {
     m_self: Weak<RenderGlobal>,
@@ -291,7 +294,9 @@ impl RenderGlobal
             j1 = 400;
         }
         self.m_renderChunksWide.set(j1 / 16 + 1);
-        self.m_renderChunksTall.set(8);
+        // rewrite: one row of sections per 16 blocks of the world's height
+        let height: i32 = self.m_worldObj.get().map_or(game::world::HEIGHT, |world| world.height());
+        self.m_renderChunksTall.set(height / SECTION);
         self.m_renderChunksDeep.set(j1 / 16 + 1);
         let wide: i32 = self.m_renderChunksWide.get();
         let tall: i32 = self.m_renderChunksTall.get();

@@ -251,7 +251,7 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
                 0,
                 chunkcoordintpair.m_chunkZPos * 16,
                 16,
-                128,
+                worldserver.height(),
                 16,
                 &worldserver,
             )));
@@ -261,7 +261,7 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
                 0,
                 chunkcoordintpair.m_chunkZPos * 16,
                 chunkcoordintpair.m_chunkXPos * 16 + 16,
-                128,
+                worldserver.height(),
                 chunkcoordintpair.m_chunkZPos * 16 + 16,
             );
             for tileentity in &list

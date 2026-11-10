@@ -1,5 +1,5 @@
 use crate::block::Block;
-use crate::world::{Chunk, EnumSkyBlock, World};
+use crate::world::{Chunk, EnumSkyBlock, LightReader, World};
 use jvm::warning;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -82,27 +82,29 @@ impl MetadataChunkBlock
                 {
                     self.m_minY.set(0);
                 }
-                if self.m_maxY.get() >= 128
+                if self.m_maxY.get() >= world.height()
                 {
-                    self.m_maxY.set(127);
+                    self.m_maxY.set(world.height() - 1);
                 }
 
+                // relighting a column loads and unloads no chunks so one reader serves all of it
+                let reader: LightReader = LightReader::new(world, k1, l1);
                 let mut j5: i32 = self.m_minY.get();
                 while j5 <= self.m_maxY.get()
                 {
-                    self.relight(world, k1, j5, l1);
+                    self.relight(world, &reader, k1, j5, l1);
                     j5 += 1;
                 }
             }
         }
     }
 
-    fn relight(&self, world: &World, k1: i32, j5: i32, l1: i32)
+    fn relight(&self, world: &World, reader: &LightReader, k1: i32, j5: i32, l1: i32)
     {
         let kind: EnumSkyBlock = self.m_type;
-        let k2: i32 = world.getSavedLightValue(kind, k1, j5, l1);
+        let k2: i32 = reader.savedLight(kind, k1, j5, l1);
         let mut l2: i32;
-        let i3: i32 = world.getBlockId(k1, j5, l1);
+        let i3: i32 = reader.blockId(k1, j5, l1);
         let mut j3: i32 = Block::lightOpacity(i3);
         if j3 == 0
         {
@@ -111,7 +113,7 @@ impl MetadataChunkBlock
         let mut k3: i32 = 0;
         if kind == EnumSkyBlock::Sky
         {
-            if world.canExistingBlockSeeTheSky(k1, j5, l1)
+            if reader.seesSky(k1, j5, l1)
             {
                 k3 = 15;
             }
@@ -127,12 +129,12 @@ impl MetadataChunkBlock
         }
         else
         {
-            let l3: i32 = world.getSavedLightValue(kind, k1 - 1, j5, l1);
-            let i4: i32 = world.getSavedLightValue(kind, k1 + 1, j5, l1);
-            let j4: i32 = world.getSavedLightValue(kind, k1, j5 - 1, l1);
-            let k4: i32 = world.getSavedLightValue(kind, k1, j5 + 1, l1);
-            let l4: i32 = world.getSavedLightValue(kind, k1, j5, l1 - 1);
-            let i5: i32 = world.getSavedLightValue(kind, k1, j5, l1 + 1);
+            let l3: i32 = reader.savedLight(kind, k1 - 1, j5, l1);
+            let i4: i32 = reader.savedLight(kind, k1 + 1, j5, l1);
+            let j4: i32 = reader.savedLight(kind, k1, j5 - 1, l1);
+            let k4: i32 = reader.savedLight(kind, k1, j5 + 1, l1);
+            let l4: i32 = reader.savedLight(kind, k1, j5, l1 - 1);
+            let i5: i32 = reader.savedLight(kind, k1, j5, l1 + 1);
             l2 = l3;
             if i4 > l2
             {

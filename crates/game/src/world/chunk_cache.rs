@@ -106,7 +106,7 @@ impl ChunkCache
         {
             return 0;
         }
-        if y >= 128
+        if y >= self.m_worldObj.height()
         {
             return (15 - self.m_worldObj.m_skylightSubtracted.get()).max(0);
         }
@@ -118,7 +118,7 @@ impl IBlockAccess for ChunkCache
 {
     fn getBlockId(&self, x: i32, y: i32, z: i32) -> i32
     {
-        if !(0..128).contains(&y)
+        if !(0..self.m_worldObj.height()).contains(&y)
         {
             return 0;
         }
@@ -150,7 +150,7 @@ impl IBlockAccess for ChunkCache
 
     fn getBlockMetadata(&self, x: i32, y: i32, z: i32) -> i32
     {
-        if !(0..128).contains(&y)
+        if !(0..self.m_worldObj.height()).contains(&y)
         {
             return 0;
         }
