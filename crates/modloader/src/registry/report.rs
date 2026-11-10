@@ -1,6 +1,6 @@
 use super::{BlockEntry, EntityEntry, FuelEntry, ItemEntry, RecipeEntry, Registries, Registry, Row, TileEntityEntry};
 use crate::log;
-use mod_protocol::spec::{CreatureKind, DropSpec, RecipeSpec, SpawnSpec, StackSpec};
+use mod_protocol::spec::{CreatureKind, DropSpec, IngredientSpec, RecipeSpec, SpawnSpec, StackSpec};
 use std::fmt::Display;
 
 // one debug line per entry a mod added or replaced so a modpack log shows exactly what each mod brought
@@ -208,9 +208,32 @@ fn recipe(entry: &RecipeEntry) -> String
             format!(" shapeless {} -> {}", inputs.join(" + "), stack(&spec.result))
         }
 
+        Some(RecipeSpec::ShapedTagged(spec)) =>
+        {
+            let key: Vec<String> =
+                spec.key.iter().map(|(symbol, input)| format!("{symbol}={}", ingredient(input))).collect();
+            format!(" shaped [{}] {} -> {}", spec.pattern.join("|"), key.join(", "), stack(&spec.result))
+        }
+
+        Some(RecipeSpec::ShapelessTagged(spec)) =>
+        {
+            let inputs: Vec<String> = spec.ingredients.iter().map(ingredient).collect();
+            format!(" shapeless {} -> {}", inputs.join(" + "), stack(&spec.result))
+        }
+
         Some(RecipeSpec::Smelting(spec)) => format!(" smelts {} -> {}", spec.input, stack(&spec.result)),
         Some(RecipeSpec::Fuel(spec)) => format!(" fuel {} burns {} ticks", spec.item, spec.ticks),
         None => String::new(),
+    }
+}
+
+fn ingredient(spec: &IngredientSpec) -> String
+{
+    match (&spec.item, &spec.tag)
+    {
+        (_, Some(tag)) => format!("#{tag}"),
+        (Some(item), None) => format!("{item}@{}", spec.meta),
+        (None, None) => String::new(),
     }
 }
 

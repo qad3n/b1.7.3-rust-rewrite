@@ -1,6 +1,18 @@
 use crate::item::ItemStack;
 use std::rc::Rc;
 
+// one recipe slot, any of its stacks fits, vanilla slots hold exactly one
+pub type Choice = Vec<Rc<ItemStack>>;
+
+// damage -1 in a recipe stack takes every damage value
+pub fn accepts(choice: &[Rc<ItemStack>], held: &ItemStack) -> bool
+{
+    choice.iter().any(|wanted| {
+        wanted.m_itemID.get() == held.m_itemID.get()
+            && (wanted.getItemDamage() == -1 || wanted.getItemDamage() == held.getItemDamage())
+    })
+}
+
 pub trait CraftingGrid
 {
     fn getItem(&self, column: i32, row: i32) -> Option<Rc<ItemStack>>;

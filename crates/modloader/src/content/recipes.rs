@@ -1,7 +1,8 @@
 use game::crafting::{CraftingManager, FurnaceRecipes, IRecipe, Ingredient};
 use game::item::ItemStack;
 use mod_protocol::Identifier;
-use mod_protocol::spec::{RecipeSpec, StackSpec};
+use mod_protocol::abi::RegistryKind;
+use mod_protocol::spec::{IngredientSpec, RecipeSpec, StackSpec};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -68,25 +69,35 @@ pub fn stackOf(spec: &StackSpec) -> Result<Rc<ItemStack>, String>
     Ok(ItemStack::withDamage(itemId(&spec.item)?, spec.count, spec.meta))
 }
 
+// recipe stack damage that takes every damage value of an item
+const ANY_DAMAGE: i32 = -1;
+
 pub fn validate(spec: &RecipeSpec) -> Result<(), String>
 {
-    if let RecipeSpec::Shaped(shaped) = spec
+    match spec
     {
-        let width: usize = shaped.pattern.first().map_or(0, String::len);
-        if shaped.pattern.is_empty() || shaped.pattern.len() > 3 || width > 3
+        RecipeSpec::Shaped(shaped) => checkPattern(&shaped.pattern, |symbol| shaped.key.contains_key(symbol)),
+        RecipeSpec::ShapedTagged(shaped) => checkPattern(&shaped.pattern, |symbol| shaped.key.contains_key(symbol)),
+        _ => Ok(()),
+    }
+}
+
+fn checkPattern(pattern: &[String], keyed: impl Fn(&str) -> bool) -> Result<(), String>
+{
+    let width: usize = pattern.first().map_or(0, String::len);
+    if pattern.is_empty() || pattern.len() > 3 || width > 3
+    {
+        return Err("a shaped pattern has one to three rows of one to three characters".to_owned());
+    }
+    if pattern.iter().any(|row| row.len() != width)
+    {
+        return Err("every row of a shaped pattern has the same width".to_owned());
+    }
+    for symbol in pattern.iter().flat_map(|row| row.chars()).filter(|symbol| *symbol != ' ')
+    {
+        if !keyed(&symbol.to_string())
         {
-            return Err("a shaped pattern has one to three rows of one to three characters".to_owned());
-        }
-        if shaped.pattern.iter().any(|row| row.len() != width)
-        {
-            return Err("every row of a shaped pattern has the same width".to_owned());
-        }
-        for symbol in shaped.pattern.iter().flat_map(|row| row.chars()).filter(|symbol| *symbol != ' ')
-        {
-            if !shaped.key.contains_key(&symbol.to_string())
-            {
-                return Err(format!("pattern symbol '{symbol}' has no key"));
-            }
+            return Err(format!("pattern symbol '{symbol}' has no key"));
         }
     }
     Ok(())
@@ -98,15 +109,21 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
     {
         RecipeSpec::Shaped(shaped) =>
         {
-            let pattern: Vec<&str> = shaped.pattern.iter().map(String::as_str).collect();
-            let mut keys: Vec<(char, Ingredient)> = Vec::new();
-            for (symbol, stack) in &shaped.key
-            {
-                let symbol: char = symbol.chars().next().ok_or("a recipe key is one character")?;
-                keys.push((symbol, Ingredient::Stack(stackOf(stack)?)));
-            }
-            CraftingManager::getInstance().addRecipe(stackOf(&shaped.result)?, &pattern, &keys);
-            trackLast(id);
+            let keys: Vec<(&String, Ingredient)> = shaped
+                .key
+                .iter()
+                .map(|(symbol, stack)| stackOf(stack).map(|stack| (symbol, Ingredient::Stack(stack))))
+                .collect::<Result<_, _>>()?;
+            addShaped(id, &shaped.pattern, keys, stackOf(&shaped.result)?)?;
+        }
+        RecipeSpec::ShapedTagged(shaped) =>
+        {
+            let keys: Vec<(&String, Ingredient)> = shaped
+                .key
+                .iter()
+                .map(|(symbol, ingredient)| ingredientOf(ingredient).map(|ingredient| (symbol, ingredient)))
+                .collect::<Result<_, _>>()?;
+            addShaped(id, &shaped.pattern, keys, stackOf(&shaped.result)?)?;
         }
         RecipeSpec::Shapeless(shapeless) =>
         {
@@ -115,6 +132,13 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
                 .iter()
                 .map(|stack| stackOf(stack).map(Ingredient::Stack))
                 .collect::<Result<_, _>>()?;
+            CraftingManager::getInstance().addShapelessRecipe(stackOf(&shapeless.result)?, &ingredients);
+            trackLast(id);
+        }
+        RecipeSpec::ShapelessTagged(shapeless) =>
+        {
+            let ingredients: Vec<Ingredient> =
+                shapeless.ingredients.iter().map(ingredientOf).collect::<Result<_, _>>()?;
             CraftingManager::getInstance().addShapelessRecipe(stackOf(&shapeless.result)?, &ingredients);
             trackLast(id);
         }
@@ -134,6 +158,49 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
         RecipeSpec::Fuel(fuel) => super::putFuel(itemId(&fuel.item)?, fuel.ticks),
     }
     Ok(())
+}
+
+fn addShaped(
+    id: &Identifier,
+    pattern: &[String],
+    keys: Vec<(&String, Ingredient)>,
+    result: Rc<ItemStack>,
+) -> Result<(), String>
+{
+    let pattern: Vec<&str> = pattern.iter().map(String::as_str).collect();
+    let mut symbols: Vec<(char, Ingredient)> = Vec::new();
+    for (symbol, ingredient) in keys
+    {
+        let symbol: char = symbol.chars().next().ok_or("a recipe key is one character")?;
+        symbols.push((symbol, ingredient));
+    }
+    CraftingManager::getInstance().addRecipe(result, &pattern, &symbols);
+    trackLast(id);
+    Ok(())
+}
+
+// a tag slot takes any damage value of its members, read from the tags as they stand now
+fn ingredientOf(spec: &IngredientSpec) -> Result<Ingredient, String>
+{
+    match (&spec.item, &spec.tag)
+    {
+        (Some(item), None) => Ok(Ingredient::Stack(ItemStack::withDamage(itemId(item)?, 1, spec.meta))),
+        (None, Some(tag)) =>
+        {
+            let members: Vec<Identifier> = super::tags::values(RegistryKind::Item, tag);
+            let stacks: Vec<Rc<ItemStack>> = members
+                .iter()
+                .filter_map(|member| crate::registry::with(|registries| registries.itemId(member)))
+                .map(|item| ItemStack::withDamage(item, 1, ANY_DAMAGE))
+                .collect();
+            if stacks.is_empty()
+            {
+                return Err(format!("item tag #{tag} has no registered items"));
+            }
+            Ok(Ingredient::Choice(stacks))
+        }
+        _ => Err("an ingredient names either an item or a tag".to_owned()),
+    }
 }
 
 // removals use the vanilla list order the registry was seeded from, so they run before any mod recipe is added

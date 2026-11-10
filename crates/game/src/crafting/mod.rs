@@ -13,6 +13,6 @@ mod shapeless_recipes;
 
 pub use crafting_manager::{CraftingManager, Ingredient};
 pub use furnace_recipes::FurnaceRecipes;
-pub use i_recipe::{CraftingGrid, IRecipe};
+pub use i_recipe::{Choice, CraftingGrid, IRecipe, accepts};
 pub use shaped_recipes::ShapedRecipes;
 pub use shapeless_recipes::ShapelessRecipes;

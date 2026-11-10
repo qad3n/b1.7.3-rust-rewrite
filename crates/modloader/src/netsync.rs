@@ -330,7 +330,7 @@ impl ServerSession
             }
             (ServerStep::Data, Control::DataRequest) =>
             {
-                let table: DataTable = (recipeTable(), String::new());
+                let table: DataTable = (recipeTable(), crate::content::tags::table());
                 send(sender, &Control::Data(DataSync::Full(wire::encode(&table))));
                 Outcome::Continue
             }
@@ -455,6 +455,7 @@ pub fn clientDisconnected()
     {
         runtime.m_config.borrow_mut().clearSynced();
     }
+    crate::content::tags::restoreLocal();
     if let Some(local) = local
     {
         crate::remap::apply(&local);
@@ -465,7 +466,8 @@ pub fn isModdedServer() -> bool { CLIENT.with(|client| client.borrow().m_modded)
 
 fn applyData(bytes: &[u8]) -> Result<(), String>
 {
-    let (recipes, _): DataTable = wire::decode(bytes).map_err(|error| error.to_string())?;
+    let (recipes, tags): DataTable = wire::decode(bytes).map_err(|error| error.to_string())?;
+    crate::content::tags::applySynced(&tags).map_err(|reason| format!("server tags: {reason}"))?;
     crate::content::recipes::removeModded();
     for (id, spec) in recipes
     {

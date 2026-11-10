@@ -2,7 +2,8 @@ use crate::discovery::Source;
 use crate::registry::{BlockEntry, ItemEntry, RecipeEntry};
 use mod_protocol::Identifier;
 use mod_protocol::spec::{
-    BlockModifySpec, BlockSpec, BlockStatesSpec, ItemSpec, RecipeSpec, SpawnModifySpec, TagSpec, WorldgenSpec,
+    BlockModifySpec, BlockSpec, BlockStatesSpec, ItemSpec, RecipeSpec, SpawnModifySpec, TagEntry, TagSpec, TagValue,
+    WorldgenSpec,
 };
 use serde::de::DeserializeOwned;
 use std::cell::RefCell;
@@ -139,7 +140,16 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
                 let registry = super::tags::registryKind(folder)
                     .ok_or_else(|| format!("{name}: unknown tag registry {folder}"))?;
                 let tag: Identifier = Identifier::new(namespace, tagPath).map_err(|error| error.to_string())?;
-                parse::<TagSpec>(source, &name).map(|spec| super::tags::add(registry, tag, spec.values, spec.replace))
+                parse::<TagSpec>(source, &name).and_then(|spec| {
+                    let entries: Vec<TagEntry> = spec
+                        .values
+                        .iter()
+                        .map(TagValue::entry)
+                        .collect::<Result<_, _>>()
+                        .map_err(|error| format!("{name}: {error}"))?;
+                    super::tags::addEntries(registry, tag, entries, spec.replace);
+                    Ok(())
+                })
             }
             other => Err(format!("{name}: unknown data kind {other}")),
         });

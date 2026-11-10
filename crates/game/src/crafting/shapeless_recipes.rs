@@ -1,16 +1,16 @@
-use crate::crafting::{CraftingGrid, IRecipe};
+use crate::crafting::{Choice, CraftingGrid, IRecipe, accepts};
 use crate::item::ItemStack;
 use std::rc::Rc;
 
 pub struct ShapelessRecipes
 {
     m_recipeOutput: Rc<ItemStack>,
-    m_recipeItems: Vec<Rc<ItemStack>>,
+    m_recipeItems: Vec<Choice>,
 }
 
 impl ShapelessRecipes
 {
-    pub fn new(result: Rc<ItemStack>, ingredients: Vec<Rc<ItemStack>>) -> ShapelessRecipes
+    pub fn new(result: Rc<ItemStack>, ingredients: Vec<Choice>) -> ShapelessRecipes
     {
         ShapelessRecipes { m_recipeOutput: result, m_recipeItems: ingredients }
     }
@@ -20,7 +20,7 @@ impl IRecipe for ShapelessRecipes
 {
     fn matches(&self, inventory: &dyn CraftingGrid) -> bool
     {
-        let mut arraylist: Vec<Rc<ItemStack>> = self.m_recipeItems.clone();
+        let mut arraylist: Vec<&Choice> = self.m_recipeItems.iter().collect();
         for i in 0..3
         {
             for j in 0..3
@@ -30,10 +30,7 @@ impl IRecipe for ShapelessRecipes
                 {
                     continue;
                 };
-                let found: Option<usize> = arraylist.iter().position(|itemstack1| {
-                    itemstack.m_itemID.get() == itemstack1.m_itemID.get()
-                        && (itemstack1.getItemDamage() == -1 || itemstack.getItemDamage() == itemstack1.getItemDamage())
-                });
+                let found: Option<usize> = arraylist.iter().position(|choice| accepts(choice, &itemstack));
                 let Some(index) = found
                 else
                 {
@@ -57,6 +54,6 @@ impl IRecipe for ShapelessRecipes
     // rewrite: recipe viewers read the ingredients
     fn getRecipeGrid(&self) -> (i32, Vec<Option<Rc<ItemStack>>>)
     {
-        (0, self.m_recipeItems.iter().cloned().map(Some).collect())
+        (0, self.m_recipeItems.iter().map(|choice| choice.first().cloned()).collect())
     }
 }

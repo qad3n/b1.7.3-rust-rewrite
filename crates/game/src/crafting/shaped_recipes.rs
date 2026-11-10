@@ -1,4 +1,4 @@
-use crate::crafting::{CraftingGrid, IRecipe};
+use crate::crafting::{Choice, CraftingGrid, IRecipe, accepts};
 use crate::item::ItemStack;
 use std::rc::Rc;
 
@@ -6,15 +6,14 @@ pub struct ShapedRecipes
 {
     m_recipeWidth: i32,
     m_recipeHeight: i32,
-    m_recipeItems: Vec<Option<Rc<ItemStack>>>,
+    m_recipeItems: Vec<Option<Choice>>,
     m_recipeOutput: Rc<ItemStack>,
     pub m_recipeOutputItemID: i32,
 }
 
 impl ShapedRecipes
 {
-    pub fn new(width: i32, height: i32, ingredients: Vec<Option<Rc<ItemStack>>>, result: Rc<ItemStack>)
-    -> ShapedRecipes
+    pub fn new(width: i32, height: i32, ingredients: Vec<Option<Choice>>, result: Rc<ItemStack>) -> ShapedRecipes
     {
         ShapedRecipes {
             m_recipeOutputItemID: result.m_itemID.get(),
@@ -33,7 +32,7 @@ impl ShapedRecipes
             {
                 let k: i32 = i - x;
                 let l: i32 = j - y;
-                let mut itemstack: Option<Rc<ItemStack>> = None;
+                let mut choice: Option<&Choice> = None;
                 if k >= 0 && l >= 0 && k < self.m_recipeWidth && l < self.m_recipeHeight
                 {
                     let index: i32 = if rotate
@@ -44,22 +43,17 @@ impl ShapedRecipes
                     {
                         k + l * self.m_recipeWidth
                     };
-                    itemstack = self.m_recipeItems[index as usize].clone();
+                    choice = self.m_recipeItems[index as usize].as_ref();
                 }
 
                 let itemstack1: Option<Rc<ItemStack>> = inventory.getItem(i, j);
-                match (itemstack, itemstack1)
+                match (choice, itemstack1)
                 {
                     (None, None) =>
                     {}
-                    (Some(itemstack), Some(itemstack1)) =>
+                    (Some(choice), Some(itemstack1)) =>
                     {
-                        if itemstack.m_itemID.get() != itemstack1.m_itemID.get()
-                        {
-                            return false;
-                        }
-
-                        if itemstack.getItemDamage() != -1 && itemstack.getItemDamage() != itemstack1.getItemDamage()
+                        if !accepts(choice, &itemstack1)
                         {
                             return false;
                         }
@@ -112,5 +106,11 @@ impl IRecipe for ShapedRecipes
     fn instanceOf(&self, name: &str) -> bool { matches!(name, "ShapedRecipes" | "IRecipe") }
 
     // rewrite: recipe viewers read the ingredients
-    fn getRecipeGrid(&self) -> (i32, Vec<Option<Rc<ItemStack>>>) { (self.m_recipeWidth, self.m_recipeItems.clone()) }
+    fn getRecipeGrid(&self) -> (i32, Vec<Option<Rc<ItemStack>>>)
+    {
+        (
+            self.m_recipeWidth,
+            self.m_recipeItems.iter().map(|slot| slot.as_ref().and_then(|choice| choice.first().cloned())).collect(),
+        )
+    }
 }

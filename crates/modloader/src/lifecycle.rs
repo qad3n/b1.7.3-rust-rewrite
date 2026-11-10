@@ -169,6 +169,7 @@ pub fn buildContent()
     buildRegistered();
     crate::modify::apply();
     content::tags::push();
+    content::tags::report();
 }
 
 fn buildRegistered()

@@ -118,6 +118,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
             tags::push();
             HostReply::Unit
         }
+        HostCall::AddTagEntries { registry, tag, entries, replace } =>
+        {
+            tags::addEntries(registry, tag, entries, replace);
+            tags::push();
+            HostReply::Unit
+        }
         HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
         HostCall::RegisterWorldgen { name, spec } =>
         {

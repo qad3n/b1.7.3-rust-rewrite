@@ -2,36 +2,55 @@ use crate::registry::Registries;
 use game::tags::{Registry, TagRow};
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
+use mod_protocol::spec::{TagEntry, TagRef};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
+type Key = (RegistryKind, Identifier);
+type Entries = BTreeMap<Key, BTreeSet<TagEntry>>;
+
+// registry, its tag folder name and the singular form both accepted in data paths and used on the wire
+const REGISTRIES: [(RegistryKind, &str, &str); 4] = [
+    (RegistryKind::Block, "blocks", "block"),
+    (RegistryKind::Item, "items", "item"),
+    (RegistryKind::Entity, "entities", "entity"),
+    (RegistryKind::Biome, "biomes", "biome"),
+];
+
 // shared lists such as c:ores/ruby that mods fill and read without depending on each other
 thread_local! {
-    static TAGS: RefCell<BTreeMap<(RegistryKind, Identifier), BTreeSet<Identifier>>> = const { RefCell::new(BTreeMap::new()) };
+    static TAGS: RefCell<Entries> = const { RefCell::new(BTreeMap::new()) };
+    // the client's own tags while a modded server's tags stand in for them
+    static LOCAL: RefCell<Option<Entries>> = const { RefCell::new(None) };
 }
 
 pub fn registryKind(folder: &str) -> Option<RegistryKind>
 {
-    match folder
-    {
-        "blocks" | "block" => Some(RegistryKind::Block),
-        "items" | "item" => Some(RegistryKind::Item),
-        "entities" | "entity" => Some(RegistryKind::Entity),
-        "biomes" | "biome" => Some(RegistryKind::Biome),
-        _ => None,
-    }
+    REGISTRIES.iter().find(|(_, plural, singular)| *plural == folder || *singular == folder).map(|(kind, _, _)| *kind)
+}
+
+fn registryName(registry: RegistryKind) -> Option<&'static str>
+{
+    REGISTRIES.iter().find(|(kind, _, _)| *kind == registry).map(|(_, _, singular)| *singular)
 }
 
 pub fn add(registry: RegistryKind, tag: Identifier, values: Vec<Identifier>, replace: bool)
 {
+    let entries: Vec<TagEntry> =
+        values.into_iter().map(|id| TagEntry { target: TagRef::Id(id), required: true }).collect();
+    addEntries(registry, tag, entries, replace);
+}
+
+pub fn addEntries(registry: RegistryKind, tag: Identifier, entries: Vec<TagEntry>, replace: bool)
+{
     TAGS.with(|tags| {
         let mut tags = tags.borrow_mut();
-        let entry: &mut BTreeSet<Identifier> = tags.entry((registry, tag)).or_default();
+        let members: &mut BTreeSet<TagEntry> = tags.entry((registry, tag)).or_default();
         if replace
         {
-            entry.clear();
+            members.clear();
         }
-        entry.extend(values);
+        members.extend(entries);
     });
 }
 
@@ -43,22 +62,18 @@ pub fn flag(registry: RegistryKind, tag: &str, id: &Identifier)
 
 pub fn values(registry: RegistryKind, tag: &Identifier) -> Vec<Identifier>
 {
-    TAGS.with(|tags| {
-        tags.borrow().get(&(registry, tag.clone())).map(|set| set.iter().cloned().collect()).unwrap_or_default()
-    })
+    resolved(registry, tag, &mut Vec::new()).into_keys().collect()
 }
 
 pub fn contains(registry: RegistryKind, tag: &Identifier, value: &Identifier) -> bool
 {
-    TAGS.with(|tags| tags.borrow().get(&(registry, tag.clone())).is_some_and(|set| set.contains(value)))
+    resolved(registry, tag, &mut Vec::new()).contains_key(value)
 }
 
 pub fn hash() -> String
 {
-    TAGS.with(|tags| {
-        let text: String = format!("{:?}", tags.borrow());
-        crate::discovery::hex(&<sha2::Sha256 as sha2::Digest>::digest(text.as_bytes()))
-    })
+    let text: String = table();
+    crate::discovery::hex(&<sha2::Sha256 as sha2::Digest>::digest(text.as_bytes()))
 }
 
 // the engine's beta members become minecraft tags that mods can read, extend or replace
@@ -68,12 +83,7 @@ pub fn seed()
     {
         let members: Vec<Identifier> =
             crate::registry::with(|registries| row.m_seeds.iter().filter_map(|n| name(registries, row, *n)).collect());
-        TAGS.with(|tags| {
-            tags.borrow_mut()
-                .entry((kind(row.m_registry), Identifier::minecraft(row.m_name)))
-                .or_default()
-                .extend(members)
-        });
+        add(kind(row.m_registry), Identifier::minecraft(row.m_name), members, false);
     }
 }
 
@@ -82,12 +92,148 @@ pub fn push()
 {
     for row in &game::tags::ROWS
     {
-        let members: Vec<Identifier> = values(kind(row.m_registry), &Identifier::minecraft(row.m_name));
+        let members: BTreeMap<Identifier, bool> =
+            resolved(kind(row.m_registry), &Identifier::minecraft(row.m_name), &mut Vec::new());
         let ids: Vec<i32> = crate::registry::with(|registries| {
-            members.iter().filter_map(|member| numeric(registries, row, member)).collect()
+            members.keys().filter_map(|member| numeric(registries, row.m_registry, member)).collect()
         });
         game::tags::set(row.m_tag, &ids);
     }
+}
+
+// after a content build every registry is complete, so missing required members are real mistakes
+pub fn report()
+{
+    let mut problems: Vec<String> = Vec::new();
+    let keys: Vec<Key> = TAGS.with(|tags| tags.borrow().keys().cloned().collect());
+    for (registry, tag) in keys
+    {
+        let Some(engine) = engineRegistry(registry)
+        else
+        {
+            continue;
+        };
+        let members: BTreeMap<Identifier, bool> = resolved(registry, &tag, &mut problems);
+        let missing: Vec<Identifier> = crate::registry::with(|registries| {
+            members
+                .iter()
+                .filter(|(member, required)| **required && numeric(registries, engine, member).is_none())
+                .map(|(member, _)| member.clone())
+                .collect()
+        });
+        problems.extend(missing.iter().map(|member| format!("tag #{tag} lists {member}, which is not registered")));
+    }
+    let unique: BTreeSet<String> = problems.into_iter().collect();
+    for problem in unique
+    {
+        crate::log::warn(crate::log::LOADER, &problem);
+    }
+}
+
+// every tag resolved to plain ids, one line each, for the data hash and for sending to clients
+pub fn table() -> String
+{
+    let keys: Vec<Key> = TAGS.with(|tags| tags.borrow().keys().cloned().collect());
+    let mut text: String = String::new();
+    for (registry, tag) in keys
+    {
+        let Some(registryName) = registryName(registry)
+        else
+        {
+            continue;
+        };
+        let members: Vec<String> = values(registry, &tag).iter().map(Identifier::to_string).collect();
+        text.push_str(&format!("{registryName} {tag} {}\n", members.join(" ")));
+    }
+    text
+}
+
+// a modded server's tags replace the client's until it disconnects
+pub fn applySynced(text: &str) -> Result<(), String>
+{
+    let mut synced: Entries = BTreeMap::new();
+    for line in text.lines()
+    {
+        let mut words = line.split(' ').filter(|word| !word.is_empty());
+        let (Some(registryName), Some(tag)) = (words.next(), words.next())
+        else
+        {
+            return Err(format!("bad tag line '{line}'"));
+        };
+        let registry: RegistryKind =
+            registryKind(registryName).ok_or_else(|| format!("unknown tag registry {registryName}"))?;
+        let tag: Identifier = Identifier::parse(tag).map_err(|error| error.to_string())?;
+        let mut members: BTreeSet<TagEntry> = BTreeSet::new();
+        for word in words
+        {
+            let id: Identifier = Identifier::parse(word).map_err(|error| error.to_string())?;
+            members.insert(TagEntry { target: TagRef::Id(id), required: false });
+        }
+        synced.insert((registry, tag), members);
+    }
+    let own: Entries = TAGS.with(|tags| std::mem::replace(&mut *tags.borrow_mut(), synced));
+    LOCAL.with(|local| {
+        local.borrow_mut().get_or_insert(own);
+    });
+    push();
+    Ok(())
+}
+
+pub fn restoreLocal()
+{
+    if let Some(own) = LOCAL.with(|local| local.borrow_mut().take())
+    {
+        TAGS.with(|tags| *tags.borrow_mut() = own);
+        push();
+    }
+}
+
+// members of one tag with nested tags expanded, each marked required when any path to it is
+fn resolved(registry: RegistryKind, tag: &Identifier, problems: &mut Vec<String>) -> BTreeMap<Identifier, bool>
+{
+    TAGS.with(|tags| {
+        let mut members: BTreeMap<Identifier, bool> = BTreeMap::new();
+        expand(&tags.borrow(), registry, tag, &mut Vec::new(), &mut members, problems);
+        members
+    })
+}
+
+fn expand(
+    tags: &Entries,
+    registry: RegistryKind,
+    tag: &Identifier,
+    trail: &mut Vec<Identifier>,
+    members: &mut BTreeMap<Identifier, bool>,
+    problems: &mut Vec<String>,
+)
+{
+    let Some(entries) = tags.get(&(registry, tag.clone()))
+    else
+    {
+        return;
+    };
+
+    trail.push(tag.clone());
+    for entry in entries
+    {
+        match &entry.target
+        {
+            TagRef::Id(id) => *members.entry(id.clone()).or_insert(false) |= entry.required,
+            TagRef::Tag(nested) if trail.contains(nested) =>
+            {
+                problems.push(format!("tag #{tag} includes #{nested}, which already includes it"));
+            }
+            TagRef::Tag(nested) if !tags.contains_key(&(registry, nested.clone())) =>
+            {
+                if entry.required
+                {
+                    problems.push(format!("tag #{tag} includes #{nested}, which does not exist"));
+                }
+            }
+            TagRef::Tag(nested) => expand(tags, registry, nested, trail, members, problems),
+        }
+    }
+    trail.pop();
 }
 
 fn kind(registry: Registry) -> RegistryKind
@@ -96,6 +242,16 @@ fn kind(registry: Registry) -> RegistryKind
     {
         Registry::Block => RegistryKind::Block,
         Registry::Item => RegistryKind::Item,
+    }
+}
+
+fn engineRegistry(registry: RegistryKind) -> Option<Registry>
+{
+    match registry
+    {
+        RegistryKind::Block => Some(Registry::Block),
+        RegistryKind::Item => Some(Registry::Item),
+        _ => None,
     }
 }
 
@@ -108,9 +264,9 @@ fn name(registries: &Registries, row: &TagRow, numeric: i32) -> Option<Identifie
     }
 }
 
-fn numeric(registries: &Registries, row: &TagRow, id: &Identifier) -> Option<i32>
+fn numeric(registries: &Registries, registry: Registry, id: &Identifier) -> Option<i32>
 {
-    match row.m_registry
+    match registry
     {
         Registry::Block => registries.m_blocks.numeric(id),
         Registry::Item => registries.m_items.numeric(id),

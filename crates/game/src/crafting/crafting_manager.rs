@@ -1,5 +1,5 @@
 use crate::block::Block;
-use crate::crafting::{CraftingGrid, IRecipe, ShapedRecipes, ShapelessRecipes};
+use crate::crafting::{Choice, CraftingGrid, IRecipe, ShapedRecipes, ShapelessRecipes};
 use crate::item::{Item, ItemStack};
 use jvm::array_list::JArrayList;
 use jvm::debug;
@@ -17,6 +17,8 @@ pub enum Ingredient
     Item(Rc<Item>),
     Block(Rc<Block>),
     Stack(Rc<ItemStack>),
+    // rewrite: any one of these stacks, as tag ingredients resolve to
+    Choice(Choice),
 }
 
 pub struct CraftingManager
@@ -393,25 +395,26 @@ impl CraftingManager
             s.push_str(line);
         }
 
-        let mut hashMap: HashMap<char, Rc<ItemStack>> = HashMap::new();
+        let mut hashMap: HashMap<char, Choice> = HashMap::new();
         for (c, ingredient) in keys
         {
-            let stack: Rc<ItemStack> = match ingredient
+            let choice: Choice = match ingredient
             {
-                Ingredient::Item(item) => ItemStack::withItem(item),
-                Ingredient::Block(block) => ItemStack::withBlockDamage(block, 1, -1),
-                Ingredient::Stack(stack) => Rc::clone(stack),
+                Ingredient::Item(item) => vec![ItemStack::withItem(item)],
+                Ingredient::Block(block) => vec![ItemStack::withBlockDamage(block, 1, -1)],
+                Ingredient::Stack(stack) => vec![Rc::clone(stack)],
+                Ingredient::Choice(choice) => choice.clone(),
             };
-            hashMap.insert(*c, stack);
+            hashMap.insert(*c, choice);
         }
 
-        let mut ingredients: Vec<Option<Rc<ItemStack>>> = Vec::with_capacity((width * height) as usize);
+        let mut ingredients: Vec<Option<Choice>> = Vec::with_capacity((width * height) as usize);
         for k in 0..width * height
         {
             let char1: char = s.chars().nth(k as usize).unwrap_or_else(|| {
                 jvm::throwable::throw(&jvm::throwable::STRING_INDEX, &format!("String index out of range: {k}"))
             });
-            ingredients.push(hashMap.get(&char1).map(|stack| stack.copy()));
+            ingredients.push(hashMap.get(&char1).map(|choice| choice.iter().map(|stack| stack.copy()).collect()));
         }
 
         self.m_recipes.add(Rc::new(ShapedRecipes::new(width, height, ingredients, result)));
@@ -419,16 +422,17 @@ impl CraftingManager
 
     pub fn addShapelessRecipe(&self, result: Rc<ItemStack>, args: &[Ingredient])
     {
-        let mut ingredients: Vec<Rc<ItemStack>> = Vec::new();
+        let mut ingredients: Vec<Choice> = Vec::new();
         for o in args
         {
-            let stack: Rc<ItemStack> = match o
+            let choice: Choice = match o
             {
-                Ingredient::Stack(stack) => stack.copy(),
-                Ingredient::Item(item) => ItemStack::withItem(item),
-                Ingredient::Block(block) => ItemStack::withBlock(block),
+                Ingredient::Stack(stack) => vec![stack.copy()],
+                Ingredient::Item(item) => vec![ItemStack::withItem(item)],
+                Ingredient::Block(block) => vec![ItemStack::withBlock(block)],
+                Ingredient::Choice(choice) => choice.iter().map(|stack| stack.copy()).collect(),
             };
-            ingredients.push(stack);
+            ingredients.push(choice);
         }
 
         self.m_recipes.add(Rc::new(ShapelessRecipes::new(result, ingredients)));
