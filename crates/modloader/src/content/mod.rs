@@ -3,6 +3,7 @@ pub mod data;
 pub mod harvest;
 pub mod items;
 pub mod lang;
+pub mod loot;
 pub mod recipes;
 pub mod tags;
 pub mod templates;

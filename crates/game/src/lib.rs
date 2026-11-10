@@ -8,6 +8,7 @@ pub mod hooks;
 pub mod inventory;
 pub mod item;
 pub mod locale;
+pub mod loot;
 pub mod math;
 pub mod network;
 pub mod pathfinding;

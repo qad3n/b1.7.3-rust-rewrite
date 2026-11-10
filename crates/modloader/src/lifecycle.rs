@@ -170,6 +170,7 @@ pub fn buildContent()
     crate::modify::apply();
     content::tags::push();
     content::tags::report();
+    content::loot::push(true);
 }
 
 fn buildRegistered()

@@ -3,6 +3,7 @@ use crate::attribute::{self, Attribute};
 use crate::block::{Block, StepSound};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity};
+use crate::loot::{self, LootTable};
 use crate::math::math_helper;
 use crate::port::playSoundAtEntity;
 use crate::world::World;
@@ -181,9 +182,30 @@ pub fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
     if !this.world().m_multiplayerWorld.get()
         && !crate::hooks::fire(crate::hooks::GameEvent::LivingDrops { entity: this, source: killer })
     {
-        this.dropFewItems();
+        dropLoot(this, killer);
     }
     this.world().doEntityEvent(this, 3);
+}
+
+// an entity without a loot table drops exactly as beta
+fn dropLoot(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
+{
+    let table: Option<Rc<LootTable>> = this.getEntityString().and_then(|key| loot::entity(&key.to_string()));
+    if table.as_ref().is_none_or(|table| table.m_keepBeta)
+    {
+        this.dropFewItems();
+    }
+    let Some(table) = table
+    else
+    {
+        return;
+    };
+
+    let byPlayer: bool = killer.is_some_and(|killer| killer.instanceOf("EntityPlayer"));
+    for stack in loot::roll(&table, &this.m_rand, byPlayer, 0)
+    {
+        this.entityDropItem(stack, 0.0);
+    }
 }
 
 pub fn dropFewItems(this: &Rc<Entity>)

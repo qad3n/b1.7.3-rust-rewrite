@@ -124,6 +124,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
             tags::push();
             HostReply::Unit
         }
+        HostCall::SetLoot { registry, target, spec } =>
+        {
+            let added: Result<(), String> = crate::content::loot::add(registry, target, spec);
+            crate::content::loot::push(false);
+            unit(added)
+        }
         HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
         HostCall::RegisterWorldgen { name, spec } =>
         {

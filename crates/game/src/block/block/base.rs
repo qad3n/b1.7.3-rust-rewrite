@@ -1,6 +1,7 @@
 use crate::block::Block;
 use crate::entity::Entity;
 use crate::item::ItemStack;
+use crate::loot::{self, LootTable};
 use crate::math::{AxisAlignedBB, MovingObjectPosition, Vec3D};
 use crate::world::{IBlockAccess, World};
 use jvm::array_list::JArrayList;
@@ -89,6 +90,22 @@ pub fn dropBlockAsItemWithChance(this: &Rc<Block>, world: &Rc<World>, x: i32, y:
     {
         return;
     }
+    let table: Option<Rc<LootTable>> = loot::block(this.m_blockID);
+    if table.as_ref().is_none_or(|table| table.m_keepBeta)
+    {
+        dropBeta(this, world, x, y, z, metadata, luck);
+    }
+    if let Some(table) = table
+    {
+        for stack in loot::roll(&table, &world.m_rand, false, metadata)
+        {
+            dropBlockAsItem_do(world, x, y, z, stack);
+        }
+    }
+}
+
+fn dropBeta(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, metadata: i32, luck: f32)
+{
     let n: i32 = this.quantityDropped(&world.m_rand);
     for _ in 0..n
     {

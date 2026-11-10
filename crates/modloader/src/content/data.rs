@@ -1,9 +1,10 @@
 use crate::discovery::Source;
 use crate::registry::{BlockEntry, ItemEntry, RecipeEntry};
 use mod_protocol::Identifier;
+use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{
-    BlockModifySpec, BlockSpec, BlockStatesSpec, ItemSpec, RecipeSpec, SpawnModifySpec, TagEntry, TagSpec, TagValue,
-    WorldgenSpec,
+    BlockModifySpec, BlockSpec, BlockStatesSpec, ItemSpec, LootSpec, RecipeSpec, SpawnModifySpec, TagEntry, TagSpec,
+    TagValue, WorldgenSpec,
 };
 use serde::de::DeserializeOwned;
 use std::cell::RefCell;
@@ -42,7 +43,7 @@ pub fn registerBlock(id: Identifier, owner: &str, spec: BlockSpec) -> Result<(),
     super::blocks::requestTextures(&spec);
     for tag in &spec.tags
     {
-        super::tags::add(mod_protocol::abi::RegistryKind::Block, tag.clone(), vec![id.clone()], false);
+        super::tags::add(RegistryKind::Block, tag.clone(), vec![id.clone()], false);
     }
     crate::registry::with(|registries| -> Result<(), String> {
         registries
@@ -62,7 +63,7 @@ pub fn registerItem(id: Identifier, owner: &str, spec: ItemSpec) -> Result<(), S
     super::items::requestTextures(&spec);
     for tag in &spec.tags
     {
-        super::tags::add(mod_protocol::abi::RegistryKind::Item, tag.clone(), vec![id.clone()], false);
+        super::tags::add(RegistryKind::Item, tag.clone(), vec![id.clone()], false);
     }
     crate::registry::with(|registries| {
         registries
@@ -120,6 +121,12 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             "items" => parse::<ItemSpec>(source, &name).and_then(|spec| registerItem(id, modId, spec)),
             "recipes" => parse::<RecipeSpec>(source, &name).and_then(|spec| registerRecipe(id, modId, spec)),
             "states" => parse::<BlockStatesSpec>(source, &name).and_then(|spec| crate::states::register(id, &spec)),
+            "loot" =>
+            {
+                let (registry, target) = lootTarget(path)
+                    .ok_or_else(|| format!("{name} needs loot/<blocks|entities>/<namespace>/<path>.toml"))?;
+                parse::<LootSpec>(source, &name).and_then(|spec| super::loot::add(registry, target, spec))
+            }
             "worldgen" => parse::<WorldgenSpec>(source, &name).map(|spec| registerWorldgen(modId, id, spec)),
             "modify" => match path.split_once('/')
             {
@@ -167,4 +174,18 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
         }
     }
     problems
+}
+
+// loot/blocks/minecraft/gravel names the block minecraft:gravel
+fn lootTarget(path: &str) -> Option<(RegistryKind, Identifier)>
+{
+    let (folder, rest) = path.split_once('/')?;
+    let registry: RegistryKind = match folder
+    {
+        "blocks" => RegistryKind::Block,
+        "entities" => RegistryKind::Entity,
+        _ => return None,
+    };
+    let (namespace, targetPath) = rest.split_once('/')?;
+    Some((registry, Identifier::new(namespace, targetPath).ok()?))
 }
