@@ -75,6 +75,12 @@ impl TileEntityRenderer
         {
             return renderer.clone();
         }
+        // rewrite: a mod tile entity type with a model draws through the loader's tile renderer
+        if let Some(renderer) = crate::modded::entity_model::tileRendererFor(class.m_name)
+        {
+            self.m_specialRendererMap.borrow_mut().insert(class.m_name, Some(Rc::clone(&renderer)));
+            return Some(renderer);
+        }
         if class.m_name == ROOT_CLASS
         {
             return None;

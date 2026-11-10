@@ -13,6 +13,8 @@ crate::vtable! {
         fn getIconFromDamage(metadata: i32) -> i32;
         fn getItemName() -> Option<String>;
         fn getItemNameIS(stack: &Rc<ItemStack>) -> Option<String>;
+        fn getItemUseAction(stack: &Rc<ItemStack>) -> i32;
+        fn getMaxItemUseDuration(stack: &Rc<ItemStack>) -> i32;
         fn getPlacedBlockMetadata(metadata: i32) -> i32;
         fn getStrVsBlock(stack: &Rc<ItemStack>, block: &Rc<Block>) -> f32;
         fn hitEntity(stack: &Rc<ItemStack>, target: &Rc<Entity>, attacker: &Rc<Entity>) -> bool;
@@ -23,7 +25,10 @@ crate::vtable! {
         fn onCreated(stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>);
         fn onItemRightClick(stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<ItemStack>>;
         fn onItemUse(stack: &Rc<ItemStack>, player: &Rc<Entity>, world: &Rc<World>, x: i32, y: i32, z: i32, face: i32) -> bool;
+        fn onItemUseFinish(stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<ItemStack>>;
+        fn onPlayerStoppedUsing(stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>, left: i32);
         fn onUpdate(stack: &Rc<ItemStack>, world: &Rc<World>, entity: &Rc<Entity>, slot: i32, selected: bool);
+        fn onUsingItemTick(stack: &Rc<ItemStack>, player: &Rc<Entity>, left: i32);
         fn saddleEntity(stack: &Rc<ItemStack>, entity: &Rc<Entity>);
         fn shouldRotateAroundWhenRendering() -> bool;
     }
@@ -39,6 +44,9 @@ pub const ITEM: ItemClass = ItemClass {
     getIconFromDamage: |this, _| this.m_iconIndex.get(),
     getItemName: |this| this.m_itemName.get(),
     getItemNameIS: |this, _| this.m_itemName.get(),
+    // rewrite: 1.7's item in use, no beta item is ever held in use so vanilla never reaches these
+    getItemUseAction: |_, _| 0,
+    getMaxItemUseDuration: |_, _| 0,
     getPlacedBlockMetadata: |_, _| 0,
     getStrVsBlock: |_, _, _| 1.0,
     hitEntity: |_, _, _, _| false,
@@ -49,7 +57,10 @@ pub const ITEM: ItemClass = ItemClass {
     onCreated: |_, _, _, _| {},
     onItemRightClick: |_, stack, _, _| Some(Rc::clone(stack)),
     onItemUse: |_, _, _, _, _, _, _, _| false,
+    onItemUseFinish: |_, stack, _, _| Some(Rc::clone(stack)),
+    onPlayerStoppedUsing: |_, _, _, _, _| {},
     onUpdate: |_, _, _, _, _, _| {},
+    onUsingItemTick: |_, _, _, _| {},
     saddleEntity: |_, _, _| {},
     shouldRotateAroundWhenRendering: |_| false,
 };

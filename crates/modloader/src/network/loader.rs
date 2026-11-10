@@ -17,6 +17,7 @@ pub const ENTITY_SYNCED: &str = "loader:entity_attachment";
 pub const TICK: &str = "loader:tick";
 pub const MOVING_BLOCK: &str = "loader:moving_block";
 pub const BIOME: &str = "loader:biome";
+pub const STOP_USING: &str = "loader:stop_using";
 pub const ATTRIBUTES: &str = "loader:attributes";
 
 #[derive(Serialize, Deserialize)]
@@ -343,6 +344,13 @@ pub fn register()
             m_onClient: Some(handler),
         });
     }
+    super::registerChannel(Channel {
+        m_id: id(STOP_USING),
+        m_version: "1".to_owned(),
+        m_direction: ChannelDirection::ToServer,
+        m_onServer: Some(Rc::new(|player: &Rc<Entity>, _: &[u8]| game::entity::entity_player::stopUsingItem(player))),
+        m_onClient: None,
+    });
 }
 
 // sends a loader message to every player near a point of a world, used for sounds and particles from mods
@@ -363,6 +371,16 @@ pub fn broadcastNear<T: Serialize>(channel: &str, world: &Rc<game::world::World>
             super::sendToPlayer(&id(channel), &player, bytes.clone());
         }
     }
+}
+
+// the client let go of the use key, the server's copy of the player lets go too
+pub fn stopUsing(player: &Rc<Entity>)
+{
+    if player.world().m_multiplayerWorld.get()
+    {
+        super::sendToServer(&id(STOP_USING), Vec::new());
+    }
+    game::entity::entity_player::stopUsingItem(player);
 }
 
 pub fn send<T: Serialize>(channel: &str, player: &Rc<Entity>, message: &T) -> bool

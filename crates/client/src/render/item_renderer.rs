@@ -257,6 +257,7 @@ impl ItemRenderer
                 GL11::glRotatef(-f16 * 80.0, 1.0, 0.0, 0.0);
                 let scale: f32 = 0.4;
                 GL11::glScalef(scale, scale, scale);
+                bowPull(&player, itemstack, tickDelta);
                 if itemstack.getItem().shouldRotateAroundWhenRendering()
                 {
                     GL11::glRotatef(180.0, 0.0, 1.0, 0.0);
@@ -530,4 +531,35 @@ impl ItemRenderer
     pub fn onBlockUsed(&self) { self.m_equippedProgress.set(0.0); }
 
     pub fn onItemUsed(&self) { self.m_equippedProgress.set(0.0); }
+}
+
+// rewrite: ItemRenderer.renderItemInFirstPerson for a bow drawn in use, it tilts back, trembles and stretches
+fn bowPull(player: &Rc<Entity>, stack: &Rc<ItemStack>, tickDelta: f32)
+{
+    const BOW: i32 = 4;
+    let drawing: bool = entity_player::isUsingItem(player) && stack.getItem().getItemUseAction(stack) == BOW;
+    if !drawing
+    {
+        return;
+    }
+    GL11::glRotatef(-18.0, 0.0, 0.0, 1.0);
+    GL11::glRotatef(-12.0, 0.0, 1.0, 0.0);
+    GL11::glRotatef(-8.0, 1.0, 0.0, 0.0);
+    GL11::glTranslatef(-0.9, 0.2, 0.0);
+    let left: f32 = entity_player::fields(player).m_itemInUseCount.get() as f32;
+    let held: f32 = stack.getItem().getMaxItemUseDuration(stack) as f32 - (left - tickDelta + 1.0);
+    let draw: f32 = held / 20.0;
+    let draw: f32 = ((draw * draw + draw * 2.0) / 3.0).min(1.0);
+    if draw > 0.1
+    {
+        GL11::glTranslatef(0.0, sin((held - 0.1) * 1.3) * 0.01 * (draw - 0.1), 0.0);
+    }
+    GL11::glTranslatef(0.0, 0.0, draw * 0.1);
+    GL11::glRotatef(-335.0, 0.0, 0.0, 1.0);
+    GL11::glRotatef(-50.0, 0.0, 1.0, 0.0);
+    GL11::glTranslatef(0.0, 0.5, 0.0);
+    GL11::glScalef(1.0, 1.0, 1.0 + draw * 0.2);
+    GL11::glTranslatef(0.0, -0.5, 0.0);
+    GL11::glRotatef(50.0, 0.0, 1.0, 0.0);
+    GL11::glRotatef(335.0, 0.0, 0.0, 1.0);
 }

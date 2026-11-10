@@ -22,6 +22,8 @@ impl EntityRenderer
         {
             f = 60.0;
         }
+        // rewrite: 1.7 narrows the view while a bow draws
+        f *= bowZoom(&entityLiving);
         let living: &LivingFields = entity_living::fields(&entityLiving);
         if living.m_health.get() <= 0
         {
@@ -249,4 +251,27 @@ impl EntityRenderer
             self.setupViewBobbing(tickDelta);
         }
     }
+}
+
+// EntityPlayerSP.getFOVMultiplier for a drawing bow, a full draw after a second takes off three twentieths
+fn bowZoom(viewer: &Rc<Entity>) -> f32
+{
+    const BOW: i32 = 4;
+    const FULL_DRAW: f32 = 20.0;
+    const NARROWS: f32 = 0.15;
+    if !viewer.instanceOf("EntityPlayer") || !entity_player::isUsingItem(viewer)
+    {
+        return 1.0;
+    }
+    let drawing: bool = entity_player::fields(viewer)
+        .m_itemInUse
+        .get()
+        .is_some_and(|stack| stack.getItem().getItemUseAction(&stack) == BOW);
+    if !drawing
+    {
+        return 1.0;
+    }
+    let draw: f32 = entity_player::itemInUseDuration(viewer) as f32 / FULL_DRAW;
+    let draw: f32 = if draw > 1.0 { 1.0 } else { draw * draw };
+    1.0 - draw * NARROWS
 }

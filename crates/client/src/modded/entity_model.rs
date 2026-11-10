@@ -442,3 +442,56 @@ pub fn rendererFor(className: &str) -> Option<Rc<Render>>
     MODELS.with(|models| models.borrow_mut().push((Rc::clone(&render), model)));
     Some(render)
 }
+
+// rewrite: a mod tile entity whose type registered a model, drawn every frame from its behavior's pose
+pub struct ModTileRenderer;
+
+thread_local! {
+    // one model per tile entity type, built on first draw
+    static TILE_MODELS: RefCell<std::collections::HashMap<String, Rc<ModModel>>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+
+// the renderer the tile entity renderer map takes for a mod tile type with a model
+pub fn tileRendererFor(className: &str) -> Option<Rc<dyn crate::render::tile::TileEntitySpecialRenderer>>
+{
+    modloader::tiles::modelFor(className)?;
+    Some(Rc::new(ModTileRenderer))
+}
+
+fn tileModel(className: &str) -> Option<Rc<ModModel>>
+{
+    if let Some(model) = TILE_MODELS.with(|models| models.borrow().get(className).cloned())
+    {
+        return Some(model);
+    }
+    let spec: Rc<EntityModelSpec> = modloader::tiles::modelFor(className)?;
+    let model: Rc<ModModel> = Rc::new(ModModel::new(&spec));
+    TILE_MODELS.with(|models| models.borrow_mut().insert(className.to_owned(), Rc::clone(&model)));
+    Some(model)
+}
+
+impl crate::render::tile::TileEntitySpecialRenderer for ModTileRenderer
+{
+    fn renderTileEntityAt(&self, tile: &Rc<game::tileentity::TileEntity>, dx: f64, dy: f64, dz: f64, tickDelta: f32)
+    {
+        let Some(model) = tileModel(tile.m_class.m_name)
+        else
+        {
+            return;
+        };
+        let pose: Pose = modloader::tiles::pose(tile, tickDelta).unwrap_or_default();
+        let light: f32 = tile.m_worldObj.get().map_or(1.0, |world| {
+            world.getLightBrightness(tile.m_xCoord.get(), tile.m_yCoord.get(), tile.m_zCoord.get())
+        });
+        GL11::glPushMatrix();
+        GL11::glTranslatef(dx as f32, dy as f32, dz as f32);
+        GL11::glColor4f(light, light, light, 1.0);
+        model.m_draws.set(0);
+        model.resetPose();
+        model.run(&pose.pre, MODEL_SCALE, false);
+        *model.m_pose.borrow_mut() = pose;
+        model.render(0.0, 0.0, 0.0, 0.0, 0.0, MODEL_SCALE);
+        GL11::glPopMatrix();
+    }
+}

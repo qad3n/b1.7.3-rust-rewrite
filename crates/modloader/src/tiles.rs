@@ -41,6 +41,8 @@ thread_local! {
     static BLOCK_TYPES: RefCell<HashMap<i32, Rc<TileType>>> = RefCell::new(HashMap::new());
     // set while a swap replaces the block so the tile entity and its slots stay, as beta's keepFurnaceInventory
     static SWAPPING: Cell<bool> = const { Cell::new(false) };
+    // tile entity type to the model its tiles draw with
+    static MODELS: RefCell<HashMap<Identifier, Rc<mod_protocol::spec::EntityModelSpec>>> = RefCell::new(HashMap::new());
 }
 
 pub fn define(id: Identifier, owner: usize, spec: TileEntitySpec)
@@ -61,25 +63,57 @@ pub fn bindBlock(block: i32, id: &Identifier) -> Result<(), String>
 
 pub fn ext(tile: &TileEntity) -> &ModTileExt { tile.ext::<ModTileExt>() }
 
-fn callTile(tile: &Rc<TileEntity>, call: TileCall)
+fn callTile(tile: &Rc<TileEntity>, call: TileCall) -> Option<mod_protocol::abi::GuestReply>
 {
     let tileType: Rc<TileType> = Rc::clone(&ext(tile).m_type);
-    let Some(behavior) = tileType.m_spec.behavior.as_ref()
-    else
-    {
-        return;
-    };
-    let Some(runtime) = state::modAt(tileType.m_owner)
-    else
-    {
-        return;
-    };
+    let behavior = tileType.m_spec.behavior.as_ref()?;
+    let runtime = state::modAt(tileType.m_owner)?;
     let request: GuestCall = GuestCall::Tile { handle: behavior.handle, call };
     match tile.m_worldObj.get()
     {
         Some(world) => withWorld(&world, || runtime.call(&request)),
         None => runtime.call(&request),
-    };
+    }
+}
+
+// only the mod that registered a tile entity type gives it a model, before any world
+pub fn registerModel(modIndex: usize, id: Identifier, model: mod_protocol::spec::EntityModelSpec)
+-> Result<(), String>
+{
+    let tileType: Rc<TileType> = TYPES
+        .with(|types| types.borrow().get(&id).cloned())
+        .ok_or_else(|| format!("tile entity {id} is not registered"))?;
+    if tileType.m_owner != modIndex
+    {
+        return Err(format!("tile entity {id} belongs to another mod"));
+    }
+    MODELS.with(|models| models.borrow_mut().insert(id, Rc::new(model)));
+    Ok(())
+}
+
+// the model a tile entity's type draws with, keyed by the type's class name as the renderer map looks it up
+pub fn modelFor(className: &str) -> Option<Rc<mod_protocol::spec::EntityModelSpec>>
+{
+    let id: Identifier = Identifier::parse(className).ok()?;
+    MODELS.with(|models| models.borrow().get(&id).cloned())
+}
+
+// one frame of a tile entity's model from its behavior, ticks run with the world clock for animations
+pub fn pose(tile: &Rc<TileEntity>, partial: f32) -> Option<mod_protocol::abi::Pose>
+{
+    if tile.tryExt::<ModTileExt>().is_none() || !wants(tile, TileMethod::Pose)
+    {
+        return None;
+    }
+    let world: Rc<World> = tile.m_worldObj.get()?;
+    let (x, y, z): (i32, i32, i32) = (tile.m_xCoord.get(), tile.m_yCoord.get(), tile.m_zCoord.get());
+    let block: i32 = world.getBlockId(x, y, z);
+    let ticks: i32 = world.getWorldTime() as i32;
+    match callTile(tile, TileCall::Pose { ctx: blockCtx(&world, block, x, y, z), partial, ticks })
+    {
+        Some(mod_protocol::abi::GuestReply::Pose(pose)) => Some(pose),
+        _ => None,
+    }
 }
 
 fn wants(tile: &TileEntity, method: TileMethod) -> bool

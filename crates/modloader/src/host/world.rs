@@ -237,6 +237,10 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
             HostReply::Float(movingBlock(entity).map_or(0, |fields| fields.m_metadata.get()) as f32)
         }
         EntityField::Invisible => HostReply::Bool(context::invisible(entity.m_entityId.get())),
+        EntityField::ItemInUse =>
+        {
+            HostReply::Float(entity.m_ext.player().map_or(0, |player| player.m_itemInUseCount.get()) as f32)
+        }
         EntityField::Shooter => HostReply::Float(shooter(entity) as f32),
     }
 }
@@ -295,6 +299,8 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::StepHeight => entity.m_stepHeight.set(value as f32),
         EntityField::MaxHealth => context::setMaxHealth(entity.m_entityId.get(), value as i32),
         EntityField::Invisible => context::setInvisible(entity.m_entityId.get(), value != 0.0),
+        EntityField::ItemInUse =>
+        {}
         EntityField::Shooter => setShooter(entity, value as i32),
         EntityField::DeathTime => living(entity).into_iter().for_each(|fields| fields.m_deathTime.set(value as i32)),
         EntityField::BlockMeta =>
@@ -403,6 +409,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 HostReply::Bool(changed)
             })
         }
+        HostCall::SetItemInUse { player: id, ticks } => unit(player(id).and_then(|player| {
+            let held = entity_player::inventory(&player).getCurrentItem().ok_or("the player holds nothing to use")?;
+            entity_player::setItemInUse(&player, &held, ticks);
+            Ok(())
+        })),
+        HostCall::StopUsingItem { player: id } => unit(player(id).map(|player| entity_player::stopUsingItem(&player))),
         HostCall::DigSpeed { player: id, block } => ok(
             player(id).and_then(|player| {
                 game::block::Block::byId(block).map(|block| (player, block)).ok_or(format!("no block {block}"))

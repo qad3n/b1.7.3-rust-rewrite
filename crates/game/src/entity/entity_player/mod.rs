@@ -1,6 +1,7 @@
 mod combat;
 mod sleep;
 mod stats;
+mod using;
 
 use crate::block::Block;
 use crate::container::{Container, ContainerPlayer};
@@ -20,6 +21,7 @@ pub use sleep::{
 };
 use std::cell::Cell;
 use std::rc::Rc;
+pub use using::{clearItemInUse, isUsingItem, itemInUseDuration, setItemInUse, stopUsingItem};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum EnumStatus
@@ -66,6 +68,9 @@ pub struct PlayerFields
     pub m_prevTimeInPortal: Cell<f32>,
     pub m_damageRemainder: Cell<i32>,
     pub m_fishEntity: Field<Option<Rc<Entity>>>,
+    // rewrite: 1.7's item in use and the ticks it has left
+    pub m_itemInUse: Field<Option<Rc<ItemStack>>>,
+    pub m_itemInUseCount: Cell<i32>,
 }
 
 pub fn fields(this: &Entity) -> &PlayerFields
@@ -119,6 +124,7 @@ pub fn init(this: &Rc<Entity>, world: Rc<World>)
 
 fn onUpdate(this: &Rc<Entity>)
 {
+    using::tick(this);
     let player: &PlayerFields = fields(this);
     let world: Rc<World> = this.world();
     if this.isPlayerSleeping()

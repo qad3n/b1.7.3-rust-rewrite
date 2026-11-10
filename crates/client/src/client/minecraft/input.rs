@@ -165,6 +165,11 @@ impl Minecraft
             return;
         }
         let player: Rc<Entity> = self.thePlayer();
+        // rewrite: an item in use takes no clicks until it is let go
+        if game::entity::entity_player::isUsingItem(&player)
+        {
+            return;
+        }
         if button == 0
         {
             player.swingItem();
@@ -552,6 +557,14 @@ impl Minecraft
 
     fn handleHeldButtons(&self)
     {
+        // rewrite: letting go of the use key lets go of an item in use
+        let using: Option<Rc<Entity>> =
+            self.m_thePlayer.get().filter(|player| game::entity::entity_player::isUsingItem(player));
+        if let Some(player) = using
+            && !Mouse::isButtonDown(1)
+        {
+            modloader::network::loader::stopUsing(&player);
+        }
         if self.m_currentScreen.with(Option::is_none)
         {
             let interval: f32 = self.timer().m_ticksPerSecond.get() / 4.0;

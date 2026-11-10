@@ -242,8 +242,17 @@ pub const CLASS: EntityClass = EntityClass {
         (entity_player::CLASS.updatePlayerActionState)(this);
         let movementInput: Rc<MovementInput> = movementInput(this);
         let living: &LivingFields = entity_living::fields(this);
-        living.m_moveStrafing.set(movementInput.m_moveStrafe.get());
-        living.m_moveForward.set(movementInput.m_moveForward.get());
+        // rewrite: 1.7 walks at a fifth of the speed while an item is in use
+        let pace: f32 = if entity_player::isUsingItem(this)
+        {
+            0.2
+        }
+        else
+        {
+            1.0
+        };
+        living.m_moveStrafing.set(movementInput.m_moveStrafe.get() * pace);
+        living.m_moveForward.set(movementInput.m_moveForward.get() * pace);
         living.m_isJumping.set(movementInput.m_jump.get());
     },
     onLivingUpdate,

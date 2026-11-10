@@ -80,6 +80,10 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
         {
             unit(registering().and_then(|()| own(runtime, &name)).and_then(|id| data::registerRecipe(id, &owner, spec)))
         }
+        HostCall::TileModel { tile, model } =>
+        {
+            unit(registering().and_then(|()| crate::tiles::registerModel(runtime.m_index, tile, model)))
+        }
         HostCall::RegisterTileEntity { name, spec } =>
         {
             unit(registering().and_then(|()| own(runtime, &name)).and_then(|id| {

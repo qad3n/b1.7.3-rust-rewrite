@@ -475,6 +475,73 @@ fn canHarvest(this: &Rc<Item>, block: &Rc<Block>) -> bool
         .unwrap_or_else(|| (itemParent(this).canHarvestBlock)(this, block))
 }
 
+fn useDuration(this: &Rc<Item>, stack: &Rc<ItemStack>) -> i32
+{
+    asInt(callItem(this, None, ItemCall::UseDuration { stack: stackData(stack) }))
+        .unwrap_or_else(|| (itemParent(this).getMaxItemUseDuration)(this, stack))
+}
+
+fn useAction(this: &Rc<Item>, stack: &Rc<ItemStack>) -> i32
+{
+    asInt(callItem(this, None, ItemCall::UseAction { stack: stackData(stack) }))
+        .unwrap_or_else(|| (itemParent(this).getItemUseAction)(this, stack))
+}
+
+fn usingTick(this: &Rc<Item>, stack: &Rc<ItemStack>, player: &Rc<Entity>, left: i32)
+{
+    let world: Rc<World> = player.world();
+    let call: ItemCall = ItemCall::UsingTick {
+        world: dimensionOf(&world),
+        player: player.m_entityId.get(),
+        stack: stackData(stack),
+        left,
+    };
+    callItem(this, Some(&world), call);
+}
+
+// a stack the guest gives back replaces the held one, none empties the slot it was in
+fn heldAfter(stack: &Rc<ItemStack>, player: &Rc<Entity>, reply: &Option<mod_protocol::abi::StackData>)
+{
+    let result: Option<Rc<ItemStack>> = applyStack(stack, reply);
+    if result.as_ref().is_some_and(|result| Rc::ptr_eq(result, stack))
+    {
+        return;
+    }
+    let inventory = game::entity::entity_player::inventory(player);
+    let slot: usize = inventory.m_currentItem.get() as usize;
+    let held: bool = inventory.m_mainInventory.borrow()[slot].as_ref().is_some_and(|held| Rc::ptr_eq(held, stack));
+    if held
+    {
+        inventory.m_mainInventory.borrow_mut()[slot] = result;
+    }
+}
+
+fn stoppedUsing(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>, left: i32)
+{
+    let call: ItemCall = ItemCall::StoppedUsing {
+        world: dimensionOf(world),
+        player: player.m_entityId.get(),
+        stack: stackData(stack),
+        left,
+    };
+    match callItem(this, Some(world), call)
+    {
+        Some(GuestReply::Use { handled: true, stack: reply }) => heldAfter(stack, player, &reply),
+        _ => (itemParent(this).onPlayerStoppedUsing)(this, stack, world, player, left),
+    }
+}
+
+fn useFinish(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<ItemStack>>
+{
+    let call: ItemCall =
+        ItemCall::UseFinish { world: dimensionOf(world), player: player.m_entityId.get(), stack: stackData(stack) };
+    match callItem(this, Some(world), call)
+    {
+        Some(GuestReply::Use { handled: true, stack: reply }) => applyStack(stack, &reply),
+        _ => (itemParent(this).onItemUseFinish)(this, stack, world, player),
+    }
+}
+
 fn crafted(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>)
 {
     (itemParent(this).onCreated)(this, stack, world, player);
@@ -496,6 +563,11 @@ pub fn patchItem(class: &mut ItemClass, behavior: &Behavior<ItemMethod>)
             ItemMethod::StrVsBlock => class.getStrVsBlock = strVsBlock,
             ItemMethod::CanHarvest => class.canHarvestBlock = canHarvest,
             ItemMethod::Crafted => class.onCreated = crafted,
+            ItemMethod::UseDuration => class.getMaxItemUseDuration = useDuration,
+            ItemMethod::UseAction => class.getItemUseAction = useAction,
+            ItemMethod::UsingTick => class.onUsingItemTick = usingTick,
+            ItemMethod::StoppedUsing => class.onPlayerStoppedUsing = stoppedUsing,
+            ItemMethod::UseFinish => class.onItemUseFinish = useFinish,
         }
     }
 }
