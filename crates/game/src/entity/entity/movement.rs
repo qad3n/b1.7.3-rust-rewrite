@@ -3,6 +3,7 @@ use crate::entity::Entity;
 use crate::entity::remote::{self, Pose};
 use crate::math::AxisAlignedBB;
 use crate::math::math_helper::{self, floor_double};
+use crate::tags::{self, Tag};
 use crate::world::World;
 use jvm::array_list::JArrayList;
 use jvm::throwable::OrNpe;
@@ -227,7 +228,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
         let k: i32 = floor_double(this.posY() - 0.2f32 as f64 - this.m_yOffset.get() as f64);
         let j3: i32 = floor_double(this.posZ());
         let mut k4: i32 = world.getBlockId(k2, k, j3);
-        if world.getBlockId(k2, k - 1, j3) == Block::FENCE
+        if tags::has(Tag::Fences, world.getBlockId(k2, k - 1, j3))
         {
             k4 = world.getBlockId(k2, k - 1, j3);
         }

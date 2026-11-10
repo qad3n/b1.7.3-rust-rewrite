@@ -6,6 +6,7 @@ use game::math::AxisAlignedBB;
 use game::world::{IBlockAccess, World};
 use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
+use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{BlockSpec, Cuboid, DropSpec, FaceTextures};
 use std::rc::Rc;
 
@@ -490,6 +491,22 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize)
     }
 }
 
+// block spec flags join the engine tags vanilla reads, a leaves template counts as leaves
+fn flagTags(spec: &BlockSpec, id: &Identifier)
+{
+    let leavesTemplate: bool =
+        spec.template.as_ref().is_some_and(|template| *template == Identifier::minecraft("leaves"));
+    let flags: [(bool, &str); 3] = [
+        (spec.ladder == Some(true), "climbable"),
+        (spec.leaves.unwrap_or(leavesTemplate), "leaves"),
+        (spec.sustains_leaves == Some(true), "logs"),
+    ];
+    for (_, tag) in flags.iter().filter(|(flagged, _)| *flagged)
+    {
+        super::tags::flag(RegistryKind::Block, tag, id);
+    }
+}
+
 // runs after every registry froze, so drop and tile entity references resolve to numeric ids
 pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(), String>
 {
@@ -511,6 +528,7 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     let stateFaces: Option<Vec<[i32; FACES]>> =
         table.as_ref().and_then(|table| stateFaces(table, faces(&spec, sprite)));
     let stated: bool = stateFaces.is_some();
+    flagTags(&spec, &id);
     super::putBlock(
         numeric,
         BlockData {

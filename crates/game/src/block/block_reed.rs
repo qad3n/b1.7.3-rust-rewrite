@@ -1,5 +1,6 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::item::Item;
+use crate::tags::{self, Tag};
 use crate::world::World;
 use jvm::random::Random;
 use std::rc::Rc;
@@ -37,7 +38,7 @@ fn canPlaceBlockAt(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) 
     {
         return true;
     }
-    if n != Block::GRASS && n != Block::DIRT
+    if !tags::has(Tag::ReedSoil, n)
     {
         return false;
     }

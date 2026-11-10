@@ -6,6 +6,7 @@ use game::item::item_sword::SwordExt;
 use game::item::item_tool::ToolExt;
 use game::item::{EnumToolMaterial, Item, ItemClass, ItemStack};
 use mod_protocol::Identifier;
+use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{ItemSpec, ItemToolSpec, ToolClass};
 use std::rc::Rc;
 
@@ -184,6 +185,10 @@ pub fn build(row: &Row<ItemEntry>, owner: usize) -> Result<(), String>
     if let Some(ticks) = spec.fuel
     {
         super::putFuel(row.m_numeric, ticks);
+    }
+    if spec.food.as_ref().is_some_and(|food| food.wolf_food)
+    {
+        super::tags::flag(RegistryKind::Item, "wolf_food", &row.m_id);
     }
     Ok(())
 }

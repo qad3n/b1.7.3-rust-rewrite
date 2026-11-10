@@ -1,20 +1,7 @@
 use crate::block::Block;
 use crate::item::{EnumToolMaterial, Item, ItemClass, item_tool};
+use crate::tags::Tag;
 use std::rc::Rc;
-
-fn blocksEffectiveAgainst() -> Vec<Rc<Block>>
-{
-    vec![
-        Block::grass(),
-        Block::dirt(),
-        Block::sand(),
-        Block::gravel(),
-        Block::snow(),
-        Block::blockSnow(),
-        Block::blockClay(),
-        Block::tilledField(),
-    ]
-}
 
 pub const CLASS: ItemClass = ItemClass {
     m_name: "ItemSpade",
@@ -31,5 +18,5 @@ pub const CLASS: ItemClass = ItemClass {
 
 pub fn create(id: i32, tier: EnumToolMaterial) -> Rc<Item>
 {
-    item_tool::construct(&CLASS, id, 1, tier, blocksEffectiveAgainst())
+    item_tool::construct(&CLASS, id, 1, tier, Tag::MineableShovel)
 }

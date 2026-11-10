@@ -1,4 +1,5 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
+use crate::tags::{self, Tag};
 use crate::world::{IBlockAccess, World};
 use jvm::random::Random;
 use std::cell::RefCell;
@@ -39,7 +40,7 @@ fn initializeBlock(this: &Rc<Block>)
 
 fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
-    let bl: bool = world.getBlockId(x, y - 1, z) == Block::NETHERRACK;
+    let bl: bool = tags::has(Tag::Infiniburn, world.getBlockId(x, y - 1, z));
     if !this.canPlaceBlockAt(world, x, y, z)
     {
         world.setBlockWithNotify(x, y, z, 0);

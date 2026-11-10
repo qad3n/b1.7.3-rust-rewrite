@@ -112,7 +112,7 @@ pub const ITEM_TEMPLATES: [ItemTemplate; 11] = [
         m_name: "apple",
         m_create: |id, spec| {
             let food: Option<&FoodSpec> = spec.food.as_ref();
-            items::item_food::create(id, food.map_or(4, |food| food.heal), food.is_some_and(|food| food.wolf_food))
+            items::item_food::create(id, food.map_or(4, |food| food.heal))
         },
     },
     ItemTemplate { m_name: "iron_pickaxe", m_create: |id, spec| items::item_pickaxe::create(id, tier(spec)) },

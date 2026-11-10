@@ -1,5 +1,6 @@
 use crate::block::{Block, BlockClass, block_flower};
 use crate::item::{Item, ItemStack};
+use crate::tags::{self, Tag};
 use crate::world::World;
 use jvm::random::Random;
 use std::rc::Rc;
@@ -100,7 +101,7 @@ fn dropBlockAsItemWithChance(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32
 pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockCrops",
     m_parent: Some(&block_flower::CLASS),
-    canThisPlantGrowOnThisBlockID: |_, block| block == Block::TILLED_FIELD,
+    canThisPlantGrowOnThisBlockID: |_, block| tags::has(Tag::CropSoil, block),
     updateTick,
     getBlockTextureFromSideAndMetadata: |this, _, metadata| {
         let metadata: i32 = if metadata < 0 { 7 } else { metadata };

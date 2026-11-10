@@ -6,6 +6,7 @@ use crate::inventory::{IInventory, InventoryPlayer};
 use crate::item::{Item, ItemStack, item_food};
 use crate::math::{AxisAlignedBB, math_helper};
 use crate::pathfinding::PathEntity;
+use crate::tags::{self, Tag};
 use crate::world::World;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
@@ -207,7 +208,7 @@ fn onLivingUpdate(this: &Rc<Entity>)
         else if isWolfTamed(this)
             && let Some(item) = item.filter(|item| item.instanceOf("ItemFood"))
         {
-            wolf.m_looksWithInterest.set(item_food::getIsWolfsFavoriteMeat(&item));
+            wolf.m_looksWithInterest.set(tags::has(Tag::WolfFood, item.m_shiftedIndex));
         }
     }
     if !entity_living::fields(this).m_isMultiplayerEntity.get()
@@ -462,7 +463,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
     {
         if let Some(itemstack) = itemstack
             && let Some(itemfood) = Item::byId(itemstack.m_itemID.get()).filter(|item| item.instanceOf("ItemFood"))
-            && item_food::getIsWolfsFavoriteMeat(&itemfood)
+            && tags::has(Tag::WolfFood, itemfood.m_shiftedIndex)
             && this.m_dataWatcher.getWatchableObjectInt(18) < 20
         {
             consumeHeldItem(&inventory, &itemstack);

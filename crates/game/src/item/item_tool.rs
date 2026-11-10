@@ -1,10 +1,10 @@
-use crate::block::Block;
 use crate::item::{EnumToolMaterial, ITEM, Item, ItemClass};
+use crate::tags::{self, Tag};
 use std::rc::Rc;
 
 pub struct ToolExt
 {
-    m_blocksEffectiveAgainst: Vec<Rc<Block>>,
+    pub m_mineable: Tag,
     m_efficiencyOnProperMaterial: f32,
     m_damageVsEntity: i32,
     pub m_toolMaterial: EnumToolMaterial,
@@ -12,18 +12,13 @@ pub struct ToolExt
 
 pub fn fields(this: &Item) -> &ToolExt { this.ext::<ToolExt>() }
 
-pub fn effectiveBlocks(this: &Item) -> &[Rc<Block>] { &fields(this).m_blocksEffectiveAgainst }
-
 pub const CLASS: ItemClass = ItemClass {
     m_name: "ItemTool",
     m_parent: Some(&ITEM),
     getStrVsBlock: |this, _, block| {
-        for effective in &fields(this).m_blocksEffectiveAgainst
+        if tags::has(fields(this).m_mineable, block.m_blockID)
         {
-            if Rc::ptr_eq(effective, block)
-            {
-                return fields(this).m_efficiencyOnProperMaterial;
-            }
+            return fields(this).m_efficiencyOnProperMaterial;
         }
         1.0
     },
@@ -45,11 +40,11 @@ pub fn construct(
     id: i32,
     attackDamage: i32,
     tier: EnumToolMaterial,
-    effectiveBlocks: Vec<Rc<Block>>,
+    mineable: Tag,
 ) -> Rc<Item>
 {
     let ext: ToolExt = ToolExt {
-        m_blocksEffectiveAgainst: effectiveBlocks,
+        m_mineable: mineable,
         m_efficiencyOnProperMaterial: tier.getEfficiencyOnProperMaterial(),
         m_damageVsEntity: attackDamage + tier.getDamageVsEntity(),
         m_toolMaterial: tier,

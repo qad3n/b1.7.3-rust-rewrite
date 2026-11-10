@@ -12,6 +12,7 @@ pub mod pathfinding;
 pub mod port;
 pub mod stats;
 pub mod storage;
+pub mod tags;
 pub mod tileentity;
 mod vtable;
 pub mod world;

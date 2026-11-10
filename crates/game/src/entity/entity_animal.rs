@@ -1,6 +1,7 @@
 use crate::block::Block;
 use crate::entity::{Entity, EntityClass, entity_creature};
 use crate::math::math_helper;
+use crate::tags::{self, Tag};
 use crate::world::World;
 use std::rc::Rc;
 
@@ -25,7 +26,7 @@ pub const CLASS: EntityClass = EntityClass {
         let x: i32 = math_helper::floor_double(this.posX());
         let y: i32 = math_helper::floor_double(this.m_boundingBox.minY());
         let z: i32 = math_helper::floor_double(this.posZ());
-        world.getBlockId(x, y - 1, z) == Block::GRASS
+        tags::has(Tag::AnimalsSpawnableOn, world.getBlockId(x, y - 1, z))
             && world.getFullBlockLightValue(x, y, z) > 8
             && (entity_creature::CLASS.getCanSpawnHere)(this)
     },

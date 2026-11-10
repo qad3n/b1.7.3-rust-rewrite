@@ -2,6 +2,7 @@ use crate::block::block_leaves_base::{self, LeavesExt};
 use crate::block::{Block, BlockClass, Material};
 use crate::entity::Entity;
 use crate::item::{Item, ItemStack};
+use crate::tags::{self, Tag};
 use crate::world::{IBlockAccess, World};
 use crate::worldgen::ColorizerFoliage;
 use jvm::random::Random;
@@ -55,7 +56,7 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
             {
                 let i1: i32 = world.getBlockId(x + j, y + k, z + l);
                 // rewrite: mod leaves are flagged for decay like vanilla leaves
-                if crate::hooks::isLeaves(i1)
+                if tags::has(Tag::Leaves, i1)
                 {
                     let j1: i32 = world.getBlockMetadata(x + j, y + k, z + l);
                     world.setBlockMetadata(x + j, y + k, z + l, j1 | 8);
@@ -95,11 +96,11 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
                 {
                     let n8: i32 = world.getBlockId(x + n2, y + n10, z + n9);
                     // rewrite: mod logs keep leaves alive and mod leaves carry the distance
-                    blocks[at(n2, n10, n9)] = if crate::hooks::sustainsLeaves(n8)
+                    blocks[at(n2, n10, n9)] = if tags::has(Tag::Logs, n8)
                     {
                         0
                     }
-                    else if crate::hooks::isLeaves(n8)
+                    else if tags::has(Tag::Leaves, n8)
                     {
                         -2
                     }

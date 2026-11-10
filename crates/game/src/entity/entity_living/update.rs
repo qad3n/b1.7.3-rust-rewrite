@@ -2,6 +2,7 @@ use super::{LivingFields, fields};
 use crate::block::{Block, Material};
 use crate::entity::{ENTITY, Entity, remote};
 use crate::math::{Vec3D, math_helper};
+use crate::tags::{self, Tag};
 use crate::world::World;
 use jvm::array_list::JArrayList;
 use jvm::math;
@@ -328,7 +329,7 @@ pub fn isOnLadder(this: &Rc<Entity>) -> bool
     let k: i32 = math_helper::floor_double(this.posZ());
     let id: i32 = this.world().getBlockId(i, j, k);
     // mod blocks can be climbable
-    crate::hooks::component(crate::hooks::Component::Ladder, id).unwrap_or(id == Block::LADDER)
+    tags::has(Tag::Climbable, id)
 }
 
 pub fn onLivingUpdate(this: &Rc<Entity>)

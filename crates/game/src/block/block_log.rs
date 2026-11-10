@@ -1,4 +1,5 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
+use crate::tags::{self, Tag};
 use crate::world::World;
 use std::rc::Rc;
 
@@ -18,7 +19,7 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
             {
                 let i1: i32 = world.getBlockId(x + j, y + k, z + l);
                 // rewrite: mod leaves decay around a broken log too
-                if crate::hooks::isLeaves(i1)
+                if tags::has(Tag::Leaves, i1)
                 {
                     let j1: i32 = world.getBlockMetadata(x + j, y + k, z + l);
                     if (j1 & 8) == 0

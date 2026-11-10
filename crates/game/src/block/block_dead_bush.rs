@@ -1,10 +1,11 @@
 use crate::block::{Block, BlockClass, block_flower};
+use crate::tags::{self, Tag};
 use std::rc::Rc;
 
 pub const CLASS: BlockClass = BlockClass {
     m_name: "BlockDeadBush",
     m_parent: Some(&block_flower::CLASS),
-    canThisPlantGrowOnThisBlockID: |_, block| block == Block::SAND,
+    canThisPlantGrowOnThisBlockID: |_, block| tags::has(Tag::DeadBushSoil, block),
     getBlockTextureFromSideAndMetadata: |this, _, _| this.m_blockIndexInTexture.get(),
     idDropped: |_, _, _| -1,
     ..block_flower::CLASS

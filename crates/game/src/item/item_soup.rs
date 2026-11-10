@@ -11,4 +11,4 @@ pub const CLASS: ItemClass = ItemClass {
     ..item_food::CLASS
 };
 
-pub fn create(id: i32, hungerPoints: i32) -> Rc<Item> { item_food::construct(&CLASS, id, hungerPoints, false) }
+pub fn create(id: i32, hungerPoints: i32) -> Rc<Item> { item_food::construct(&CLASS, id, hungerPoints) }

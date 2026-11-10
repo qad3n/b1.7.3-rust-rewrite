@@ -34,7 +34,7 @@ kind = "component"
 side = "both"
 cancellable = false
 result = true
-fires_in = "EntityLiving::isOnLadder"
+fires_in = "EntityLiving::isOnLadder via the minecraft:climbable tag"
 
 [[hook]]
 name = "leaves"
@@ -43,7 +43,7 @@ kind = "component"
 side = "both"
 cancellable = false
 result = true
-fires_in = "BlockLeaves::updateTick and BlockLog::onBlockRemoval"
+fires_in = "BlockLeaves::updateTick and BlockLog::onBlockRemoval via the minecraft:leaves tag"
 
 [[hook]]
 name = "sustains_leaves"
@@ -52,7 +52,7 @@ kind = "component"
 side = "both"
 cancellable = false
 result = true
-fires_in = "BlockLeaves::updateTick"
+fires_in = "BlockLeaves::updateTick via the minecraft:logs tag"
 
 [[hook]]
 name = "redstone_connect"

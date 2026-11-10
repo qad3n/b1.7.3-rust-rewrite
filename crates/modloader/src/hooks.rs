@@ -6,7 +6,6 @@ use game::hooks::LoaderHooks;
 use game::item::ItemStack;
 use game::tileentity::TileEntity;
 use game::world::World;
-use mod_protocol::Identifier;
 use mod_protocol::abi::{EventData, EventKind};
 use std::rc::Rc;
 
@@ -25,12 +24,7 @@ impl LoaderHooks for Hooks
         {
             game::hooks::Component::RedstoneConnect => spec.redstone_connect,
             game::hooks::Component::Replaceable => spec.replaceable,
-            game::hooks::Component::Ladder => spec.ladder,
             game::hooks::Component::SolidSides => spec.solid_sides,
-            game::hooks::Component::Leaves => spec.leaves.or_else(|| {
-                Some(spec.template.as_ref().is_some_and(|template| *template == Identifier::minecraft("leaves")))
-            }),
-            game::hooks::Component::SustainsLeaves => spec.sustains_leaves,
         }
     }
 

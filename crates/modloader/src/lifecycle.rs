@@ -168,6 +168,7 @@ pub fn buildContent()
 {
     buildRegistered();
     crate::modify::apply();
+    content::tags::push();
 }
 
 fn buildRegistered()
@@ -425,7 +426,7 @@ fn start(paths: &LoaderPaths)
     registry::with(|_| ());
     state::setPhase(Phase::Register);
     let stage: Instant = Instant::now();
-    content::harvest::seedTags();
+    content::tags::seed();
     for runtime in &mut runtimes
     {
         let id: String = runtime.id().to_owned();

@@ -144,10 +144,7 @@ pub enum Component
 {
     RedstoneConnect,
     Replaceable,
-    Ladder,
     SolidSides,
-    Leaves,
-    SustainsLeaves,
 }
 
 // the mod loader implements this, game code reaches it through the free functions below
@@ -231,15 +228,6 @@ pub fn active() -> Option<&'static dyn LoaderHooks> { HOOKS.with(Cell::get) }
 pub fn component(component: Component, block: i32) -> Option<bool> { active()?.component(component, block) }
 
 pub fn fire(event: GameEvent<'_>) -> bool { active().is_some_and(|hooks| hooks.fire(event)) }
-
-// vanilla leaves plus every block a mod marks as leaves, for decay checks
-pub fn isLeaves(block: i32) -> bool { block == Block::LEAVES || component(Component::Leaves, block) == Some(true) }
-
-// vanilla logs plus every block a mod marks as keeping leaves alive
-pub fn sustainsLeaves(block: i32) -> bool
-{
-    block == Block::WOOD || component(Component::SustainsLeaves, block) == Some(true)
-}
 
 pub fn spawnAllowed(entity: &Rc<Entity>, allowed: bool) -> bool
 {

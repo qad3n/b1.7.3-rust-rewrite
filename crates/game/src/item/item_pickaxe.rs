@@ -1,57 +1,32 @@
 use crate::block::{Block, Material};
 use crate::item::{EnumToolMaterial, Item, ItemClass, item_tool};
+use crate::tags::{self, Tag};
 use std::rc::Rc;
 
-fn blocksEffectiveAgainst() -> Vec<Rc<Block>>
+// harvest levels of the tool tiers a block can ask for
+mod tier
 {
-    vec![
-        Block::cobblestone(),
-        Block::stairDouble(),
-        Block::stairSingle(),
-        Block::stone(),
-        Block::sandStone(),
-        Block::cobblestoneMossy(),
-        Block::oreIron(),
-        Block::blockSteel(),
-        Block::oreCoal(),
-        Block::blockGold(),
-        Block::oreGold(),
-        Block::oreDiamond(),
-        Block::blockDiamond(),
-        Block::ice(),
-        Block::netherrack(),
-        Block::oreLapis(),
-        Block::blockLapis(),
-    ]
+    pub const STONE: i32 = 1;
+    pub const IRON: i32 = 2;
+    pub const DIAMOND: i32 = 3;
 }
 
 fn canHarvestBlock(this: &Rc<Item>, block: &Rc<Block>) -> bool
 {
     let level: i32 = item_tool::fields(this).m_toolMaterial.getHarvestLevel();
-    let is = |other: Rc<Block>| Rc::ptr_eq(block, &other);
-    if is(Block::obsidian())
+    let id: i32 = block.m_blockID;
+    // beta asks for exactly a diamond tier here, not at least one
+    if tags::has(Tag::NeedsDiamondTool, id)
     {
-        return level == 3;
+        return level == tier::DIAMOND;
     }
-    if is(Block::blockDiamond()) || is(Block::oreDiamond())
+    if tags::has(Tag::NeedsIronTool, id)
     {
-        return level >= 2;
+        return level >= tier::IRON;
     }
-    if is(Block::blockGold()) || is(Block::oreGold())
+    if tags::has(Tag::NeedsStoneTool, id)
     {
-        return level >= 2;
-    }
-    if is(Block::blockSteel()) || is(Block::oreIron())
-    {
-        return level >= 1;
-    }
-    if is(Block::blockLapis()) || is(Block::oreLapis())
-    {
-        return level >= 1;
-    }
-    if is(Block::oreRedstone()) || is(Block::oreRedstoneGlowing())
-    {
-        return level >= 2;
+        return level >= tier::STONE;
     }
     if Rc::ptr_eq(&block.m_blockMaterial, &Material::rock())
     {
@@ -65,5 +40,5 @@ pub const CLASS: ItemClass =
 
 pub fn create(id: i32, tier: EnumToolMaterial) -> Rc<Item>
 {
-    item_tool::construct(&CLASS, id, 2, tier, blocksEffectiveAgainst())
+    item_tool::construct(&CLASS, id, 2, tier, Tag::MineablePickaxe)
 }

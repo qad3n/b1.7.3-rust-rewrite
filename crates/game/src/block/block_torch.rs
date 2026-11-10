@@ -1,12 +1,13 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::math::{MovingObjectPosition, Vec3D};
+use crate::tags::{self, Tag};
 use crate::world::World;
 use jvm::random::Random;
 use std::rc::Rc;
 
 fn canSitOnTop(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
-    world.isBlockNormalCube(x, y, z) || world.getBlockId(x, y, z) == Block::FENCE
+    world.isBlockNormalCube(x, y, z) || tags::has(Tag::Fences, world.getBlockId(x, y, z))
 }
 
 fn canPlaceBlockAt(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool

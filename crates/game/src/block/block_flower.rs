@@ -1,4 +1,5 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
+use crate::tags::{self, Tag};
 use crate::world::World;
 use std::any::Any;
 use std::rc::Rc;
@@ -19,9 +20,7 @@ pub const CLASS: BlockClass = BlockClass {
         (BLOCK.canPlaceBlockAt)(this, world, x, y, z)
             && this.canThisPlantGrowOnThisBlockID(world.getBlockId(x, y - 1, z))
     },
-    canThisPlantGrowOnThisBlockID: |_, block| {
-        block == Block::GRASS || block == Block::DIRT || block == Block::TILLED_FIELD
-    },
+    canThisPlantGrowOnThisBlockID: |_, block| tags::has(Tag::FlowerSoil, block),
     onNeighborBlockChange: |this, world, x, y, z, neighborBlock| {
         (BLOCK.onNeighborBlockChange)(this, world, x, y, z, neighborBlock);
         canSurviveOrBreak(this, world, x, y, z);
