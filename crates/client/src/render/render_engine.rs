@@ -3,11 +3,11 @@ use crate::settings::GameSettings;
 use jvm::hash_map::JHashMap;
 use jvm::image::{BufferedImage, Color, Graphics, ImageIO};
 use jvm::io::{InputStream, IoResult};
-use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use lwjgl::buffers::{ByteBuffer, IntBuffer};
 use lwjgl::opengl::{GL11, TextureScale};
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 const IMAGE_DATA_BYTES: i32 = 1048576;
@@ -109,13 +109,13 @@ fn unwrapImageByColumns(image: &BufferedImage) -> Rc<BufferedImage>
 
 pub struct RenderEngine
 {
-    m_textureMap: RefCell<JHashMap<JString, i32>>,
-    m_colors: RefCell<JHashMap<JString, Rc<RefCell<Vec<i32>>>>>,
+    m_textureMap: RefCell<HashMap<String, i32>>,
+    m_colors: RefCell<HashMap<String, Rc<RefCell<Vec<i32>>>>>,
     m_textureNameToImageMap: RefCell<JHashMap<i32, Rc<BufferedImage>>>,
     m_singleIntBuffer: IntBuffer,
     m_imageData: ByteBuffer,
     m_textureList: RefCell<Vec<Rc<dyn TextureFX>>>,
-    m_urlToImageDataMap: RefCell<JHashMap<JString, Rc<ThreadDownloadImageData>>>,
+    m_urlToImageDataMap: RefCell<HashMap<String, Rc<ThreadDownloadImageData>>>,
     m_options: Option<Rc<GameSettings>>,
     m_clampTexture: Cell<bool>,
     m_blurTexture: Cell<bool>,
@@ -140,13 +140,13 @@ impl RenderEngine
         graphics.drawString("missingtex", 1, 10);
         graphics.dispose();
         Rc::new(RenderEngine {
-            m_textureMap: RefCell::new(JHashMap::new()),
-            m_colors: RefCell::new(JHashMap::new()),
+            m_textureMap: RefCell::new(HashMap::new()),
+            m_colors: RefCell::new(HashMap::new()),
             m_textureNameToImageMap: RefCell::new(JHashMap::new()),
             m_singleIntBuffer: GLAllocation::createDirectIntBuffer(1),
             m_imageData: GLAllocation::createDirectByteBuffer(IMAGE_DATA_BYTES),
             m_textureList: RefCell::new(Vec::new()),
-            m_urlToImageDataMap: RefCell::new(JHashMap::new()),
+            m_urlToImageDataMap: RefCell::new(HashMap::new()),
             m_options: options,
             m_clampTexture: Cell::new(false),
             m_blurTexture: Cell::new(false),
@@ -211,9 +211,9 @@ impl RenderEngine
 
     pub fn getColors(&self, path: &str) -> Rc<RefCell<Vec<i32>>>
     {
-        if let Some(colors) = self.m_colors.borrow().get(&JString::from(path))
+        if let Some(colors) = self.m_colors.borrow().get(path)
         {
-            return colors;
+            return Rc::clone(colors);
         }
         let pack: Rc<dyn TexturePackBase> = self.m_texturePack.selected();
         let colors: Vec<i32> = match self.loadImage(&pack, path, true)
@@ -231,7 +231,7 @@ impl RenderEngine
             }
         };
         let colors: Rc<RefCell<Vec<i32>>> = Rc::new(RefCell::new(colors));
-        self.m_colors.borrow_mut().put(JString::from(path), Rc::clone(&colors));
+        self.m_colors.borrow_mut().insert(path.to_owned(), Rc::clone(&colors));
         colors
     }
 
@@ -244,9 +244,9 @@ impl RenderEngine
 
     pub fn getTexture(&self, path: &str) -> i32
     {
-        if let Some(texture) = self.m_textureMap.borrow().get(&JString::from(path))
+        if let Some(texture) = self.m_textureMap.borrow().get(path)
         {
-            return texture;
+            return *texture;
         }
         let pack: Rc<dyn TexturePackBase> = self.m_texturePack.selected();
         let j: i32 = self.generateTextureName();
@@ -269,7 +269,7 @@ impl RenderEngine
                 i
             }
         };
-        self.m_textureMap.borrow_mut().put(JString::from(path), texture);
+        self.m_textureMap.borrow_mut().insert(path.to_owned(), texture);
         texture
     }
 
@@ -432,7 +432,7 @@ impl RenderEngine
 
     pub fn getTextureForDownloadableImage(&self, url: &str, backup: Option<&str>) -> i32
     {
-        let data: Option<Rc<ThreadDownloadImageData>> = self.m_urlToImageDataMap.borrow().get(&JString::from(url));
+        let data: Option<Rc<ThreadDownloadImageData>> = self.m_urlToImageDataMap.borrow().get(url).cloned();
         if let Some(data) = &data
             && let Some(image) = data.image()
             && !data.m_textureSetupComplete.get()
@@ -460,13 +460,13 @@ impl RenderEngine
         processor: Option<Box<dyn ImageBuffer>>,
     ) -> Option<Rc<ThreadDownloadImageData>>
     {
-        let data: Option<Rc<ThreadDownloadImageData>> = self.m_urlToImageDataMap.borrow().get(&JString::from(url));
+        let data: Option<Rc<ThreadDownloadImageData>> = self.m_urlToImageDataMap.borrow().get(url).cloned();
         match &data
         {
             None =>
             {
                 let created: Rc<ThreadDownloadImageData> = Rc::new(ThreadDownloadImageData::new(url, processor));
-                self.m_urlToImageDataMap.borrow_mut().put(JString::from(url), created);
+                self.m_urlToImageDataMap.borrow_mut().insert(url.to_owned(), created);
             }
             Some(data) => data.m_referenceCount.set(data.m_referenceCount.get() + 1),
         }
@@ -475,7 +475,7 @@ impl RenderEngine
 
     pub fn releaseImageData(&self, url: &str)
     {
-        let Some(data) = self.m_urlToImageDataMap.borrow().get(&JString::from(url))
+        let Some(data) = self.m_urlToImageDataMap.borrow().get(url).cloned()
         else
         {
             return;
@@ -487,7 +487,7 @@ impl RenderEngine
             {
                 self.deleteTexture(data.m_textureName.get());
             }
-            self.m_urlToImageDataMap.borrow_mut().remove(&JString::from(url));
+            self.m_urlToImageDataMap.borrow_mut().remove(url);
         }
     }
 
@@ -615,25 +615,27 @@ impl RenderEngine
         {
             data.m_textureSetupComplete.set(false);
         }
-        let textures: Vec<(JString, i32)> = self.m_textureMap.borrow().entries();
+        let textures: Vec<(String, i32)> =
+            self.m_textureMap.borrow().iter().map(|(path, id)| (path.clone(), *id)).collect();
         for (path, id) in textures
         {
-            match self.loadImage(&pack, &path.to_string(), false)
+            match self.loadImage(&pack, &path, false)
             {
                 Ok(image) =>
                 {
                     self.setupTexture(&image, id);
                     // rewrite: a texture pack change keeps the grown sheet scale
-                    TextureScale::set(id, modloader::atlas::vScale(&path.to_string()));
+                    TextureScale::set(id, modloader::atlas::vScale(&path));
                     self.resetFilters();
                 }
                 Err(error) => error.printStackTrace(),
             }
         }
-        let colors: Vec<(JString, Rc<RefCell<Vec<i32>>>)> = self.m_colors.borrow().entries();
+        let colors: Vec<(String, Rc<RefCell<Vec<i32>>>)> =
+            self.m_colors.borrow().iter().map(|(path, colors)| (path.clone(), Rc::clone(colors))).collect();
         for (path, colors) in colors
         {
-            match self.loadImage(&pack, &path.to_string(), false)
+            match self.loadImage(&pack, &path, false)
             {
                 Ok(image) =>
                 {
