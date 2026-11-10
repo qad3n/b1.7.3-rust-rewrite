@@ -60,8 +60,7 @@ fn bind(texture: &str)
         return;
     };
     let engine: Rc<RenderEngine> = mc.m_renderEngine.get().orNpe();
-    let path: String = modloader::entities::modTexturePath(texture).unwrap_or_else(|| texture.to_owned());
-    engine.bindTexture(engine.getTexture(&path));
+    super::textures::bindFile(&engine, texture);
 }
 
 fn drawLayer(main: &ModelBiped, layer: &PlayerLayer, cloak: &mut dyn FnMut(&ModelBiped))
