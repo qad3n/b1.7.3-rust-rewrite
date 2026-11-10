@@ -46,7 +46,7 @@ impl modloader::netplay::Platform for ClientPlatform
         let current: i32 = entity_player::fields(player).m_dimension.get();
         if current != dimension
         {
-            travel(&self.mc()?, player, dimension, pos);
+            travel(&*self.mc()?, player, dimension, pos);
             return Ok(());
         }
         player.setLocationAndAngles(pos[0], pos[1], pos[2], player.m_rotationYaw.get(), player.m_rotationPitch.get());
@@ -75,7 +75,7 @@ impl modloader::netplay::Platform for ClientPlatform
 }
 
 // single player dimension travel, as Minecraft::usePortal does for the nether but to any dimension and point
-fn travel(mc: &Rc<Minecraft>, player: &Rc<Entity>, dimension: i32, pos: [f64; 3])
+pub(crate) fn travel(mc: &Minecraft, player: &Rc<Entity>, dimension: i32, pos: [f64; 3])
 {
     let Some(world) = mc.m_theWorld.get()
     else

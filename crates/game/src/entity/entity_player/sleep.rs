@@ -122,7 +122,8 @@ pub fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSl
     {
         player.m_sleepTimer.set(100);
     }
-    if setSpawnPoint
+    // rewrite: beta keeps one spawn point with no dimension and respawns players in the overworld so only overworld beds set it
+    if setSpawnPoint && world.worldProvider().m_worldType.get() == 0
     {
         setPlayerSpawnCoordinate(this, player.m_bedChunkCoordinates.get());
     }

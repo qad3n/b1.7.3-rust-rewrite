@@ -292,7 +292,17 @@ impl Minecraft
 
     pub fn respawn(&self, worldSpawn: bool, dimension: i32)
     {
-        if !self.theWorld().m_multiplayerWorld.get() && !self.theWorld().worldProvider().canRespawnHere()
+        let local: bool = !self.theWorld().m_multiplayerWorld.get();
+        let current: i32 = self.theWorld().worldProvider().m_worldType.get();
+        let modded: bool = current != 0 && current != -1;
+        // rewrite: death in a mod dimension returns to the overworld as the server does and never through the nether toggle
+        if let Some(player) = self.m_thePlayer.get()
+            && local
+            && modded
+        {
+            crate::modded::travel(self, &player, 0, [player.posX(), player.posY(), player.posZ()]);
+        }
+        else if local && !self.theWorld().worldProvider().canRespawnHere()
         {
             self.usePortal();
         }
