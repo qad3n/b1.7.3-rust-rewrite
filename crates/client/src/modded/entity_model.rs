@@ -3,7 +3,7 @@ use crate::render::RenderManager;
 use crate::render::entity::{Render, RenderClass, render_living};
 use game::entity::{Entity, entity_living};
 use lwjgl::opengl::GL11;
-use modloader::mod_protocol::abi::{ModelOp, Pose, PoseInput};
+use modloader::mod_protocol::abi::{ModelOp, Pose, PoseInput, StackData};
 use modloader::mod_protocol::spec::{EntityModelSpec, ModelPart};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -11,12 +11,15 @@ use std::rc::Rc;
 const RADIANS_TO_DEGREES: f32 = 57.295776;
 // RenderLiving's one sixteenth model unit
 const MODEL_SCALE: f32 = 0.0625;
+// RenderBiped moves a held item from the arm's pivot into the fist
+const HAND_OFFSET: [f32; 3] = [-0.0625, 0.4375, 0.0625];
 
 struct Part
 {
     m_spec: ModelPart,
     m_boxes: Vec<ModelRenderer>,
     m_children: Vec<usize>,
+    m_parent: Option<usize>,
     m_root: bool,
     m_rotation: Cell<[f32; 3]>,
     m_pivot: Cell<[f32; 3]>,
@@ -30,6 +33,8 @@ pub struct ModModel
     m_pose: RefCell<Pose>,
     // later draws in one frame are the hurt and color overlays, which keep their own color and texture
     m_draws: Cell<u32>,
+    // the held items the pose asked for, drawn once the model is down
+    m_held: RefCell<Vec<(u16, StackData)>>,
 }
 
 impl ModModel
@@ -57,6 +62,7 @@ impl ModModel
                     m_spec: part.clone(),
                     m_boxes: boxes,
                     m_children: Vec::new(),
+                    m_parent: None,
                     m_root: part.parent.is_none(),
                     m_rotation: Cell::new(part.rotation),
                     m_pivot: Cell::new(part.pivot),
@@ -73,6 +79,7 @@ impl ModModel
             if let Some(parent) = parent
             {
                 parts[parent].m_children.push(index);
+                parts[index].m_parent = Some(parent);
             }
         }
         ModModel {
@@ -80,6 +87,7 @@ impl ModModel
             m_parts: parts,
             m_pose: RefCell::new(Pose::default()),
             m_draws: Cell::new(0),
+            m_held: RefCell::new(Vec::new()),
         }
     }
 
@@ -134,34 +142,7 @@ impl ModModel
         {
             match op
             {
-                ModelOp::Push => GL11::glPushMatrix(),
-                ModelOp::Pop => GL11::glPopMatrix(),
-                ModelOp::Translate([x, y, z]) => GL11::glTranslatef(*x, *y, *z),
-                ModelOp::Rotate(angle, [x, y, z]) => GL11::glRotatef(*angle, *x, *y, *z),
-                ModelOp::Scale([x, y, z]) => GL11::glScalef(*x, *y, *z),
-                ModelOp::Color([red, green, blue, alpha]) if !overlay => GL11::glColor4f(*red, *green, *blue, *alpha),
-                ModelOp::Texture(texture) if !overlay => bindTexture(texture),
-                ModelOp::Blend(on) if !overlay => blend(*on),
                 ModelOp::Part { part, rotation, pivot } => self.place(*part as usize, *rotation, *pivot, scale),
-                ModelOp::FaceCamera =>
-                {
-                    let manager: Rc<RenderManager> = RenderManager::instance();
-                    GL11::glRotatef(180.0 - manager.m_playerViewY.get(), 0.0, 1.0, 0.0);
-                    GL11::glRotatef(-manager.m_playerViewX.get(), 1.0, 0.0, 0.0);
-                }
-                ModelOp::Quads(vertices) => drawQuads(vertices),
-                ModelOp::Normal([x, y, z]) => GL11::glNormal3f(*x, *y, *z),
-                ModelOp::Lighting(on) if !overlay =>
-                {
-                    if *on
-                    {
-                        GL11::glEnable(GL11::GL_LIGHTING);
-                    }
-                    else
-                    {
-                        GL11::glDisable(GL11::GL_LIGHTING);
-                    }
-                }
                 ModelOp::Rest(part) =>
                 {
                     if let Some(rest) = self.m_parts.get(*part as usize)
@@ -169,19 +150,96 @@ impl ModModel
                         self.place(*part as usize, rest.m_spec.rotation, rest.m_spec.pivot, scale);
                     }
                 }
-                _ =>
-                {}
+                ModelOp::HeldItem { part, stack } if !overlay => self.m_held.borrow_mut().push((*part, stack.clone())),
+                op => glOp(op, overlay),
             }
+        }
+    }
+
+    // ModelRenderer.postRender down the parent chain, the GL transform a part's own boxes draw in
+    fn postRender(&self, index: usize, scale: f32)
+    {
+        let Some(part) = self.m_parts.get(index)
+        else
+        {
+            return;
+        };
+        if let Some(parent) = part.m_parent
+        {
+            self.postRender(parent, scale);
+        }
+        let [x, y, z] = part.m_pivot.get();
+        let [rotateX, rotateY, rotateZ] = part.m_rotation.get();
+        GL11::glTranslatef(x * scale, y * scale, z * scale);
+        GL11::glRotatef(rotateZ * RADIANS_TO_DEGREES, 0.0, 0.0, 1.0);
+        GL11::glRotatef(rotateY * RADIANS_TO_DEGREES, 0.0, 1.0, 0.0);
+        GL11::glRotatef(rotateX * RADIANS_TO_DEGREES, 1.0, 0.0, 0.0);
+    }
+
+    // RenderBiped.renderEquippedItems for each held item the pose placed
+    fn drawHeld(&self, entity: &Rc<Entity>, items: &crate::render::ItemRenderer)
+    {
+        for (part, data) in self.m_held.take()
+        {
+            let Some(stack) = modloader::host::context::stackFrom(&data)
+            else
+            {
+                continue;
+            };
+            GL11::glPushMatrix();
+            self.postRender(usize::from(part), MODEL_SCALE);
+            GL11::glTranslatef(HAND_OFFSET[0], HAND_OFFSET[1], HAND_OFFSET[2]);
+            crate::render::entity::render_biped::transformHeldItem(&stack, false);
+            items.renderItem(entity, &stack);
+            GL11::glPopMatrix();
         }
     }
 
     fn resetPose(&self)
     {
+        self.m_held.borrow_mut().clear();
         for part in &self.m_parts
         {
             part.m_rotation.set(part.m_spec.rotation);
             part.m_pivot.set(part.m_spec.pivot);
         }
+    }
+}
+
+// every op but the model's parts, shared by entity poses and the world draw lists
+pub(crate) fn glOp(op: &ModelOp, overlay: bool)
+{
+    match op
+    {
+        ModelOp::Push => GL11::glPushMatrix(),
+        ModelOp::Pop => GL11::glPopMatrix(),
+        ModelOp::Translate([x, y, z]) => GL11::glTranslatef(*x, *y, *z),
+        ModelOp::Rotate(angle, [x, y, z]) => GL11::glRotatef(*angle, *x, *y, *z),
+        ModelOp::Scale([x, y, z]) => GL11::glScalef(*x, *y, *z),
+        ModelOp::Color([red, green, blue, alpha]) if !overlay => GL11::glColor4f(*red, *green, *blue, *alpha),
+        ModelOp::Texture(texture) if !overlay => bindTexture(texture),
+        ModelOp::Blend(on) if !overlay => blend(*on),
+        ModelOp::FaceCamera =>
+        {
+            let manager: Rc<RenderManager> = RenderManager::instance();
+            GL11::glRotatef(180.0 - manager.m_playerViewY.get(), 0.0, 1.0, 0.0);
+            GL11::glRotatef(-manager.m_playerViewX.get(), 1.0, 0.0, 0.0);
+        }
+        ModelOp::Quads(vertices) => drawQuads(vertices),
+        ModelOp::Normal([x, y, z]) => GL11::glNormal3f(*x, *y, *z),
+        ModelOp::Lighting(on) if !overlay =>
+        {
+            if *on
+            {
+                GL11::glEnable(GL11::GL_LIGHTING);
+            }
+            else
+            {
+                GL11::glDisable(GL11::GL_LIGHTING);
+            }
+        }
+        _ =>
+        {}
     }
 }
 
@@ -198,14 +256,9 @@ pub(crate) fn drawQuads(vertices: &[[f32; 5]])
 
 fn bindTexture(texture: &str)
 {
-    let Some(path) = modloader::entities::modTexturePath(texture)
-    else
-    {
-        return;
-    };
     if let Some(engine) = RenderManager::instance().m_renderEngine.get()
     {
-        engine.bindTexture(engine.getTexture(&path));
+        super::textures::bind(&engine, texture);
     }
 }
 
@@ -306,6 +359,12 @@ const RENDER_MOD: RenderClass = RenderClass {
         model.resetPose();
         model.run(&pose.pre, MODEL_SCALE, false);
         *model.m_pose.borrow_mut() = pose;
+    },
+    renderEquippedItems: |this, entity, _tickDelta| {
+        if let (Some(model), Some(items)) = (modelOf(this), this.renderManager().m_itemRenderer.get())
+        {
+            model.drawHeld(entity, &items);
+        }
     },
     ..render_living::RENDER_LIVING
 };

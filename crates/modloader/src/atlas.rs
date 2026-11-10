@@ -37,6 +37,24 @@ struct Sprite
 {
     m_size: u32,
     m_argb: Vec<i32>,
+    // a png taller than wide is a strip of square frames, played in order like a resource pack .mcmeta says
+    m_animation: Option<Animation>,
+}
+
+struct Animation
+{
+    m_frames: Vec<Vec<i32>>,
+    m_order: Vec<usize>,
+    m_frameTime: u32,
+}
+
+// a frame of an animated sprite due on the sheet, its pixels already scaled to the sheet tile
+pub struct AnimatedTile
+{
+    pub m_x: i32,
+    pub m_y: i32,
+    pub m_size: i32,
+    pub m_rgba: Vec<u8>,
 }
 
 #[derive(Default)]
@@ -45,6 +63,9 @@ struct State
     m_requested: BTreeSet<(Atlas, Identifier)>,
     m_slots: BTreeMap<(Atlas, Identifier), i32>,
     m_sprites: BTreeMap<(Atlas, Identifier), Sprite>,
+    // tile size of each sheet as last stitched, animation frames are scaled to it
+    m_tiles: BTreeMap<Atlas, i32>,
+    m_ticks: u32,
 }
 
 thread_local! {
@@ -120,16 +141,46 @@ pub fn slotOf(atlas: Atlas, id: &Identifier) -> Option<i32>
 
 pub fn texturePath(id: &Identifier) -> String { format!("assets/{}/textures/{}.png", id.namespace(), id.path()) }
 
-fn decode(bytes: &[u8]) -> Result<Sprite, String>
+pub fn metaPath(id: &Identifier) -> String { format!("{}.mcmeta", texturePath(id)) }
+
+// the two .mcmeta fields an animation needs, frametime and a frames list of plain indices
+fn parseMeta(text: &str) -> (u32, Vec<usize>)
+{
+    let number = |key: &str| -> Option<u32> {
+        let rest: &str = &text[text.find(key)? + key.len()..];
+        let digits: String = rest
+            .trim_start_matches(|c: char| c == '"' || c == ':' || c.is_whitespace())
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        digits.parse().ok()
+    };
+    let frameTime: u32 = number("\"frametime\"").unwrap_or(1).max(1);
+    let order: Vec<usize> = text
+        .find("\"frames\"")
+        .and_then(|start| {
+            let rest: &str = &text[start..];
+            let open: usize = rest.find('[')?;
+            let close: usize = rest.find(']')?;
+            Some(rest[open + 1..close].split(',').filter_map(|value| value.trim().parse().ok()).collect())
+        })
+        .unwrap_or_default();
+    (frameTime, order)
+}
+
+fn decode(bytes: &[u8], meta: Option<&str>) -> Result<Sprite, String>
 {
     let mut decoder: png::Decoder<&[u8]> = png::Decoder::new(bytes);
     decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
     let mut reader: png::Reader<&[u8]> = decoder.read_info().map_err(|error| error.to_string())?;
     let mut buffer: Vec<u8> = vec![0; reader.output_buffer_size()];
     let info: png::OutputInfo = reader.next_frame(&mut buffer).map_err(|error| error.to_string())?;
-    if info.width != info.height || info.width == 0
+    if info.width == 0 || !info.height.is_multiple_of(info.width)
     {
-        return Err(format!("texture must be square, found {}x{}", info.width, info.height));
+        return Err(format!(
+            "texture must be square or a strip of square frames, found {}x{}",
+            info.width, info.height
+        ));
     }
     let channels: usize = info.color_type.samples();
     let argb: Vec<i32> = buffer[..info.buffer_size()]
@@ -145,11 +196,26 @@ fn decode(bytes: &[u8]) -> Result<Sprite, String>
             ((alpha as u32) << 24 | (red as u32) << 16 | (green as u32) << 8 | blue as u32) as i32
         })
         .collect();
-    Ok(Sprite { m_size: info.width, m_argb: argb })
+    let area: usize = (info.width * info.width) as usize;
+    let frames: Vec<Vec<i32>> = argb.chunks(area).map(<[i32]>::to_vec).collect();
+    let first: Vec<i32> = frames[0].clone();
+    let animation: Option<Animation> = (frames.len() > 1).then(|| {
+        let (frameTime, mut order): (u32, Vec<usize>) = meta.map(parseMeta).unwrap_or((1, Vec::new()));
+        order.retain(|frame| *frame < frames.len());
+        if order.is_empty()
+        {
+            order = (0..frames.len()).collect();
+        }
+        Animation { m_frames: frames, m_order: order, m_frameTime: frameTime }
+    });
+    Ok(Sprite { m_size: info.width, m_argb: first, m_animation: animation })
 }
 
 // the client reads the png of every assigned texture from the mod that owns its namespace
-pub fn loadSprites(read: &dyn Fn(&Identifier) -> Option<Vec<u8>>) -> Vec<String>
+pub fn loadSprites(
+    read: &dyn Fn(&Identifier) -> Option<Vec<u8>>,
+    readMeta: &dyn Fn(&Identifier) -> Option<String>,
+) -> Vec<String>
 {
     let keys: Vec<(Atlas, Identifier)> = STATE.with(|state| state.borrow().m_slots.keys().cloned().collect());
     let mut problems: Vec<String> = Vec::new();
@@ -157,7 +223,7 @@ pub fn loadSprites(read: &dyn Fn(&Identifier) -> Option<Vec<u8>>) -> Vec<String>
     {
         let sprite: Result<Sprite, String> = match read(&key.1)
         {
-            Some(bytes) => decode(&bytes),
+            Some(bytes) => decode(&bytes, readMeta(&key.1).as_deref()),
             None => Err(format!("{} is missing", texturePath(&key.1))),
         };
         match sprite
@@ -183,6 +249,7 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
     {
         return image;
     }
+    STATE.with(|state| state.borrow_mut().m_tiles.insert(atlas, tile));
     let rows: i32 = rows(atlas);
     let image: Rc<BufferedImage> = if rows * tile > image.getHeight()
     {
@@ -224,4 +291,64 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
         }
     });
     image
+}
+
+fn scaled(frame: &[i32], size: u32, tile: i32) -> Vec<u8>
+{
+    let mut rgba: Vec<u8> = Vec::with_capacity((tile * tile * 4) as usize);
+    for y in 0..tile
+    {
+        for x in 0..tile
+        {
+            let pixel: u32 =
+                frame[((y as u32 * size) / tile as u32 * size + (x as u32 * size) / tile as u32) as usize] as u32;
+            rgba.extend_from_slice(&[(pixel >> 16) as u8, (pixel >> 8) as u8, pixel as u8, (pixel >> 24) as u8]);
+        }
+    }
+    rgba
+}
+
+// advances every animated sprite one tick and hands back the tiles whose frame changed
+pub fn animate(atlas: Atlas) -> Vec<AnimatedTile>
+{
+    STATE.with(|state| {
+        let mut state = state.borrow_mut();
+        if atlas == Atlas::Terrain
+        {
+            state.m_ticks = state.m_ticks.wrapping_add(1);
+        }
+        let ticks: u32 = state.m_ticks;
+        let Some(tile) = state.m_tiles.get(&atlas).copied()
+        else
+        {
+            return Vec::new();
+        };
+        let mut due: Vec<AnimatedTile> = Vec::new();
+        for ((sheet, id), sprite) in &state.m_sprites
+        {
+            let Some(animation) = sprite.m_animation.as_ref().filter(|_| *sheet == atlas)
+            else
+            {
+                continue;
+            };
+            if !ticks.is_multiple_of(animation.m_frameTime)
+            {
+                continue;
+            }
+            let Some(slot) = state.m_slots.get(&(*sheet, id.clone()))
+            else
+            {
+                continue;
+            };
+            let step: usize = (ticks / animation.m_frameTime) as usize % animation.m_order.len();
+            let frame: &[i32] = &animation.m_frames[animation.m_order[step]];
+            due.push(AnimatedTile {
+                m_x: (slot % SHEET_TILES) * tile,
+                m_y: (slot / SHEET_TILES) * tile,
+                m_size: tile,
+                m_rgba: scaled(frame, sprite.m_size, tile),
+            });
+        }
+        due
+    })
 }

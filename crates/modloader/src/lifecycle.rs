@@ -298,11 +298,15 @@ fn loadSprites()
         return;
     }
     let mods: Vec<Rc<ModRuntime>> = state::mods();
-    let problems: Vec<String> = atlas::loadSprites(&|id: &Identifier| {
+    let read = |path: &str, id: &Identifier| -> Option<Vec<u8>> {
         let owner: Rc<ModRuntime> = mods.iter().find(|runtime| runtime.id() == id.namespace())?.clone();
-        let bytes: Option<Vec<u8>> = owner.m_source.borrow_mut().read(&atlas::texturePath(id));
+        let bytes: Option<Vec<u8>> = owner.m_source.borrow_mut().read(path);
         bytes
-    });
+    };
+    let problems: Vec<String> =
+        atlas::loadSprites(&|id: &Identifier| read(&atlas::texturePath(id), id), &|id: &Identifier| {
+            read(&atlas::metaPath(id), id).and_then(|bytes| String::from_utf8(bytes).ok())
+        });
     for problem in problems
     {
         log::warn(log::LOADER, &problem);

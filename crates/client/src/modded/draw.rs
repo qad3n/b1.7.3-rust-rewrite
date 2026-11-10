@@ -38,11 +38,6 @@ thread_local! {
 
 fn itemRenderer() -> Rc<RenderItem> { ITEMS.with(|items| Rc::clone(items.get_or_init(|| Rc::new(RenderItem::new())))) }
 
-fn texturePath(texture: &str) -> String
-{
-    modloader::entities::modTexturePath(texture).unwrap_or_else(|| texture.to_owned())
-}
-
 // a whole texture stretched over the rectangle, blended by its alpha times the tint's
 fn drawImage(engine: &Rc<RenderEngine>, texture: &str, rect: [i32; 4], color: u32)
 {
@@ -50,7 +45,7 @@ fn drawImage(engine: &Rc<RenderEngine>, texture: &str, rect: [i32; 4], color: u3
     GL11::glColor4f(red, green, blue, alpha);
     GL11::glEnable(GL11::GL_BLEND);
     GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
-    engine.bindTexture(engine.getTexture(&texturePath(texture)));
+    super::textures::bind(engine, texture);
     let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
     let [left, top] = [rect[0] as f64, rect[1] as f64];
     let [right, bottom] = [left + rect[2] as f64, top + rect[3] as f64];
@@ -130,7 +125,7 @@ pub fn draw(mc: &Rc<Minecraft>, list: &DrawList, originX: i32, originY: i32, mou
             DrawOp::Texture { texture, x, y, u, v, w, h } =>
             {
                 GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
-                engine.bindTexture(engine.getTexture(&texturePath(texture)));
+                super::textures::bind(&engine, texture);
                 gui.drawTexturedModalRect(originX + x, originY + y, *u, *v, *w, *h);
             }
             DrawOp::Image { texture, x, y, w, h } =>
@@ -144,7 +139,7 @@ pub fn draw(mc: &Rc<Minecraft>, list: &DrawList, originX: i32, originY: i32, mou
             DrawOp::Region { texture, x, y, w, h, uv, size } =>
             {
                 GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
-                engine.bindTexture(engine.getTexture(&texturePath(texture)));
+                super::textures::bind(&engine, texture);
                 let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
                 let [left, top] = [(originX + x) as f64, (originY + y) as f64];
                 let [right, bottom] = [left + *w as f64, top + *h as f64];

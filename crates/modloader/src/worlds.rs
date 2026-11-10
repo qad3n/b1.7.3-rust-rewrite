@@ -11,14 +11,16 @@ use std::rc::{Rc, Weak};
 
 mod chunk
 {
-    pub const BLOCK_COUNT: usize = 32768;
-    pub const HEIGHT: i32 = 128;
+    // terrain handlers fill the vanilla 128 high layout, a taller dimension is padded with air above it
+    pub const TERRAIN_HEIGHT: usize = 128;
+    pub const COLUMNS: usize = game::world::COLUMNS as usize;
 }
 
 const DEFAULT_GROUND: i32 = 64;
 
 thread_local! {
-    static BIOMES: RefCell<HashMap<i32, Rc<BiomeGenBase>>> = RefCell::new(HashMap::new());
+    // one biome per mod dimension, keyed by its identifier so a remapped numeric id never picks another's biome
+    static BIOMES: RefCell<HashMap<mod_protocol::Identifier, Rc<BiomeGenBase>>> = RefCell::new(HashMap::new());
     // sky color of each mod dimension biome, keyed by the biome object
     static SKIES: RefCell<HashMap<usize, i32>> = RefCell::new(HashMap::new());
     // times mods pinned a dimension's sky to, by dimension
@@ -55,15 +57,19 @@ fn blockId(id: Option<&mod_protocol::Identifier>, fallback: i32) -> i32
     id.and_then(|id| crate::registry::with(|registries| registries.blockId(id))).unwrap_or(fallback)
 }
 
-// one biome object per mod dimension, built from its biome spec or plains
-fn biomeFor(dimension: &ModDimension) -> Rc<BiomeGenBase>
+thread_local! {
+    // one biome object per mod biome, shared by every dimension that lists it
+    static MOD_BIOMES: RefCell<HashMap<mod_protocol::Identifier, Rc<BiomeGenBase>>> = RefCell::new(HashMap::new());
+}
+
+// a mod biome as a vanilla biome object, spawning only what mods list for it under the dimension's sky
+fn makeBiome(id: &mod_protocol::Identifier, sky: u32) -> Rc<BiomeGenBase>
 {
-    if let Some(biome) = BIOMES.with(|biomes| biomes.borrow().get(&dimension.m_numeric).cloned())
+    if let Some(biome) = MOD_BIOMES.with(|biomes| biomes.borrow().get(id).cloned())
     {
         return biome;
     }
-    let spec =
-        dimension.m_spec.biome.as_ref().and_then(|id| dimensions::biomes().into_iter().find(|biome| biome.m_id == *id));
+    let spec = dimensions::biomes().into_iter().find(|biome| biome.m_id == *id);
     let biome: Rc<BiomeGenBase> = match spec
     {
         Some(modBiome) =>
@@ -81,11 +87,31 @@ fn biomeFor(dimension: &ModDimension) -> Rc<BiomeGenBase>
         }
         None => BiomeGenBase::plains(),
     };
+    if sky != 0
+    {
+        SKIES.with(|skies| skies.borrow_mut().insert(biomeKey(&biome), sky as i32));
+    }
+    MOD_BIOMES.with(|biomes| biomes.borrow_mut().insert(id.clone(), Rc::clone(&biome)));
+    biome
+}
+
+// one biome object per mod dimension, built from its biome spec or plains
+fn biomeFor(dimension: &ModDimension) -> Rc<BiomeGenBase>
+{
+    if let Some(biome) = BIOMES.with(|biomes| biomes.borrow().get(&dimension.m_id).cloned())
+    {
+        return biome;
+    }
+    let biome: Rc<BiomeGenBase> = match dimension.m_spec.biome.as_ref()
+    {
+        Some(id) => makeBiome(id, dimension.m_spec.sky_color),
+        None => BiomeGenBase::plains(),
+    };
     if dimension.m_spec.sky_color != 0
     {
         SKIES.with(|skies| skies.borrow_mut().insert(biomeKey(&biome), dimension.m_spec.sky_color as i32));
     }
-    BIOMES.with(|biomes| biomes.borrow_mut().insert(dimension.m_numeric, Rc::clone(&biome)));
+    BIOMES.with(|biomes| biomes.borrow_mut().insert(dimension.m_id.clone(), Rc::clone(&biome)));
     biome
 }
 
@@ -97,6 +123,7 @@ struct FlatGenerator
     m_ground: i32,
     m_dimension: i32,
     m_terrain: Option<(usize, Handle)>,
+    m_failed: std::cell::Cell<bool>,
 }
 
 impl FlatGenerator
@@ -114,14 +141,14 @@ impl FlatGenerator
         {
             return None;
         };
-        if blocks.len() != chunk::BLOCK_COUNT || meta.len() != chunk::BLOCK_COUNT
+        let wanted: usize = chunk::TERRAIN_HEIGHT * chunk::COLUMNS;
+        if blocks.len() != wanted || meta.len() != wanted
         {
-            crate::log::warn(
-                runtime.id(),
-                &format!("terrain chunk has {} blocks, wanted {}", blocks.len(), chunk::BLOCK_COUNT),
-            );
+            crate::log::warn(runtime.id(), &format!("terrain chunk has {} blocks, wanted {wanted}", blocks.len()));
             return None;
         }
+        let blocks: Vec<u16> = pad(&blocks, world.height() as usize);
+        let meta: Vec<u8> = pad(&meta, world.height() as usize);
         let low: Vec<i8> = blocks.iter().map(|block| (*block & 0xFF) as i8).collect();
         let result: Rc<Chunk> = Chunk::withBlocks(world, low, chunkX, chunkZ);
         for (index, block) in blocks.iter().enumerate()
@@ -149,13 +176,14 @@ impl IChunkProvider for FlatGenerator
         {
             return chunk;
         }
-        let mut blocks: Vec<i8> = vec![0; chunk::BLOCK_COUNT];
+        let height: i32 = world.height();
+        let mut blocks: Vec<i8> = vec![0; world.volume()];
         let low: i8 = (self.m_fill & 0xFF) as i8;
-        for column in 0..256_i32
+        for column in 0..game::world::COLUMNS
         {
-            let base: usize = (column << 7) as usize;
+            let base: usize = (column * height) as usize;
             blocks[base] = Block::BEDROCK as i8;
-            for y in 1..self.m_ground.clamp(1, chunk::HEIGHT)
+            for y in 1..self.m_ground.clamp(1, height)
             {
                 blocks[base + y as usize] = low;
             }
@@ -163,15 +191,30 @@ impl IChunkProvider for FlatGenerator
         let chunk: Rc<Chunk> = Chunk::withBlocks(&world, blocks, chunkX, chunkZ);
         if self.m_fill > 0xFF
         {
-            for column in 0..256_i32
+            for column in 0..game::world::COLUMNS
             {
-                for y in 1..self.m_ground.clamp(1, chunk::HEIGHT)
+                for y in 1..self.m_ground.clamp(1, height)
                 {
-                    chunk.setBlockHigh(column << 7 | y, self.m_fill);
+                    chunk.setBlockHigh(column * height + y, self.m_fill);
                 }
             }
         }
         chunk.generateHeightMap();
+        // a stand in for a terrain mod that failed is never saved, so the real terrain comes back once the mod works
+        if self.m_terrain.is_some()
+        {
+            chunk.m_neverSave.set(true);
+            if !self.m_failed.replace(true)
+            {
+                crate::log::error(
+                    crate::log::LOADER,
+                    &format!(
+                        "dimension {} has no working terrain mod, its new chunks stay flat and unsaved",
+                        self.m_dimension
+                    ),
+                );
+            }
+        }
         chunk
     }
 
@@ -231,7 +274,11 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
         {
             return (WORLD_PROVIDER.registerWorldChunkManager)(this);
         };
-        this.m_worldChunkMgr.set(Some(WorldChunkManager::newHell(biomeFor(&spec), 0.5, 0.0)));
+        let sky: u32 = spec.m_spec.sky_color;
+        let sourced: Option<Rc<WorldChunkManager>> =
+            crate::biomes::manager(&this.world(), &spec, |id| makeBiome(id, sky));
+        this.m_worldChunkMgr
+            .set(Some(sourced.unwrap_or_else(|| WorldChunkManager::newHell(biomeFor(&spec), 0.5, 0.0))));
         this.m_hasNoSky.set(!spec.m_spec.has_sky);
     },
     getChunkProvider: |this| {
@@ -256,6 +303,7 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
             m_ground: ground,
             m_dimension: dimension,
             m_terrain: terrain,
+            m_failed: std::cell::Cell::new(false),
         })
     },
     getFogColor: fogColor,
@@ -273,8 +321,27 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
 
 pub fn provider(dimension: i32) -> Option<Rc<WorldProvider>>
 {
-    dimensions::dimension(dimension)?;
+    let spec: ModDimension = dimensions::dimension(dimension)?;
     let provider: Rc<WorldProvider> = WorldProvider::alloc(&MOD_PROVIDER);
     provider.m_worldType.set(dimension);
+    let height: dimensions::Height = dimensions::height(&spec.m_id);
+    provider.m_height.set(height.m_world);
+    provider.m_buildLimit.set(height.m_build);
     Some(provider)
+}
+
+// a terrain handler's 128 high columns stretched to the dimension's height, air above
+fn pad<T: Copy + Default>(cells: &[T], height: usize) -> Vec<T>
+{
+    if height == chunk::TERRAIN_HEIGHT
+    {
+        return cells.to_vec();
+    }
+    let mut padded: Vec<T> = vec![T::default(); chunk::COLUMNS * height];
+    let kept: usize = chunk::TERRAIN_HEIGHT.min(height);
+    for (column, cells) in cells.chunks(chunk::TERRAIN_HEIGHT).enumerate()
+    {
+        padded[column * height..column * height + kept].copy_from_slice(&cells[..kept]);
+    }
+    padded
 }

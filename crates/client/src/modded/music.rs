@@ -5,7 +5,7 @@ use jvm::random::Random;
 use modloader::mod_protocol::abi::MusicSpec;
 use std::cell::{Cell, RefCell};
 
-// AetherMusicTicker.timeUntilNextMusic starts short so music begins soon after arriving
+// the first mod track starts soon after arriving rather than after vanilla's long wait
 const FIRST_DELAY: i32 = 100;
 
 thread_local! {

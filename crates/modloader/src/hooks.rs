@@ -63,6 +63,11 @@ impl LoaderHooks for Hooks
         }
     }
 
+    fn structure(&self, world: &Rc<World>, key: &str, min: [i32; 3], max: [i32; 3])
+    {
+        crate::structures::addVanilla(world, key, min, max);
+    }
+
     fn translate(&self, key: &str) -> Option<String> { content::lang::translate(key) }
 
     fn createTileEntity(&self, id: &str) -> Option<Rc<TileEntity>>
@@ -78,6 +83,31 @@ impl LoaderHooks for Hooks
     fn createEntity(&self, key: &str, world: &Rc<World>) -> Option<Rc<Entity>>
     {
         crate::entities::createByKey(key, world).or_else(|| crate::remap::missingEntity(key, world))
+    }
+
+    fn ownsSpawns(&self, world: &World) -> bool
+    {
+        crate::dimensions::hasSpawnList(crate::host::context::dimension(world))
+    }
+
+    fn spawnList(
+        &self,
+        world: &Rc<World>,
+        kind: game::worldgen::EnumCreatureType,
+        x: i32,
+        y: i32,
+        z: i32,
+    ) -> Option<Vec<game::worldgen::SpawnListEntry>>
+    {
+        let kind: mod_protocol::spec::CreatureKind = match kind
+        {
+            game::worldgen::EnumCreatureType::Monster => mod_protocol::spec::CreatureKind::Monster,
+            game::worldgen::EnumCreatureType::Creature => mod_protocol::spec::CreatureKind::Creature,
+            game::worldgen::EnumCreatureType::WaterCreature => mod_protocol::spec::CreatureKind::Water,
+        };
+        let entries: Vec<mod_protocol::abi::SpawnEntry> =
+            crate::dimensions::spawnList(world, kind, mod_protocol::abi::BlockPos { x, y, z })?;
+        Some(crate::modify::spawnEntries(&entries))
     }
 
     fn entityKey(&self, entity: &Entity) -> Option<(String, i32)>

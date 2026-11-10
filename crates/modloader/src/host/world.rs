@@ -12,6 +12,9 @@ use game::world::World;
 use mod_protocol::abi::{BlockInfo, BlockPos, EntityField, HostCall, HostReply, StackRef};
 use std::rc::Rc;
 
+// ItemDye's bone meal damage
+const BONE_MEAL: i32 = 15;
+
 fn world(dimension: i32) -> Result<Rc<World>, String>
 {
     context::world(dimension).ok_or_else(|| format!("dimension {dimension} is not loaded"))
@@ -544,6 +547,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 if let Some([x, y, z]) = motion
                 {
                     entity.setVelocity(x, y, z);
+                    // a player moves itself, the tracker sends it new motion only flagged as a knockback
+                    if entity.instanceOf("EntityPlayer")
+                    {
+                        entity.setBeenAttacked();
+                    }
                 }
             }))
         }
@@ -617,6 +625,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                     .map(|stack| setAttachment(&stack.m_components, &component.to_string(), data)),
             )
         }
+        HostCall::ItemEntityStack { world: dimension, id } => ok(entity(dimension, id), |entity|
+        {
+            let fields: Option<&game::entity::entity_item::ItemFields> = entity.m_ext.asAny().downcast_ref();
+            HostReply::Stack(fields.and_then(|fields| fields.m_item.get()).map(|stack| stackData(&stack)))
+        }),
         HostCall::HeldStack { player: id } =>
         {
             ok(player(id), |player| HostReply::Stack(heldStack(&player).map(|stack| stackData(&stack))))
@@ -625,7 +638,77 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             let inventory = entity_player::inventory(&player);
             inventory.setInventorySlotContents(inventory.m_currentItem.get(), stack.as_ref().and_then(stackFrom));
         })),
-        HostCall::PlaySound { world: dimension, pos, sound, volume, pitch } => unit(world(dimension).map(|world| {
+        HostCall::SetSpawner { world: dimension, pos, entity } => unit(world(dimension).and_then(|world|
+        {
+            authoritative(&world)?;
+            world.setBlockWithNotify(pos.x, pos.y, pos.z, game::block::Block::MOB_SPAWNER);
+            let tile: Rc<TileEntity> =
+                world.getBlockTileEntity(pos.x, pos.y, pos.z).ok_or_else(|| format!("no spawner tile at {pos:?}"))?;
+            game::tileentity::tile_entity_mob_spawner::setMobID(
+                &tile,
+                Some(jvm::string::JString::from(entity.as_str())),
+            );
+            Ok(())
+        })),
+        HostCall::RandomTick { world: dimension, pos } => unit(world(dimension).and_then(|world|
+        {
+            authoritative(&world)?;
+            let id: i32 = world.getBlockId(pos.x, pos.y, pos.z);
+            if id != 0
+                && game::block::Block::tickOnLoad(id)
+                && let Some(block) = game::block::Block::byId(id)
+            {
+                block.updateTick(&world, pos.x, pos.y, pos.z, &world.m_rand);
+            }
+            Ok(())
+        })),
+        HostCall::MaxDamage { item } =>
+        {
+            HostReply::Int(game::item::Item::byId(item).map_or(0, |item| item.getMaxDamage()))
+        }
+        HostCall::SetDynamicTexture { name, width, height, pixels } =>
+        {
+            let fits: bool = pixels.len() == (width as usize) * (height as usize);
+            if !fits
+            {
+                return HostReply::Error(format!("texture {name} has {} pixels for {width} by {height}", pixels.len()));
+            }
+            crate::textures::set(name.to_string(), width, height, pixels);
+            HostReply::Unit
+        }
+        HostCall::BlockMapColor { block } => HostReply::Int(
+            game::block::Block::byId(block).map_or(0, |block| block.m_blockMaterial.m_materialMapColor.m_colorValue),
+        ),
+        HostCall::Fertilize { world: dimension, pos } => unit(world(dimension).and_then(|world|
+        {
+            authoritative(&world)?;
+            // vanilla bone meal used on the block, with a throwaway item entity as the holder it never reads
+            let stack: Rc<ItemStack> = ItemStack::withItemDamage(&game::item::Item::dyePowder(), 1, BONE_MEAL);
+            let holder: Rc<Entity> = game::entity::entity_item::create(
+                &world,
+                f64::from(pos.x),
+                f64::from(pos.y),
+                f64::from(pos.z),
+                Rc::clone(&stack),
+            );
+            stack.getItem().onItemUse(&stack, &holder, &world, pos.x, pos.y, pos.z, 1);
+            Ok(())
+        })),
+        HostCall::DamageHeld { player: id, amount } => unit(player(id).map(|player|
+        {
+            let Some(stack) = heldStack(&player)
+            else
+            {
+                return;
+            };
+            stack.damageItem(amount, &player);
+            if stack.m_stackSize.get() <= 0
+            {
+                entity_player::destroyCurrentEquippedItem(&player);
+            }
+        })),
+        HostCall::PlaySound { world: dimension, pos, sound, volume, pitch } => unit(world(dimension).map(|world|
+        {
             world.playSoundEffect(pos[0], pos[1], pos[2], &sound, volume, pitch);
             let message = loader::Sound { world: dimension, pos, sound, volume, pitch };
             loader::broadcastNear(loader::SOUND, &world, pos, &message);

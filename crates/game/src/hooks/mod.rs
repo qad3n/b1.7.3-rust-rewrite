@@ -170,6 +170,9 @@ pub trait LoaderHooks
 
     fn populate(&self, _world: &Rc<World>, _chunkX: i32, _chunkZ: i32) {}
 
+    // a vanilla structure finished building, named by key with its inclusive corners
+    fn structure(&self, _world: &Rc<World>, _key: &str, _min: [i32; 3], _max: [i32; 3]) {}
+
     fn translate(&self, _key: &str) -> Option<String> { None }
 
     fn createTileEntity(&self, _id: &str) -> Option<Rc<TileEntity>> { None }
@@ -177,6 +180,21 @@ pub trait LoaderHooks
     fn worldProvider(&self, _dimension: i32) -> Option<Rc<crate::world::WorldProvider>> { None }
 
     fn createEntity(&self, _key: &str, _world: &Rc<World>) -> Option<Rc<Entity>> { None }
+
+    // a mod dimension may name what can spawn at a spot instead of its biome, as Forge's getPossibleCreatures
+    fn ownsSpawns(&self, _world: &World) -> bool { false }
+
+    fn spawnList(
+        &self,
+        _world: &Rc<World>,
+        _kind: crate::worldgen::EnumCreatureType,
+        _x: i32,
+        _y: i32,
+        _z: i32,
+    ) -> Option<Vec<crate::worldgen::SpawnListEntry>>
+    {
+        None
+    }
 
     fn entityKey(&self, _entity: &Entity) -> Option<(String, i32)> { None }
 
@@ -260,6 +278,14 @@ pub fn populate(world: &Rc<World>, chunkX: i32, chunkZ: i32)
     }
 }
 
+pub fn structure(world: &Rc<World>, key: &str, min: [i32; 3], max: [i32; 3])
+{
+    if let Some(hooks) = active()
+    {
+        hooks.structure(world, key, min, max);
+    }
+}
+
 pub fn translate(key: &str) -> Option<String> { active()?.translate(key) }
 
 pub fn createTileEntity(id: &str) -> Option<Rc<TileEntity>> { active()?.createTileEntity(id) }
@@ -267,6 +293,19 @@ pub fn createTileEntity(id: &str) -> Option<Rc<TileEntity>> { active()?.createTi
 pub fn worldProvider(dimension: i32) -> Option<Rc<crate::world::WorldProvider>> { active()?.worldProvider(dimension) }
 
 pub fn createEntity(key: &str, world: &Rc<World>) -> Option<Rc<Entity>> { active()?.createEntity(key, world) }
+
+pub fn ownsSpawns(world: &World) -> bool { active().is_some_and(|hooks| hooks.ownsSpawns(world)) }
+
+pub fn spawnList(
+    world: &Rc<World>,
+    kind: crate::worldgen::EnumCreatureType,
+    x: i32,
+    y: i32,
+    z: i32,
+) -> Option<Vec<crate::worldgen::SpawnListEntry>>
+{
+    active()?.spawnList(world, kind, x, y, z)
+}
 
 pub fn entityKey(entity: &Entity) -> Option<(String, i32)> { active()?.entityKey(entity) }
 

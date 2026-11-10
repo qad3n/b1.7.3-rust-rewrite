@@ -7,6 +7,7 @@ pub mod music;
 pub mod particles;
 pub mod player_layers;
 mod screen;
+pub mod textures;
 
 use crate::client::Minecraft;
 use crate::gui::{GuiIngame, GuiScreen, ScaledResolution};
@@ -135,6 +136,51 @@ pub fn install(mc: &Rc<Minecraft>)
             open(&mc, request);
         }
     }));
+    let weak: Weak<Minecraft> = Rc::downgrade(mc);
+    modloader::screens::setWorldDrawer(Box::new(move |partial: f32| {
+        let Some(mc) = weak.upgrade()
+        else
+        {
+            return;
+        };
+        // the render engine exists once a world draws, the mod sprite effect joins vanilla's list then
+        if let Some(engine) = mc.m_renderEngine.get()
+        {
+            textures::register(&engine);
+        }
+        drawWorld(&mc, partial);
+    }));
+}
+
+// world render handlers draw from the camera, the interpolated view entity, in the GL state the world left
+fn drawWorld(mc: &Rc<Minecraft>, partial: f32)
+{
+    let Some(viewer) = mc.m_renderViewEntity.get()
+    else
+    {
+        return;
+    };
+    let between = |last: f64, now: f64| last + (now - last) * f64::from(partial);
+    let camera: [f64; 3] = [
+        between(viewer.m_lastTickPosX.get(), viewer.posX()),
+        between(viewer.m_lastTickPosY.get(), viewer.posY()),
+        between(viewer.m_lastTickPosZ.get(), viewer.posZ()),
+    ];
+    // world draw lists are sheets seen from both sides, as vanilla weather is
+    GL11::glDisable(GL11::GL_CULL_FACE);
+    for ops in modloader::screens::worldOps(partial, camera)
+    {
+        GL11::glPushMatrix();
+        for op in &ops
+        {
+            entity_model::glOp(op, false);
+        }
+        GL11::glPopMatrix();
+        // a handler leaves lighting as it found it, colour and blend come back to the world's
+        GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+        GL11::glDisable(GL11::GL_BLEND);
+    }
+    GL11::glEnable(GL11::GL_CULL_FACE);
 }
 
 const UNKNOWN_COMMAND: &str = "Unknown command, try /help";

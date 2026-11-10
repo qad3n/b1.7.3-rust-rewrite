@@ -240,7 +240,7 @@ fn renderCloakWith(this: &Render, entity: &Rc<Entity>, tickDelta: f32, model: &c
 
 fn renderEquippedItems(this: &Rc<Render>, entity: &Rc<Entity>, tickDelta: f32)
 {
-    // rewrite: mod layers, as Aether gloves, pendants and capes, follow the player model's pose
+    // rewrite: mod layers such as worn accessories and capes follow the player model's pose
     crate::modded::player_layers::render(modelBipedMain(this), entity, |cloak| {
         renderCloakWith(this, entity, tickDelta, cloak);
     });

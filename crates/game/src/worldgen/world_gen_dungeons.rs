@@ -170,6 +170,12 @@ impl WorldGenerator for WorldGenDungeons
         world.setBlockWithNotify(x, y, z, Block::MOB_SPAWNER);
         let spawner: Rc<TileEntity> = world.getBlockTileEntity(x, y, z).orNpe();
         tile_entity_mob_spawner::setMobID(&spawner, Some(JString::from(self.pickMobSpawner(random))));
+        crate::hooks::structure(
+            world,
+            "dungeon",
+            [x - n5 - 1, y - 1, z - n6 - 1],
+            [x + n5 + 1, y + n4 + 1, z + n6 + 1],
+        );
         true
     }
 }

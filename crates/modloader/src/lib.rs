@@ -1,5 +1,6 @@
 pub mod atlas;
 pub mod behavior;
+pub mod biomes;
 pub mod catalog;
 pub mod classes;
 pub mod commands;
@@ -38,6 +39,8 @@ pub mod sounds;
 pub mod state;
 pub mod states;
 pub mod steering;
+pub mod structures;
+pub mod textures;
 pub mod tiles;
 pub mod viewer;
 pub mod wasm;

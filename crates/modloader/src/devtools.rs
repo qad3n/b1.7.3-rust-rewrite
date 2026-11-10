@@ -2,17 +2,17 @@ use crate::host::context;
 use game::block::Block;
 use game::inventory::IInventory;
 use game::world::World;
+use game::worldgen::{EnumCreatureType, SpawnListEntry};
 use mod_protocol::abi::Sender;
 use std::rc::Rc;
 use std::time::Instant;
 
 // console and op tools for checking ported content without a client: generate terrain, map it, read columns
 pub const COMMAND: &str = "loader";
-const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player>";
+const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player> | spawns <dim> <monster|creature|water> <x> <y> <z> | structures <dim> | structure <dim> <x> <y> <z> | locate <dim> <structure> <x> <z> [radius]";
 
 mod map
 {
-    pub const HEIGHT: i32 = 128;
     // height shading spans this many blocks either side of the middle of the world
     pub const SHADE_SPAN: f32 = 64.0;
     pub const MIN_SHADE: f32 = 0.45;
@@ -62,7 +62,7 @@ fn generate(world: &World, centerX: i32, centerZ: i32, radius: i32) -> usize
 
 fn topColor(world: &World, x: i32, z: i32) -> u32
 {
-    for y in (0..map::HEIGHT).rev()
+    for y in (0..world.height()).rev()
     {
         let id: i32 = world.getBlockId(x, y, z);
         if id == 0
@@ -136,8 +136,9 @@ fn slice(world: &World, args: &[String]) -> Result<String, String>
     let [at, from, to]: [i32; 3] = [number(args, 3)?, number(args, 4)?, number(args, 5)?];
     let path: &String = args.get(6).ok_or(USAGE)?;
     let width: i32 = to - from + 1;
-    let mut pixels: Vec<u8> = Vec::with_capacity((width * map::HEIGHT) as usize * map::CHANNELS);
-    for y in (0..map::HEIGHT).rev()
+    let height: i32 = world.height();
+    let mut pixels: Vec<u8> = Vec::with_capacity((width * height) as usize * map::CHANNELS);
+    for y in (0..world.height()).rev()
     {
         for along in from..=to
         {
@@ -149,14 +150,91 @@ fn slice(world: &World, args: &[String]) -> Result<String, String>
             pixels.extend_from_slice(&channels(color));
         }
     }
-    writePng(path, width, map::HEIGHT, &pixels)?;
-    Ok(format!("wrote {width}x{} slice at {axis}={at} to {path}", map::HEIGHT))
+    writePng(path, width, height, &pixels)?;
+    Ok(format!("wrote {width}x{height} slice at {axis}={at} to {path}"))
+}
+
+// what one natural spawn attempt at the spot may pick, from the dimension's spawn list handler or its biome
+fn spawns(world: &Rc<World>, args: &[String]) -> Result<String, String>
+{
+    let kind: EnumCreatureType = match args.get(2).map(String::as_str)
+    {
+        Some("monster") => EnumCreatureType::Monster,
+        Some("creature") => EnumCreatureType::Creature,
+        Some("water") => EnumCreatureType::WaterCreature,
+        _ => return Err(USAGE.to_owned()),
+    };
+    let [x, y, z]: [i32; 3] = [number(args, 3)?, number(args, 4)?, number(args, 5)?];
+    let (source, entries): (&str, Vec<SpawnListEntry>) = match game::hooks::spawnList(world, kind, x, y, z)
+    {
+        Some(entries) => ("spawn list", entries),
+        None => ("biome", world.getWorldChunkManager().getBiomeGenAt(x, z).getSpawnableList(kind).toVec()),
+    };
+    let listed: Vec<String> =
+        entries.iter().map(|entry| format!("{} {}", entry.m_entityClass, entry.m_spawnRarityRate)).collect();
+    let shown: String = if listed.is_empty()
+    {
+        "nothing".to_owned()
+    }
+    else
+    {
+        listed.join(", ")
+    };
+    Ok(format!("{source} at {x} {y} {z}: {shown}"))
+}
+
+fn structureAt(world: &World, args: &[String]) -> Result<String, String>
+{
+    let at: [i32; 3] = [number(args, 2)?, number(args, 3)?, number(args, 4)?];
+    let found: Vec<String> =
+        crate::structures::find(world, at, at, None).iter().map(crate::structures::describe).collect();
+    Ok(
+        if found.is_empty()
+        {
+            "no recorded structure here".to_owned()
+        }
+        else
+        {
+            found.join("; ")
+        },
+    )
+}
+
+fn locate(world: &Rc<World>, args: &[String]) -> Result<String, String>
+{
+    const DEFAULT_RADIUS: i32 = 64;
+    let kind: mod_protocol::Identifier =
+        mod_protocol::Identifier::parse(args.get(2).ok_or(USAGE)?).map_err(|error| error.to_string())?;
+    let from: mod_protocol::abi::BlockPos = mod_protocol::abi::BlockPos::new(number(args, 3)?, 0, number(args, 4)?);
+    let radius: i32 = if args.len() > 5
+    {
+        number(args, 5)?
+    }
+    else
+    {
+        DEFAULT_RADIUS
+    };
+    let Some(found) = crate::structures::locate(world, &kind, from, radius)?
+    else
+    {
+        return Ok(format!("no {kind} within {radius} chunks"));
+    };
+
+    let state: &str = if found.generated
+    {
+        "built"
+    }
+    else
+    {
+        "not built yet"
+    };
+    Ok(format!("{kind} at {} {}, {state}", found.x, found.z))
 }
 
 fn column(world: &World, x: i32, z: i32) -> String
 {
     let mut runs: Vec<String> = Vec::new();
-    let mut y: i32 = map::HEIGHT - 1;
+    let mut y: i32 = world.height() - 1;
     while y >= 0
     {
         let (id, meta): (i32, i32) = (world.getBlockId(x, y, z), world.getBlockMetadata(x, y, z));
@@ -431,6 +509,10 @@ fn run(args: &[String]) -> Result<String, String>
         "entities" => Ok(entities(&world)),
         "slot" => slot(&world, args),
         "tile" => tile(&world, args),
+        "spawns" => spawns(&world, args),
+        "structures" => Ok(crate::structures::summary()),
+        "structure" => Ok(structureAt(&world, args)?),
+        "locate" => locate(&world, args),
         "summon" =>
         {
             let kind: &String = args.get(2).ok_or(USAGE)?;

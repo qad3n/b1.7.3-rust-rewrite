@@ -728,3 +728,12 @@ side = "server"
 cancellable = false
 result = false
 fires_in = "TileEntity::readFromNBT and writeToNBT, ChunkLoader chunk save and load"
+
+[[hook]]
+name = "structure_built"
+version = 1
+kind = "storage"
+side = "server"
+cancellable = false
+result = false
+fires_in = "WorldGenDungeons::generate once a dungeon is built"

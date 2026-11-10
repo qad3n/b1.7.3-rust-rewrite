@@ -17,7 +17,7 @@ pub fn spawn(name: &str, world: &Rc<World>, pos: [f64; 3], motion: [f64; 3]) -> 
     iconCrack(name, world, x, y, z).or_else(|| tintedPortal(name, world, pos, motion))
 }
 
-// tintportal_RRGGBB: a portal particle in one color, as Aether's leaves and portal recolor EntityPortalFX
+// tintportal_RRGGBB: a portal particle in one color, EntityPortalFX recolored
 fn tintedPortal(name: &str, world: &Rc<World>, pos: [f64; 3], motion: [f64; 3]) -> Option<Rc<Entity>>
 {
     let color: u32 = u32::from_str_radix(name.strip_prefix(TINTED_PORTAL)?, HEX).ok()?;

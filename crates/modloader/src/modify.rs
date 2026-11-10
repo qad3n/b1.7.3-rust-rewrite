@@ -49,6 +49,40 @@ pub fn queueSpawn(owner: &str, spec: SpawnModifySpec)
 }
 
 // the class name natural spawning keys entries by, vanilla mobs use their java class and mod mobs their identifier
+thread_local! {
+    // spawn entries hold their entity class as a static name, built once per entity
+    static CLASSES: RefCell<HashMap<Identifier, &'static str>> = RefCell::new(HashMap::new());
+}
+
+// a spawn list handler's answer as spawn entries, unknown entities and empty weights left out with a warning
+pub fn spawnEntries(entries: &[mod_protocol::abi::SpawnEntry]) -> Vec<SpawnListEntry>
+{
+    entries
+        .iter()
+        .filter(|entry| entry.weight > 0)
+        .filter_map(|entry| match cachedClass(&entry.entity)
+        {
+            Some(class) => Some(SpawnListEntry::new(class, entry.weight)),
+            None =>
+            {
+                crate::log::warn(crate::log::LOADER, &format!("spawn list names unknown entity {}", entry.entity));
+                None
+            }
+        })
+        .collect()
+}
+
+fn cachedClass(entity: &Identifier) -> Option<&'static str>
+{
+    if let Some(class) = CLASSES.with(|classes| classes.borrow().get(entity).copied())
+    {
+        return Some(class);
+    }
+    let class: &'static str = spawnClass(entity)?;
+    CLASSES.with(|classes| classes.borrow_mut().insert(entity.clone(), class));
+    Some(class)
+}
+
 fn spawnClass(entity: &Identifier) -> Option<&'static str>
 {
     let saveKey: String =
@@ -92,7 +126,12 @@ pub fn applySpawns()
                 log::warn(owner, &format!("spawn change names unknown entity {}", spec.entity));
                 continue;
             };
-            for biome in crate::entities::biomesFor(&spec.spawn)
+            let biomes: Vec<Rc<BiomeGenBase>> = crate::entities::biomesFor(&spec.spawn);
+            log::debug(
+                owner,
+                &format!("spawn change {} weight {} in {} biomes", spec.entity, spec.spawn.weight, biomes.len()),
+            );
+            for biome in biomes
             {
                 applySpawn(&biome, class, spec);
             }

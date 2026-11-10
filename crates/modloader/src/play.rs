@@ -258,10 +258,15 @@ pub fn screenOpen(name: &str) -> bool
 
 pub fn renderWorldLast(partial: f32)
 {
-    if active() && events::hasListeners(EventKind::RenderWorldLast)
+    if !active()
+    {
+        return;
+    }
+    if events::hasListeners(EventKind::RenderWorldLast)
     {
         events::post(EventKind::RenderWorldLast, EventData::Render { partial, width: 0, height: 0 });
     }
+    crate::screens::drawWorld(partial);
 }
 
 pub fn blockHighlight(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool

@@ -2,7 +2,7 @@ use crate::host::context::{self, entityInfo};
 use crate::host::{ok, unit};
 use crate::network::{self, Channel};
 use crate::state::{self, ModRuntime, Phase};
-use crate::{commands, dimensions, events, keybinds, persist, screens, services};
+use crate::{commands, dimensions, events, keybinds, persist, screens, services, structures};
 use game::entity::Entity;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{GuestCall, HostCall, HostReply, Target};
@@ -22,6 +22,8 @@ fn own(runtime: &ModRuntime, name: &str) -> Result<Identifier, String>
         }
     })
 }
+
+fn unloaded(world: i32) -> String { format!("world {world} is not loaded") }
 
 fn beforeRunning() -> Result<(), String>
 {
@@ -161,6 +163,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             screens::registerTooltip(index, handler);
             HostReply::Unit
         }
+        HostCall::RegisterWorldRender { handler } =>
+        {
+            screens::registerWorldRender(index, handler);
+            HostReply::Unit
+        }
         HostCall::RegisterHud { handler } =>
         {
             screens::registerHud(index, handler);
@@ -222,8 +229,51 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         }
         HostCall::RegisterTerrain { dimension, handler } =>
         {
-            dimensions::registerTerrain(index, dimension, handler);
-            HostReply::Unit
+            unit(dimensions::registerTerrain(index, dimension, handler))
+        }
+        HostCall::DimensionHeight { dimension, height, build_limit } =>
+        {
+            unit(dimensions::registerHeight(index, dimension, height, build_limit))
+        }
+        HostCall::RegisterBiomeSource { dimension, biomes, handler } =>
+        {
+            unit(dimensions::registerBiomeSource(index, dimension, biomes, handler))
+        }
+        HostCall::RegisterSpawns { dimension, handler } => unit(dimensions::registerSpawns(index, dimension, handler)),
+        HostCall::RegisterStructure { name, spec, finder } => unit(
+            beforeRunning()
+                .and_then(|()| own(runtime, &name))
+                .and_then(|id| structures::register(index, id, spec, finder)),
+        ),
+        HostCall::AddStructure { world, start } => unit(
+            context::world(world)
+                .ok_or_else(|| unloaded(world))
+                .and_then(|world| structures::addModded(index, &world, start)),
+        ),
+        HostCall::FindStructures { world, min, max, structure } => match context::world(world)
+        {
+            Some(world) => HostReply::Starts(structures::find(&world, min, max, structure.as_ref())),
+            None => HostReply::Error(unloaded(world)),
+        },
+        HostCall::LocateStructure { world, structure, from, radius } => ok(
+            context::world(world)
+                .ok_or_else(|| unloaded(world))
+                .and_then(|world| structures::locate(&world, &structure, from, radius)),
+            HostReply::Located,
+        ),
+        HostCall::WorldSeed { world } => match context::world(world)
+        {
+            Some(world) => HostReply::Long(world.getRandomSeed()),
+            None => HostReply::Error(unloaded(world)),
+        },
+        HostCall::Colorizer { foliage, temperature, rainfall } =>
+        {
+            let (temperature, rainfall): (f64, f64) = (temperature.clamp(0.0, 1.0), rainfall.clamp(0.0, 1.0));
+            HostReply::Int(match foliage
+            {
+                true => game::worldgen::ColorizerFoliage::getFoliageColor(temperature, rainfall),
+                false => game::worldgen::ColorizerGrass::getGrassColor(temperature, rainfall),
+            })
         }
         HostCall::WorldData { key } => HostReply::Bytes(persist::worldData(runtime.id(), &key)),
         HostCall::SetWorldData { key, data } =>

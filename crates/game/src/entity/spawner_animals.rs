@@ -8,7 +8,6 @@ use crate::pathfinding::{PathEntity, PathPoint, Pathfinder};
 use crate::world::{ChunkCoordinates, IBlockAccess, World};
 use crate::worldgen::{BiomeGenBase, EnumCreatureType, SpawnListEntry};
 use common::world::{ChunkCoordIntPair, ChunkPosition};
-use jvm::array_list::JArrayList;
 use jvm::hash_map::JHashSet;
 use jvm::throwable::{self, OrNpe, Throwable};
 use std::cell::RefCell;
@@ -71,7 +70,7 @@ impl SpawnerAnimals
     fn getRandomSpawningPointInChunk(world: &World, chunkX: i32, chunkZ: i32) -> ChunkPosition
     {
         let i: i32 = chunkX + world.m_rand.nextIntBounded(16);
-        let j: i32 = world.m_rand.nextIntBounded(128);
+        let j: i32 = world.m_rand.nextIntBounded(world.height());
         let k: i32 = chunkZ + world.m_rand.nextIntBounded(16);
         ChunkPosition::new(i, j, k)
     }
@@ -102,6 +101,7 @@ impl SpawnerAnimals
         });
         let mut k3: i32 = 0;
         let chunkcoordinates: ChunkCoordinates = world.getSpawnPoint();
+        let owned: bool = crate::hooks::ownsSpawns(world);
         for enumcreaturetype in EnumCreatureType::VALUES
         {
             let peaceful: bool = enumcreaturetype.getPeacefulCreature();
@@ -114,14 +114,26 @@ impl SpawnerAnimals
             }
             'chunks: for chunkcoordintpair in &eligible
             {
-                let biomegenbase: Rc<BiomeGenBase> =
-                    world.getWorldChunkManager().getBiomeGenAtChunkCoord(*chunkcoordintpair);
-                let list: Rc<JArrayList<SpawnListEntry>> = biomegenbase.getSpawnableList(enumcreaturetype);
-                if list.isEmpty()
+                // rewrite: a dimension that names its spawns per spot picks the spot first, vanilla keeps its order
+                let point: Option<ChunkPosition> = owned.then(|| {
+                    Self::getRandomSpawningPointInChunk(
+                        world,
+                        chunkcoordintpair.m_chunkXPos * 16,
+                        chunkcoordintpair.m_chunkZPos * 16,
+                    )
+                });
+                let listed: Option<Vec<SpawnListEntry>> = point.as_ref().and_then(|point| {
+                    crate::hooks::spawnList(world, enumcreaturetype, point.m_x, point.m_y, point.m_z)
+                });
+                let entries: Vec<SpawnListEntry> = listed.unwrap_or_else(|| {
+                    let biomegenbase: Rc<BiomeGenBase> =
+                        world.getWorldChunkManager().getBiomeGenAtChunkCoord(*chunkcoordintpair);
+                    biomegenbase.getSpawnableList(enumcreaturetype).toVec()
+                });
+                if entries.is_empty()
                 {
                     continue;
                 }
-                let entries: Vec<SpawnListEntry> = list.toVec();
                 let j1: i32 = entries.iter().map(|entry| entry.m_spawnRarityRate).sum();
                 let mut l3: i32 = world.m_rand.nextIntBounded(j1);
                 let mut spawnEntry: &SpawnListEntry = &entries[0];
@@ -134,11 +146,13 @@ impl SpawnerAnimals
                         break;
                     }
                 }
-                let chunkposition: ChunkPosition = Self::getRandomSpawningPointInChunk(
-                    world,
-                    chunkcoordintpair.m_chunkXPos * 16,
-                    chunkcoordintpair.m_chunkZPos * 16,
-                );
+                let chunkposition: ChunkPosition = point.unwrap_or_else(|| {
+                    Self::getRandomSpawningPointInChunk(
+                        world,
+                        chunkcoordintpair.m_chunkXPos * 16,
+                        chunkcoordintpair.m_chunkZPos * 16,
+                    )
+                });
                 let i4: i32 = chunkposition.m_x;
                 let k1: i32 = chunkposition.m_y;
                 let l1: i32 = chunkposition.m_z;
@@ -260,9 +274,9 @@ impl SpawnerAnimals
                 {
                     l = 1;
                 }
-                else if l > 128
+                else if l > world.height()
                 {
-                    l = 128;
+                    l = world.height();
                 }
                 let i1: i32 = world.m_rand.nextIntBounded(aclass.len() as i32);
                 let mut j1: i32 = l;
@@ -272,11 +286,11 @@ impl SpawnerAnimals
                 }
                 while !Self::canCreatureTypeSpawnAtLocation(EnumCreatureType::Monster, world, j, j1, k)
                     && j1 < l + 16
-                    && j1 < 128
+                    && j1 < world.height()
                 {
                     j1 += 1;
                 }
-                if j1 >= l + 16 || j1 >= 128
+                if j1 >= l + 16 || j1 >= world.height()
                 {
                     continue;
                 }

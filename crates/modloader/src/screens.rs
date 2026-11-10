@@ -34,6 +34,9 @@ struct Screens
     m_overlays: Vec<(usize, String, Handle)>,
     m_tooltips: Vec<(usize, Handle)>,
     m_layers: Vec<(usize, Handle)>,
+    m_worldRenders: Vec<(usize, Handle)>,
+    // set by the client, runs the world draw lists in its GL state
+    m_worldDrawer: Option<Box<dyn Fn(f32)>>,
     // set by the client, absent on the dedicated server
     m_opener: Option<Opener>,
 }
@@ -77,6 +80,43 @@ pub fn registerOverlay(modIndex: usize, target: String, handler: Handle)
 pub fn registerTooltip(modIndex: usize, handler: Handle)
 {
     SCREENS.with(|screens| screens.borrow_mut().m_tooltips.push((modIndex, handler)));
+}
+
+pub fn registerWorldRender(modIndex: usize, handler: Handle)
+{
+    SCREENS.with(|screens| screens.borrow_mut().m_worldRenders.push((modIndex, handler)));
+}
+
+pub fn setWorldDrawer(drawer: Box<dyn Fn(f32)>)
+{
+    SCREENS.with(|screens| screens.borrow_mut().m_worldDrawer = Some(drawer));
+}
+
+// every world render handler's ops for this frame, in mod load order
+pub fn worldOps(partial: f32, camera: [f64; 3]) -> Vec<Vec<mod_protocol::abi::ModelOp>>
+{
+    let handlers: Vec<(usize, Handle)> = SCREENS.with(|screens| screens.borrow().m_worldRenders.clone());
+    handlers
+        .into_iter()
+        .filter_map(|(owner, handler)| {
+            match state::modAt(owner)?.call(&GuestCall::WorldRender { handler, partial, camera })
+            {
+                Some(GuestReply::Pose(pose)) => Some(pose.model),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
+pub fn drawWorld(partial: f32)
+{
+    SCREENS.with(|screens| {
+        let screens = screens.borrow();
+        if let Some(drawer) = screens.m_worldDrawer.as_ref()
+        {
+            drawer(partial);
+        }
+    });
 }
 
 // lines every tooltip handler adds under the item name, in mod load order
