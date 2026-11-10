@@ -456,6 +456,12 @@ fn start(paths: &LoaderPaths)
     }
     state::setPhase(Phase::Frozen);
     log::debug(log::LOADER, &format!("registries frozen with {}", registryCounts()));
+    registry::with(|registries| {
+        for runtime in state::mods()
+        {
+            registry::report(registries, runtime.id());
+        }
+    });
 
     let stage: Instant = Instant::now();
     crate::netsync::checkSides();

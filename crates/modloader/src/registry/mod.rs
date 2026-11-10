@@ -1,7 +1,9 @@
+mod report;
 mod tables;
 mod vanilla;
 
 use mod_protocol::Identifier;
+pub use report::report;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 pub use tables::{
