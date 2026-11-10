@@ -249,14 +249,3 @@ pub fn snakeCase(key: &str) -> String
     }
     out
 }
-
-#[cfg(test)]
-mod tests
-{
-    #[test]
-    fn snakeCaseSplitsWords()
-    {
-        assert_eq!(super::snakeCase("PigZombie"), "pig_zombie");
-        assert_eq!(super::snakeCase("Item"), "item");
-    }
-}

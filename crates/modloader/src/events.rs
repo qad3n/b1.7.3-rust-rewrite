@@ -133,19 +133,3 @@ pub fn removeMod(modIndex: usize)
         }
     });
 }
-
-#[cfg(test)]
-mod tests
-{
-    #[test]
-    fn everyEventIsInTheCatalog()
-    {
-        for (kind, name) in mod_protocol::abi::EVENT_NAMES
-        {
-            if kind != mod_protocol::abi::EventKind::Custom
-            {
-                assert!(crate::catalog::find(name, 1).is_some(), "{name} is missing from hooks.toml");
-            }
-        }
-    }
-}

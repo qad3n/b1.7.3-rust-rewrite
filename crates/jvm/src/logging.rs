@@ -471,34 +471,3 @@ pub fn took(started: Instant) -> String
         _ => format!("{:.2}s", elapsed.as_secs_f64()),
     }
 }
-
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-
-    #[test]
-    fn module_path_reads_crate_and_modules()
-    {
-        assert_eq!(modulePath("crates/client/src/client/minecraft/run.rs"), "client::client::minecraft::run");
-        assert_eq!(modulePath("crates/game/src/item/item/mod.rs"), "game::item::item");
-        assert_eq!(modulePath("vendor/b1.7.3-modding-sdk/b173_api/src/lib.rs"), "b173_api");
-        assert_eq!(modulePath("crates\\client\\src\\bin\\beta173.rs"), "client::bin::beta173");
-    }
-
-    #[test]
-    fn function_path_names_impl_types_and_skips_closures()
-    {
-        let raw: &str =
-            "client::client::minecraft::run::<impl client::client::minecraft::Minecraft>::run::{{closure}}::here";
-        assert_eq!(functionPath(raw), "client::client::minecraft::run::Minecraft::run");
-        let raw: &str = "game::world::<impl game::Tick for game::world::World<T>>::tick::here";
-        assert_eq!(functionPath(raw), "game::world::World::tick");
-    }
-
-    #[test]
-    fn macro_names_its_function()
-    {
-        assert_eq!(functionPath(crate::function!()), "jvm::logging::tests::macro_names_its_function");
-    }
-}

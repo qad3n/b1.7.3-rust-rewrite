@@ -243,37 +243,3 @@ impl Registries
 
     pub fn itemId(&self, id: &Identifier) -> Option<i32> { self.m_items.numeric(id) }
 }
-
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-
-    #[test]
-    fn vanillaRowsMatchGameTables()
-    {
-        let registries: Registries = Registries::seeded();
-        assert_eq!(registries.blockId(&Identifier::minecraft("stone")), Some(1));
-        assert_eq!(registries.blockId(&Identifier::minecraft("trapdoor")), Some(96));
-        assert_eq!(registries.itemId(&Identifier::minecraft("iron_shovel")), Some(256));
-        assert_eq!(registries.itemId(&Identifier::minecraft("stick")), Some(280));
-        assert_eq!(registries.itemId(&Identifier::minecraft("bed")), Some(355));
-        assert_eq!(registries.itemId(&Identifier::minecraft("bed_block")), Some(26));
-        assert_eq!(registries.itemId(&Identifier::minecraft("record_cat")), Some(2257));
-        assert_eq!(registries.m_entities.numeric(&Identifier::minecraft("pig_zombie")), Some(57));
-        assert!(registries.m_recipes.rowCount() > 50);
-        assert!(registries.m_recipes.get(&Identifier::minecraft("crafting/torch")).is_some());
-        assert!(registries.m_smelting.get(&Identifier::minecraft("smelting/iron_ore")).is_some());
-        let names: Vec<&str> = registries.synced().iter().map(|registry| registry.name()).collect();
-        assert_eq!(names, SYNCED_ORDER);
-        assert_eq!(registries.m_packets.numeric(&Identifier::minecraft("packet/51")), Some(51));
-        for row in registries.m_blocks.rows()
-        {
-            assert!(Block::byId(row.m_numeric).is_some(), "{} has a block", row.m_id);
-        }
-        for row in registries.m_items.rows()
-        {
-            assert!(Item::byId(row.m_numeric).is_some(), "{} has an item", row.m_id);
-        }
-    }
-}

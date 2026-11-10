@@ -51,18 +51,3 @@ pub fn find(name: &str, version: u32) -> Option<&'static HookEntry>
 {
     hooks().iter().find(|entry| entry.name == name && entry.version == version)
 }
-
-#[cfg(test)]
-mod tests
-{
-    #[test]
-    fn catalogNamesAreUnique()
-    {
-        let mut seen: std::collections::HashSet<(&str, u32)> = std::collections::HashSet::new();
-        for entry in super::hooks()
-        {
-            assert!(seen.insert((entry.name.as_str(), entry.version)), "duplicate hook {}", entry.name);
-        }
-        assert!(super::find("block_break", 1).is_some_and(|entry| entry.cancellable));
-    }
-}

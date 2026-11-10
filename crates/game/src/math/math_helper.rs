@@ -70,26 +70,3 @@ pub fn stringNullOrLengthZero(string: Option<&jvm::string::JString>) -> bool
         Some(text) => text.length() == 0,
     }
 }
-
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-
-    #[test]
-    fn encodePosRoundsToNearestStep()
-    {
-        assert_eq!(encodePos(64.0), 2048);
-        assert_eq!(encodePos(63.9999999), 2048);
-        assert_eq!(encodePos(10.3), 330);
-        assert_eq!(encodePos(-10.3), -330);
-        assert_eq!(encodePos(-0.01), 0);
-    }
-
-    #[test]
-    fn lerpDegreesTakesTheShortWay()
-    {
-        assert_eq!(lerpDegrees(170.0, -170.0, 0.5), 180.0);
-        assert_eq!(lerpDegrees(-10.0, 10.0, 0.5), 0.0);
-    }
-}

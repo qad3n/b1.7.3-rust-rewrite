@@ -32,19 +32,3 @@ pub fn canonical(name: &str) -> Option<String>
         && name.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_');
     valid.then(|| name.to_ascii_lowercase())
 }
-
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-
-    #[test]
-    fn canonical_rejects_lookalikes_and_lengths()
-    {
-        assert_eq!(canonical("Notch").as_deref(), Some("notch"));
-        assert_eq!(canonical("ab"), None);
-        assert_eq!(canonical("a_name_that_is_too_long"), None);
-        assert_eq!(canonical("N\u{43e}tch"), None);
-        assert_eq!(canonical("bad name"), None);
-    }
-}

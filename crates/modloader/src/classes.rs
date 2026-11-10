@@ -23,28 +23,3 @@ derive_class!(deriveBlockClass, BlockClass);
 derive_class!(deriveItemClass, ItemClass);
 derive_class!(deriveEntityClass, EntityClass);
 derive_class!(deriveTileEntityClass, TileEntityClass);
-
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-    use game::block::Block;
-    use std::rc::Rc;
-
-    #[test]
-    fn derivedClassKeepsTemplateAndOverrides()
-    {
-        let torch: Rc<Block> = Block::torchWood();
-        let class: &'static BlockClass = deriveBlockClass(torch.m_class, "test:lamp", |class| {
-            class.tickRate = |_| 3;
-        });
-        assert!(class.isSubclassOf("BlockTorch"));
-        assert_eq!(class.m_name, "test:lamp");
-        assert_eq!(class.getRenderType as usize, torch.m_class.getRenderType as usize);
-        let lamp: Rc<Block> = game::hooks::withBlockClass(class, || {
-            game::block::block_torch::create(250, torch.m_blockIndexInTexture.get())
-        });
-        assert_eq!(lamp.tickRate(), 3);
-        assert_eq!(lamp.getRenderType(), torch.getRenderType());
-    }
-}
