@@ -3,6 +3,7 @@ pub mod container;
 pub mod attribute;
 pub mod crafting;
 pub mod damage;
+pub mod effect;
 pub mod entity;
 pub mod fluid;
 pub mod hooks;

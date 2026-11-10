@@ -21,6 +21,7 @@ pub enum DamageKind
     Cactus,
     Void,
     Kill,
+    Magic,
 }
 
 pub struct DamageRow
@@ -29,7 +30,7 @@ pub struct DamageRow
     pub m_name: &'static str,
 }
 
-pub const ROWS: [DamageRow; 16] = [
+pub const ROWS: [DamageRow; 17] = [
     DamageRow { m_kind: DamageKind::Generic, m_name: "generic" },
     DamageRow { m_kind: DamageKind::Mob, m_name: "mob" },
     DamageRow { m_kind: DamageKind::Player, m_name: "player" },
@@ -46,6 +47,7 @@ pub const ROWS: [DamageRow; 16] = [
     DamageRow { m_kind: DamageKind::Cactus, m_name: "cactus" },
     DamageRow { m_kind: DamageKind::Void, m_name: "out_of_world" },
     DamageRow { m_kind: DamageKind::Kill, m_name: "kill" },
+    DamageRow { m_kind: DamageKind::Magic, m_name: "magic" },
 ];
 
 impl DamageKind

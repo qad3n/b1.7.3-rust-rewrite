@@ -19,6 +19,7 @@ pub const MOVING_BLOCK: &str = "loader:moving_block";
 pub const BIOME: &str = "loader:biome";
 pub const STOP_USING: &str = "loader:stop_using";
 pub const ATTRIBUTES: &str = "loader:attributes";
+pub const EFFECTS: &str = "loader:effects";
 
 #[derive(Serialize, Deserialize)]
 pub struct EntitySynced
@@ -43,6 +44,22 @@ pub struct SyncedModifier
     pub id: String,
     pub amount: f64,
     pub operation: String,
+}
+
+// a player's status effects with their levels and ticks left, sent to that player's own client
+#[derive(Serialize, Deserialize)]
+pub struct EffectSync
+{
+    pub id: i32,
+    pub effects: Vec<SyncedEffect>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SyncedEffect
+{
+    pub name: String,
+    pub level: i32,
+    pub ticks: i32,
 }
 
 // leads every server tick's entity packets so clients can place samples on the server clock
@@ -321,7 +338,7 @@ pub fn sendTick()
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 11] = [
+    let channels: [(&str, Handler); 12] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
@@ -333,6 +350,7 @@ pub fn register()
         (MOVING_BLOCK, clientHandler(movingBlock)),
         (BIOME, clientHandler(biomeColumn)),
         (ATTRIBUTES, clientHandler(crate::attributes::received)),
+        (EFFECTS, clientHandler(crate::content::effects::received)),
     ];
     for (name, handler) in channels
     {

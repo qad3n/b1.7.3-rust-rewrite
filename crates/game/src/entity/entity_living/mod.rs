@@ -4,6 +4,7 @@ pub(crate) mod update;
 
 use crate::attribute::Attributes;
 use crate::damage::{DamageKind, DamageSource};
+use crate::effect::Effects;
 use crate::entity::remote::Pose;
 use crate::entity::{ENTITY, Entity, EntityClass};
 use crate::world::World;
@@ -67,6 +68,7 @@ pub struct LivingFields
     pub m_currentTarget: Field<Option<Rc<Entity>>>,
     pub m_numTicksToChaseTarget: Cell<i32>,
     pub m_attributes: Attributes,
+    pub m_effects: Effects,
 }
 
 pub fn fields(this: &Entity) -> &LivingFields
@@ -184,6 +186,7 @@ pub const CLASS: EntityClass = EntityClass {
         nbt.setShort("DeathTime", living.m_deathTime.get() as i16);
         nbt.setShort("AttackTime", living.m_attackTime.get() as i16);
         living.m_attributes.write(nbt);
+        living.m_effects.write(nbt);
     },
     readEntityFromNBT: |this, nbt| {
         let living: &LivingFields = fields(this);
@@ -196,6 +199,7 @@ pub const CLASS: EntityClass = EntityClass {
         living.m_deathTime.set(nbt.getShort("DeathTime") as i32);
         living.m_attackTime.set(nbt.getShort("AttackTime") as i32);
         living.m_attributes.read(nbt);
+        living.m_effects.read(nbt);
     },
     isEntityAlive: |this| !this.m_isDead.get() && fields(this).m_health.get() > 0,
     canBreatheUnderwater: |_| false,

@@ -108,6 +108,8 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
     living.m_prevRenderYawOffset.set(living.m_renderYawOffset.get());
     this.m_prevRotationYaw.set(this.m_rotationYaw.get());
     this.m_prevRotationPitch.set(this.m_rotationPitch.get());
+
+    crate::effect::tick(this);
 }
 
 pub fn onUpdate(this: &Rc<Entity>)

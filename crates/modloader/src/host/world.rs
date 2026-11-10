@@ -630,6 +630,18 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
         HostCall::DamageType => HostReply::Id(crate::damage::current()),
+        HostCall::AddEffect { world: dimension, id, effect, level, ticks } =>
+        {
+            unit(entity(dimension, id).and_then(|target| crate::content::effects::add(&target, &effect, level, ticks)))
+        }
+        HostCall::RemoveEffect { world: dimension, id, effect } =>
+        {
+            unit(entity(dimension, id).map(|target| crate::content::effects::remove(&target, &effect)))
+        }
+        HostCall::EffectLevel { world: dimension, id, effect } =>
+        {
+            ok(entity(dimension, id), |target| HostReply::Int(crate::content::effects::level(&target, &effect)))
+        }
         HostCall::SetModifier { world: dimension, id, attribute, modifier, amount, operation } => unit(
             entity(dimension, id)
                 .and_then(|target| crate::attributes::set(&target, &attribute, &modifier, amount, operation)),

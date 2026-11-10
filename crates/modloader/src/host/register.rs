@@ -128,6 +128,9 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
             tags::push();
             HostReply::Unit
         }
+        HostCall::RegisterEffect { name, spec } => unit(
+            registering().and_then(|()| own(runtime, &name)).and_then(|id| crate::content::effects::register(id, spec)),
+        ),
         HostCall::RegisterFluid { name, spec } => unit(
             registering().and_then(|()| own(runtime, &name)).and_then(|id| crate::content::fluids::register(id, spec)),
         ),

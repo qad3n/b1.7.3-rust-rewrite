@@ -114,6 +114,7 @@ impl GuiIngame
         self.m_gui.drawTexturedModalRect(i / 2 - 7, j / 2 - 7, 0, 0, 16, 16);
         GL11::glDisable(3042);
         self.renderStatusBars(&player, i, j);
+        self.renderEffects(&player, &fontrenderer, i);
         GL11::glDisable(3042);
         GL11::glEnable(32826);
         GL11::glPushMatrix();
@@ -340,6 +341,59 @@ impl GuiIngame
         GL11::glPopMatrix();
         GL11::glEnable(3008);
         GL11::glDisable(3042);
+    }
+
+    // beta has no status effects, so this draws only when a mod effect is on the player, down the right edge
+    fn renderEffects(&self, player: &Rc<Entity>, fontrenderer: &FontRenderer, width: i32)
+    {
+        const ICON: i32 = 16;
+        const ROW: i32 = 20;
+        const MARGIN: i32 = 2;
+        const TICKS_PER_SECOND: i32 = 20;
+        const BACKDROP: i32 = 0x80000000_u32 as i32;
+        const OPAQUE: i32 = 0xFF000000_u32 as i32;
+        const WHITE: i32 = 0xFFFFFF;
+        let Some(living) = player.m_ext.living()
+        else
+        {
+            return;
+        };
+        if living.m_effects.empty()
+        {
+            return;
+        }
+
+        let x: i32 = width - ICON - MARGIN;
+        for (row, (kind, level, ticks)) in living.m_effects.list().into_iter().enumerate()
+        {
+            let y: i32 = MARGIN + row as i32 * ROW;
+            self.m_gui.drawRect(x - 1, y - 1, x + ICON + 1, y + ICON + 1, BACKDROP);
+            if kind.m_icon.is_empty()
+            {
+                self.m_gui.drawRect(x, y, x + ICON, y + ICON, OPAQUE | kind.m_color);
+            }
+            else
+            {
+                GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+                GL11::glBindTexture(3553, self.renderEngine().getTexture(&kind.m_icon));
+                GL11::glPushMatrix();
+                GL11::glTranslatef(x as f32, y as f32, 0.0);
+                GuiIngame::drawOverlayQuad(ICON, ICON, 0.0, 0.0, 1.0, 1.0);
+                GL11::glPopMatrix();
+            }
+            let seconds: i32 = ticks.max(0) / TICKS_PER_SECOND;
+            let label: String = if level > 0
+            {
+                format!("{} {}:{:02}", level + 1, seconds / 60, seconds % 60)
+            }
+            else
+            {
+                format!("{}:{:02}", seconds / 60, seconds % 60)
+            };
+            let textX: i32 = x - MARGIN - fontrenderer.getStringWidth(&label);
+            fontrenderer.drawStringWithShadow(&label, textX, y + (ICON - 8) / 2, WHITE);
+        }
+        GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
     }
 
     fn drawOverlayQuad(width: i32, height: i32, u0: f64, v0: f64, u1: f64, v1: f64)

@@ -171,6 +171,7 @@ pub fn player(kind: EventKind, player: &Rc<Entity>)
     if kind == EventKind::PlayerLogin
     {
         crate::attributes::syncOwn(player);
+        crate::content::effects::syncOwn(player);
     }
 
     let action: &str = match kind
