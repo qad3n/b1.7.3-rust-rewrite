@@ -3,6 +3,7 @@ mod achievement_list;
 mod achievement_map;
 mod i_stat_string_format;
 mod i_stat_type;
+pub mod named;
 mod stat_base;
 mod stat_list;
 

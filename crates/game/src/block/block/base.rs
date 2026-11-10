@@ -3,6 +3,7 @@ use crate::entity::Entity;
 use crate::item::ItemStack;
 use crate::loot::{self, LootTable};
 use crate::math::{AxisAlignedBB, MovingObjectPosition, Vec3D};
+use crate::stats::named::ContentStat;
 use crate::world::{IBlockAccess, World};
 use jvm::array_list::JArrayList;
 use jvm::throwable::OrNpe;
@@ -305,6 +306,6 @@ pub fn collisionRayTrace(
 
 pub fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32, y: i32, z: i32, metadata: i32)
 {
-    player.addStat(crate::stats::StatList::mineBlockStat(this.m_blockID).as_ref(), 1);
+    crate::stats::named::count(player, ContentStat::Mined, this.m_blockID, 1);
     this.dropBlockAsItem(world, x, y, z, metadata);
 }

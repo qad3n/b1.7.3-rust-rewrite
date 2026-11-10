@@ -71,6 +71,7 @@ pub struct PlayerFields
     // rewrite: 1.7's item in use and the ticks it has left
     pub m_itemInUse: Field<Option<Rc<ItemStack>>>,
     pub m_itemInUseCount: Cell<i32>,
+    pub m_progress: crate::stats::named::Progress,
 }
 
 pub fn fields(this: &Entity) -> &PlayerFields

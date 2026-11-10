@@ -2,6 +2,7 @@ use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::entity::Entity;
 use crate::item::{Item, ItemStack};
 use crate::math::AxisAlignedBB;
+use crate::stats::named::ContentStat;
 use crate::world::{EnumSkyBlock, World};
 use jvm::throwable::OrNpe;
 use std::rc::Rc;
@@ -33,7 +34,7 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
     crate::entity::entity_item::fields(&entityItem).m_delayBeforeCanPickup.set(10);
     world.entityJoinedWorld(&entityItem);
     world.setBlockWithNotify(x, y, z, 0);
-    player.addStat(crate::stats::StatList::mineBlockStat(this.m_blockID).as_ref(), 1);
+    crate::stats::named::count(player, ContentStat::Mined, this.m_blockID, 1);
 }
 
 pub const CLASS: BlockClass = BlockClass {

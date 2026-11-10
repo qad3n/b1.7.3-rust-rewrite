@@ -332,6 +332,8 @@ pub fn writeItemName(item: i32, nbt: &NBTTagCompound)
     }
 }
 
+pub fn itemName(item: i32) -> Option<String> { active()?.itemName(item) }
+
 pub fn itemByName(nbt: &NBTTagCompound) -> Option<i32>
 {
     let name: String = nbt.getString(ITEM_NAME)?.to_string();

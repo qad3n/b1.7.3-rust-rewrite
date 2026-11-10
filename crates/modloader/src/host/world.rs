@@ -630,6 +630,22 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
         HostCall::DamageType => HostReply::Id(crate::damage::current()),
+        HostCall::UnlockAchievement { player: id, achievement } =>
+        {
+            ok(player(id), |target| HostReply::Bool(crate::content::progress::unlock(&target, &achievement)))
+        }
+        HostCall::HasAchievement { player: id, achievement } =>
+        {
+            ok(player(id), |target| HostReply::Bool(game::stats::named::unlocked(&target, &achievement.to_string())))
+        }
+        HostCall::AddStat { player: id, stat, amount } =>
+        {
+            unit(player(id).map(|target| crate::content::progress::addStat(&target, &stat, amount)))
+        }
+        HostCall::StatValue { player: id, stat } =>
+        {
+            ok(player(id), |target| HostReply::Int(game::stats::named::value(&target, &stat)))
+        }
         HostCall::AddEffect { world: dimension, id, effect, level, ticks } =>
         {
             unit(entity(dimension, id).and_then(|target| crate::content::effects::add(&target, &effect, level, ticks)))

@@ -41,6 +41,21 @@ impl Achievement
         StatBase::new(0x500000 + id, statName, StatBase::NUMBER_FORMATTER, StatExt::Achievement(achievement))
     }
 
+    // a stat that only carries a mod achievement's title and icon to beta's toast, never registered or saved
+    pub fn display(title: String, description: String, icon: Rc<ItemStack>) -> Rc<StatBase>
+    {
+        let achievement: Achievement = Achievement {
+            m_displayColumn: 0,
+            m_displayRow: 0,
+            m_parentAchievement: None,
+            m_achievementDescription: description,
+            m_statStringFormatter: Field::new(None),
+            m_theItemStack: icon,
+            m_isSpecial: Cell::new(false),
+        };
+        StatBase::new(0, title, StatBase::NUMBER_FORMATTER, StatExt::Achievement(achievement))
+    }
+
     pub fn of(stat: &StatBase) -> &Achievement
     {
         match &stat.m_ext

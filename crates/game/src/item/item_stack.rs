@@ -1,7 +1,7 @@
 use crate::block::Block;
 use crate::entity::Entity;
 use crate::item::Item;
-use crate::stats::StatList;
+use crate::stats::named::ContentStat;
 use crate::world::World;
 use common::nbt::NBTTagCompound;
 use std::cell::Cell;
@@ -83,7 +83,7 @@ impl ItemStack
         let bl: bool = world.playerEdit(|| self.getItem().onItemUse(self, player, world, x, y, z, face));
         if bl
         {
-            player.addStat(StatList::itemsUsed(self.m_itemID.get()).as_ref(), 1);
+            crate::stats::named::count(player, ContentStat::Used, self.m_itemID.get(), 1);
         }
         bl
     }
@@ -163,7 +163,7 @@ impl ItemStack
         {
             if holder.instanceOf("EntityPlayer")
             {
-                holder.addStat(StatList::itemsBroken(self.m_itemID.get()).as_ref(), 1);
+                crate::stats::named::count(holder, ContentStat::Broken, self.m_itemID.get(), 1);
             }
             self.m_stackSize.set(self.m_stackSize.get() - 1);
             if self.m_stackSize.get() < 0
@@ -179,7 +179,7 @@ impl ItemStack
         let bl: bool = self.getItem().hitEntity(self, target, attacker);
         if bl
         {
-            attacker.addStat(StatList::itemsUsed(self.m_itemID.get()).as_ref(), 1);
+            crate::stats::named::count(attacker, ContentStat::Used, self.m_itemID.get(), 1);
         }
     }
 
@@ -188,7 +188,7 @@ impl ItemStack
         let bl: bool = self.getItem().onBlockDestroyed(self, block, x, y, z, player);
         if bl
         {
-            player.addStat(StatList::itemsUsed(self.m_itemID.get()).as_ref(), 1);
+            crate::stats::named::count(player, ContentStat::Used, self.m_itemID.get(), 1);
         }
     }
 
@@ -268,7 +268,7 @@ impl ItemStack
 
     pub fn onCrafting(self: &Rc<Self>, world: &Rc<World>, player: &Rc<Entity>)
     {
-        player.addStat(StatList::itemsCrafted(self.m_itemID.get()).as_ref(), self.m_stackSize.get());
+        crate::stats::named::count(player, ContentStat::Crafted, self.m_itemID.get(), self.m_stackSize.get());
         self.getItem().onCreated(self, world, player);
     }
 

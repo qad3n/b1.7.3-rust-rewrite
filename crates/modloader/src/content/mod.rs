@@ -7,6 +7,7 @@ pub mod items;
 pub mod lang;
 pub mod loot;
 pub mod particles;
+pub mod progress;
 pub mod recipes;
 pub mod tags;
 pub mod templates;

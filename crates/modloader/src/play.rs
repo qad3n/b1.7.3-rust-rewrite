@@ -172,6 +172,7 @@ pub fn player(kind: EventKind, player: &Rc<Entity>)
     {
         crate::attributes::syncOwn(player);
         crate::content::effects::syncOwn(player);
+        crate::content::progress::syncOwn(player);
     }
 
     let action: &str = match kind

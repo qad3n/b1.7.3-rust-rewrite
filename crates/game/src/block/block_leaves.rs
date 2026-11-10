@@ -2,6 +2,7 @@ use crate::block::block_leaves_base::{self, LeavesExt};
 use crate::block::{Block, BlockClass, Material};
 use crate::entity::Entity;
 use crate::item::{Item, ItemStack};
+use crate::stats::named::ContentStat;
 use crate::tags::{self, Tag};
 use crate::world::{IBlockAccess, World};
 use crate::worldgen::ColorizerFoliage;
@@ -162,7 +163,7 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
         .is_some_and(|stack| stack.m_itemID.get() == Item::shears().m_shiftedIndex);
     if !world.m_multiplayerWorld.get() && shears
     {
-        player.addStat(crate::stats::StatList::mineBlockStat(this.m_blockID).as_ref(), 1);
+        crate::stats::named::count(player, ContentStat::Mined, this.m_blockID, 1);
         this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::LEAVES, 1, metadata & 3));
     }
     else

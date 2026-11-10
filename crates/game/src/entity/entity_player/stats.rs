@@ -34,6 +34,7 @@ pub fn readEntityFromNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
             nbt.getInteger("SpawnZ"),
         )));
     }
+    fields(this).m_progress.read(nbt);
 }
 
 pub fn writeEntityToNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
@@ -50,6 +51,7 @@ pub fn writeEntityToNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
         nbt.setInteger("SpawnY", spawn.m_y);
         nbt.setInteger("SpawnZ", spawn.m_z);
     }
+    player.m_progress.write(nbt);
 }
 
 pub fn addMovementStat(this: &Rc<Entity>, x: f64, y: f64, z: f64)

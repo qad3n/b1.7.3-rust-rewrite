@@ -107,6 +107,12 @@ impl GuiAchievement
             GL11::glDepthMask(true);
             GL11::glEnable(2929);
         }
+        // rewrite: mod achievements take their turn once no toast is showing
+        if self.m_startTime.get() == 0
+            && let Some(stat) = game::stats::named::nextToast()
+        {
+            self.queueTakenAchievement(&stat);
+        }
         let Some(achievement) = self.m_theAchievement.get()
         else
         {
