@@ -233,6 +233,13 @@ fn texture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
         .unwrap_or_else(|| (parent(this).getBlockTextureFromSideAndMetadata)(this, face, metadata))
 }
 
+fn faceTexture(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, face: i32) -> i32
+{
+    asInt(callBlock(this, None, BlockCall::FaceTexture { ctx: accessCtx(this, world, x, y, z), face }))
+        .filter(|slot| *slot >= 0)
+        .unwrap_or_else(|| (parent(this).getBlockTexture)(this, world, x, y, z, face))
+}
+
 fn colorMultiplier(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> i32
 {
     asInt(callBlock(this, None, BlockCall::ColorMultiplier { ctx: accessCtx(this, world, x, y, z) }))
@@ -267,6 +274,7 @@ pub fn patchBlock(class: &mut BlockClass, behavior: &Behavior<BlockMethod>)
             BlockMethod::CanProvidePower => class.canProvidePower = canProvidePower,
             BlockMethod::Texture => class.getBlockTextureFromSideAndMetadata = texture,
             BlockMethod::ColorMultiplier => class.colorMultiplier = colorMultiplier,
+            BlockMethod::FaceTexture => class.getBlockTexture = faceTexture,
         }
     }
 }

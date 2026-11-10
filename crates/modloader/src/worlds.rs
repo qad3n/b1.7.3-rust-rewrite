@@ -327,6 +327,7 @@ pub fn provider(dimension: i32) -> Option<Rc<WorldProvider>>
     let height: dimensions::Height = dimensions::height(&spec.m_id);
     provider.m_height.set(height.m_world);
     provider.m_buildLimit.set(height.m_build);
+    provider.m_seed.set(dimensions::seed(&spec.m_id));
     Some(provider)
 }
 

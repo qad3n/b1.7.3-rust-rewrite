@@ -427,7 +427,12 @@ impl World
 
     pub fn setWorldTime(&self, time: i64) { self.worldInfo().setWorldTime(time); }
 
-    pub fn getRandomSeed(&self) -> i64 { self.worldInfo().getRandomSeed() }
+    pub fn getRandomSeed(&self) -> i64
+    {
+        let provider: Option<i64> =
+            self.m_worldProvider.with(|provider| provider.as_ref().and_then(|it| it.m_seed.get()));
+        provider.unwrap_or_else(|| self.worldInfo().getRandomSeed())
+    }
 
     pub fn getWorldTime(&self) -> i64 { self.worldInfo().getWorldTime() }
 

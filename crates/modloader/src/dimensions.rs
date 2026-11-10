@@ -51,6 +51,8 @@ struct Tables
     m_heights: BTreeMap<Identifier, Height>,
     // dimension id to the guest that names what may spawn at a spot, absent means the biome lists
     m_spawnLists: BTreeMap<Identifier, (usize, Handle)>,
+    // dimension id to the seed it generates from instead of the save's, absent means the save's
+    m_seeds: BTreeMap<Identifier, i64>,
 }
 
 thread_local! {
@@ -178,6 +180,19 @@ pub fn registerHeight(modIndex: usize, dimension: Identifier, height: i32, build
         tables.borrow_mut().m_heights.insert(dimension, Height { m_world: height, m_build: buildLimit })
     });
     Ok(())
+}
+
+// only the mod that registered a dimension sets its seed, before any world of it exists
+pub fn registerSeed(modIndex: usize, dimension: Identifier, seed: i64) -> Result<(), String>
+{
+    owned(modIndex, &dimension)?;
+    TABLES.with(|tables| tables.borrow_mut().m_seeds.insert(dimension, seed));
+    Ok(())
+}
+
+pub fn seed(dimension: &Identifier) -> Option<i64>
+{
+    TABLES.with(|tables| tables.borrow().m_seeds.get(dimension).copied())
 }
 
 pub fn height(dimension: &Identifier) -> Height

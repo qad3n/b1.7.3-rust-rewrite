@@ -230,6 +230,11 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         EntityField::MoveSpeed => HostReply::Float(living(entity).map_or(0.0, |fields| fields.m_moveSpeed.get())),
         EntityField::StepHeight => HostReply::Float(entity.m_stepHeight.get()),
         EntityField::MaxHealth => HostReply::Float(game::hooks::maxHealth(entity) as f32),
+        EntityField::DeathTime => HostReply::Float(living(entity).map_or(0, |fields| fields.m_deathTime.get()) as f32),
+        EntityField::BlockMeta =>
+        {
+            HostReply::Float(movingBlock(entity).map_or(0, |fields| fields.m_metadata.get()) as f32)
+        }
         EntityField::Invisible => HostReply::Bool(context::invisible(entity.m_entityId.get())),
         EntityField::Shooter => HostReply::Float(shooter(entity) as f32),
     }
@@ -290,6 +295,11 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::MaxHealth => context::setMaxHealth(entity.m_entityId.get(), value as i32),
         EntityField::Invisible => context::setInvisible(entity.m_entityId.get(), value != 0.0),
         EntityField::Shooter => setShooter(entity, value as i32),
+        EntityField::DeathTime => living(entity).into_iter().for_each(|fields| fields.m_deathTime.set(value as i32)),
+        EntityField::BlockMeta =>
+        {
+            movingBlock(entity).into_iter().for_each(|fields| fields.m_metadata.set(value as i32))
+        }
     }
 }
 
@@ -390,6 +400,17 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                     world.setBlockAndMetadata(pos.x, pos.y, pos.z, block, meta)
                 };
                 HostReply::Bool(changed)
+            })
+        }
+        HostCall::Weather { world: dimension, raining, thundering, ticks } =>
+        {
+            ok(world(dimension).and_then(|world| authoritative(&world).map(|()| world)), |world| {
+                let info = world.worldInfo();
+                info.setRaining(raining);
+                info.setRainTime(ticks);
+                info.setThundering(raining && thundering);
+                info.setThunderTime(ticks);
+                HostReply::Unit
             })
         }
         HostCall::SwapBlock { world: dimension, pos, block, meta } => ok(

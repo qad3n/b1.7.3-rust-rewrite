@@ -261,6 +261,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 .and_then(|world| structures::locate(&world, &structure, from, radius)),
             HostReply::Located,
         ),
+        HostCall::DimensionSeed { dimension, seed } => unit(dimensions::registerSeed(index, dimension, seed)),
+        HostCall::TerrainSlot { texture } =>
+        {
+            HostReply::Int(crate::content::textureSlot(&texture, crate::atlas::Atlas::Terrain).unwrap_or(-1))
+        }
         HostCall::WorldSeed { world } => match context::world(world)
         {
             Some(world) => HostReply::Long(world.getRandomSeed()),

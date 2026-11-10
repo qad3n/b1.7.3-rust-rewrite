@@ -45,6 +45,8 @@ pub struct WorldProvider
     // rewrite: a mod dimension may be taller than vanilla, players still build only below the build limit
     pub m_height: Cell<i32>,
     pub m_buildLimit: Cell<i32>,
+    // rewrite: a mod dimension may generate from its own seed, as Forge's WorldProvider.getSeed
+    pub m_seed: Cell<Option<i64>>,
 }
 
 impl WorldProvider
@@ -63,6 +65,7 @@ impl WorldProvider
             m_colorsSunriseSunset: Field::new([0.0; 4]),
             m_height: Cell::new(crate::world::HEIGHT),
             m_buildLimit: Cell::new(crate::world::HEIGHT),
+            m_seed: Cell::new(None),
         })
     }
 

@@ -198,7 +198,7 @@ fn templateClass(template: &templates::ItemTemplate, spec: &ItemSpec) -> &'stati
         .map_or(&game::item::ITEM, |item| item.m_class)
 }
 
-// the item form of a mod block shares its numeric id, a spec item block only renames or restacks it
+// the item form of a mod block shares its numeric id, a spec item block renames, restacks or gives it a behavior
 pub fn buildBlockItem(block: &Rc<Block>, spec: Option<&ItemSpec>, owner: usize, id: &Identifier) -> Result<(), String>
 {
     let numeric: i32 = block.m_blockID;
@@ -206,7 +206,15 @@ pub fn buildBlockItem(block: &Rc<Block>, spec: Option<&ItemSpec>, owner: usize, 
     {
         return Ok(());
     }
-    let item: Rc<Item> = game::item::item_block::create(numeric - 256);
+    let class: &'static ItemClass = match spec.filter(|spec| spec.behavior.is_some())
+    {
+        Some(spec) =>
+        {
+            crate::classes::deriveItemClass(&game::item::item_block::CLASS, &id.to_string(), |class| patch(class, spec))
+        }
+        None => &game::item::item_block::CLASS,
+    };
+    let item: Rc<Item> = game::item::item_block::construct(class, numeric - 256);
     if let Some(spec) = spec
     {
         super::putItem(numeric, ItemData { m_id: id.clone(), m_owner: owner, m_spec: spec.clone(), m_tool: None });
