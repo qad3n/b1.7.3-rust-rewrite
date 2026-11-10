@@ -82,8 +82,14 @@ pub const NEUTRAL_MONSTER: EntityClass = EntityClass {
     ..game::entity::entity_mob::CLASS
 };
 
-pub const ENTITY_TEMPLATES: [EntityTemplate; 17] = [
+pub const ENTITY_TEMPLATES: [EntityTemplate; 18] = [
     EntityTemplate { m_name: "projectile", m_class: &PROJECTILE, m_create: game::entity::entity_snowball::new },
+    // EntityArrow itself: flies, sticks in blocks, drawn by RenderArrow and picked up when a player shot it
+    EntityTemplate {
+        m_name: "arrow",
+        m_class: &game::entity::entity_arrow::CLASS,
+        m_create: game::entity::entity_arrow::new,
+    },
     EntityTemplate { m_name: "moving_block", m_class: &MOVING_BLOCK, m_create: createMovingBlock },
     // EntityMob itself: hunts players in sight, melee, gone on peaceful, never burns
     EntityTemplate {
@@ -584,7 +590,7 @@ pub fn isLivingClass(className: &str) -> bool
             .borrow()
             .values()
             .find(|entityType| entityType.m_id.to_string() == className)
-            .is_some_and(|entityType| entityType.m_template.m_name != "projectile")
+            .is_some_and(|entityType| !matches!(entityType.m_template.m_name, "projectile" | "arrow"))
     })
 }
 

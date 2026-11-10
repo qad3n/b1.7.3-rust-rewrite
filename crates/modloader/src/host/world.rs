@@ -170,7 +170,10 @@ fn setShooter(entity: &Entity, id: i32)
         entity.m_worldObj.get().and_then(|world| context::entityIn(context::dimension(&world), id));
     if entity.instanceOf("EntityArrow")
     {
-        game::entity::entity_arrow::fields(entity).m_owner.set(owner);
+        let arrow: &game::entity::entity_arrow::ArrowFields = game::entity::entity_arrow::fields(entity);
+        // EntityArrow's player constructor, only a player's arrow can be picked up
+        arrow.m_doesArrowBelongToPlayer.set(owner.as_ref().is_some_and(|owner| owner.instanceOf("EntityPlayer")));
+        arrow.m_owner.set(owner);
     }
     else if shot::THROWN.iter().any(|class| entity.instanceOf(class))
     {
