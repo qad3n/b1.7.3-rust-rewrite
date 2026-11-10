@@ -147,6 +147,12 @@ impl RenderBlocks
     {
         let n: i32 = block.getRenderType();
         block.setBlockBoundsBasedOnState(&*self.world(), x, y, z);
+        // rewrite: a mod block may turn the sprites of its faces where it stands
+        let turns: Option<[i32; 6]> = modloader::behavior::faceRotations(block, &*self.world(), x, y, z);
+        if let Some(turns) = turns
+        {
+            self.setFaceRotations(turns);
+        }
         let drawn: bool = match n
         {
             0 => self.renderStandardBlock(block, x, y, z),
@@ -171,8 +177,25 @@ impl RenderBlocks
             modloader::content::blocks::MODEL_RENDER_TYPE => crate::modded::renderModel(self, block, x, y, z),
             _ => false,
         };
+        if turns.is_some()
+        {
+            self.setFaceRotations([0; 6]);
+        }
         // rewrite: a mod block may lay sprites over its faces after it is drawn
         crate::modded::renderOverlays(self, block, x, y, z) || drawn
+    }
+
+    // the uvRotate fields by face index, face 2 draws through renderEastFace and its north rotation and so on
+    fn setFaceRotations(&mut self, turns: [i32; 6])
+    {
+        [
+            self.m_bottomFaceRotation,
+            self.m_topFaceRotation,
+            self.m_northFaceRotation,
+            self.m_southFaceRotation,
+            self.m_eastFaceRotation,
+            self.m_westFaceRotation,
+        ] = turns;
     }
 
     pub fn renderItemIn3d(kind: i32) -> bool { matches!(kind, 0 | 13 | 10 | 11 | 16) }

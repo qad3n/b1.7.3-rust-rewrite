@@ -402,6 +402,14 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 HostReply::Bool(changed)
             })
         }
+        HostCall::DigSpeed { player: id, block } => ok(
+            player(id).and_then(|player| {
+                game::block::Block::byId(block).map(|block| (player, block)).ok_or(format!("no block {block}"))
+            }),
+            |(player, block)| {
+                HostReply::Float(game::entity::entity_player::getCurrentPlayerStrVsBlock(&player, &block))
+            },
+        ),
         HostCall::Weather { world: dimension, raining, thundering, ticks } =>
         {
             ok(world(dimension).and_then(|world| authoritative(&world).map(|()| world)), |world| {

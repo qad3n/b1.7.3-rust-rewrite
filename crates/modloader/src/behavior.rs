@@ -258,6 +258,28 @@ pub fn overlays(blockId: i32) -> bool
         .unwrap_or(false)
 }
 
+// quarter turns of each face's sprite by face index, asked only of blocks whose behavior turns faces
+pub fn faceRotations(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> Option<[i32; 6]>
+{
+    let turns: bool = content::blockData(this.m_blockID)
+        .and_then(|data| {
+            data.m_spec.behavior.as_ref().map(|behavior| behavior.methods.contains(&BlockMethod::FaceRotation))
+        })
+        .unwrap_or(false);
+    if !turns
+    {
+        return None;
+    }
+    match callBlock(this, None, BlockCall::FaceRotation { ctx: accessCtx(this, world, x, y, z) })
+    {
+        Some(GuestReply::Bytes(bytes)) if bytes.len() == 6 =>
+        {
+            Some(std::array::from_fn(|face| i32::from(bytes[face] & 3)))
+        }
+        _ => None,
+    }
+}
+
 pub fn overlay(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, face: i32) -> Option<FaceOverlay>
 {
     match callBlock(this, None, BlockCall::Overlay { ctx: accessCtx(this, world, x, y, z), face })
@@ -303,8 +325,8 @@ pub fn patchBlock(class: &mut BlockClass, behavior: &Behavior<BlockMethod>)
             BlockMethod::ColorMultiplier => class.colorMultiplier = colorMultiplier,
             BlockMethod::FaceTexture => class.getBlockTexture = faceTexture,
             BlockMethod::Strength => class.blockStrengthAt = strength,
-            // the renderer asks for overlays itself, the class keeps its draw
-            BlockMethod::Overlay =>
+            // the renderer asks for overlays and face turns itself, the class keeps its draw
+            BlockMethod::Overlay | BlockMethod::FaceRotation =>
             {}
         }
     }
