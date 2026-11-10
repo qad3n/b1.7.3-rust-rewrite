@@ -8,12 +8,10 @@ use mod_protocol::Identifier;
 use mod_protocol::abi::{RecipeShape, RecipeView, StackData};
 use std::rc::Rc;
 
-// block items nobody holds: liquids, fire, technical blocks and the blocks a separate item places
-const HIDDEN: [&str; 24] = [
+// block items nobody holds: flowing liquids, fire, technical blocks and the blocks a separate item places
+const HIDDEN: [&str; 22] = [
     "flowing_water",
-    "water",
     "flowing_lava",
-    "lava",
     "bed_block",
     "piston_head",
     "piston_extension",
