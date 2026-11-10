@@ -289,6 +289,13 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
         let known: Vec<&str> = templates::BLOCK_TEMPLATES.iter().map(|row| row.m_name).collect();
         return Err(format!("unknown block template minecraft:{name}, known: {}", known.join(", ")));
     }
+    if let Some(kind) = spec.model.as_ref().and_then(|model| model.render_type)
+        && !game::block::render_type::RENDER_TYPES.iter().any(|row| row.m_id == kind)
+    {
+        let known: Vec<String> =
+            game::block::render_type::RENDER_TYPES.iter().map(|row| format!("{} {}", row.m_id, row.m_name)).collect();
+        return Err(format!("unknown render type {kind}, known: {}", known.join(", ")));
+    }
     if let Some(material) = &spec.material
         && templates::material(material).is_none()
         && Identifier::parse(material).is_err()

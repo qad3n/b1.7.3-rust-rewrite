@@ -74,6 +74,7 @@ pub mod block_workbench;
 pub mod map_color;
 pub mod material;
 pub mod model_bed;
+pub mod render_type;
 
 pub use block::{BLOCK, BLOCK_IDS, BREAK_EVENT, Block, BlockClass, StepSound, packBreak, unpackBreak};
 pub use map_color::MapColor;

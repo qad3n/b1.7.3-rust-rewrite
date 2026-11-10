@@ -16,6 +16,37 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
+type Draw = fn(&mut RenderBlocks, &Rc<Block>, i32, i32, i32) -> bool;
+
+// how each beta render type draws in the world and whether its item is a 3d block, indexed by the ids in
+// game::block::render_type
+struct ShapeRow
+{
+    m_draw: Draw,
+    m_item3d: bool,
+}
+
+const SHAPES: [ShapeRow; 18] = [
+    ShapeRow { m_draw: RenderBlocks::renderStandardBlock, m_item3d: true },
+    ShapeRow { m_draw: RenderBlocks::renderBlockReed, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockTorch, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockFire, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockFluids, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockRedstoneWire, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockCrops, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockDoor, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockLadder, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockMinecartTrack, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockStairs, m_item3d: true },
+    ShapeRow { m_draw: RenderBlocks::renderBlockFence, m_item3d: true },
+    ShapeRow { m_draw: RenderBlocks::renderBlockLever, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockCactus, m_item3d: true },
+    ShapeRow { m_draw: RenderBlocks::renderBlockBed, m_item3d: false },
+    ShapeRow { m_draw: RenderBlocks::renderBlockRepeater, m_item3d: false },
+    ShapeRow { m_draw: |renderer, block, x, y, z| renderer.tesselatePistonBase(block, x, y, z, false), m_item3d: true },
+    ShapeRow { m_draw: |renderer, block, x, y, z| renderer.tesselatePistonHead(block, x, y, z, true), m_item3d: false },
+];
+
 thread_local! {
     static FANCY_GRASS: Cell<bool> = const { Cell::new(true) };
 }
@@ -155,27 +186,12 @@ impl RenderBlocks
         }
         let drawn: bool = match n
         {
-            0 => self.renderStandardBlock(block, x, y, z),
-            4 => self.renderBlockFluids(block, x, y, z),
-            13 => self.renderBlockCactus(block, x, y, z),
-            1 => self.renderBlockReed(block, x, y, z),
-            6 => self.renderBlockCrops(block, x, y, z),
-            2 => self.renderBlockTorch(block, x, y, z),
-            3 => self.renderBlockFire(block, x, y, z),
-            5 => self.renderBlockRedstoneWire(block, x, y, z),
-            8 => self.renderBlockLadder(block, x, y, z),
-            7 => self.renderBlockDoor(block, x, y, z),
-            9 => self.renderBlockMinecartTrack(block, x, y, z),
-            10 => self.renderBlockStairs(block, x, y, z),
-            11 => self.renderBlockFence(block, x, y, z),
-            12 => self.renderBlockLever(block, x, y, z),
-            14 => self.renderBlockBed(block, x, y, z),
-            15 => self.renderBlockRepeater(block, x, y, z),
-            16 => self.tesselatePistonBase(block, x, y, z, false),
-            17 => self.tesselatePistonHead(block, x, y, z, true),
             // mod block models are lists of cuboids
             modloader::content::blocks::MODEL_RENDER_TYPE => crate::modded::renderModel(self, block, x, y, z),
-            _ => false,
+            _ => usize::try_from(n)
+                .ok()
+                .and_then(|index| SHAPES.get(index))
+                .is_some_and(|row| (row.m_draw)(self, block, x, y, z)),
         };
         if turns.is_some()
         {
@@ -198,5 +214,8 @@ impl RenderBlocks
         ] = turns;
     }
 
-    pub fn renderItemIn3d(kind: i32) -> bool { matches!(kind, 0 | 13 | 10 | 11 | 16) }
+    pub fn renderItemIn3d(kind: i32) -> bool
+    {
+        usize::try_from(kind).ok().and_then(|index| SHAPES.get(index)).is_some_and(|row| row.m_item3d)
+    }
 }
