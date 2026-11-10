@@ -392,6 +392,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 HostReply::Bool(changed)
             })
         }
+        HostCall::SwapBlock { world: dimension, pos, block, meta } => ok(
+            world(dimension)
+                .and_then(|world| authoritative(&world).map(|()| world))
+                .and_then(|world| tiles::swap(&world, pos, block, meta)),
+            HostReply::Bool,
+        ),
         HostCall::BlockState { world: dimension, pos } => ok(world(dimension), |world| {
             let block: i32 = world.getBlockId(pos.x, pos.y, pos.z);
             HostReply::State(crate::states::describe(block, world.getBlockMetadata(pos.x, pos.y, pos.z)))

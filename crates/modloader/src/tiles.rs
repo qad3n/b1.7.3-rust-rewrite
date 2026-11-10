@@ -8,9 +8,9 @@ use game::tileentity::{TILE_ENTITY, TileEntity, TileEntityClass};
 use game::world::World;
 use jvm::string::JString;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{GuestCall, TileCall};
+use mod_protocol::abi::{BlockPos, GuestCall, TileCall};
 use mod_protocol::spec::{TileEntitySpec, TileMethod};
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -39,6 +39,8 @@ thread_local! {
     static TYPES: RefCell<HashMap<Identifier, Rc<TileType>>> = RefCell::new(HashMap::new());
     // block id to the tile type its spec names
     static BLOCK_TYPES: RefCell<HashMap<i32, Rc<TileType>>> = RefCell::new(HashMap::new());
+    // set while a swap replaces the block so the tile entity and its slots stay, as beta's keepFurnaceInventory
+    static SWAPPING: Cell<bool> = const { Cell::new(false) };
 }
 
 pub fn define(id: Identifier, owner: usize, spec: TileEntitySpec)
@@ -231,14 +233,19 @@ fn blockEntity(this: &Rc<Block>) -> Rc<TileEntity>
 fn added(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     (blockParent(this).onBlockAdded)(this, world, x, y, z);
-    world.setBlockTileEntity(x, y, z, &this.getBlockEntity());
+    if !SWAPPING.with(Cell::get)
+    {
+        world.setBlockTileEntity(x, y, z, &this.getBlockEntity());
+    }
     crate::behavior::notifyAdded(this, world, x, y, z);
 }
 
 fn removed(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     crate::behavior::notifyRemoved(this, world, x, y, z);
-    if let Some(tile) = world.getBlockTileEntity(x, y, z)
+    let swapping: bool = SWAPPING.with(Cell::get);
+    if !swapping
+        && let Some(tile) = world.getBlockTileEntity(x, y, z)
         && tile.tryExt::<ModTileExt>().is_some()
     {
         if wants(&tile, TileMethod::Removed)
@@ -252,6 +259,33 @@ fn removed(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     }
     (blockParent(this).onBlockRemoval)(this, world, x, y, z);
     world.removeBlockTileEntity(x, y, z);
+}
+
+// BlockFurnace.updateFurnaceBlockState for mod tiles, the new block must hold the same tile type
+pub fn swap(world: &Rc<World>, pos: BlockPos, block: i32, meta: i32) -> Result<bool, String>
+{
+    let BlockPos { x, y, z } = pos;
+    let tile: Rc<TileEntity> = world
+        .getBlockTileEntity(x, y, z)
+        .filter(|tile| tile.tryExt::<ModTileExt>().is_some())
+        .ok_or_else(|| format!("no mod tile entity at {x} {y} {z}"))?;
+    let tileType: &Rc<TileType> = &ext(&tile).m_type;
+    if !forBlock(block).is_some_and(|target| Rc::ptr_eq(&target, tileType))
+    {
+        return Err(format!("block {block} does not hold tile entity {}", tileType.m_id));
+    }
+
+    SWAPPING.with(|swapping| swapping.set(true));
+    let changed: bool = world.setBlockAndMetadataWithNotify(x, y, z, block, meta);
+    SWAPPING.with(|swapping| swapping.set(false));
+    if !changed
+    {
+        return Ok(false);
+    }
+
+    tile.cancelRemoval();
+    world.setBlockTileEntity(x, y, z, &tile);
+    Ok(true)
 }
 
 // a block that names a tile entity behaves like BlockContainer on top of its template, after any wasm patch
