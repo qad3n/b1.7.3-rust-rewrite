@@ -382,7 +382,7 @@ impl IChunkProvider for ChunkProviderSky
         self.buildTerrain(chunkX, chunkZ, &mut blocks, &biomes, &temperatures);
         self.buildSurfaces(chunkX, chunkZ, &mut blocks, &biomes);
         self.m_biomes.set(Some(biomes));
-        self.m_cave.place(self, world, chunkX, chunkZ, &mut blocks);
+        self.m_cave.place(world.getRandomSeed(), chunkX, chunkZ, &mut blocks);
         let chunk: Rc<Chunk> = Chunk::withBlocks(world, blocks, chunkX, chunkZ);
         chunk.populateHeightMap();
         chunk

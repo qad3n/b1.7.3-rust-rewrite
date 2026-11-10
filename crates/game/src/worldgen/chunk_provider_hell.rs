@@ -1,6 +1,7 @@
 use crate::block::Block;
 use crate::world::{Chunk, IChunkProvider, World};
 use crate::worldgen::chunk_provider_generate::{chunk, chunkSeed, setFallInstantly};
+use crate::worldgen::terrain_pool::{self, Generated, TerrainKind, TerrainSource};
 use crate::worldgen::{
     MapGenBase, WorldGenFire, WorldGenFlowers, WorldGenGlowStone1, WorldGenGlowStone2, WorldGenHellLava,
     WorldGenerator, map_gen_caves_hell,
@@ -13,15 +14,21 @@ use std::rc::Rc;
 
 pub struct ChunkProviderHell
 {
+    m_terrain: Terrain,
+    m_worldObj: Rc<World>,
+}
+
+// everything provideChunk makes blocks with except the world, so a terrain worker can hold its own copy
+pub(crate) struct Terrain
+{
     m_hellRNG: Random,
     m_minLimitPerlinNoise: NoiseGeneratorOctaves,
     m_maxLimitPerlinNoise: NoiseGeneratorOctaves,
     m_perlinNoise1: NoiseGeneratorOctaves,
     m_perlinNoise2: NoiseGeneratorOctaves,
     m_perlinNoise3: NoiseGeneratorOctaves,
-    pub m_scaleNoise: NoiseGeneratorOctaves,
-    pub m_depthNoise: NoiseGeneratorOctaves,
-    m_worldObj: Rc<World>,
+    m_scaleNoise: NoiseGeneratorOctaves,
+    m_depthNoise: NoiseGeneratorOctaves,
     m_heightMap: Field<Option<Vec<f64>>>,
     m_sandBuffer: Field<Option<Vec<f64>>>,
     m_gravelBuffer: Field<Option<Vec<f64>>>,
@@ -34,15 +41,51 @@ pub struct ChunkProviderHell
     m_depthNoiseBuffer: Field<Option<Vec<f64>>>,
 }
 
+struct NetherSource
+{
+    m_terrain: Terrain,
+    m_seed: i64,
+}
+
+impl TerrainSource for NetherSource
+{
+    fn generate(&self, chunkX: i32, chunkZ: i32) -> Generated
+    {
+        let blocks: Vec<i8> = self.m_terrain.blocks(self.m_seed, chunkX, chunkZ);
+        Generated { m_blocks: blocks, m_rand: self.m_terrain.m_hellRNG.state() }
+    }
+}
+
+pub(super) fn source(seed: i64) -> Box<dyn TerrainSource>
+{
+    Box::new(NetherSource { m_terrain: Terrain::new(seed), m_seed: seed })
+}
+
 impl ChunkProviderHell
 {
     fn world(&self) -> Rc<World> { Rc::clone(&self.m_worldObj) }
 
     pub fn new(world: &Rc<World>, seed: i64) -> Rc<ChunkProviderHell>
     {
+        Rc::new(ChunkProviderHell { m_terrain: Terrain::new(seed), m_worldObj: Rc::clone(world) })
+    }
+
+    // blocks a worker made ahead, its random state carried over since populate keeps using it unseeded
+    fn prefetched(&self, seed: i64, chunkX: i32, chunkZ: i32) -> Option<Vec<i8>>
+    {
+        let generated: Generated = terrain_pool::take(TerrainKind::Nether, seed, chunkX, chunkZ)?;
+        self.m_terrain.m_hellRNG.setState(generated.m_rand);
+        Some(generated.m_blocks)
+    }
+}
+
+impl Terrain
+{
+    fn new(seed: i64) -> Terrain
+    {
         let cave: Rc<MapGenBase> = map_gen_caves_hell::create();
         let hellRNG: Random = Random::withSeed(seed);
-        Rc::new(ChunkProviderHell {
+        Terrain {
             m_minLimitPerlinNoise: NoiseGeneratorOctaves::new(&hellRNG, 16),
             m_maxLimitPerlinNoise: NoiseGeneratorOctaves::new(&hellRNG, 16),
             m_perlinNoise1: NoiseGeneratorOctaves::new(&hellRNG, 8),
@@ -51,7 +94,6 @@ impl ChunkProviderHell
             m_scaleNoise: NoiseGeneratorOctaves::new(&hellRNG, 10),
             m_depthNoise: NoiseGeneratorOctaves::new(&hellRNG, 16),
             m_hellRNG: hellRNG,
-            m_worldObj: Rc::clone(world),
             m_heightMap: Field::new(None),
             m_sandBuffer: Field::new(Some(vec![0.0; chunk::COLUMN_COUNT])),
             m_gravelBuffer: Field::new(Some(vec![0.0; chunk::COLUMN_COUNT])),
@@ -62,7 +104,17 @@ impl ChunkProviderHell
             m_maxLimitPerlinNoiseBuffer: Field::new(None),
             m_scaleNoiseBuffer: Field::new(None),
             m_depthNoiseBuffer: Field::new(None),
-        })
+        }
+    }
+
+    fn blocks(&self, seed: i64, chunkX: i32, chunkZ: i32) -> Vec<i8>
+    {
+        self.m_hellRNG.setSeed(chunkSeed(chunkX, chunkZ));
+        let mut blocks: Vec<i8> = vec![0; chunk::BLOCK_COUNT];
+        self.buildTerrain(chunkX, chunkZ, &mut blocks);
+        self.buildSurfaces(chunkX, chunkZ, &mut blocks);
+        self.m_cave.place(seed, chunkX, chunkZ, &mut blocks);
+        blocks
     }
 
     pub fn buildTerrain(&self, chunkX: i32, chunkZ: i32, blocks: &mut [i8])
@@ -391,12 +443,14 @@ impl IChunkProvider for ChunkProviderHell
 
     fn provideChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
     {
-        self.m_hellRNG.setSeed(chunkSeed(chunkX, chunkZ));
-        let mut blocks: Vec<i8> = vec![0; chunk::BLOCK_COUNT];
-        self.buildTerrain(chunkX, chunkZ, &mut blocks);
-        self.buildSurfaces(chunkX, chunkZ, &mut blocks);
-        self.m_cave.place(self, &self.world(), chunkX, chunkZ, &mut blocks);
-        Chunk::withBlocks(&self.world(), blocks, chunkX, chunkZ)
+        let world: &Rc<World> = &self.world();
+        let seed: i64 = world.getRandomSeed();
+        let blocks: Vec<i8> = match self.prefetched(seed, chunkX, chunkZ)
+        {
+            Some(blocks) => blocks,
+            None => self.m_terrain.blocks(seed, chunkX, chunkZ),
+        };
+        Chunk::withBlocks(world, blocks, chunkX, chunkZ)
     }
 
     fn prepareChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk> { self.provideChunk(chunkX, chunkZ) }
@@ -405,7 +459,7 @@ impl IChunkProvider for ChunkProviderHell
     {
         setFallInstantly(true);
         let world: &Rc<World> = &self.world();
-        let rng: &Random = &self.m_hellRNG;
+        let rng: &Random = &self.m_terrain.m_hellRNG;
         let i: i32 = chunkX * 16;
         let j: i32 = chunkZ * 16;
         for _ in 0..8

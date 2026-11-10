@@ -1,6 +1,5 @@
 use crate::block::Block;
 use crate::math::math_helper;
-use crate::world::World;
 use crate::worldgen::{MAP_GEN_BASE, MapGenBase, MapGenBaseClass};
 use jvm::random::Random;
 use std::rc::Rc;
@@ -245,7 +244,6 @@ fn releaseEntitySkin(
 
 fn recursiveGenerate(
     this: &Rc<MapGenBase>,
-    _world: &Rc<World>,
     startChunkX: i32,
     startChunkZ: i32,
     chunkX: i32,

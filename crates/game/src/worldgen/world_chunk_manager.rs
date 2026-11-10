@@ -74,14 +74,14 @@ impl WorldChunkManager
         })
     }
 
-    pub fn new(world: &Rc<World>) -> Rc<WorldChunkManager>
+    pub fn new(world: &Rc<World>) -> Rc<WorldChunkManager> { Self::withSeed(world.getRandomSeed()) }
+
+    pub fn withSeed(seed: i64) -> Rc<WorldChunkManager>
     {
         let temperatureNoise: NoiseGeneratorOctaves2 =
-            NoiseGeneratorOctaves2::new(&Random::withSeed(world.getRandomSeed() * 9871i64), 4);
-        let downfallNoise: NoiseGeneratorOctaves2 =
-            NoiseGeneratorOctaves2::new(&Random::withSeed(world.getRandomSeed() * 39811i64), 4);
-        let biomeNoise: NoiseGeneratorOctaves2 =
-            NoiseGeneratorOctaves2::new(&Random::withSeed(world.getRandomSeed() * 543321i64), 2);
+            NoiseGeneratorOctaves2::new(&Random::withSeed(seed * 9871i64), 4);
+        let downfallNoise: NoiseGeneratorOctaves2 = NoiseGeneratorOctaves2::new(&Random::withSeed(seed * 39811i64), 4);
+        let biomeNoise: NoiseGeneratorOctaves2 = NoiseGeneratorOctaves2::new(&Random::withSeed(seed * 543321i64), 2);
         Self::alloc(&WORLD_CHUNK_MANAGER, Some([temperatureNoise, downfallNoise, biomeNoise]), None)
     }
 

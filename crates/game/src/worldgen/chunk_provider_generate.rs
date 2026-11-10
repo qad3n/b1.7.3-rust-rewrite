@@ -1,10 +1,11 @@
 use crate::block::block_sand::FALL_INSTANTLY;
 use crate::block::{Block, Material};
 use crate::world::{Chunk, IChunkProvider, World};
+use crate::worldgen::terrain_pool::{self, Generated, TerrainKind, TerrainSource};
 use crate::worldgen::{
-    BiomeGenBase, MapGenBase, WorldChunkManager, WorldGenCactus, WorldGenClay, WorldGenDeadBush, WorldGenDungeons,
-    WorldGenFlowers, WorldGenLakes, WorldGenLiquids, WorldGenMinable, WorldGenPumpkin, WorldGenReed, WorldGenTallGrass,
-    WorldGenerator, map_gen_caves,
+    BiomeGenBase, MapGenBase, WORLD_CHUNK_MANAGER, WorldChunkManager, WorldGenCactus, WorldGenClay, WorldGenDeadBush,
+    WorldGenDungeons, WorldGenFlowers, WorldGenLakes, WorldGenLiquids, WorldGenMinable, WorldGenPumpkin, WorldGenReed,
+    WorldGenTallGrass, WorldGenerator, map_gen_caves,
 };
 use common::noise::NoiseGeneratorOctaves;
 use common::world::IProgressUpdate;
@@ -24,16 +25,23 @@ pub(super) mod chunk
 
 pub struct ChunkProviderGenerate
 {
+    m_terrain: Terrain,
+    m_worldObj: Rc<World>,
+    m_generatedTemperatures: Field<Option<Vec<f64>>>,
+}
+
+// everything provideChunk makes blocks with except the world, so a terrain worker can hold its own copy
+pub(crate) struct Terrain
+{
     m_rand: Random,
     m_minLimitPerlinNoise: NoiseGeneratorOctaves,
     m_maxLimitPerlinNoise: NoiseGeneratorOctaves,
     m_perlinNoise1: NoiseGeneratorOctaves,
     m_perlinNoise2: NoiseGeneratorOctaves,
     m_perlinNoise3: NoiseGeneratorOctaves,
-    pub m_scaleNoise: NoiseGeneratorOctaves,
-    pub m_depthNoise: NoiseGeneratorOctaves,
-    pub m_mobSpawnerNoise: NoiseGeneratorOctaves,
-    m_worldObj: Rc<World>,
+    m_scaleNoise: NoiseGeneratorOctaves,
+    m_depthNoise: NoiseGeneratorOctaves,
+    m_mobSpawnerNoise: NoiseGeneratorOctaves,
     m_heightMap: Field<Option<Vec<f64>>>,
     m_sandNoise: Field<Option<Vec<f64>>>,
     m_gravelNoise: Field<Option<Vec<f64>>>,
@@ -45,7 +53,32 @@ pub struct ChunkProviderGenerate
     m_maxLimitPerlinNoiseBuffer: Field<Option<Vec<f64>>>,
     m_scaleNoiseBuffer: Field<Option<Vec<f64>>>,
     m_depthNoiseBuffer: Field<Option<Vec<f64>>>,
-    m_generatedTemperatures: Field<Option<Vec<f64>>>,
+}
+
+// a worker's terrain with its own biome source, only valid where the world uses the vanilla one
+struct SurfaceSource
+{
+    m_terrain: Terrain,
+    m_manager: Rc<WorldChunkManager>,
+    m_seed: i64,
+}
+
+impl TerrainSource for SurfaceSource
+{
+    fn generate(&self, chunkX: i32, chunkZ: i32) -> Generated
+    {
+        let blocks: Vec<i8> = self.m_terrain.blocks(&self.m_manager, self.m_seed, chunkX, chunkZ);
+        Generated { m_blocks: blocks, m_rand: self.m_terrain.m_rand.state() }
+    }
+}
+
+pub(super) fn source(seed: i64) -> Box<dyn TerrainSource>
+{
+    Box::new(SurfaceSource {
+        m_terrain: Terrain::new(seed),
+        m_manager: WorldChunkManager::withSeed(seed),
+        m_seed: seed,
+    })
 }
 
 impl ChunkProviderGenerate
@@ -54,9 +87,34 @@ impl ChunkProviderGenerate
 
     pub fn new(world: &Rc<World>, seed: i64) -> Rc<ChunkProviderGenerate>
     {
+        Rc::new(ChunkProviderGenerate {
+            m_terrain: Terrain::new(seed),
+            m_worldObj: Rc::clone(world),
+            m_generatedTemperatures: Field::new(None),
+        })
+    }
+
+    // blocks a worker made ahead, its random state carried over as if this generator had made them
+    fn prefetched(&self, world: &World, manager: &WorldChunkManager, chunkX: i32, chunkZ: i32) -> Option<Vec<i8>>
+    {
+        if manager.m_class.m_name != WORLD_CHUNK_MANAGER.m_name
+        {
+            return None;
+        }
+
+        let generated: Generated = terrain_pool::take(TerrainKind::Surface, world.getRandomSeed(), chunkX, chunkZ)?;
+        self.m_terrain.m_rand.setState(generated.m_rand);
+        Some(generated.m_blocks)
+    }
+}
+
+impl Terrain
+{
+    fn new(seed: i64) -> Terrain
+    {
         let cave: Rc<MapGenBase> = map_gen_caves::create();
         let rand: Random = Random::withSeed(seed);
-        Rc::new(ChunkProviderGenerate {
+        Terrain {
             m_minLimitPerlinNoise: NoiseGeneratorOctaves::new(&rand, 16),
             m_maxLimitPerlinNoise: NoiseGeneratorOctaves::new(&rand, 16),
             m_perlinNoise1: NoiseGeneratorOctaves::new(&rand, 8),
@@ -66,7 +124,6 @@ impl ChunkProviderGenerate
             m_depthNoise: NoiseGeneratorOctaves::new(&rand, 16),
             m_mobSpawnerNoise: NoiseGeneratorOctaves::new(&rand, 8),
             m_rand: rand,
-            m_worldObj: Rc::clone(world),
             m_heightMap: Field::new(None),
             m_sandNoise: Field::new(Some(vec![0.0; chunk::COLUMN_COUNT])),
             m_gravelNoise: Field::new(Some(vec![0.0; chunk::COLUMN_COUNT])),
@@ -78,12 +135,26 @@ impl ChunkProviderGenerate
             m_maxLimitPerlinNoiseBuffer: Field::new(None),
             m_scaleNoiseBuffer: Field::new(None),
             m_depthNoiseBuffer: Field::new(None),
-            m_generatedTemperatures: Field::new(None),
-        })
+        }
+    }
+
+    fn blocks(&self, manager: &Rc<WorldChunkManager>, seed: i64, chunkX: i32, chunkZ: i32) -> Vec<i8>
+    {
+        self.m_rand.setSeed(chunkSeed(chunkX, chunkZ));
+        let mut blocks: Vec<i8> = vec![0; chunk::BLOCK_COUNT];
+        let biomes: Vec<Option<Rc<BiomeGenBase>>> =
+            manager.loadBlockGeneratorData(self.m_biomesForGeneration.take(), chunkX * 16, chunkZ * 16, 16, 16);
+        let temperatures: Vec<f64> = manager.m_temperature.get().orNpe();
+        self.generateTerrain(manager, chunkX, chunkZ, &mut blocks, &biomes, &temperatures);
+        self.replaceBlocksForBiome(chunkX, chunkZ, &mut blocks, &biomes);
+        self.m_biomesForGeneration.set(Some(biomes));
+        self.m_cave.place(seed, chunkX, chunkZ, &mut blocks);
+        blocks
     }
 
     pub fn generateTerrain(
         &self,
+        manager: &WorldChunkManager,
         chunkX: i32,
         chunkZ: i32,
         blocks: &mut [i8],
@@ -97,7 +168,7 @@ impl ChunkProviderGenerate
         let b2: i32 = 17;
         let j: i32 = b0 + 1;
         let heightMap: Vec<f64> =
-            self.generateHeightMap(self.m_heightMap.take(), chunkX * b0, 0, chunkZ * b0, i, b2, j);
+            self.generateHeightMap(manager, self.m_heightMap.take(), chunkX * b0, 0, chunkZ * b0, i, b2, j);
         let at = |index: i32| -> f64 { heightMap[index as usize] };
         for k in 0..b0
         {
@@ -277,6 +348,7 @@ impl ChunkProviderGenerate
 
     fn generateHeightMap(
         &self,
+        manager: &WorldChunkManager,
         heightMap: Option<Vec<f64>>,
         x: i32,
         y: i32,
@@ -289,7 +361,6 @@ impl ChunkProviderGenerate
         let mut heightMap: Vec<f64> = heightMap.unwrap_or_else(|| vec![0.0; (sizeX * sizeY * sizeZ) as usize]);
         let d0: f64 = 684.412;
         let d1: f64 = 684.412;
-        let manager: Rc<WorldChunkManager> = self.world().getWorldChunkManager();
         let adouble: Vec<f64> = manager.m_temperature.get().orNpe();
         let adouble1: Vec<f64> = manager.m_humidity.get().orNpe();
         let scaleNoise: Vec<f64> =
@@ -644,16 +715,12 @@ impl IChunkProvider for ChunkProviderGenerate
     fn provideChunk(&self, chunkX: i32, chunkZ: i32) -> Rc<Chunk>
     {
         let world: &Rc<World> = &self.world();
-        self.m_rand.setSeed(chunkSeed(chunkX, chunkZ));
-        let mut blocks: Vec<i8> = vec![0; chunk::BLOCK_COUNT];
         let manager: Rc<WorldChunkManager> = world.getWorldChunkManager();
-        let biomes: Vec<Option<Rc<BiomeGenBase>>> =
-            manager.loadBlockGeneratorData(self.m_biomesForGeneration.take(), chunkX * 16, chunkZ * 16, 16, 16);
-        let temperatures: Vec<f64> = manager.m_temperature.get().orNpe();
-        self.generateTerrain(chunkX, chunkZ, &mut blocks, &biomes, &temperatures);
-        self.replaceBlocksForBiome(chunkX, chunkZ, &mut blocks, &biomes);
-        self.m_biomesForGeneration.set(Some(biomes));
-        self.m_cave.place(self, world, chunkX, chunkZ, &mut blocks);
+        let blocks: Vec<i8> = match self.prefetched(world, &manager, chunkX, chunkZ)
+        {
+            Some(blocks) => blocks,
+            None => self.m_terrain.blocks(&manager, world.getRandomSeed(), chunkX, chunkZ),
+        };
         let chunk: Rc<Chunk> = Chunk::withBlocks(world, blocks, chunkX, chunkZ);
         chunk.populateHeightMap();
         // mods observe generated chunks
@@ -667,13 +734,13 @@ impl IChunkProvider for ChunkProviderGenerate
     {
         setFallInstantly(true);
         let world: &Rc<World> = &self.world();
-        let rand: &Random = &self.m_rand;
+        let rand: &Random = &self.m_terrain.m_rand;
         let i: i32 = chunkX * 16;
         let j: i32 = chunkZ * 16;
         let biome: Rc<BiomeGenBase> = world.getWorldChunkManager().getBiomeGenAt(i + 16, j + 16);
         let is = |other: Rc<BiomeGenBase>| -> bool { Rc::ptr_eq(&biome, &other) };
         populateOres(world, rand, chunkX, chunkZ);
-        populateTrees(world, rand, &self.m_mobSpawnerNoise, &biome, i, j);
+        populateTrees(world, rand, &self.m_terrain.m_mobSpawnerNoise, &biome, i, j);
         let mut b0: i32 = 0;
         if is(BiomeGenBase::forest())
         {

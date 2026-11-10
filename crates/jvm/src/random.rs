@@ -1,8 +1,8 @@
 use crate::string::JString;
 use crate::{strict_math, system, thread, throwable};
 use std::cell::Cell;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::{Mutex, MutexGuard};
 
 mod lcg
 {
@@ -51,6 +51,17 @@ impl Random
     {
         let mut gaussian = self.m_gaussian.lock().expect("random gaussian lock is never poisoned");
         self.m_seed.store((seed ^ lcg::MULTIPLIER) & lcg::MASK, Ordering::Relaxed);
+        *gaussian = None;
+    }
+
+    // raw lcg state so a generator on another thread can hand its sequence back
+    pub fn state(&self) -> i64 { self.m_seed.load(Ordering::Relaxed) }
+
+    pub fn setState(&self, state: i64)
+    {
+        let mut gaussian: MutexGuard<Option<f64>> =
+            self.m_gaussian.lock().expect("random gaussian lock is never poisoned");
+        self.m_seed.store(state, Ordering::Relaxed);
         *gaussian = None;
     }
 

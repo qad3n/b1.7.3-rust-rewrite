@@ -17,6 +17,7 @@ mod map_gen_base;
 mod map_gen_caves;
 mod map_gen_caves_hell;
 mod spawn_list_entry;
+mod terrain_pool;
 mod world_chunk_manager;
 mod world_gen_big_tree;
 mod world_gen_cactus;
