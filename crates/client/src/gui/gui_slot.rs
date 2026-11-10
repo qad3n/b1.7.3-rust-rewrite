@@ -8,6 +8,13 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
+mod row
+{
+    pub const HALF_WIDTH: i32 = 110;
+    pub const SCROLLBAR_GAP: i32 = 14;
+    pub const INSET: i32 = 2;
+}
+
 game::vtable! {
     GuiSlotClass for GuiSlot {
         fn drawBackground();
@@ -51,6 +58,7 @@ pub struct GuiSlot
     m_renderSelectionHighlight: Cell<bool>,
     m_renderHeader: Cell<bool>,
     m_headerHeight: Cell<i32>,
+    m_halfWidth: Cell<i32>,
 }
 
 pub const GUI_SLOT: GuiSlotClass = GuiSlotClass {
@@ -105,6 +113,7 @@ impl GuiSlot
             m_renderSelectionHighlight: Cell::new(true),
             m_renderHeader: Cell::new(false),
             m_headerHeight: Cell::new(0),
+            m_halfWidth: Cell::new(row::HALF_WIDTH),
         })
     }
 
@@ -123,10 +132,12 @@ impl GuiSlot
         self.m_headerHeight.set(if renderHeader { headerHeight } else { 0 });
     }
 
+    pub fn setRowWidth(&self, width: i32) { self.m_halfWidth.set(width / 2); }
+
     pub fn getEntryAt(self: &Rc<Self>, x: i32, y: i32) -> i32
     {
-        let n: i32 = self.m_width / 2 - 110;
-        let n2: i32 = self.m_width / 2 + 110;
+        let n: i32 = self.m_width / 2 - self.m_halfWidth.get();
+        let n2: i32 = self.m_width / 2 + self.m_halfWidth.get();
         let n3: i32 = y - self.m_top - self.m_headerHeight.get() + self.m_amountScrolled.get() as i32 - 4;
         let n4: i32 = n3 / self.m_posZ;
         if x >= n && x <= n2 && n4 >= 0 && n3 >= 0 && n4 < self.getSize()
@@ -210,8 +221,8 @@ impl GuiSlot
             return;
         }
         let mut bl: bool = true;
-        let n10: i32 = self.m_width / 2 - 110;
-        let n6: i32 = self.m_width / 2 + 110;
+        let n10: i32 = self.m_width / 2 - self.m_halfWidth.get();
+        let n6: i32 = self.m_width / 2 + self.m_halfWidth.get();
         let n5: i32 = mouseY - self.m_top - self.m_headerHeight.get() + self.m_amountScrolled.get() as i32 - 4;
         let n4: i32 = n5 / self.m_posZ;
         if mouseX >= n10 && mouseX <= n6 && n4 >= 0 && n5 >= 0 && n4 < n7
@@ -246,7 +257,7 @@ impl GuiSlot
     {
         self.drawBackground();
         let n7: i32 = self.getSize();
-        let n8: i32 = self.m_width / 2 + 124;
+        let n8: i32 = self.m_width / 2 + self.m_halfWidth.get() + row::SCROLLBAR_GAP;
         let n9: i32 = n8 + 6;
         self.handleMouse(mouseX, mouseY, n7, n8, n9);
         self.bindAmountScrolled();
@@ -266,7 +277,7 @@ impl GuiSlot
         tessellator.addVertexWithUV(right as f64, top as f64, 0.0, uv(right), uv(top + scrolled));
         tessellator.addVertexWithUV(left as f64, top as f64, 0.0, uv(left), uv(top + scrolled));
         tessellator.draw();
-        let n6: i32 = self.m_width / 2 - 92 - 16;
+        let n6: i32 = self.m_width / 2 - self.m_halfWidth.get() + row::INSET;
         let n5: i32 = top + 4 - scrolled;
         if self.m_renderHeader.get()
         {
@@ -288,8 +299,8 @@ impl GuiSlot
             }
             if self.m_renderSelectionHighlight.get() && self.isSelected(n4)
             {
-                let n: i32 = self.m_width / 2 - 110;
-                let n11: i32 = self.m_width / 2 + 110;
+                let n: i32 = self.m_width / 2 - self.m_halfWidth.get();
+                let n11: i32 = self.m_width / 2 + self.m_halfWidth.get();
                 GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
                 GL11::glDisable(3553);
                 tessellator.startDrawingQuads();
