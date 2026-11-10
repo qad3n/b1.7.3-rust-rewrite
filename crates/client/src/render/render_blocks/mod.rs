@@ -147,7 +147,7 @@ impl RenderBlocks
     {
         let n: i32 = block.getRenderType();
         block.setBlockBoundsBasedOnState(&*self.world(), x, y, z);
-        match n
+        let drawn: bool = match n
         {
             0 => self.renderStandardBlock(block, x, y, z),
             4 => self.renderBlockFluids(block, x, y, z),
@@ -170,7 +170,9 @@ impl RenderBlocks
             // mod block models are lists of cuboids
             modloader::content::blocks::MODEL_RENDER_TYPE => crate::modded::renderModel(self, block, x, y, z),
             _ => false,
-        }
+        };
+        // rewrite: a mod block may lay sprites over its faces after it is drawn
+        crate::modded::renderOverlays(self, block, x, y, z) || drawn
     }
 
     pub fn renderItemIn3d(kind: i32) -> bool { matches!(kind, 0 | 13 | 10 | 11 | 16) }

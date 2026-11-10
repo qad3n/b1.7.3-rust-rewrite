@@ -262,6 +262,10 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             HostReply::Located,
         ),
         HostCall::DimensionSeed { dimension, seed } => unit(dimensions::registerSeed(index, dimension, seed)),
+        HostCall::TerrainTiles { texture, columns, rows } =>
+        {
+            unit(crate::atlas::requestTiles(crate::atlas::Atlas::Terrain, &texture, columns, rows))
+        }
         HostCall::TerrainSlot { texture } =>
         {
             crate::atlas::request(crate::atlas::Atlas::Terrain, &texture);

@@ -57,6 +57,23 @@ pub struct AnimatedTile
     pub m_rgba: Vec<u8>,
 }
 
+// one tile of a texture cut into a grid, blown up to a whole sprite
+#[derive(Clone)]
+struct Slice
+{
+    m_source: Identifier,
+    m_columns: i32,
+    m_rows: i32,
+    m_column: i32,
+    m_row: i32,
+}
+
+mod tiles
+{
+    pub const NAMESPACE: &str = "loader";
+    pub const MOST: i32 = 16;
+}
+
 #[derive(Default)]
 struct State
 {
@@ -66,6 +83,8 @@ struct State
     // tile size of each sheet as last stitched, animation frames are scaled to it
     m_tiles: BTreeMap<Atlas, i32>,
     m_ticks: u32,
+    // the tile sprites cut from other textures, painted from the sheet once their source is in it
+    m_slices: BTreeMap<(Atlas, Identifier), Slice>,
 }
 
 thread_local! {
@@ -79,6 +98,39 @@ pub fn request(atlas: Atlas, texture: &str)
     {
         STATE.with(|state| state.borrow_mut().m_requested.insert((atlas, id)));
     }
+}
+
+// the sprite name of one tile, matches b173_api::world::tileName
+fn tileId(source: &Identifier, column: i32, row: i32) -> Result<Identifier, String>
+{
+    let path: String = format!("tiles/{}/{}/{column}_{row}", source.namespace(), source.path());
+    Identifier::new(tiles::NAMESPACE, &path).map_err(|error| format!("tile name {path}: {error:?}"))
+}
+
+// cuts a texture into a grid whose tiles each get a slot, a vanilla terrain/<index> tile or a mod texture
+pub fn requestTiles(atlas: Atlas, texture: &str, columns: i32, rows: i32) -> Result<(), String>
+{
+    if !(1..=tiles::MOST).contains(&columns) || !(1..=tiles::MOST).contains(&rows)
+    {
+        return Err(format!("a texture cuts into 1 to {} tiles each way, asked {columns}x{rows}", tiles::MOST));
+    }
+    let source: Identifier = Identifier::parse(texture).map_err(|error| format!("texture {texture}: {error:?}"))?;
+    request(atlas, texture);
+    for column in 0..columns
+    {
+        for row in 0..rows
+        {
+            let id: Identifier = tileId(&source, column, row)?;
+            let slice: Slice =
+                Slice { m_source: source.clone(), m_columns: columns, m_rows: rows, m_column: column, m_row: row };
+            STATE.with(|state| {
+                let mut state = state.borrow_mut();
+                state.m_requested.insert((atlas, id.clone()));
+                state.m_slices.insert((atlas, id), slice);
+            });
+        }
+    }
+    Ok(())
 }
 
 // slots go out in sorted identifier order, so every side and every run agrees without syncing them
@@ -217,7 +269,10 @@ pub fn loadSprites(
     readMeta: &dyn Fn(&Identifier) -> Option<String>,
 ) -> Vec<String>
 {
-    let keys: Vec<(Atlas, Identifier)> = STATE.with(|state| state.borrow().m_slots.keys().cloned().collect());
+    let keys: Vec<(Atlas, Identifier)> = STATE.with(|state| {
+        let state = state.borrow();
+        state.m_slots.keys().filter(|key| !state.m_slices.contains_key(*key)).cloned().collect()
+    });
     let mut problems: Vec<String> = Vec::new();
     for key in keys
     {
@@ -290,7 +345,52 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
             }
         }
     });
+    paintSlices(atlas, &image, tile);
     image
+}
+
+// the sheet slot of a texture, vanilla terrain/<index> names its own tile
+fn sourceSlot(state: &State, atlas: Atlas, source: &Identifier) -> Option<i32>
+{
+    if source.isVanilla()
+    {
+        return source.path().rsplit_once('/').and_then(|(_, index)| index.parse().ok());
+    }
+    state.m_slots.get(&(atlas, source.clone())).copied()
+}
+
+// each tile is read from its source already in the sheet and blown up pixel by pixel to a whole slot
+fn paintSlices(atlas: Atlas, image: &BufferedImage, tile: i32)
+{
+    STATE.with(|state| {
+        let state = state.borrow();
+        for ((sheet, id), slice) in &state.m_slices
+        {
+            if *sheet != atlas
+            {
+                continue;
+            }
+            let (Some(slot), Some(from)) =
+                (state.m_slots.get(&(*sheet, id.clone())), sourceSlot(&state, atlas, &slice.m_source))
+            else
+            {
+                continue;
+            };
+            let (width, height): (i32, i32) = (tile / slice.m_columns, tile / slice.m_rows);
+            let sourceX: i32 = (from % SHEET_TILES) * tile + slice.m_column * width;
+            let sourceY: i32 = (from / SHEET_TILES) * tile + slice.m_row * height;
+            let originX: i32 = (slot % SHEET_TILES) * tile;
+            let originY: i32 = (slot / SHEET_TILES) * tile;
+            for y in 0..tile
+            {
+                for x in 0..tile
+                {
+                    let pixel: i32 = image.getRGB(sourceX + x * width / tile, sourceY + y * height / tile);
+                    image.setRGB(originX + x, originY + y, pixel);
+                }
+            }
+        }
+    });
 }
 
 fn scaled(frame: &[i32], size: u32, tile: i32) -> Vec<u8>

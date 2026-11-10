@@ -6,7 +6,7 @@ use game::entity::Entity;
 use game::item::{Item, ItemClass, ItemStack};
 use game::world::{IBlockAccess, World};
 use jvm::random::Random;
-use mod_protocol::abi::{BlockCall, BlockCtx, BlockPos, GuestCall, GuestReply, ItemCall};
+use mod_protocol::abi::{BlockCall, BlockCtx, BlockPos, FaceOverlay, GuestCall, GuestReply, ItemCall};
 use mod_protocol::spec::{Behavior, BlockMethod, ItemMethod};
 use std::rc::Rc;
 
@@ -240,6 +240,33 @@ fn faceTexture(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i3
         .unwrap_or_else(|| (parent(this).getBlockTexture)(this, world, x, y, z, face))
 }
 
+fn strength(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> f32
+{
+    let call: BlockCall = BlockCall::Strength { ctx: ctx(this, world, x, y, z), player: player.m_entityId.get() };
+    match callBlock(this, Some(world), call)
+    {
+        Some(GuestReply::Float(share)) if share >= 0.0 => share,
+        _ => (parent(this).blockStrengthAt)(this, world, x, y, z, player),
+    }
+}
+
+// whether a block's behavior draws sprites over its faces, asked before every face so plain blocks cost one lookup
+pub fn overlays(blockId: i32) -> bool
+{
+    content::blockData(blockId)
+        .and_then(|data| data.m_spec.behavior.as_ref().map(|behavior| behavior.methods.contains(&BlockMethod::Overlay)))
+        .unwrap_or(false)
+}
+
+pub fn overlay(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, face: i32) -> Option<FaceOverlay>
+{
+    match callBlock(this, None, BlockCall::Overlay { ctx: accessCtx(this, world, x, y, z), face })
+    {
+        Some(GuestReply::Overlay(overlay)) => overlay,
+        _ => None,
+    }
+}
+
 fn colorMultiplier(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> i32
 {
     asInt(callBlock(this, None, BlockCall::ColorMultiplier { ctx: accessCtx(this, world, x, y, z) }))
@@ -275,6 +302,10 @@ pub fn patchBlock(class: &mut BlockClass, behavior: &Behavior<BlockMethod>)
             BlockMethod::Texture => class.getBlockTextureFromSideAndMetadata = texture,
             BlockMethod::ColorMultiplier => class.colorMultiplier = colorMultiplier,
             BlockMethod::FaceTexture => class.getBlockTexture = faceTexture,
+            BlockMethod::Strength => class.blockStrengthAt = strength,
+            // the renderer asks for overlays itself, the class keeps its draw
+            BlockMethod::Overlay =>
+            {}
         }
     }
 }

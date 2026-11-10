@@ -63,7 +63,9 @@ impl ItemInWorldManager
             if n2 != 0
             {
                 let block: Rc<Block> = Block::byId(n2).orNpe();
-                let f: f32 = block.blockStrength(&self.thisPlayer()) * (n + 1) as f32;
+                let (x, y, z): (i32, i32, i32) =
+                    (self.m_prevTargetX.get(), self.m_prevTargetY.get(), self.m_prevTargetZ.get());
+                let f: f32 = block.blockStrengthAt(&self.m_thisWorld, x, y, z, &self.thisPlayer()) * (n + 1) as f32;
                 if f >= 1.0
                 {
                     self.m_wasMiningBlock.set(false);
@@ -86,7 +88,7 @@ impl ItemInWorldManager
         {
             Block::byId(n).orNpe().onBlockClicked(&self.m_thisWorld, x, y, z, &self.thisPlayer());
         }
-        if n > 0 && Block::byId(n).orNpe().blockStrength(&self.thisPlayer()) >= 1.0
+        if n > 0 && Block::byId(n).orNpe().blockStrengthAt(&self.m_thisWorld, x, y, z, &self.thisPlayer()) >= 1.0
         {
             self.tryMineBlock(x, y, z);
         }
@@ -107,7 +109,7 @@ impl ItemInWorldManager
             if n2 != 0
             {
                 let block: Rc<Block> = Block::byId(n2).orNpe();
-                let f: f32 = block.blockStrength(&self.thisPlayer()) * (n + 1) as f32;
+                let f: f32 = block.blockStrengthAt(&self.m_thisWorld, x, y, z, &self.thisPlayer()) * (n + 1) as f32;
                 if f >= 0.7
                 {
                     self.tryMineBlock(x, y, z);

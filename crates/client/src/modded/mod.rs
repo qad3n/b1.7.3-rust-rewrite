@@ -17,7 +17,7 @@ use game::item::ItemStack;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 pub use menu::{MODS_BUTTON, addModsButton, drawModCount, modsScreen, startScreen};
-pub use model::{movingShapes, renderModel};
+pub use model::{movingShapes, renderModel, renderOverlays};
 use modloader::mod_protocol::abi::StackData;
 use modloader::screens::OpenRequest;
 use std::rc::{Rc, Weak};

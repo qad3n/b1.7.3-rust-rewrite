@@ -62,7 +62,7 @@ fn clickBlock(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, face: i32)
         {
             Block::byId(n).orNpe().onBlockClicked(&this.theWorld(), x, y, z, &this.thePlayer());
         }
-        if n > 0 && Block::byId(n).orNpe().blockStrength(&this.thePlayer()) >= 1.0
+        if n > 0 && Block::byId(n).orNpe().blockStrengthAt(&this.theWorld(), x, y, z, &this.thePlayer()) >= 1.0
         {
             this.sendBlockRemoved(x, y, z, face);
         }
@@ -101,7 +101,8 @@ fn sendBlockRemoving(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, face: 
             return;
         }
         let block: Rc<Block> = Block::byId(n).orNpe();
-        ext.m_curBlockDamageMP.set(ext.m_curBlockDamageMP.get() + block.blockStrength(&this.thePlayer()));
+        let strength: f32 = block.blockStrengthAt(&this.theWorld(), x, y, z, &this.thePlayer());
+        ext.m_curBlockDamageMP.set(ext.m_curBlockDamageMP.get() + strength);
         if ext.m_miningTicks.get() % 4.0 == 0.0
         {
             playDigSound(&this.m_mc, &block, x, y, z);

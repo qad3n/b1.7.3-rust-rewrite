@@ -11,6 +11,7 @@ use std::rc::Rc;
 crate::vtable! {
     BlockClass for Block {
         fn blockActivated(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> bool;
+        fn blockStrengthAt(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> f32;
         fn canBlockStay(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool;
         fn canCollideCheck(metadata: i32, allowLiquids: bool) -> bool;
         fn canPlaceBlockAt(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool;
@@ -76,6 +77,8 @@ pub const BLOCK: BlockClass = BlockClass {
     m_parent: None,
     m_interfaces: &[],
     blockActivated: |_, _, _, _, _, _| false,
+    // rewrite: a hook site for digging speed that knows where the block stands, vanilla keeps blockStrength
+    blockStrengthAt: |this, _, _, _, _, player| this.blockStrength(player),
     canBlockStay: |_, _, _, _, _| true,
     canCollideCheck: |this, _, _| this.isCollidable(),
     canPlaceBlockAt: base::canPlaceBlockAt,
