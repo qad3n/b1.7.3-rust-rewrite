@@ -347,14 +347,15 @@ fn resolveDrops(drops: &[DropSpec]) -> Result<Vec<ResolvedDrop>, String>
 // a variant's textures apply to every state whose properties match all of its when entries
 fn stateFaces(table: &crate::states::StateTable, base: [i32; FACES]) -> Option<Vec<[i32; FACES]>>
 {
-    if table.variants().is_empty()
+    let turned: bool = table.has(FACING) || table.has(AXIS);
+    if table.variants().is_empty() && !turned
     {
         return None;
     }
     let faces: Vec<[i32; FACES]> = (0..table.count())
         .map(|index| {
             let values: std::collections::BTreeMap<String, String> = table.properties(index);
-            table
+            let faces: [i32; FACES] = table
                 .variants()
                 .iter()
                 .filter(|variant| variant.when.iter().all(|(key, value)| values.get(key) == Some(value)))
@@ -366,10 +367,39 @@ fn stateFaces(table: &crate::states::StateTable, base: [i32; FACES]) -> Option<V
                         (Some(_), None) => [sprite; FACES],
                         (None, None) => faces,
                     }
-                })
+                });
+            turn(faces, &values)
         })
         .collect();
     Some(faces)
+}
+
+// a facing state moves the front sprite onto that face, an axis state lays the top and bottom sprites along it
+const FACING: &str = "facing";
+const AXIS: &str = "axis";
+const SIDE_NAMES: [&str; FACES] = ["down", "up", "north", "south", "west", "east"];
+
+fn turn(faces: [i32; FACES], values: &std::collections::BTreeMap<String, String>) -> [i32; FACES]
+{
+    let [bottom, top, side, front, ..] = faces;
+    if let Some(face) = values.get(FACING).and_then(|facing| SIDE_NAMES.iter().position(|name| name == facing))
+    {
+        let mut turned: [i32; FACES] = [side; FACES];
+        if face >= 2
+        {
+            turned[0] = bottom;
+            turned[1] = top;
+        }
+        turned[face] = front;
+        return turned;
+    }
+    match values.get(AXIS).map(String::as_str)
+    {
+        Some("x") => [side, side, side, side, bottom, top],
+        Some("z") => [side, side, bottom, top, side, side],
+        Some("none") => [side; FACES],
+        _ => faces,
+    }
 }
 
 // a hidden page id has no item of its own, what its template would drop as itself drops as the base block

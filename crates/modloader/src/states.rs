@@ -89,6 +89,8 @@ impl StateTable
     }
 
     pub fn variants(&self) -> &[StateVariantSpec] { &self.m_variants }
+
+    pub fn has(&self, property: &str) -> bool { self.m_properties.iter().any(|known| known.name == property) }
 }
 
 #[derive(Default)]
