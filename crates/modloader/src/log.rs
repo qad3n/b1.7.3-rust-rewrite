@@ -1,6 +1,7 @@
 use jvm::logging::logger;
 
 pub const LOADER: &str = "loader";
+pub const GAME: &str = "game";
 
 // every line names the mod it came from so a modpack log stays readable
 #[track_caller]

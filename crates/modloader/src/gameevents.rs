@@ -1,5 +1,5 @@
-use crate::events;
 use crate::host::context::{dimension, entityInfo, stackData, stackFrom, withWorld};
+use crate::{events, gamelog};
 use game::entity::Entity;
 use game::hooks::GameEvent;
 use game::world::World;
@@ -87,6 +87,17 @@ pub fn fire(event: GameEvent<'_>) -> bool
             crate::persist::saveWorld(world);
         }
     }
+    let line: Option<String> = gamelog::describe(&event);
+    let canceled: bool = dispatch(event);
+    if let Some(line) = line
+    {
+        gamelog::write(&line, canceled);
+    }
+    canceled
+}
+
+fn dispatch(event: GameEvent<'_>) -> bool
+{
     let kind: EventKind = kindOf(&event);
     let tracked: bool = matches!(kind, EventKind::LivingAttack | EventKind::LivingHurt);
     if !events::hasListeners(kind) && !(tracked && events::hasListeners(EventKind::LivingHurt))

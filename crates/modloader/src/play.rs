@@ -120,6 +120,9 @@ pub fn command(line: &str, player: Option<&Rc<Entity>>, op: bool) -> Option<Stri
     {
         return None;
     }
+
+    let source: String = player.map_or_else(|| String::from("console"), crate::gamelog::name);
+    crate::log::debug(crate::log::GAME, &format!("{source} ran command {line}"));
     let world: Option<Rc<World>> = player.and_then(|player| player.m_worldObj.get());
     let run = || crate::commands::execute(line, sender(player, op));
     match world
@@ -161,7 +164,20 @@ pub fn lifecycle(kind: EventKind)
 
 pub fn player(kind: EventKind, player: &Rc<Entity>)
 {
-    if !active() || !events::hasListeners(kind)
+    if !active()
+    {
+        return;
+    }
+
+    let action: &str = match kind
+    {
+        EventKind::PlayerLogin => "logged in",
+        EventKind::PlayerLogout => "logged out",
+        EventKind::PlayerRespawn => "respawned",
+        _ => "changed",
+    };
+    crate::log::debug(crate::log::GAME, &format!("{} {action}", crate::gamelog::name(player)));
+    if !events::hasListeners(kind)
     {
         return;
     }
@@ -174,6 +190,8 @@ pub fn dimensionChanged(player: &Rc<Entity>, from: i32, to: i32)
 {
     if active()
     {
+        let name: String = crate::gamelog::name(player);
+        crate::log::debug(crate::log::GAME, &format!("{name} moved from dimension {from} to {to}"));
         events::post(
             EventKind::PlayerChangeDimension,
             EventData::Dimension { player: player.m_entityId.get(), from, to },
@@ -184,7 +202,7 @@ pub fn dimensionChanged(player: &Rc<Entity>, from: i32, to: i32)
 // true when a listener canceled the break or the activation
 pub fn blockBreak(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> bool
 {
-    if !active() || !events::hasListeners(EventKind::BlockBreak)
+    if !active()
     {
         return false;
     }
@@ -201,7 +219,7 @@ pub fn blockBreak(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>
 
 pub fn blockActivate(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> bool
 {
-    if !active() || !events::hasListeners(EventKind::BlockActivate)
+    if !active()
     {
         return false;
     }
