@@ -1,4 +1,5 @@
 use crate::block::{Block, BlockClass};
+use crate::damage::DamageSource;
 use crate::entity::{Entity, EntityClass};
 use crate::item::{ItemClass, ItemStack};
 use crate::tileentity::{TileEntity, TileEntityClass};
@@ -98,7 +99,7 @@ pub enum GameEvent<'a>
     },
     LivingAttack
     {
-        entity: &'a Rc<Entity>, source: Option<&'a Rc<Entity>>, amount: &'a mut i32
+        entity: &'a Rc<Entity>, damage: &'a DamageSource<'a>, amount: &'a mut i32
     },
     LivingDeath
     {

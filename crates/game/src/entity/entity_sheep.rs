@@ -128,7 +128,7 @@ pub const CLASS: EntityClass = EntityClass {
         (entity_animal::CLASS.entityInit)(this);
         this.m_dataWatcher.addObject(16, WatchedValue::Byte(0));
     },
-    attackEntityFrom: |this, source, amount| (entity_animal::CLASS.attackEntityFrom)(this, source, amount),
+    attackEntityFrom: |this, damage, amount| (entity_animal::CLASS.attackEntityFrom)(this, damage, amount),
     dropFewItems: |this| {
         if !getSheared(this)
         {

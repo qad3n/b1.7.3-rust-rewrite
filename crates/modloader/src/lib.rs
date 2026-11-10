@@ -7,6 +7,7 @@ pub mod commands;
 pub mod config;
 pub mod containers;
 pub mod content;
+pub mod damage;
 pub mod devtools;
 pub mod dimensions;
 pub mod discovery;

@@ -1,4 +1,5 @@
 use crate::block::Material;
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::entity_arrow::{applyHeading, launchFrom, rotateTowardsMotion};
 use crate::entity::entity_snowball::{self, ThrowableFields, tickInGround, traceHit};
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_item, entity_player, remote};
@@ -152,7 +153,9 @@ fn onUpdate(this: &Rc<Entity>)
         {
             Some(entityHit) =>
             {
-                if entityHit.attackEntityFrom(fish.m_throwable.m_thrower.get().as_ref(), 0)
+                let thrower: Option<Rc<Entity>> = fish.m_throwable.m_thrower.get();
+                if entityHit
+                    .attackEntityFrom(&DamageSource::withProjectile(DamageKind::Thrown, this, thrower.as_ref()), 0)
                 {
                     fish.m_bobber.set(Some(Rc::clone(entityHit)));
                 }

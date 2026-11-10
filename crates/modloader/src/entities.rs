@@ -1,6 +1,7 @@
 use crate::host::context::{entityInfo, withWorld};
 use crate::state;
 use common::nbt::{NBTBase, NBTTagCompound};
+use game::damage::DamageSource;
 use game::entity::{Entity, EntityClass, entity_creature, entity_living};
 use game::world::World;
 use jvm::string::JString;
@@ -287,15 +288,15 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
 }
 
 // the guest answers whether the hit lands, the template then applies it
-fn hurt(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: i32) -> bool
+fn hurt(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bool
 {
-    let call: EntityCall =
-        EntityCall::Hurt { entity: entityInfo(this), source: source.map(|source| source.m_entityId.get()), amount };
-    match callEntity(this, call)
+    let source: Option<i32> = damage.m_attacker.map(|source| source.m_entityId.get());
+    let call: EntityCall = EntityCall::Hurt { entity: entityInfo(this), source, amount };
+    match crate::damage::with(damage.m_kind, || callEntity(this, call))
     {
         Some(GuestReply::Bool(false)) => false,
-        Some(GuestReply::Int(changed)) => (parentClass(this).attackEntityFrom)(this, source, changed),
-        _ => (parentClass(this).attackEntityFrom)(this, source, amount),
+        Some(GuestReply::Int(changed)) => (parentClass(this).attackEntityFrom)(this, damage, changed),
+        _ => (parentClass(this).attackEntityFrom)(this, damage, amount),
     }
 }
 

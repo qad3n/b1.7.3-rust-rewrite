@@ -1,3 +1,4 @@
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::entity_arrow::{movePosition, rotateTowardsMotion, scaleMotion, spawnBubbles};
 use crate::entity::entity_snowball::{self, ThrowableFields, tickInGround, traceHit};
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt};
@@ -111,7 +112,9 @@ fn onUpdate(this: &Rc<Entity>)
         {
             if let Some(entityHit) = &hit.m_entityHit
             {
-                entityHit.attackEntityFrom(fireball.m_throwable.m_thrower.get().as_ref(), 0);
+                let thrower: Option<Rc<Entity>> = fireball.m_throwable.m_thrower.get();
+                entityHit
+                    .attackEntityFrom(&DamageSource::withProjectile(DamageKind::Fireball, this, thrower.as_ref()), 0);
             }
             world.newExplosion(None, this.posX(), this.posY(), this.posZ(), 1.0, true);
         }
@@ -145,9 +148,9 @@ pub const CLASS: EntityClass = EntityClass {
     readEntityFromNBT: entity_snowball::readEntityFromNBT,
     canBeCollidedWith: |_| true,
     getCollisionBorderSize: |_| 1.0,
-    attackEntityFrom: |this, source, _amount| {
+    attackEntityFrom: |this, damage, _amount| {
         this.setBeenAttacked();
-        let Some(source) = source
+        let Some(source) = damage.m_attacker
         else
         {
             return false;

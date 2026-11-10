@@ -2,6 +2,7 @@ mod ai;
 mod combat;
 pub(crate) mod update;
 
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::remote::Pose;
 use crate::entity::{ENTITY, Entity, EntityClass};
 use crate::world::World;
@@ -207,7 +208,7 @@ pub const CLASS: EntityClass = EntityClass {
             && !world.getIsAnyLiquid(&this.m_boundingBox)
     },
     kill: |this| {
-        this.attackEntityFrom(None, 4);
+        this.attackEntityFrom(&DamageSource::new(DamageKind::Void), 4);
     },
     getLookVec: |this| Some(getLook(this, 1.0)),
     getMaxSpawnedInChunk: |_| 4,

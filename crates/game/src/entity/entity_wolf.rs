@@ -1,3 +1,4 @@
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{
     Entity, EntityClass, EntityExt, WatchedValue, entity_animal, entity_arrow, entity_creature, entity_living,
     entity_player,
@@ -325,8 +326,9 @@ fn getPathOrWalkableBlock(this: &Rc<Entity>, owner: &Rc<Entity>, distance: f32)
     }
 }
 
-fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, mut amount: i32) -> bool
+fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -> bool
 {
+    let source: Option<&Rc<Entity>> = damage.m_attacker;
     setWolfSitting(this, false);
     if let Some(source) = source
         && !source.instanceOf("EntityPlayer")
@@ -334,7 +336,7 @@ fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, mut amount: 
     {
         amount = (amount + 1) / 2;
     }
-    if !(entity_animal::CLASS.attackEntityFrom)(this, source, amount)
+    if !(entity_animal::CLASS.attackEntityFrom)(this, damage, amount)
     {
         return false;
     }
@@ -413,7 +415,7 @@ fn attackEntity(this: &Rc<Entity>, target: &Rc<Entity>, distance: f32)
     {
         entity_living::fields(this).m_attackTime.set(20);
         let n: i32 = if isWolfTamed(this) { 4 } else { 2 };
-        target.attackEntityFrom(Some(this), n);
+        target.attackEntityFrom(&DamageSource::withAttacker(DamageKind::Mob, Some(this)), n);
     }
 }
 

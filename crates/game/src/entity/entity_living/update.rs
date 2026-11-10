@@ -1,5 +1,6 @@
 use super::{LivingFields, fields};
 use crate::block::{Block, Material};
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity, remote};
 use crate::math::{Vec3D, math_helper};
 use crate::tags::{self, Tag};
@@ -34,7 +35,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
     }
     if this.isEntityAlive() && this.isEntityInsideOpaqueBlock()
     {
-        this.attackEntityFrom(None, 1);
+        this.attackEntityFrom(&DamageSource::new(DamageKind::Suffocate), 1);
     }
     if this.m_isImmuneToFire.get() || world.m_multiplayerWorld.get()
     {
@@ -61,7 +62,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
                     this.m_motionZ.get(),
                 );
             }
-            this.attackEntityFrom(None, 2);
+            this.attackEntityFrom(&DamageSource::new(DamageKind::Drown), 2);
         }
         this.m_fire.set(0);
     }

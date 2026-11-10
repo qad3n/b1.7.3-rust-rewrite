@@ -216,8 +216,8 @@ fn dispatch(event: GameEvent<'_>) -> bool
         {
             post(entity.m_worldObj.get().as_ref(), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
         }
-        GameEvent::LivingAttack { entity, source, amount } =>
-        {
+        GameEvent::LivingAttack { entity, damage, amount } => crate::damage::with(damage.m_kind, || {
+            let source: Option<&Rc<Entity>> = damage.m_attacker;
             let world: Option<Rc<World>> = entity.m_worldObj.get();
             let data: EventData = EventData::Attack {
                 entity: entityInfo(entity),
@@ -236,7 +236,7 @@ fn dispatch(event: GameEvent<'_>) -> bool
                 *amount = changed;
             }
             hurt.canceled
-        }
+        }),
         GameEvent::LivingDeath { entity, source } =>
         {
             let data: EventData = EventData::Death {

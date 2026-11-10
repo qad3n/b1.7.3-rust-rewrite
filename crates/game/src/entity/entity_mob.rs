@@ -1,3 +1,4 @@
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{Entity, EntityClass, EntityExt, entity_creature, entity_living};
 use crate::math::math_helper;
 use crate::port::sameObject;
@@ -76,8 +77,9 @@ pub const CLASS: EntityClass = EntityClass {
         let entityPlayer: Option<Rc<Entity>> = this.world().getClosestPlayerToEntity(this, 16.0);
         entityPlayer.filter(|player| entity_living::canEntityBeSeen(this, player))
     },
-    attackEntityFrom: |this, source, amount| {
-        if (entity_creature::CLASS.attackEntityFrom)(this, source, amount)
+    attackEntityFrom: |this, damage, amount| {
+        let source: Option<&Rc<Entity>> = damage.m_attacker;
+        if (entity_creature::CLASS.attackEntityFrom)(this, damage, amount)
         {
             // java compares references here and either side may be null
             if sameObject(this.m_riddenByEntity.get().as_ref(), source)
@@ -101,7 +103,10 @@ pub const CLASS: EntityClass = EntityClass {
             && target.m_boundingBox.minY() < this.m_boundingBox.maxY()
         {
             living.m_attackTime.set(20);
-            target.attackEntityFrom(Some(this), fields(this).m_attackStrength.get());
+            target.attackEntityFrom(
+                &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
+                fields(this).m_attackStrength.get(),
+            );
         }
     },
     getBlockPathWeight: |this, x, y, z| 0.5 - this.world().getLightBrightness(x, y, z),

@@ -16,7 +16,7 @@ crate::vtable! {
         fn addToPlayerScore(victim: Option<&Rc<Entity>>, score: i32);
         fn addVelocity(dx: f64, dy: f64, dz: f64);
         fn applyEntityCollision(entity: &Rc<Entity>);
-        fn attackEntityFrom(source: Option<&Rc<Entity>>, amount: i32) -> bool;
+        fn attackEntityFrom(damage: &DamageSource, amount: i32) -> bool;
         fn canBeCollidedWith() -> bool;
         fn canBePushed() -> bool;
         fn canTriggerWalking() -> bool;
@@ -122,6 +122,7 @@ crate::vtable! {
     }
 }
 
+use crate::damage::DamageSource;
 use crate::port::abstractMethod;
 
 // abstract java methods get a slot that throws the AbstractMethodError java would

@@ -1,3 +1,4 @@
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::entity_arrow::{
     applyHeading, faceVelocity, findEntityHit, launchFrom, movePosition, rotateTowardsMotion, scaleMotion, shakeLoose,
     spawnBubbles,
@@ -202,7 +203,8 @@ pub(crate) fn updateThrown(this: &Rc<Entity>, onImpact: fn(&Rc<Entity>))
     {
         if let Some(entityHit) = &hit.m_entityHit
         {
-            entityHit.attackEntityFrom(fields.m_thrower.get().as_ref(), 0);
+            let thrower: Option<Rc<Entity>> = fields.m_thrower.get();
+            entityHit.attackEntityFrom(&DamageSource::withProjectile(DamageKind::Thrown, this, thrower.as_ref()), 0);
         }
         onImpact(this);
         for _ in 0..8

@@ -1,4 +1,5 @@
 use crate::block::{BLOCK, Block, BlockClass, Material, block_reed};
+use crate::damage::{DamageKind, DamageSource};
 use crate::math::AxisAlignedBB;
 use crate::world::World;
 use std::rc::Rc;
@@ -63,7 +64,7 @@ pub const CLASS: BlockClass = BlockClass {
     },
     canBlockStay,
     onEntityCollidedWithBlock: |_, _, _, _, _, entity| {
-        entity.attackEntityFrom(None, 1);
+        entity.attackEntityFrom(&DamageSource::new(DamageKind::Cactus), 1);
     },
     ..BLOCK
 };

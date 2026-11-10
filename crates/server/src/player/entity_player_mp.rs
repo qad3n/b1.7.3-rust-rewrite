@@ -6,6 +6,7 @@ use common::world::ChunkCoordIntPair;
 use game::container::{
     Container, ICrafting, container_chest, container_dispenser, container_furnace, container_workbench,
 };
+use game::damage::DamageSource;
 use game::entity::entity_living::LivingFields;
 use game::entity::entity_player::{EnumStatus, PlayerFields};
 use game::entity::{Entity, EntityClass, EntityExt, entity_living, entity_player};
@@ -185,8 +186,9 @@ pub fn getEquipmentInSlot(this: &Entity, slot: i32) -> Option<Rc<ItemStack>>
     inventory.m_armorInventory.borrow()[(slot - 1) as usize].clone()
 }
 
-fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: i32) -> bool
+fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bool
 {
+    let source: Option<&Rc<Entity>> = damage.m_attacker;
     if fields(this).m_ticksOfInvuln.get() > 0
     {
         return false;
@@ -209,7 +211,7 @@ fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: i32)
             }
         }
     }
-    (entity_player::CLASS.attackEntityFrom)(this, source, amount)
+    (entity_player::CLASS.attackEntityFrom)(this, damage, amount)
 }
 
 pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)

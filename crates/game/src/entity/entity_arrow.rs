@@ -1,4 +1,5 @@
 use crate::block::Block;
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_player};
 use crate::item::{Item, ItemStack};
 use crate::math::math_helper::{cos, sin, sqrt_double};
@@ -357,7 +358,7 @@ fn onUpdate(this: &Rc<Entity>)
     {
         if let Some(entityHit) = &hit.m_entityHit
         {
-            if entityHit.attackEntityFrom(owner.as_ref(), 4)
+            if entityHit.attackEntityFrom(&DamageSource::withProjectile(DamageKind::Arrow, this, owner.as_ref()), 4)
             {
                 world.playSoundAtEntity(this, "random.drr", 1.0, 1.2 / (this.m_rand.nextFloat() * 0.2 + 0.9));
                 this.setEntityDead();

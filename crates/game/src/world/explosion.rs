@@ -1,4 +1,5 @@
 use crate::block::Block;
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::Entity;
 use crate::math::math_helper::{floor_double, sqrt_double};
 use crate::math::{AxisAlignedBB, Vec3D};
@@ -134,7 +135,7 @@ impl Explosion
             let d13: f64 = world.getBlockDensity(&vec3d, &entity.m_boundingBox) as f64;
             let d14: f64 = (1.0 - d4) * d13;
             entity.attackEntityFrom(
-                self.m_exploder.as_ref(),
+                &DamageSource::withAttacker(DamageKind::Explosion, self.m_exploder.as_ref()),
                 ((d14 * d14 + d14) / 2.0 * 8.0 * self.m_explosionSize.get() as f64 + 1.0) as i32,
             );
             let d8: f64 = d14;

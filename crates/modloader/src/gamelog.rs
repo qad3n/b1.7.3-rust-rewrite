@@ -41,9 +41,9 @@ pub fn describe(event: &GameEvent<'_>) -> Option<String>
         GameEvent::ItemSmelted { player, stack } => format!("{} took smelted {}", name(player), stackName(stack)),
         GameEvent::BucketFill { player, stack, .. } => format!("{} filled {}", name(player), stackName(stack)),
         GameEvent::EntityJoinWorld { entity, .. } => format!("{} spawned at {}", name(entity), position(entity)),
-        GameEvent::LivingAttack { entity, source, amount } =>
+        GameEvent::LivingAttack { entity, damage, amount } =>
         {
-            format!("{} attacked {} for {amount}", actor(*source), name(entity))
+            format!("{} attacked {} for {amount} by {}", actor(damage.m_attacker), name(entity), damage.m_kind.name())
         }
 
         GameEvent::LivingDeath { entity, source } =>

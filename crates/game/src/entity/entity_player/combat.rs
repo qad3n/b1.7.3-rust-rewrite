@@ -2,6 +2,7 @@ use super::{
     PlayerFields, addStat, destroyCurrentEquippedItem, dropPlayerItemWithRandomChoice, fields, getCurrentEquippedItem,
     inventory,
 };
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{Entity, entity_arrow, entity_creature, entity_living, entity_wolf};
 use crate::item::{Item, ItemStack};
 use crate::math::{AxisAlignedBB, math_helper};
@@ -39,8 +40,9 @@ pub fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
     addStat(this, StatList::deathsStat(), 1);
 }
 
-pub fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, mut amount: i32) -> bool
+pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -> bool
 {
+    let source: Option<&Rc<Entity>> = damage.m_attacker;
     let living: &entity_living::LivingFields = entity_living::fields(this);
     let world: Rc<World> = this.world();
     living.m_entityAge.set(0);
@@ -84,7 +86,7 @@ pub fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, mut amou
         alertWolves(this, attacker, false);
     }
     addStat(this, StatList::damageTakenStat(), amount);
-    (entity_living::CLASS.attackEntityFrom)(this, source, amount)
+    (entity_living::CLASS.attackEntityFrom)(this, damage, amount)
 }
 
 pub(super) fn pvpEnabled(_this: &Rc<Entity>) -> bool { false }
@@ -160,7 +162,7 @@ pub fn attackTargetEntityWithCurrentItem(this: &Rc<Entity>, target: &Rc<Entity>)
         {
             i += 1;
         }
-        target.attackEntityFrom(Some(this), i);
+        target.attackEntityFrom(&DamageSource::withAttacker(DamageKind::Player, Some(this)), i);
         if let Some(itemstack) = getCurrentEquippedItem(this)
             && target.instanceOf("EntityLiving")
         {

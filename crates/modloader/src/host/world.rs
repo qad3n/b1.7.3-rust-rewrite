@@ -3,6 +3,7 @@ use super::{ok, unit};
 use crate::network::loader;
 use crate::state::ModRuntime;
 use crate::tiles::{self, ModTileExt};
+use game::damage::{DamageKind, DamageSource};
 use game::entity::{Entity, entity_player};
 use game::inventory::IInventory;
 use game::item::ItemStack;
@@ -600,8 +601,23 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         }
         HostCall::DamageEntity { world: dimension, id, source, amount } => ok(entity(dimension, id), |target| {
             let attacker: Option<Rc<Entity>> = source.and_then(|source| context::entityIn(dimension, source));
-            HostReply::Bool(target.attackEntityFrom(attacker.as_ref(), amount))
+            HostReply::Bool(
+                target.attackEntityFrom(&DamageSource::withAttacker(DamageKind::Generic, attacker.as_ref()), amount),
+            )
         }),
+        HostCall::DamageEntityAs { world: dimension, id, source, amount, kind } =>
+        {
+            let Some(kind) = crate::damage::kind(&kind)
+            else
+            {
+                return HostReply::Error(format!("{kind} is not a damage type"));
+            };
+            ok(entity(dimension, id), |target| {
+                let attacker: Option<Rc<Entity>> = source.and_then(|source| context::entityIn(dimension, source));
+                HostReply::Bool(target.attackEntityFrom(&DamageSource::withAttacker(kind, attacker.as_ref()), amount))
+            })
+        }
+        HostCall::DamageType => HostReply::Id(crate::damage::current()),
         HostCall::KillEntity { world: dimension, id } =>
         {
             unit(entity(dimension, id).map(|entity| entity.setEntityDead()))
@@ -668,8 +684,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                     .map(|stack| setAttachment(&stack.m_components, &component.to_string(), data)),
             )
         }
-        HostCall::ItemEntityStack { world: dimension, id } => ok(entity(dimension, id), |entity|
-        {
+        HostCall::ItemEntityStack { world: dimension, id } => ok(entity(dimension, id), |entity| {
             let fields: Option<&game::entity::entity_item::ItemFields> = entity.m_ext.asAny().downcast_ref();
             HostReply::Stack(fields.and_then(|fields| fields.m_item.get()).map(|stack| stackData(&stack)))
         }),
@@ -681,8 +696,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             let inventory = entity_player::inventory(&player);
             inventory.setInventorySlotContents(inventory.m_currentItem.get(), stack.as_ref().and_then(stackFrom));
         })),
-        HostCall::SetSpawner { world: dimension, pos, entity } => unit(world(dimension).and_then(|world|
-        {
+        HostCall::SetSpawner { world: dimension, pos, entity } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
             world.setBlockWithNotify(pos.x, pos.y, pos.z, game::block::Block::MOB_SPAWNER);
             let tile: Rc<TileEntity> =
@@ -693,8 +707,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             );
             Ok(())
         })),
-        HostCall::RandomTick { world: dimension, pos } => unit(world(dimension).and_then(|world|
-        {
+        HostCall::RandomTick { world: dimension, pos } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
             let id: i32 = world.getBlockId(pos.x, pos.y, pos.z);
             if id != 0
@@ -722,8 +735,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         HostCall::BlockMapColor { block } => HostReply::Int(
             game::block::Block::byId(block).map_or(0, |block| block.m_blockMaterial.m_materialMapColor.m_colorValue),
         ),
-        HostCall::Fertilize { world: dimension, pos } => unit(world(dimension).and_then(|world|
-        {
+        HostCall::Fertilize { world: dimension, pos } => unit(world(dimension).and_then(|world| {
             authoritative(&world)?;
             // vanilla bone meal used on the block, with a throwaway item entity as the holder it never reads
             let stack: Rc<ItemStack> = ItemStack::withItemDamage(&game::item::Item::dyePowder(), 1, BONE_MEAL);
@@ -737,8 +749,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             stack.getItem().onItemUse(&stack, &holder, &world, pos.x, pos.y, pos.z, 1);
             Ok(())
         })),
-        HostCall::DamageHeld { player: id, amount } => unit(player(id).map(|player|
-        {
+        HostCall::DamageHeld { player: id, amount } => unit(player(id).map(|player| {
             let Some(stack) = heldStack(&player)
             else
             {
@@ -750,8 +761,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 entity_player::destroyCurrentEquippedItem(&player);
             }
         })),
-        HostCall::PlaySound { world: dimension, pos, sound, volume, pitch } => unit(world(dimension).map(|world|
-        {
+        HostCall::PlaySound { world: dimension, pos, sound, volume, pitch } => unit(world(dimension).map(|world| {
             world.playSoundEffect(pos[0], pos[1], pos[2], &sound, volume, pitch);
             let message = loader::Sound { world: dimension, pos, sound, volume, pitch };
             loader::broadcastNear(loader::SOUND, &world, pos, &message);

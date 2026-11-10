@@ -1,5 +1,6 @@
 use super::{LivingFields, fields};
 use crate::block::{Block, StepSound};
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity};
 use crate::math::math_helper;
 use crate::port::playSoundAtEntity;
@@ -52,8 +53,9 @@ pub fn heal(this: &Rc<Entity>, amount: i32)
     this.m_heartsLife.set(living.m_heartsHalvesLife.get() / 2);
 }
 
-pub fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: i32) -> bool
+pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bool
 {
+    let source: Option<&Rc<Entity>> = damage.m_attacker;
     let living: &LivingFields = fields(this);
     let world: Rc<World> = this.world();
     if world.m_multiplayerWorld.get()
@@ -62,7 +64,7 @@ pub fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: 
     }
     // mods may cancel an attack or change its damage
     let mut amount: i32 = amount;
-    if crate::hooks::fire(crate::hooks::GameEvent::LivingAttack { entity: this, source, amount: &mut amount })
+    if crate::hooks::fire(crate::hooks::GameEvent::LivingAttack { entity: this, damage, amount: &mut amount })
     {
         return false;
     }
@@ -195,7 +197,7 @@ pub fn fall(this: &Rc<Entity>, distance: f32)
     let i: i32 = math::ceil((distance - 3.0) as f64) as i32;
     if i > 0
     {
-        this.attackEntityFrom(None, i);
+        this.attackEntityFrom(&DamageSource::new(DamageKind::Fall), i);
         let world: Rc<World> = this.world();
         let j: i32 = world.getBlockId(
             math_helper::floor_double(this.posX()),
@@ -225,7 +227,7 @@ pub fn handleHealthUpdate(this: &Rc<Entity>, event: i8)
         living.m_attackedAtYaw.set(0.0);
         // java may pass a null sound name so the port wrapper plays nothing for it
         playSoundAtEntity(&world, this, this.getHurtSound(), this.getSoundVolume(), randomPitch(this));
-        this.attackEntityFrom(None, 0);
+        this.attackEntityFrom(&DamageSource::new(DamageKind::Generic), 0);
     }
     else if event == 3
     {

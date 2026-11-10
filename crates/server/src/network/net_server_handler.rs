@@ -2,6 +2,7 @@ use crate::player::entity_player_mp;
 use crate::server::{ICommandListener, MinecraftServer, ServerAuth};
 use crate::world::world_server;
 use game::container::{Container, Slot};
+use game::damage::{DamageKind, DamageSource};
 use game::entity::{Entity, entity_living, entity_player};
 use game::inventory::{IInventory, InventoryPlayer};
 use game::item::ItemStack;
@@ -187,7 +188,7 @@ impl NetServerHandler
         }
         else if command.toLowerCase().startsWith("/kill")
         {
-            self.player().attackEntityFrom(None, 1000);
+            self.player().attackEntityFrom(&DamageSource::new(DamageKind::Kill), 1000);
         }
         else if command.toLowerCase().startsWith("/tell ")
         {

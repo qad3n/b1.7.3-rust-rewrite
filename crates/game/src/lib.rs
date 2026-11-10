@@ -1,6 +1,7 @@
 pub mod block;
 pub mod container;
 pub mod crafting;
+pub mod damage;
 pub mod entity;
 pub mod hooks;
 pub mod inventory;

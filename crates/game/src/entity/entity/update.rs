@@ -1,4 +1,5 @@
 use crate::block::Material;
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::Entity;
 use crate::math::math_helper::{self, floor_double};
 use crate::math::{AxisAlignedBB, Vec3D};
@@ -106,7 +107,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
         {
             if this.m_fire.get() % 20 == 0
             {
-                this.attackEntityFrom(None, 1);
+                this.attackEntityFrom(&DamageSource::new(DamageKind::OnFire), 1);
             }
             this.m_fire.set(this.m_fire.get() - 1);
         }
@@ -135,7 +136,7 @@ pub fn setOnFireFromLava(this: &Rc<Entity>)
 {
     if !this.m_isImmuneToFire.get()
     {
-        this.attackEntityFrom(None, 4);
+        this.attackEntityFrom(&DamageSource::new(DamageKind::Lava), 4);
         this.m_fire.set(600);
     }
 }
@@ -180,7 +181,7 @@ pub fn applyEntityCollision(this: &Rc<Entity>, entity: &Rc<Entity>)
     }
 }
 
-pub fn attackEntityFrom(this: &Rc<Entity>, _source: Option<&Rc<Entity>>, _amount: i32) -> bool
+pub fn attackEntityFrom(this: &Rc<Entity>, _damage: &DamageSource, _amount: i32) -> bool
 {
     this.setBeenAttacked();
     false
@@ -190,7 +191,7 @@ pub fn dealFireDamage(this: &Rc<Entity>, amount: i32)
 {
     if !this.m_isImmuneToFire.get()
     {
-        this.attackEntityFrom(None, amount);
+        this.attackEntityFrom(&DamageSource::new(DamageKind::InFire), amount);
     }
 }
 

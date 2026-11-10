@@ -1,4 +1,5 @@
 use crate::block::{Block, Material};
+use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_player};
 use crate::item::{Item, ItemStack};
 use crate::math::math_helper::floor_double;
@@ -167,7 +168,7 @@ pub const CLASS: EntityClass = EntityClass {
     onUpdate,
     handleWaterMovement: |this| this.world().handleMaterialAcceleration(&this.m_boundingBox, Material::water(), this),
     dealFireDamage: |this, amount| {
-        this.attackEntityFrom(None, amount);
+        this.attackEntityFrom(&DamageSource::new(DamageKind::InFire), amount);
     },
     attackEntityFrom: |this, _source, amount| {
         this.setBeenAttacked();

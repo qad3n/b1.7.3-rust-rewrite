@@ -1,3 +1,4 @@
+use crate::damage::DamageSource;
 use crate::entity::entity_mob::MobFields;
 use crate::entity::{Entity, EntityClass, EntityExt, entity_creature, entity_living, entity_mob, entity_zombie};
 use crate::item::{Item, ItemStack};
@@ -57,8 +58,9 @@ fn onUpdate(this: &Rc<Entity>)
     (entity_zombie::CLASS.onUpdate)(this);
 }
 
-fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: i32) -> bool
+fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bool
 {
+    let source: Option<&Rc<Entity>> = damage.m_attacker;
     if let Some(player) = source.filter(|source| source.instanceOf("EntityPlayer"))
     {
         let bounds: Rc<crate::math::AxisAlignedBB> = this.m_boundingBox.expand(32.0, 32.0, 32.0);
@@ -72,7 +74,7 @@ fn attackEntityFrom(this: &Rc<Entity>, source: Option<&Rc<Entity>>, amount: i32)
         }
         becomeAngryAt(this, player);
     }
-    (entity_zombie::CLASS.attackEntityFrom)(this, source, amount)
+    (entity_zombie::CLASS.attackEntityFrom)(this, damage, amount)
 }
 
 pub const CLASS: EntityClass = EntityClass {
