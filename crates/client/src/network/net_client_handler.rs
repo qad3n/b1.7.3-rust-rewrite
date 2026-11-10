@@ -42,8 +42,6 @@ pub static UNKNOWN_HOST: ThrowableClass =
     ThrowableClass { m_name: "java.net.UnknownHostException", m_parent: Some(&IO) };
 pub static CONNECT: ThrowableClass = ThrowableClass { m_name: "java.net.ConnectException", m_parent: Some(&IO) };
 
-const TEST_PASSWORD_VAR: &str = "B173_TEST_PASSWORD";
-
 pub struct NetClientHandler
 {
     m_self: Weak<NetClientHandler>,
@@ -170,17 +168,6 @@ impl NetClientHandler
         };
         let fingerprint: String = server_keys::fingerprint(&key);
         self.m_serverKey.set(key);
-        // scripted test clients log in or register without the password screen
-        if let Ok(password) = std::env::var(TEST_PASSWORD_VAR)
-        {
-            let values: [String; 3] = [password.clone(), password, String::new()];
-            if let Err(reason) = self.submitAuth(screen, &values)
-            {
-                self.authFailed(&reason);
-            }
-            return;
-        }
-
         self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), screen, &fingerprint)));
     }
 
