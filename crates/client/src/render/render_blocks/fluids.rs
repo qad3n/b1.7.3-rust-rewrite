@@ -157,7 +157,26 @@ impl RenderBlocks
         1.0 - f / i as f32
     }
 
-    pub fn renderBlockFallingSand(&mut self, block: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
+    pub fn renderBlockFallingSand(&mut self, block: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, meta: i32)
+    {
+        // rewrite: a mod's moving block draws its metadata's faces and its model pieces
+        let shapes: Vec<([f32; 6], i32)> = crate::modded::movingShapes(block.m_blockID, meta);
+        if shapes.is_empty()
+        {
+            self.renderFallingFaces(block, world, x, y, z, meta);
+            return;
+        }
+        for ([x0, y0, z0, x1, y1, z1], sprite) in shapes
+        {
+            block.setBlockBounds(x0, y0, z0, x1, y1, z1);
+            self.m_overrideBlockTexture = sprite;
+            self.renderFallingFaces(block, world, x, y, z, meta);
+        }
+        self.m_overrideBlockTexture = -1;
+        block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+    }
+
+    fn renderFallingFaces(&mut self, block: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, meta: i32)
     {
         let f: f32 = 0.5;
         let f2: f32 = 1.0;
@@ -171,24 +190,25 @@ impl RenderBlocks
             let f6: f32 = block.getBlockBrightness(world, x, y, z);
             if f6 < f5 { f5 } else { f6 }
         };
+        let face = |side: i32| block.getBlockTextureFromSideAndMetadata(side, meta);
         let mut f6: f32 = lit(x, y - 1, z);
         tessellator.setColorOpaque_F(f * f6, f * f6, f * f6);
-        self.renderBottomFace(block, -0.5, -0.5, -0.5, block.getBlockTextureFromSide(0));
+        self.renderBottomFace(block, -0.5, -0.5, -0.5, face(0));
         f6 = lit(x, y + 1, z);
         tessellator.setColorOpaque_F(f2 * f6, f2 * f6, f2 * f6);
-        self.renderTopFace(block, -0.5, -0.5, -0.5, block.getBlockTextureFromSide(1));
+        self.renderTopFace(block, -0.5, -0.5, -0.5, face(1));
         f6 = lit(x, y, z - 1);
         tessellator.setColorOpaque_F(f3 * f6, f3 * f6, f3 * f6);
-        self.renderEastFace(block, -0.5, -0.5, -0.5, block.getBlockTextureFromSide(2));
+        self.renderEastFace(block, -0.5, -0.5, -0.5, face(2));
         f6 = lit(x, y, z + 1);
         tessellator.setColorOpaque_F(f3 * f6, f3 * f6, f3 * f6);
-        self.renderWestFace(block, -0.5, -0.5, -0.5, block.getBlockTextureFromSide(3));
+        self.renderWestFace(block, -0.5, -0.5, -0.5, face(3));
         f6 = lit(x - 1, y, z);
         tessellator.setColorOpaque_F(f4 * f6, f4 * f6, f4 * f6);
-        self.renderNorthFace(block, -0.5, -0.5, -0.5, block.getBlockTextureFromSide(4));
+        self.renderNorthFace(block, -0.5, -0.5, -0.5, face(4));
         f6 = lit(x + 1, y, z);
         tessellator.setColorOpaque_F(f4 * f6, f4 * f6, f4 * f6);
-        self.renderSouthFace(block, -0.5, -0.5, -0.5, block.getBlockTextureFromSide(5));
+        self.renderSouthFace(block, -0.5, -0.5, -0.5, face(5));
         tessellator.draw();
     }
 }

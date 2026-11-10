@@ -807,8 +807,27 @@ pub fn sendSpawn(entity: &Rc<Entity>, player: &Rc<Entity>) -> bool
     };
     let channel: Identifier = crate::network::loader::id(crate::network::loader::SPAWN_ENTITY);
     crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&message));
+    sendMovingBlock(entity, player);
     sendSynced(entity, player);
     true
+}
+
+// a moving block's block and metadata live in falling sand's fields, which the spawn message does not carry
+fn sendMovingBlock(entity: &Rc<Entity>, player: &Rc<Entity>)
+{
+    if !entity.instanceOf("EntityFallingSand")
+    {
+        return;
+    }
+
+    let fields = game::entity::entity_falling_sand::fields(entity);
+    let message = crate::network::loader::MovingBlock {
+        id: entity.m_entityId.get(),
+        block: fields.m_blockID.get(),
+        meta: fields.m_metadata.get(),
+    };
+    let channel: Identifier = crate::network::loader::id(crate::network::loader::MOVING_BLOCK);
+    crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&message));
 }
 
 // the synced bytes of any entity, players included, for a player who just started seeing it

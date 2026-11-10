@@ -15,6 +15,7 @@ pub const PARTICLE: &str = "loader:particle";
 pub const BLOCK_EVENT: &str = "loader:block_event";
 pub const ENTITY_SYNCED: &str = "loader:entity_attachment";
 pub const TICK: &str = "loader:tick";
+pub const MOVING_BLOCK: &str = "loader:moving_block";
 
 #[derive(Serialize, Deserialize)]
 pub struct EntitySynced
@@ -29,6 +30,15 @@ pub struct EntitySynced
 pub struct Tick
 {
     pub tick: i32,
+}
+
+// the block and metadata a mod's moving block draws, sent right after its spawn
+#[derive(Serialize, Deserialize)]
+pub struct MovingBlock
+{
+    pub id: i32,
+    pub block: i32,
+    pub meta: i32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -163,6 +173,22 @@ fn entitySynced(message: EntitySynced)
     }
 }
 
+fn movingBlock(message: MovingBlock)
+{
+    let entity = crate::network::localPlayer()
+        .and_then(|player| player.m_worldObj.get())
+        .and_then(|world| context::entityById(&world, message.id))
+        .filter(|entity| entity.instanceOf("EntityFallingSand"));
+    let Some(entity) = entity
+    else
+    {
+        return;
+    };
+    let fields = game::entity::entity_falling_sand::fields(&entity);
+    fields.m_blockID.set(message.block);
+    fields.m_metadata.set(message.meta);
+}
+
 fn tileData(message: super::sync::TileData)
 {
     let Some(world) = context::world(message.world)
@@ -255,7 +281,7 @@ pub fn sendTick()
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 8] = [
+    let channels: [(&str, Handler); 9] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
@@ -264,6 +290,7 @@ pub fn register()
         (BLOCK_EVENT, clientHandler(blockEvent)),
         (ENTITY_SYNCED, clientHandler(entitySynced)),
         (TICK, clientHandler(tick)),
+        (MOVING_BLOCK, clientHandler(movingBlock)),
     ];
     for (name, handler) in channels
     {

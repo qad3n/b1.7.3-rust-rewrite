@@ -31,3 +31,21 @@ pub fn renderModel(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y: i3
     block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
     drawn
 }
+
+// a moving block's model pieces as bounds in block units and the sprite each one overrides with, -1 for its faces
+pub fn movingShapes(blockId: i32, meta: i32) -> Vec<([f32; 6], i32)>
+{
+    modloader::content::blocks::metaCuboids(blockId, meta)
+        .into_iter()
+        .map(|cuboid| {
+            let [x0, y0, z0] = cuboid.from.map(|value| value / MODEL_UNITS);
+            let [x1, y1, z1] = cuboid.to.map(|value| value / MODEL_UNITS);
+            let sprite: i32 = cuboid
+                .texture
+                .as_deref()
+                .and_then(|texture| modloader::content::textureSlot(texture, Atlas::Terrain))
+                .unwrap_or(-1);
+            ([x0, y0, z0, x1, y1, z1], sprite)
+        })
+        .collect()
+}

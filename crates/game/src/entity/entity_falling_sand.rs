@@ -9,6 +9,8 @@ pub struct FallingSandFields
 {
     pub m_blockID: Cell<i32>,
     pub m_fallTime: Cell<i32>,
+    // rewrite: the metadata a mod's moving block draws with, vanilla sand and gravel keep 0
+    pub m_metadata: Cell<i32>,
 }
 
 impl EntityExt for FallingSandFields
@@ -20,8 +22,10 @@ pub fn fields(this: &Entity) -> &FallingSandFields { this.ext::<FallingSandField
 
 pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
 {
-    let entity: Rc<Entity> =
-        Entity::alloc(&CLASS, Box::new(FallingSandFields { m_blockID: Cell::new(0), m_fallTime: Cell::new(0) }));
+    let entity: Rc<Entity> = Entity::alloc(
+        &CLASS,
+        Box::new(FallingSandFields { m_blockID: Cell::new(0), m_fallTime: Cell::new(0), m_metadata: Cell::new(0) }),
+    );
     Entity::init(&entity, world);
     entity
 }

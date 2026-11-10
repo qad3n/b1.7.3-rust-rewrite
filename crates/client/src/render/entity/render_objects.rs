@@ -303,6 +303,7 @@ pub const RENDER_FALLING_SAND: RenderClass = RenderClass {
             math_helper::floor_double(entity.posX()),
             math_helper::floor_double(entity.posY()),
             math_helper::floor_double(entity.posZ()),
+            entity_falling_sand::fields(entity).m_metadata.get(),
         );
         GL11::glEnable(GL11::GL_LIGHTING);
         GL11::glPopMatrix();

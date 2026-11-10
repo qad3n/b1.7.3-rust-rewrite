@@ -72,6 +72,27 @@ fn connects(spec: &BlockSpec, world: &dyn IBlockAccess, own: i32, x: i32, y: i32
     listed.iter().any(|id| crate::registry::with(|registries| registries.blockId(id)) == Some(neighbor))
 }
 
+// the cuboids of a model for a metadata alone, as a block in flight shows with no neighbors to connect to
+pub fn metaCuboids(blockId: i32, meta: i32) -> Vec<Cuboid>
+{
+    let Some(data) = super::blockData(blockId)
+    else
+    {
+        return Vec::new();
+    };
+    let Some(model) = data.m_spec.model.as_ref()
+    else
+    {
+        return Vec::new();
+    };
+    model
+        .cuboids
+        .iter()
+        .filter(|cuboid| cuboid.connect.is_none() && (cuboid.metas.is_empty() || cuboid.metas.contains(&meta)))
+        .cloned()
+        .collect()
+}
+
 // the cuboids of a model that show at a spot, by its metadata and its neighbors
 pub fn activeCuboids(blockId: i32, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> Vec<Cuboid>
 {
