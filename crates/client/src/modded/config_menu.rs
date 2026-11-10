@@ -18,16 +18,17 @@ mod layout
     pub const TITLE_Y: i32 = 8;
     pub const FILE_Y: i32 = 20;
     pub const TOP: i32 = 32;
-    pub const BOTTOM_MARGIN: i32 = 92;
+    pub const BOTTOM_MARGIN: i32 = 66;
     pub const ROW_HEIGHT: i32 = 24;
-    pub const CONTROL_WIDTH: i32 = 100;
+    pub const CONTROL_WIDTH: i32 = 120;
     pub const CONTROL_HEIGHT: i32 = 20;
     pub const STEP_WIDTH: i32 = 20;
     pub const GAP: i32 = 2;
-    pub const ROW_HALF_WIDTH: i32 = 110;
-    pub const INFO_Y: [i32; 3] = [88, 77, 66];
+    pub const ROW_MAX_WIDTH: i32 = 400;
+    pub const ROW_MARGIN: i32 = 30;
+    pub const INFO_Y: [i32; 3] = [62, 51, 40];
     pub const INFO_MARGIN: i32 = 20;
-    pub const FIELD_Y: i32 = 52;
+    pub const FIELD_Y: i32 = 64;
     pub const FIELD_MAX_WIDTH: i32 = 300;
     pub const FIELD_MAX_LENGTH: i32 = 80;
     pub const BUTTON_Y: i32 = 28;
@@ -163,9 +164,12 @@ fn controls(font: &FontRenderer, option: &ConfigOption, current: &str, x: i32) -
     }
 }
 
+fn rowWidth(width: i32) -> i32 { (width - 2 * layout::ROW_MARGIN).min(layout::ROW_MAX_WIDTH) }
+
 fn controlX(this: &GuiScreen) -> i32
 {
-    this.m_width.get() / 2 + layout::ROW_HALF_WIDTH - layout::GAP - layout::CONTROL_WIDTH
+    let width: i32 = this.m_width.get();
+    width / 2 + rowWidth(width) / 2 - layout::GAP - layout::CONTROL_WIDTH
 }
 
 fn shifted() -> bool { Keyboard::isKeyDown(Keyboard::KEY_LSHIFT) || Keyboard::isKeyDown(Keyboard::KEY_RSHIFT) }
@@ -378,8 +382,19 @@ fn drawInfo(this: &GuiScreen, font: &FontRenderer)
         return;
     };
     let [labelY, commentY, detailY] = layout::INFO_Y;
-    this.m_gui.drawCenteredString(font, &fit(font, &config::label(&option), infoWidth), center, height - labelY, WHITE);
-    this.m_gui.drawCenteredString(font, &fit(font, &option.comment, infoWidth), center, height - commentY, GREY);
+    // the edit field covers the label and comment lines while open
+    if state.m_editing.borrow().is_none()
+    {
+        this.m_gui.drawCenteredString(
+            font,
+            &fit(font, &config::label(&option), infoWidth),
+            center,
+            height - labelY,
+            WHITE,
+        );
+        this.m_gui.drawCenteredString(font, &fit(font, &option.comment, infoWidth), center, height - commentY, GREY);
+    }
+
     let (detail, color): (String, i32) =
         state.m_message.borrow().clone().unwrap_or_else(|| (config::describe(&option), DARK_GREY));
     this.m_gui.drawCenteredString(font, &fit(font, &detail, infoWidth), center, height - detailY, color);
@@ -403,6 +418,7 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass {
             height - layout::BOTTOM_MARGIN,
             layout::ROW_HEIGHT,
         );
+        slot.setRowWidth(rowWidth(width));
         slot.registerScrollButtons(&this.m_controlList, layout::SCROLL_UP, layout::SCROLL_DOWN);
         state.m_slot.set(Some(slot));
         let fieldWidth: i32 = (width - 2 * layout::INFO_MARGIN).min(layout::FIELD_MAX_WIDTH);
