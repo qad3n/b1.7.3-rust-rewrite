@@ -264,6 +264,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         HostCall::DimensionSeed { dimension, seed } => unit(dimensions::registerSeed(index, dimension, seed)),
         HostCall::TerrainSlot { texture } =>
         {
+            crate::atlas::request(crate::atlas::Atlas::Terrain, &texture);
             HostReply::Int(crate::content::textureSlot(&texture, crate::atlas::Atlas::Terrain).unwrap_or(-1))
         }
         HostCall::WorldSeed { world } => match context::world(world)
