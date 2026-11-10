@@ -61,9 +61,11 @@ pub fn tick(this: &Rc<Entity>)
         clearItemInUse(this);
         return;
     }
-    let left: i32 = fields(this).m_itemInUseCount.get() - 1;
+    // Forge's onUsingTick hears the count before this tick takes one off
+    let count: i32 = fields(this).m_itemInUseCount.get();
+    stack.getItem().onUsingItemTick(&stack, this, count);
+    let left: i32 = count - 1;
     fields(this).m_itemInUseCount.set(left);
-    stack.getItem().onUsingItemTick(&stack, this, left);
     if left > 0
     {
         return;
