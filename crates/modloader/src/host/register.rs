@@ -128,6 +128,9 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostReply, Box
             tags::push();
             HostReply::Unit
         }
+        HostCall::RegisterFluid { name, spec } => unit(
+            registering().and_then(|()| own(runtime, &name)).and_then(|id| crate::content::fluids::register(id, spec)),
+        ),
         HostCall::SetLoot { registry, target, spec } =>
         {
             let added: Result<(), String> = crate::content::loot::add(registry, target, spec);

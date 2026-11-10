@@ -97,6 +97,12 @@ impl Material
         material
     }
 
+    // a fresh liquid material for a mod fluid, so beta's water and lava checks never see it
+    pub fn liquid(color: &Rc<MapColor>) -> Rc<Material>
+    {
+        Rc::new(Material::new(MaterialKind::Liquid, color).setNoPushMobility())
+    }
+
     pub fn getIsLiquid(&self) -> bool { self.m_kind == MaterialKind::Liquid }
 
     pub fn isSolid(&self) -> bool { self.m_kind == MaterialKind::Material }

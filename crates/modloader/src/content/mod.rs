@@ -1,5 +1,6 @@
 pub mod blocks;
 pub mod data;
+pub mod fluids;
 pub mod harvest;
 pub mod items;
 pub mod lang;

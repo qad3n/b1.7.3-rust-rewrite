@@ -171,6 +171,7 @@ pub fn buildContent()
     content::tags::push();
     content::tags::report();
     content::loot::push(true);
+    content::fluids::push();
 }
 
 fn buildRegistered()

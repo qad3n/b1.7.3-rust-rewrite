@@ -28,7 +28,7 @@ fn vanillaBlock(name: &str) -> Option<Rc<Block>>
     crate::registry::with(|registries| registries.blockId(&id)).and_then(Block::byId)
 }
 
-pub const BLOCK_TEMPLATES: [BlockTemplate; 29] = [
+pub const BLOCK_TEMPLATES: [BlockTemplate; 31] = [
     BlockTemplate { m_name: "block", m_create: |id, sprite, material| Block::basic(id, sprite, material) },
     BlockTemplate { m_name: "stone", m_create: |id, sprite, _| blocks::block_stone::create(id, sprite) },
     BlockTemplate { m_name: "cobblestone", m_create: |id, sprite, _| Block::basic(id, sprite, Material::rock()) },
@@ -67,6 +67,8 @@ pub const BLOCK_TEMPLATES: [BlockTemplate; 29] = [
     BlockTemplate { m_name: "tnt", m_create: |id, sprite, _| blocks::block_tnt::create(id, sprite) },
     BlockTemplate { m_name: "portal", m_create: |id, sprite, _| blocks::block_portal::create(id, sprite) },
     BlockTemplate { m_name: "bed", m_create: |id, _, _| blocks::block_bed::create(id) },
+    BlockTemplate { m_name: "flowing_fluid", m_create: |id, _, material| blocks::block_flowing::create(id, material) },
+    BlockTemplate { m_name: "still_fluid", m_create: |id, _, material| blocks::block_stationary::create(id, material) },
 ];
 
 // mod leaves have no opaque fast texture so they draw fancy in both graphics modes, never as culled opaque cubes
@@ -106,7 +108,7 @@ fn armorSlot(spec: &ItemSpec) -> i32
     }
 }
 
-pub const ITEM_TEMPLATES: [ItemTemplate; 11] = [
+pub const ITEM_TEMPLATES: [ItemTemplate; 12] = [
     ItemTemplate { m_name: "stick", m_create: |id, _| Item::basic(id) },
     ItemTemplate {
         m_name: "apple",
@@ -127,6 +129,8 @@ pub const ITEM_TEMPLATES: [ItemTemplate; 11] = [
         m_name: "record_13",
         m_create: |id, spec| items::item_record::create(id, spec.record.as_ref().map_or("13", |record| &record.sound)),
     },
+    // a mod fluid's bucket places that fluid, items.rs swaps in its flowing block
+    ItemTemplate { m_name: "water_bucket", m_create: |id, _| items::item_bucket::create(id, Block::WATER_MOVING) },
 ];
 
 // the template a spec gets when it names none

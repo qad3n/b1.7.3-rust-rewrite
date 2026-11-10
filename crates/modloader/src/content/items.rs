@@ -180,7 +180,12 @@ pub fn build(row: &Row<ItemEntry>, owner: usize) -> Result<(), String>
     let template_class: &'static ItemClass = templateClass(template, &spec);
     let class: &'static ItemClass =
         crate::classes::deriveItemClass(template_class, &row.m_id.to_string(), |class| patch(class, &spec));
-    let item: Rc<Item> = game::hooks::withItemClass(class, || (template.m_create)(row.m_numeric - 256, &spec));
+    let flowing: Option<i32> = super::fluids::bucketFlowing(&row.m_id);
+    let item: Rc<Item> = game::hooks::withItemClass(class, || match flowing
+    {
+        Some(flowing) => game::item::item_bucket::create(row.m_numeric - 256, flowing),
+        None => (template.m_create)(row.m_numeric - 256, &spec),
+    });
     applyCommon(item, &spec, &row.m_id)?;
     if let Some(ticks) = spec.fuel
     {

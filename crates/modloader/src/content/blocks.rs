@@ -291,6 +291,7 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
     }
     if let Some(material) = &spec.material
         && templates::material(material).is_none()
+        && Identifier::parse(material).is_err()
     {
         return Err(format!("unknown material {material}"));
     }
@@ -515,7 +516,11 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     let templateId: String = templateName(spec.template.as_ref(), templates::DEFAULT_BLOCK_TEMPLATE)?;
     let template: &templates::BlockTemplate =
         templates::blockTemplate(&templateId).ok_or_else(|| format!("unknown template {templateId}"))?;
-    let material: Rc<Material> = spec.material.as_deref().and_then(templates::material).unwrap_or_else(Material::rock);
+    let material: Rc<Material> = spec
+        .material
+        .as_deref()
+        .and_then(|name| templates::material(name).or_else(|| super::fluids::material(name)))
+        .unwrap_or_else(Material::rock);
     let sprite: i32 = slot(spec.texture.as_ref(), DEFAULT_SPRITE);
     let drops: Vec<ResolvedDrop> = resolveDrops(spec.drops.as_deref().unwrap_or_default())?;
     // a hidden page id is the same block as its base, so it saves, drops and renders under the base identifier
