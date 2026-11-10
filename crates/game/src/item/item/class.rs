@@ -15,6 +15,7 @@ crate::vtable! {
         fn getItemNameIS(stack: &Rc<ItemStack>) -> Option<String>;
         fn getItemUseAction(stack: &Rc<ItemStack>) -> i32;
         fn getMaxItemUseDuration(stack: &Rc<ItemStack>) -> i32;
+        fn getUseIcon(stack: &Rc<ItemStack>, used: i32) -> i32;
         fn getPlacedBlockMetadata(metadata: i32) -> i32;
         fn getStrVsBlock(stack: &Rc<ItemStack>, block: &Rc<Block>) -> f32;
         fn hitEntity(stack: &Rc<ItemStack>, target: &Rc<Entity>, attacker: &Rc<Entity>) -> bool;
@@ -47,6 +48,7 @@ pub const ITEM: ItemClass = ItemClass {
     // rewrite: 1.7's item in use, no beta item is ever held in use so vanilla never reaches these
     getItemUseAction: |_, _| 0,
     getMaxItemUseDuration: |_, _| 0,
+    getUseIcon: |_, _, _| -1,
     getPlacedBlockMetadata: |_, _| 0,
     getStrVsBlock: |_, _, _| 1.0,
     hitEntity: |_, _, _, _| false,

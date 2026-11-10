@@ -266,6 +266,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         {
             unit(crate::atlas::requestTiles(crate::atlas::Atlas::Terrain, &texture, columns, rows))
         }
+        HostCall::ItemSlot { texture } =>
+        {
+            crate::atlas::request(crate::atlas::Atlas::Items, &texture);
+            HostReply::Int(crate::content::textureSlot(&texture, crate::atlas::Atlas::Items).unwrap_or(-1))
+        }
         HostCall::TerrainSlot { texture } =>
         {
             crate::atlas::request(crate::atlas::Atlas::Terrain, &texture);

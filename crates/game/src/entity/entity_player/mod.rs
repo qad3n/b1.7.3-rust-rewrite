@@ -518,6 +518,17 @@ pub const CLASS: EntityClass = EntityClass {
         {
             i = item.getIconIndex() + 16;
         }
+        // rewrite: an item held in use may show another icon as the use goes on, as 1.7's bow pulling
+        let inUse: bool =
+            fields(this).m_itemInUse.with(|using| using.as_ref().is_some_and(|using| Rc::ptr_eq(using, item)));
+        if inUse
+        {
+            let icon: i32 = item.getItem().getUseIcon(item, using::itemInUseDuration(this));
+            if icon >= 0
+            {
+                i = icon;
+            }
+        }
         i
     },
     setInPortal: |this| {

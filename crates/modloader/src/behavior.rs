@@ -542,6 +542,12 @@ fn useFinish(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: 
     }
 }
 
+fn useIcon(this: &Rc<Item>, stack: &Rc<ItemStack>, used: i32) -> i32
+{
+    asInt(callItem(this, None, ItemCall::UseIcon { stack: stackData(stack), used }))
+        .unwrap_or_else(|| (itemParent(this).getUseIcon)(this, stack, used))
+}
+
 fn crafted(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>)
 {
     (itemParent(this).onCreated)(this, stack, world, player);
@@ -568,6 +574,7 @@ pub fn patchItem(class: &mut ItemClass, behavior: &Behavior<ItemMethod>)
             ItemMethod::UsingTick => class.onUsingItemTick = usingTick,
             ItemMethod::StoppedUsing => class.onPlayerStoppedUsing = stoppedUsing,
             ItemMethod::UseFinish => class.onItemUseFinish = useFinish,
+            ItemMethod::UseIcon => class.getUseIcon = useIcon,
         }
     }
 }
