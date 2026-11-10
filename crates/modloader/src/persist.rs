@@ -59,6 +59,7 @@ pub fn loadWorld(world: &World)
     crate::log::debug(crate::log::LOADER, &format!("loaded world data for {} mod keys", loaded.len()));
     WORLD_DATA.with(|data| *data.borrow_mut() = loaded);
     crate::structures::load(world);
+    crate::biomes::load(world);
 }
 
 pub fn saveWorld(world: &World)
@@ -69,6 +70,7 @@ pub fn saveWorld(world: &World)
         crate::log::error(crate::log::LOADER, &format!("could not save mod world data: {error}"));
     }
     crate::structures::save(world);
+    crate::biomes::save(world);
 }
 
 fn key(modId: &str, key: &str) -> String { format!("{modId}:{key}") }

@@ -16,6 +16,7 @@ pub const BLOCK_EVENT: &str = "loader:block_event";
 pub const ENTITY_SYNCED: &str = "loader:entity_attachment";
 pub const TICK: &str = "loader:tick";
 pub const MOVING_BLOCK: &str = "loader:moving_block";
+pub const BIOME: &str = "loader:biome";
 
 #[derive(Serialize, Deserialize)]
 pub struct EntitySynced
@@ -30,6 +31,16 @@ pub struct EntitySynced
 pub struct Tick
 {
     pub tick: i32,
+}
+
+// one column a mod turned to another biome, sent as it turns and to every client that joins
+#[derive(Serialize, Deserialize)]
+pub struct BiomeColumn
+{
+    pub dimension: String,
+    pub x: i32,
+    pub z: i32,
+    pub biome: String,
 }
 
 // the block and metadata a mod's moving block draws, sent right after its spawn
@@ -173,6 +184,16 @@ fn entitySynced(message: EntitySynced)
     }
 }
 
+fn biomeColumn(message: BiomeColumn)
+{
+    let (Ok(dimension), Ok(biome)) = (Identifier::parse(&message.dimension), Identifier::parse(&message.biome))
+    else
+    {
+        return;
+    };
+    crate::biomes::turn(dimension, message.x, message.z, biome);
+}
+
 fn movingBlock(message: MovingBlock)
 {
     let entity = crate::network::localPlayer()
@@ -281,7 +302,7 @@ pub fn sendTick()
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 9] = [
+    let channels: [(&str, Handler); 10] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
@@ -291,6 +312,7 @@ pub fn register()
         (ENTITY_SYNCED, clientHandler(entitySynced)),
         (TICK, clientHandler(tick)),
         (MOVING_BLOCK, clientHandler(movingBlock)),
+        (BIOME, clientHandler(biomeColumn)),
     ];
     for (name, handler) in channels
     {

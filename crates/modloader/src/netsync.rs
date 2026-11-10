@@ -637,6 +637,12 @@ pub fn serverPlayerJoined(player: i32, session: &ServerSession, raw: Rc<dyn Fn(u
             }
         })),
     );
+    // the columns mods turned so far, a joining client has none of them yet
+    let biome: Identifier = network::loader::id(network::loader::BIOME);
+    for column in crate::biomes::columns()
+    {
+        network::sendToConnection(player, &biome, &mod_protocol::wire::encode(&column));
+    }
 }
 
 fn frame(channels: &[Identifier], id: &Identifier, data: &[u8]) -> Option<(u32, Vec<u8>)>

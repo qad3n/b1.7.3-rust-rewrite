@@ -4,7 +4,7 @@ use game::worldgen::{BiomeGenBase, WORLD_CHUNK_MANAGER_HELL, WorldChunkManager, 
 use mod_protocol::Identifier;
 use mod_protocol::abi::{ChunkInfo, GuestCall, GuestReply, Handle};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::{Rc, Weak};
 
 const COLUMNS: usize = 256;
@@ -23,16 +23,25 @@ struct Source
     m_mod: usize,
     m_handler: Handle,
     m_dimension: i32,
+    m_id: Identifier,
     m_world: Weak<World>,
+    m_ids: Vec<Identifier>,
     m_biomes: Vec<Rc<BiomeGenBase>>,
     m_climates: Vec<(f64, f64)>,
     m_chunks: RefCell<HashMap<(i32, i32), Rc<Columns>>>,
 }
 
+// a column a mod turned to another biome, by dimension id and block x and z
+type Column = (Identifier, i32, i32);
+
 thread_local! {
     // sources by the address of the chunk manager they answer for
     static SOURCES: RefCell<HashMap<usize, Rc<Source>>> = RefCell::new(HashMap::new());
+    // columns mods turned to other biomes, saved with the world and sent to every client
+    static OVERRIDES: RefCell<BTreeMap<Column, Identifier>> = const { RefCell::new(BTreeMap::new()) };
 }
+
+const OVERRIDES_FILE: &str = "biomes.dat";
 
 fn key(manager: &WorldChunkManager) -> usize { std::ptr::from_ref(manager) as usize }
 
@@ -73,7 +82,9 @@ impl Source
         {
             return Rc::clone(columns);
         }
-        let columns: Rc<Columns> = Rc::new(self.ask(chunkX, chunkZ));
+        let mut asked: Columns = self.ask(chunkX, chunkZ);
+        self.overlay(chunkX, chunkZ, &mut asked);
+        let columns: Rc<Columns> = Rc::new(asked);
         let mut chunks = self.m_chunks.borrow_mut();
         if chunks.len() >= CACHE_LIMIT
         {
@@ -81,6 +92,25 @@ impl Source
         }
         chunks.insert((chunkX, chunkZ), Rc::clone(&columns));
         columns
+    }
+
+    // the columns of a chunk that mods turned, laid over what the source said
+    fn overlay(&self, chunkX: i32, chunkZ: i32, columns: &mut Columns)
+    {
+        let (x0, z0): (i32, i32) = (chunkX * 16, chunkZ * 16);
+        let from: Column = (self.m_id.clone(), x0, i32::MIN);
+        let to: Column = (self.m_id.clone(), x0 + 15, i32::MAX);
+        OVERRIDES.with(|overrides| {
+            for ((_, x, z), biome) in overrides.borrow().range(from..=to)
+            {
+                let Some(index) = self.m_ids.iter().position(|id| id == biome).filter(|_| (z0..z0 + 16).contains(z))
+                else
+                {
+                    continue;
+                };
+                columns.m_biomes[((z - z0) * 16 + (x - x0)) as usize] = index as u8;
+            }
+        });
     }
 
     fn index(&self, x: i32, z: i32) -> usize
@@ -212,13 +242,98 @@ pub fn manager(
         m_mod: modIndex,
         m_handler: handler,
         m_dimension: dimension.m_numeric,
+        m_id: dimension.m_id.clone(),
         m_world: Rc::downgrade(world),
+        m_ids: ids,
         m_biomes: biomes,
         m_climates: climates,
         m_chunks: RefCell::new(HashMap::new()),
     };
     SOURCES.with(|sources| sources.borrow_mut().insert(key(&manager), Rc::new(source)));
     Some(manager)
+}
+
+// a mod turns one column of its dimension to another biome of the dimension's source, on the side owning the world
+pub fn setBiome(world: &Rc<World>, x: i32, z: i32, biome: Identifier) -> Result<(), String>
+{
+    let numeric: i32 = crate::host::context::dimension(world);
+    let dimension: ModDimension =
+        dimensions::dimension(numeric).ok_or_else(|| format!("dimension {numeric} has no biome source"))?;
+    let listed: bool = dimensions::biomeSource(&dimension.m_id).is_some_and(|(_, _, ids)| ids.contains(&biome));
+    if !listed
+    {
+        return Err(format!("{biome} is not a biome of {}", dimension.m_id));
+    }
+    turn(dimension.m_id.clone(), x, z, biome.clone());
+    let message =
+        crate::network::loader::BiomeColumn { dimension: dimension.m_id.to_string(), x, z, biome: biome.to_string() };
+    for player in world.m_playerEntities.toVec()
+    {
+        crate::network::loader::send(crate::network::loader::BIOME, &player, &message);
+    }
+    Ok(())
+}
+
+// records a turned column, drops the chunks that held its old biome and redraws it where a client sees it
+pub fn turn(dimension: Identifier, x: i32, z: i32, biome: Identifier)
+{
+    OVERRIDES.with(|overrides| overrides.borrow_mut().insert((dimension.clone(), x, z), biome));
+    let sources: Vec<Rc<Source>> =
+        SOURCES.with(|sources| sources.borrow().values().filter(|source| source.m_id == dimension).cloned().collect());
+    for source in sources
+    {
+        source.m_chunks.borrow_mut().remove(&(x >> 4, z >> 4));
+        if let Some(world) = source.m_world.upgrade()
+        {
+            world.markBlocksDirty(x, 0, z, x, world.m_height.get() - 1, z);
+        }
+    }
+}
+
+// every turned column, for a client that just joined
+pub fn columns() -> Vec<crate::network::loader::BiomeColumn>
+{
+    OVERRIDES.with(|overrides| {
+        overrides
+            .borrow()
+            .iter()
+            .map(|((dimension, x, z), biome)| crate::network::loader::BiomeColumn {
+                dimension: dimension.to_string(),
+                x: *x,
+                z: *z,
+                biome: biome.to_string(),
+            })
+            .collect()
+    })
+}
+
+pub fn load(world: &World)
+{
+    let rows: Vec<(String, i32, i32, String)> = crate::persist::read(world, OVERRIDES_FILE)
+        .and_then(|bytes| crate::persist::decode(OVERRIDES_FILE, &bytes))
+        .unwrap_or_default();
+    let loaded: BTreeMap<Column, Identifier> = rows
+        .into_iter()
+        .filter_map(|(dimension, x, z, biome)| {
+            Some(((Identifier::parse(&dimension).ok()?, x, z), Identifier::parse(&biome).ok()?))
+        })
+        .collect();
+    OVERRIDES.with(|overrides| *overrides.borrow_mut() = loaded);
+}
+
+pub fn save(world: &World)
+{
+    let rows: Vec<(String, i32, i32, String)> = OVERRIDES.with(|overrides| {
+        overrides
+            .borrow()
+            .iter()
+            .map(|((dimension, x, z), biome)| (dimension.to_string(), *x, *z, biome.to_string()))
+            .collect()
+    });
+    if let Err(error) = crate::persist::write(world, OVERRIDES_FILE, &mod_protocol::wire::encode(&rows))
+    {
+        crate::log::error(crate::log::LOADER, &format!("could not save turned biome columns: {error}"));
+    }
 }
 
 // a source forgets its chunks with the world that owned it

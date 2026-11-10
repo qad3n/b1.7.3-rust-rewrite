@@ -410,6 +410,11 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 HostReply::Float(game::entity::entity_player::getCurrentPlayerStrVsBlock(&player, &block))
             },
         ),
+        HostCall::SetBiome { world: dimension, x, z, biome } => unit(
+            world(dimension)
+                .and_then(|world| authoritative(&world).map(|()| world))
+                .and_then(|world| crate::biomes::setBiome(&world, x, z, biome)),
+        ),
         HostCall::Weather { world: dimension, raining, thundering, ticks } =>
         {
             ok(world(dimension).and_then(|world| authoritative(&world).map(|()| world)), |world| {
