@@ -56,6 +56,7 @@ pub use open_gl_caps_checker::OpenGlCapsChecker;
 pub use render_blocks::RenderBlocks;
 pub use render_engine::RenderEngine;
 pub use render_global::RenderGlobal;
+pub(crate) use render_global::vanillaParticle;
 pub use render_helper::RenderHelper;
 pub use render_item::RenderItem;
 pub use render_list::RenderList;

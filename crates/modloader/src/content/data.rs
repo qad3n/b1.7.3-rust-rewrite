@@ -3,7 +3,7 @@ use crate::registry::{BlockEntry, ItemEntry, RecipeEntry};
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{
-    BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FluidSpec, ItemSpec, LootSpec, RecipeSpec,
+    BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FluidSpec, ItemSpec, LootSpec, ParticleSpec, RecipeSpec,
     SpawnModifySpec, TagEntry, TagSpec, TagValue, WorldgenSpec,
 };
 use serde::de::DeserializeOwned;
@@ -121,6 +121,7 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             "items" => parse::<ItemSpec>(source, &name).and_then(|spec| registerItem(id, modId, spec)),
             "recipes" => parse::<RecipeSpec>(source, &name).and_then(|spec| registerRecipe(id, modId, spec)),
             "states" => parse::<BlockStatesSpec>(source, &name).and_then(|spec| crate::states::register(id, &spec)),
+            "particles" => parse::<ParticleSpec>(source, &name).map(|spec| super::particles::register(id, spec)),
             "effects" => parse::<EffectSpec>(source, &name).and_then(|spec| super::effects::register(id, spec)),
             "fluids" => parse::<FluidSpec>(source, &name).and_then(|spec| super::fluids::register(id, spec)),
             "loot" =>

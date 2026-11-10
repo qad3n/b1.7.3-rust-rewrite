@@ -53,6 +53,80 @@ impl RenderGlobal
     }
 }
 
+type Make = fn(&RenderGlobal, &Rc<World>, [f64; 3], [f64; 3]) -> Rc<Entity>;
+
+struct ParticleRow
+{
+    m_name: &'static str,
+    m_make: Make,
+}
+
+// beta's particles by the name RenderGlobal.spawnParticle takes, mod particles build on one of these
+const PARTICLES: [ParticleRow; 15] = [
+    ParticleRow {
+        m_name: "bubble",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_bubble_fx::new(w, x, y, z, vx, vy, vz),
+    },
+    ParticleRow {
+        m_name: "smoke",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_smoke_fx::new(w, x, y, z, vx, vy, vz),
+    },
+    ParticleRow { m_name: "note", m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_note_fx::new(w, x, y, z, vx, vy, vz) },
+    ParticleRow {
+        m_name: "portal",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_portal_fx::new(w, x, y, z, vx, vy, vz),
+    },
+    ParticleRow {
+        m_name: "explode",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_explode_fx::new(w, x, y, z, vx, vy, vz),
+    },
+    ParticleRow {
+        m_name: "flame",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_flame_fx::new(w, x, y, z, vx, vy, vz),
+    },
+    ParticleRow { m_name: "lava", m_make: |_, w, [x, y, z], _| entity_lava_fx::new(w, x, y, z) },
+    ParticleRow {
+        m_name: "footstep",
+        m_make: |global, w, [x, y, z], _| entity_foot_step_fx::new(&global.m_renderEngine, w, x, y, z),
+    },
+    ParticleRow {
+        m_name: "splash",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_splash_fx::new(w, x, y, z, vx, vy, vz),
+    },
+    ParticleRow {
+        m_name: "largesmoke",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_smoke_fx::newScaled(w, x, y, z, vx, vy, vz, 2.5),
+    },
+    ParticleRow {
+        m_name: "reddust",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_reddust_fx::new(w, x, y, z, vx as f32, vy as f32, vz as f32),
+    },
+    ParticleRow {
+        m_name: "snowballpoof",
+        m_make: |_, w, [x, y, z], _| entity_slime_fx::new(w, x, y, z, &Item::snowball()),
+    },
+    ParticleRow {
+        m_name: "snowshovel",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_snow_shovel_fx::new(w, x, y, z, vx, vy, vz),
+    },
+    ParticleRow { m_name: "slime", m_make: |_, w, [x, y, z], _| entity_slime_fx::new(w, x, y, z, &Item::slimeBall()) },
+    ParticleRow {
+        m_name: "heart",
+        m_make: |_, w, [x, y, z], [vx, vy, vz]| entity_heart_fx::new(w, x, y, z, vx, vy, vz),
+    },
+];
+
+pub(crate) fn vanillaParticle(
+    global: &RenderGlobal,
+    name: &str,
+    world: &Rc<World>,
+    pos: [f64; 3],
+    motion: [f64; 3],
+) -> Option<Rc<Entity>>
+{
+    PARTICLES.iter().find(|row| row.m_name == name).map(|row| (row.m_make)(global, world, pos, motion))
+}
+
 impl IWorldAccess for RenderGlobal
 {
     fn markBlockAndNeighborsNeedsUpdate(&self, x: i32, y: i32, z: i32)
@@ -95,27 +169,11 @@ impl IWorldAccess for RenderGlobal
             return;
         }
         let world: Rc<World> = self.worldObj();
-        let w: &Rc<World> = &world;
-        let particle: Option<Rc<Entity>> = match kind
-        {
-            "bubble" => Some(entity_bubble_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "smoke" => Some(entity_smoke_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "note" => Some(entity_note_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "portal" => Some(entity_portal_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "explode" => Some(entity_explode_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "flame" => Some(entity_flame_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "lava" => Some(entity_lava_fx::new(w, x, y, z)),
-            "footstep" => Some(entity_foot_step_fx::new(&self.m_renderEngine, w, x, y, z)),
-            "splash" => Some(entity_splash_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "largesmoke" => Some(entity_smoke_fx::newScaled(w, x, y, z, velocityX, velocityY, velocityZ, 2.5)),
-            "reddust" => Some(entity_reddust_fx::new(w, x, y, z, velocityX as f32, velocityY as f32, velocityZ as f32)),
-            "snowballpoof" => Some(entity_slime_fx::new(w, x, y, z, &Item::snowball())),
-            "snowshovel" => Some(entity_snow_shovel_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            "slime" => Some(entity_slime_fx::new(w, x, y, z, &Item::slimeBall())),
-            "heart" => Some(entity_heart_fx::new(w, x, y, z, velocityX, velocityY, velocityZ)),
-            // rewrite: mod particles, item crack bits and tinted portal particles
-            _ => crate::modded::particles::spawn(kind, w, [x, y, z], [velocityX, velocityY, velocityZ]),
-        };
+        let pos: [f64; 3] = [x, y, z];
+        let motion: [f64; 3] = [velocityX, velocityY, velocityZ];
+        // rewrite: mod particles, item crack bits and tinted portal particles after the beta names
+        let particle: Option<Rc<Entity>> = vanillaParticle(self, kind, &world, pos, motion)
+            .or_else(|| crate::modded::particles::spawn(self, kind, &world, pos, motion));
         if let Some(particle) = particle
         {
             effectRenderer.addEffect(particle);

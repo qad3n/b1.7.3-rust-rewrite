@@ -2,6 +2,8 @@ mod chunks;
 mod sky;
 mod world_access;
 
+pub(crate) use world_access::vanillaParticle;
+
 use crate::client::Minecraft;
 use crate::render::{
     EntitySorter, GLAllocation, RenderBlocks, RenderEngine, RenderList, RenderManager, Tessellator, WorldRenderer,
