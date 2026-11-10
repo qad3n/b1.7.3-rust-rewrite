@@ -108,7 +108,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     }
     else if i >= 0 && (i == 0 || blockBlocksFlow(world, x, y - 1, z))
     {
-        let aboolean: [bool; 4] = getOptimalFlowDirections(this, world, x, y, z);
+        getOptimalFlowDirections(this, world, x, y, z);
         let mut i1: i32 = i + b0;
         if i >= 8
         {
@@ -118,21 +118,14 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
         {
             return;
         }
-        if aboolean[0]
+        // java reads the block's shared array so a tick nested in flowIntoBlock rewrites the directions left to check
+        for direction in 0..4
         {
-            flowIntoBlock(this, world, x - 1, y, z, i1);
-        }
-        if aboolean[1]
-        {
-            flowIntoBlock(this, world, x + 1, y, z, i1);
-        }
-        if aboolean[2]
-        {
-            flowIntoBlock(this, world, x, y, z - 1, i1);
-        }
-        if aboolean[3]
-        {
-            flowIntoBlock(this, world, x, y, z + 1, i1);
+            if ext(this).m_isOptimalFlowDirection.get()[direction as usize]
+            {
+                let (flowX, flowZ): (i32, i32) = offset(direction, x, z);
+                flowIntoBlock(this, world, flowX, y, flowZ, i1);
+            }
         }
     }
 }
@@ -203,7 +196,7 @@ fn calculateFlowCost(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     n
 }
 
-fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> [bool; 4]
+fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     for n2 in 0..4
     {
@@ -246,7 +239,6 @@ fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32,
         optimal[n] = costs[n] == n2;
     }
     ext(this).m_isOptimalFlowDirection.set(optimal);
-    optimal
 }
 
 fn blockBlocksFlow(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
