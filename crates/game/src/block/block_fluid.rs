@@ -1,5 +1,6 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::entity::Entity;
+use crate::fluid::{self, Fluid, FluidStyle};
 use crate::math::Vec3D;
 use crate::world::{IBlockAccess, World};
 use jvm::random::Random;
@@ -153,18 +154,10 @@ fn velocityToAddToEntity(
     velocity.m_zCoord.set(velocity.z() + vec3D.z());
 }
 
-fn tickRate(this: &Rc<Block>) -> i32
-{
-    if is(&this.m_blockMaterial, &Material::water())
-    {
-        return 5;
-    }
-    if is(&this.m_blockMaterial, &Material::lava())
-    {
-        return 30;
-    }
-    0
-}
+fn tickRate(this: &Rc<Block>) -> i32 { fluid::of(&this.m_blockMaterial).map_or(0, |fluid| fluid.m_tickRate) }
+
+// every fluid block's material has a row, water and lava from the start and mod fluids before their blocks
+pub fn fluidOf(this: &Block) -> Rc<Fluid> { fluid::of(&this.m_blockMaterial).orNpe() }
 
 fn getBlockBrightness(_this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> f32
 {
@@ -175,7 +168,8 @@ fn getBlockBrightness(_this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i3
 
 fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
-    if is(&this.m_blockMaterial, &Material::water()) && random.nextIntBounded(64) == 0
+    let style: FluidStyle = fluidOf(this).m_style;
+    if style == FluidStyle::Water && random.nextIntBounded(64) == 0
     {
         let i: i32 = world.getBlockMetadata(x, y, z);
         if i > 0 && i < 8
@@ -193,7 +187,7 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
         }
     }
 
-    if is(&this.m_blockMaterial, &Material::lava())
+    if style == FluidStyle::Lava
         && is(&world.getBlockMaterial(x, y + 1, z), &Material::air())
         && !world.isBlockOpaqueCube(x, y + 1, z)
         && random.nextIntBounded(100) == 0
@@ -207,16 +201,8 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
 
 pub fn getFlowAngle(world: &dyn IBlockAccess, x: i32, y: i32, z: i32, material: &Rc<Material>) -> f64
 {
-    let mut vec3D: Option<Rc<Vec3D>> = None;
-    if is(material, &Material::water())
-    {
-        vec3D = Some(getFlowVector(&Block::waterMoving(), world, x, y, z));
-    }
-    if is(material, &Material::lava())
-    {
-        vec3D = Some(getFlowVector(&Block::lavaMoving(), world, x, y, z));
-    }
-    let vec3D: Rc<Vec3D> = vec3D.orNpe();
+    let flowing: Rc<Block> = Block::byId(fluid::of(material).orNpe().m_flowing.get()).orNpe();
+    let vec3D: Rc<Vec3D> = getFlowVector(&flowing, world, x, y, z);
     if vec3D.x() == 0.0 && vec3D.z() == 0.0
     {
         return -1000.0;
@@ -301,7 +287,7 @@ pub const CLASS: BlockClass = BlockClass {
     getBlockBrightness,
     updateTick: |this, world, x, y, z, random| (BLOCK.updateTick)(this, world, x, y, z, random),
     getRenderBlockPass: |this| {
-        if is(&this.m_blockMaterial, &Material::water())
+        if fluidOf(this).m_style == FluidStyle::Water
         {
             1
         }
@@ -318,15 +304,7 @@ pub const CLASS: BlockClass = BlockClass {
 
 pub fn construct(class: &'static BlockClass, ext: Box<dyn Any>, id: i32, material: Rc<Material>) -> Rc<Block>
 {
-    let sprite: i32 = (if is(&material, &Material::lava())
-    {
-        14
-    }
-    else
-    {
-        12
-    }) * 16
-        + 13;
+    let sprite: i32 = fluid::sprite(&material);
     let block: Rc<Block> = Block::constructWithSprite(class, ext, id, sprite, material);
     let f: f32 = 0.0;
     let f2: f32 = 0.0;

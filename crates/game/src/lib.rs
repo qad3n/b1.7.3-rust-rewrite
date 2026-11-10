@@ -4,6 +4,7 @@ pub mod attribute;
 pub mod crafting;
 pub mod damage;
 pub mod entity;
+pub mod fluid;
 pub mod hooks;
 pub mod inventory;
 pub mod item;

@@ -1,5 +1,6 @@
 use crate::block::block_fluid::{self, getFlowDecay};
 use crate::block::{Block, BlockClass, Material};
+use crate::fluid::{Fluid, FluidStyle};
 use crate::world::World;
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
@@ -21,19 +22,23 @@ fn is(material: &Rc<Material>, other: &Rc<Material>) -> bool { Rc::ptr_eq(materi
 fn convertToSource(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     let n: i32 = world.getBlockMetadata(x, y, z);
-    world.setBlockAndMetadata(x, y, z, this.m_blockID + 1, n);
+    world.setBlockAndMetadata(x, y, z, block_fluid::fluidOf(this).m_still.get(), n);
     world.markBlocksDirty(x, y, z, x, y, z);
     world.markBlockNeedsUpdate(x, y, z);
 }
 
 fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
+    let fluid: Rc<Fluid> = block_fluid::fluidOf(this);
     let mut i: i32 = getFlowDecay(this, world, x, y, z);
-    let mut b0: i32 = 1;
-    if is(&this.m_blockMaterial, &Material::lava()) && !world.worldProvider().m_isHellWorld.get()
+    let b0: i32 = if world.worldProvider().m_isHellWorld.get()
     {
-        b0 = 2;
+        fluid.m_netherDecay
     }
+    else
+    {
+        fluid.m_decay
+    };
 
     let mut flag: bool = true;
     if i > 0
@@ -54,7 +59,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
             let l: i32 = getFlowDecay(this, world, x, y + 1, z);
             k = if l >= 8 { l } else { l + 8 };
         }
-        if ext(this).m_numAdjacentSources.get() >= 2 && is(&this.m_blockMaterial, &Material::water())
+        if ext(this).m_numAdjacentSources.get() >= 2 && fluid.m_infinite
         {
             if world.getBlockMaterial(x, y - 1, z).isSolid()
             {
@@ -66,7 +71,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
                 k = 0;
             }
         }
-        if is(&this.m_blockMaterial, &Material::lava()) && i < 8 && k < 8 && k > i && random.nextIntBounded(4) != 0
+        if fluid.m_style == FluidStyle::Lava && i < 8 && k < 8 && k > i && random.nextIntBounded(4) != 0
         {
             k = i;
             flag = false;
@@ -139,7 +144,7 @@ fn flowIntoBlock(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, de
     let n: i32 = world.getBlockId(x, y, z);
     if n > 0
     {
-        if is(&this.m_blockMaterial, &Material::lava())
+        if block_fluid::fluidOf(this).m_style == FluidStyle::Lava
         {
             block_fluid::triggerLavaMixEffects(world, x, y, z);
         }

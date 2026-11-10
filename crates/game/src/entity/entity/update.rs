@@ -1,6 +1,7 @@
 use crate::block::Material;
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::Entity;
+use crate::fluid::{self, FluidStyle};
 use crate::math::math_helper::{self, floor_double};
 use crate::math::{AxisAlignedBB, Vec3D};
 use crate::port::sameObject;
@@ -206,7 +207,13 @@ pub fn fall(this: &Rc<Entity>, distance: f32)
 pub fn handleWaterMovement(this: &Rc<Entity>) -> bool
 {
     let bb: Rc<AxisAlignedBB> = this.m_boundingBox.expand(0.0, -0.4f32 as f64, 0.0).contract(0.001, 0.001, 0.001);
-    this.world().handleMaterialAcceleration(&bb, Material::water(), this)
+    let world: Rc<World> = this.world();
+    let mut wet: bool = world.handleMaterialAcceleration(&bb, Material::water(), this);
+    // mod fluids that act like water push and wet entities too
+    fluid::eachModded(FluidStyle::Water, |fluid| {
+        wet |= world.handleMaterialAcceleration(&bb, Rc::clone(&fluid.m_material), this);
+    });
+    wet
 }
 
 pub fn getEntityBrightness(this: &Rc<Entity>, _tickDelta: f32) -> f32

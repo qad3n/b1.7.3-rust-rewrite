@@ -36,6 +36,12 @@ pub trait EntityExt: Any
 
 pub struct NoExt;
 
+// a mod fluid of the same style as the liquid asked for counts, so mod water drowns and hides the view like water
+fn inLiquid(material: &Rc<crate::block::Material>, liquid: &Rc<crate::block::Material>) -> bool
+{
+    Rc::ptr_eq(material, liquid) || crate::fluid::alike(material, liquid)
+}
+
 impl EntityExt for NoExt
 {
     fn asAny(&self) -> &dyn Any { self }
@@ -377,7 +383,17 @@ impl Entity
     pub fn handleLavaMovement(self: &Rc<Self>) -> bool
     {
         let bb: Rc<AxisAlignedBB> = self.m_boundingBox.expand(-0.1f32 as f64, -0.4f32 as f64, -0.1f32 as f64);
-        self.world().isMaterialInBB(&bb, crate::block::Material::lava())
+        let world: Rc<World> = self.world();
+        if world.isMaterialInBB(&bb, crate::block::Material::lava())
+        {
+            return true;
+        }
+
+        let mut burning: bool = false;
+        crate::fluid::eachModded(crate::fluid::FluidStyle::Lava, |fluid| {
+            burning = burning || world.isMaterialInBB(&bb, Rc::clone(&fluid.m_material));
+        });
+        burning
     }
 
     pub fn isInsideOfMaterial(self: &Rc<Self>, liquid: &Rc<crate::block::Material>) -> bool
@@ -389,7 +405,7 @@ impl Entity
         let k: i32 = floor_double(self.posZ());
         let world: Rc<World> = self.world();
         let l: i32 = world.getBlockId(i, j, k);
-        if l != 0 && Rc::ptr_eq(&crate::block::Block::byId(l).orNpe().m_blockMaterial, liquid)
+        if l != 0 && inLiquid(&crate::block::Block::byId(l).orNpe().m_blockMaterial, liquid)
         {
             let f: f32 = crate::block::block_fluid::getPercentAir(world.getBlockMetadata(i, j, k)) - 0.11111111;
             let f1: f32 = (j + 1) as f32 - f;

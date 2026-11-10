@@ -1,4 +1,4 @@
-use crate::block::{Block, Material};
+use crate::block::Block;
 use crate::entity::Entity;
 use crate::item::{ITEM, Item, ItemClass, ItemStack, item_boat};
 use crate::math::{EnumMovingObjectType, MovingObjectPosition};
@@ -42,15 +42,14 @@ fn onItemRightClick(
         }
         if isFull == 0
         {
-            if Rc::ptr_eq(&world.getBlockMaterial(i, j, k), &Material::water()) && world.getBlockMetadata(i, j, k) == 0
+            // a source of any fluid with a bucket fills it, beta's water and lava included
+            let bucket: Option<Rc<Item>> =
+                crate::fluid::of(&world.getBlockMaterial(i, j, k)).and_then(|fluid| Item::byId(fluid.m_bucket.get()));
+            if let Some(bucket) = bucket
+                && world.getBlockMetadata(i, j, k) == 0
             {
                 world.setBlockWithNotify(i, j, k, 0);
-                return Some(ItemStack::withItem(&Item::bucketWater()));
-            }
-            if Rc::ptr_eq(&world.getBlockMaterial(i, j, k), &Material::lava()) && world.getBlockMetadata(i, j, k) == 0
-            {
-                world.setBlockWithNotify(i, j, k, 0);
-                return Some(ItemStack::withItem(&Item::bucketLava()));
+                return Some(ItemStack::withItem(&bucket));
             }
         }
         else

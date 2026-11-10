@@ -1,4 +1,5 @@
 use crate::block::{Block, BlockClass, Material, block_fluid};
+use crate::fluid::FluidStyle;
 use crate::world::World;
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
@@ -8,9 +9,10 @@ fn convertToFlowing(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     let i: i32 = world.getBlockMetadata(x, y, z);
     world.m_editingBlocks.set(true);
-    world.setBlockAndMetadata(x, y, z, this.m_blockID - 1, i);
+    let flowing: i32 = block_fluid::fluidOf(this).m_flowing.get();
+    world.setBlockAndMetadata(x, y, z, flowing, i);
     world.markBlocksDirty(x, y, z, x, y, z);
-    world.scheduleBlockUpdate(x, y, z, this.m_blockID - 1, this.tickRate());
+    world.scheduleBlockUpdate(x, y, z, flowing, this.tickRate());
     world.m_editingBlocks.set(false);
 }
 
@@ -18,7 +20,7 @@ fn isFlammable(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool { world.getBlo
 
 fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
-    if !Rc::ptr_eq(&this.m_blockMaterial, &Material::lava())
+    if block_fluid::fluidOf(this).m_style != FluidStyle::Lava
     {
         return;
     }
@@ -66,7 +68,7 @@ pub const CLASS: BlockClass = BlockClass {
 
 pub fn create(id: i32, material: Rc<Material>) -> Rc<Block>
 {
-    let lava: bool = Rc::ptr_eq(&material, &Material::lava());
+    let lava: bool = crate::fluid::of(&material).is_some_and(|fluid| fluid.m_style == FluidStyle::Lava);
     let block: Rc<Block> = block_fluid::construct(&CLASS, Box::new(()), id, material).setTickOnLoad(false);
     if lava
     {
