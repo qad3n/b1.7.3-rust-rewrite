@@ -1,4 +1,5 @@
 pub mod atlas;
+pub mod attributes;
 pub mod behavior;
 pub mod biomes;
 pub mod catalog;

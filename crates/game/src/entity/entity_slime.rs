@@ -1,3 +1,4 @@
+use crate::attribute::{self, Attribute};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{Entity, EntityClass, EntityExt, WatchedValue, entity_living};
 use crate::item::Item;
@@ -149,7 +150,10 @@ fn onCollideWithPlayer(this: &Rc<Entity>, player: &Rc<Entity>)
     if i > 1
         && entity_living::canEntityBeSeen(this, player)
         && (this.getDistanceToEntity(player) as f64) < 0.6 * i as f64
-        && player.attackEntityFrom(&DamageSource::withAttacker(DamageKind::Mob, Some(this)), i)
+        && player.attackEntityFrom(
+            &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
+            attribute::whole(this, Attribute::AttackDamage, i),
+        )
     {
         let pitch: f32 = (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0;
         this.world().playSoundAtEntity(this, "mob.slimeattack", 1.0, pitch);

@@ -618,6 +618,14 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
         HostCall::DamageType => HostReply::Id(crate::damage::current()),
+        HostCall::SetModifier { world: dimension, id, attribute, modifier, amount, operation } => unit(
+            entity(dimension, id)
+                .and_then(|target| crate::attributes::set(&target, &attribute, &modifier, amount, operation)),
+        ),
+        HostCall::RemoveModifier { world: dimension, id, attribute, modifier } =>
+        {
+            unit(entity(dimension, id).and_then(|target| crate::attributes::remove(&target, &attribute, &modifier)))
+        }
         HostCall::KillEntity { world: dimension, id } =>
         {
             unit(entity(dimension, id).map(|entity| entity.setEntityDead()))

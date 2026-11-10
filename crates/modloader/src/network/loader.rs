@@ -17,6 +17,7 @@ pub const ENTITY_SYNCED: &str = "loader:entity_attachment";
 pub const TICK: &str = "loader:tick";
 pub const MOVING_BLOCK: &str = "loader:moving_block";
 pub const BIOME: &str = "loader:biome";
+pub const ATTRIBUTES: &str = "loader:attributes";
 
 #[derive(Serialize, Deserialize)]
 pub struct EntitySynced
@@ -24,6 +25,23 @@ pub struct EntitySynced
     pub id: i32,
     pub owner: String,
     pub data: Vec<u8>,
+}
+
+// a player's attribute modifiers, sent to that player's own client whenever they change and on login
+#[derive(Serialize, Deserialize)]
+pub struct AttributeSync
+{
+    pub id: i32,
+    pub modifiers: Vec<SyncedModifier>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SyncedModifier
+{
+    pub attribute: String,
+    pub id: String,
+    pub amount: f64,
+    pub operation: String,
 }
 
 // leads every server tick's entity packets so clients can place samples on the server clock
@@ -302,7 +320,7 @@ pub fn sendTick()
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 10] = [
+    let channels: [(&str, Handler); 11] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
@@ -313,6 +331,7 @@ pub fn register()
         (TICK, clientHandler(tick)),
         (MOVING_BLOCK, clientHandler(movingBlock)),
         (BIOME, clientHandler(biomeColumn)),
+        (ATTRIBUTES, clientHandler(crate::attributes::received)),
     ];
     for (name, handler) in channels
     {

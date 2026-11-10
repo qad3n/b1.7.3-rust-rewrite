@@ -4,6 +4,7 @@ use crate::gui::{GuiChest, GuiCrafting, GuiDispenser, GuiEditSign, GuiFurnace};
 use crate::render::particle::entity_pickup_fx;
 use crate::settings::{MouseFilter, MovementInput};
 use common::nbt::NBTTagCompound;
+use game::attribute::{self, Attribute};
 use game::entity::entity_living::LivingFields;
 use game::entity::entity_player::PlayerFields;
 use game::entity::{Entity, EntityClass, EntityExt, entity_living, entity_player};
@@ -124,7 +125,10 @@ pub fn handleKeyPress(this: &Entity, key: i32, state: bool)
     movementInput(this).checkKeyForMovementInput(key, state);
 }
 
-pub fn getPlayerArmorValue(this: &Entity) -> i32 { entity_player::inventory(this).getTotalArmorValue() }
+pub fn getPlayerArmorValue(this: &Entity) -> i32
+{
+    attribute::whole(this, Attribute::Armor, entity_player::inventory(this).getTotalArmorValue())
+}
 
 pub fn setHealth(this: &Rc<Entity>, health: i32)
 {

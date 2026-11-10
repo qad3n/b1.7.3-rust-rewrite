@@ -2,6 +2,7 @@ use super::{
     PlayerFields, addStat, destroyCurrentEquippedItem, dropPlayerItemWithRandomChoice, fields, getCurrentEquippedItem,
     inventory,
 };
+use crate::attribute::{self, Attribute};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{Entity, entity_arrow, entity_creature, entity_living, entity_wolf};
 use crate::item::{Item, ItemStack};
@@ -130,7 +131,7 @@ pub fn alertWolves(this: &Rc<Entity>, target: &Rc<Entity>, wasAttackedByTarget: 
 pub fn damageEntity(this: &Rc<Entity>, mut amount: i32)
 {
     let player: &PlayerFields = fields(this);
-    let i: i32 = 25 - inventory(this).getTotalArmorValue();
+    let i: i32 = 25 - attribute::whole(this, Attribute::Armor, inventory(this).getTotalArmorValue());
     let j: i32 = amount * i + player.m_damageRemainder.get();
     inventory(this).damageArmor(amount);
     amount = j / 25;
@@ -155,7 +156,7 @@ pub fn useCurrentItemOnEntity(this: &Rc<Entity>, target: &Rc<Entity>)
 
 pub fn attackTargetEntityWithCurrentItem(this: &Rc<Entity>, target: &Rc<Entity>)
 {
-    let mut i: i32 = inventory(this).getDamageVsEntity(target);
+    let mut i: i32 = attribute::whole(this, Attribute::AttackDamage, inventory(this).getDamageVsEntity(target));
     if i > 0
     {
         if this.m_motionY.get() < 0.0

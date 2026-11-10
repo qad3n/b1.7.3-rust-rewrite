@@ -242,7 +242,8 @@ pub fn fuel(stack: &Rc<ItemStack>) -> Option<i32> { active()?.fuel(stack) }
 // the health a mod lets an entity heal to, vanilla caps every living entity at 20
 pub fn maxHealth(entity: &Entity) -> i32
 {
-    active().and_then(|hooks| hooks.maxHealth(entity)).unwrap_or(VANILLA_MAX_HEALTH)
+    let base: i32 = active().and_then(|hooks| hooks.maxHealth(entity)).unwrap_or(VANILLA_MAX_HEALTH);
+    crate::attribute::whole(entity, crate::attribute::Attribute::MaxHealth, base)
 }
 
 pub const VANILLA_MAX_HEALTH: i32 = 20;

@@ -2,6 +2,7 @@ mod ai;
 mod combat;
 pub(crate) mod update;
 
+use crate::attribute::Attributes;
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::remote::Pose;
 use crate::entity::{ENTITY, Entity, EntityClass};
@@ -65,6 +66,7 @@ pub struct LivingFields
     pub m_moveSpeed: Cell<f32>,
     pub m_currentTarget: Field<Option<Rc<Entity>>>,
     pub m_numTicksToChaseTarget: Cell<i32>,
+    pub m_attributes: Attributes,
 }
 
 pub fn fields(this: &Entity) -> &LivingFields
@@ -181,6 +183,7 @@ pub const CLASS: EntityClass = EntityClass {
         nbt.setShort("HurtTime", living.m_hurtTime.get() as i16);
         nbt.setShort("DeathTime", living.m_deathTime.get() as i16);
         nbt.setShort("AttackTime", living.m_attackTime.get() as i16);
+        living.m_attributes.write(nbt);
     },
     readEntityFromNBT: |this, nbt| {
         let living: &LivingFields = fields(this);
@@ -192,6 +195,7 @@ pub const CLASS: EntityClass = EntityClass {
         living.m_hurtTime.set(nbt.getShort("HurtTime") as i32);
         living.m_deathTime.set(nbt.getShort("DeathTime") as i32);
         living.m_attackTime.set(nbt.getShort("AttackTime") as i32);
+        living.m_attributes.read(nbt);
     },
     isEntityAlive: |this| !this.m_isDead.get() && fields(this).m_health.get() > 0,
     canBreatheUnderwater: |_| false,

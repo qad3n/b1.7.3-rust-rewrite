@@ -168,6 +168,10 @@ pub fn player(kind: EventKind, player: &Rc<Entity>)
     {
         return;
     }
+    if kind == EventKind::PlayerLogin
+    {
+        crate::attributes::syncOwn(player);
+    }
 
     let action: &str = match kind
     {

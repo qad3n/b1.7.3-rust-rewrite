@@ -1,3 +1,4 @@
+use crate::attribute::{self, Attribute};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{
     Entity, EntityClass, EntityExt, WatchedValue, entity_animal, entity_arrow, entity_creature, entity_living,
@@ -415,7 +416,10 @@ fn attackEntity(this: &Rc<Entity>, target: &Rc<Entity>, distance: f32)
     {
         entity_living::fields(this).m_attackTime.set(20);
         let n: i32 = if isWolfTamed(this) { 4 } else { 2 };
-        target.attackEntityFrom(&DamageSource::withAttacker(DamageKind::Mob, Some(this)), n);
+        target.attackEntityFrom(
+            &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
+            attribute::whole(this, Attribute::AttackDamage, n),
+        );
     }
 }
 

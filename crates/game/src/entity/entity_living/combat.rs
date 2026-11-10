@@ -1,4 +1,5 @@
 use super::{LivingFields, fields};
+use crate::attribute::{self, Attribute};
 use crate::block::{Block, StepSound};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity};
@@ -137,6 +138,13 @@ pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -
 
 pub fn knockBack(this: &Rc<Entity>, _attacker: &Rc<Entity>, _amount: i32, dx: f64, dz: f64)
 {
+    // beta has no resistance, so the extra random roll only happens once a modifier exists
+    let resistance: f64 = attribute::value(this, Attribute::KnockbackResistance, 0.0);
+    if resistance > 0.0 && this.m_rand.nextDouble() < resistance
+    {
+        return;
+    }
+
     let f: f32 = math_helper::sqrt_double(dx * dx + dz * dz);
     let f1: f32 = 0.4;
     this.m_motionX.set(this.m_motionX.get() / 2.0);

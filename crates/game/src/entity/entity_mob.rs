@@ -1,3 +1,4 @@
+use crate::attribute::{self, Attribute};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{Entity, EntityClass, EntityExt, entity_creature, entity_living};
 use crate::math::math_helper;
@@ -105,7 +106,7 @@ pub const CLASS: EntityClass = EntityClass {
             living.m_attackTime.set(20);
             target.attackEntityFrom(
                 &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
-                fields(this).m_attackStrength.get(),
+                attribute::whole(this, Attribute::AttackDamage, fields(this).m_attackStrength.get()),
             );
         }
     },

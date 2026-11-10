@@ -1,4 +1,5 @@
 use super::{LivingFields, fields};
+use crate::attribute::{self, Attribute};
 use crate::block::{Block, Material};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity, remote};
@@ -259,7 +260,7 @@ pub fn moveEntityWithHeading(this: &Rc<Entity>, sideways: f32, forwards: f32)
             forwards,
             if this.m_onGround.get()
             {
-                0.1 * f2
+                landSpeed(this) * f2
             }
             else
             {
@@ -321,6 +322,13 @@ pub fn animateWalk(this: &Entity)
         .m_walkAnimationSpeed
         .set(living.m_walkAnimationSpeed.get() + (speed - living.m_walkAnimationSpeed.get()) * 0.4);
     living.m_walkAnimationProgress.set(living.m_walkAnimationProgress.get() + living.m_walkAnimationSpeed.get());
+}
+
+// beta walks every living entity at 0.1 on the ground, movement speed modifiers scale it
+fn landSpeed(this: &Entity) -> f32
+{
+    const LAND_SPEED: f32 = 0.1;
+    attribute::value(this, Attribute::MoveSpeed, LAND_SPEED as f64) as f32
 }
 
 pub fn isOnLadder(this: &Rc<Entity>) -> bool

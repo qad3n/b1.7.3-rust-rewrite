@@ -1,5 +1,6 @@
 pub mod block;
 pub mod container;
+pub mod attribute;
 pub mod crafting;
 pub mod damage;
 pub mod entity;
