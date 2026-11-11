@@ -74,7 +74,7 @@ fn renderBody(this: &Rc<Render>, entity: &Rc<Entity>, dx: f64, dy: f64, dz: f64,
     mainModel.setLivingAnimations(entity, f6, f5, tickDelta);
 
     // rewrite: an invisible entity skips its model, armor passes and the hurt flash still draw
-    if !game::hooks::invisible(entity)
+    if !entity.m_invisible.get()
     {
         mainModel.render(f6, f5, f3, f1 - f, f2, f4);
     }

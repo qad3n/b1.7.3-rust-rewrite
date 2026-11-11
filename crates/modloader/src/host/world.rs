@@ -258,7 +258,7 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
             HostReply::Float(movingBlock(entity).map_or(0, |fields| fields.m_metadata.get()) as f32)
         }
 
-        EntityField::Invisible => HostReply::Bool(context::invisible(entity.m_entityId.get())),
+        EntityField::Invisible => HostReply::Bool(entity.m_invisible.get()),
 
         EntityField::ItemInUse =>
         {
@@ -327,7 +327,7 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::MoveSpeed => living(entity).into_iter().for_each(|fields| fields.m_moveSpeed.set(value as f32)),
         EntityField::StepHeight => entity.m_stepHeight.set(value as f32),
         EntityField::MaxHealth => crate::attributes::setMaxHealth(entity, value as i32),
-        EntityField::Invisible => context::setInvisible(entity.m_entityId.get(), value != 0.0),
+        EntityField::Invisible => entity.m_invisible.set(value != 0.0),
         EntityField::ItemInUse =>
         {}
         EntityField::Shooter => setShooter(entity, value as i32),

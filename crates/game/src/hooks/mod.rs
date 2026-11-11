@@ -184,8 +184,6 @@ pub trait LoaderHooks
 
     fn fuel(&self, _stack: &Rc<ItemStack>) -> Option<i32> { None }
 
-    fn invisible(&self, _entity: &Entity) -> bool { false }
-
     fn canHarvest(&self, _block: &Rc<Block>, _stack: Option<&Rc<ItemStack>>) -> Option<bool> { None }
 
     fn strVsBlock(&self, _block: &Rc<Block>, _stack: Option<&Rc<ItemStack>>) -> Option<f32> { None }
@@ -263,8 +261,6 @@ pub fn spawnAllowed(entity: &Rc<Entity>, allowed: bool) -> bool
 }
 
 pub fn fuel(stack: &Rc<ItemStack>) -> Option<i32> { active()?.fuel(stack) }
-
-pub fn invisible(entity: &Entity) -> bool { active().is_some_and(|hooks| hooks.invisible(entity)) }
 
 pub fn canHarvest(block: &Rc<Block>, stack: Option<&Rc<ItemStack>>) -> Option<bool>
 {

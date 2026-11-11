@@ -32,8 +32,6 @@ impl LoaderHooks for Hooks
 
     fn fuel(&self, stack: &Rc<ItemStack>) -> Option<i32> { content::fuel(stack.m_itemID.get()) }
 
-    fn invisible(&self, entity: &Entity) -> bool { crate::host::context::invisible(entity.m_entityId.get()) }
-
     fn canHarvest(&self, block: &Rc<Block>, stack: Option<&Rc<ItemStack>>) -> Option<bool>
     {
         content::harvest::canHarvest(block, stack)

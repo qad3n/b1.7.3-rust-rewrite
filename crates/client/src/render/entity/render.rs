@@ -320,7 +320,7 @@ impl Render
         // rewrite: an invisible entity casts no shadow
         if manager.m_options.get().orNpe().m_fancyGraphics.get()
             && self.m_shadowSize.get() > 0.0
-            && !game::hooks::invisible(entity)
+            && !entity.m_invisible.get()
         {
             let d0: f64 = manager.squaredDistanceToCamera(entity.posX(), entity.posY(), entity.posZ());
             let f: f32 = ((1.0 - d0 / 256.0) * self.m_shadowDarkness.get() as f64) as f32;

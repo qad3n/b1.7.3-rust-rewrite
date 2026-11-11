@@ -107,6 +107,8 @@ pub struct Entity
     pub m_skinUrl: Field<Option<JString>>,
     pub m_cloakUrl: Field<Option<JString>>,
     pub m_isImmuneToFire: Cell<bool>,
+    // rewrite: drawn without its model or shadow on this side, only mods set it
+    pub m_invisible: Cell<bool>,
     pub m_dataWatcher: DataWatcher,
     pub m_entityBrightness: Cell<f32>,
     pub m_entityRiderPitchDelta: Cell<f64>,
@@ -192,6 +194,7 @@ impl Entity
             m_skinUrl: Field::new(None),
             m_cloakUrl: Field::new(None),
             m_isImmuneToFire: Cell::new(false),
+            m_invisible: Cell::new(false),
             m_dataWatcher: DataWatcher::new(),
             m_entityBrightness: Cell::new(0.0),
             m_entityRiderPitchDelta: Cell::new(0.0),
