@@ -70,6 +70,8 @@ impl<'a> Reader<'a>
         String::from_utf8(self.bytes()?).map_err(|_| String::from("auth text is not utf-8"))
     }
 
+    pub(crate) fn done(&self) -> bool { self.m_pos == self.m_data.len() }
+
     pub(crate) fn end(&self) -> AuthResult<()>
     {
         if self.m_pos != self.m_data.len()

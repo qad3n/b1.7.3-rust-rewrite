@@ -17,7 +17,7 @@ use jvm::floating_decimal::doubleToString;
 use jvm::io::IoResult;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
-use jvm::{debug, info, severe};
+use jvm::{debug, info, severe, warning};
 use modloader::netsync::{Outcome, ServerSession};
 use std::cell::{Cell, RefCell};
 use std::net::TcpStream;
@@ -403,6 +403,25 @@ impl NetLoginHandler
         }
     }
 
+    fn traceAddress(&self, service: &ServerAuth, name: &str, display: &str)
+    {
+        let Some(ip) = self.netManager().remoteIp()
+        else
+        {
+            return;
+        };
+
+        let address: String = ip.to_string();
+
+        match service.vault().visit(name, &address)
+        {
+            Ok(Some(previous)) => warning!("{display} logged in from {address}, last login was from {previous}"),
+            Ok(None) =>
+            {}
+            Err(error) => warning!("Could not save the login address of {display}: {error}"),
+        }
+    }
+
     fn finishAuth(&self, service: &ServerAuth, name: &str, display: &str, keys: auth::Keys)
     {
         *self.m_auth.borrow_mut() = None;
@@ -411,6 +430,7 @@ impl NetLoginHandler
         self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&Message::Secure)));
         self.m_authed.set(true);
         info!("{} logged in with a password as {display}", self.getUserAndIPString());
+        self.traceAddress(service, name, display);
 
         let Some(mut login) = self.m_authLogin.get()
         else

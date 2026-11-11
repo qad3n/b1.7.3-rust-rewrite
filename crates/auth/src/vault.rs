@@ -56,6 +56,8 @@ pub struct Vault
     m_setup: ServerSetup<Suite>,
     m_accounts: BTreeMap<String, Account>,
     m_invites: Vec<Invite>,
+    // last login address per account so a stolen login shows up as an address change
+    m_addresses: BTreeMap<String, String>,
 }
 
 impl Vault
@@ -88,6 +90,7 @@ impl Vault
             m_setup: ServerSetup::<Suite>::new(&mut OsRng),
             m_accounts: BTreeMap::new(),
             m_invites: Vec::new(),
+            m_addresses: BTreeMap::new(),
         };
         vault.save()?;
         Ok(vault)
@@ -142,6 +145,18 @@ impl Vault
             invites.push(Invite { m_name: name, m_digest: digest, m_expires: reader.long()? });
         }
 
+        let mut addresses: BTreeMap<String, String> = BTreeMap::new();
+
+        // vaults written before address tracking end after the invites
+        if !reader.done()
+        {
+            for _ in 0..reader.long()?
+            {
+                let name: String = reader.text()?;
+                addresses.insert(name, reader.text()?);
+            }
+        }
+
         reader.end()?;
 
         Ok(Self
@@ -152,6 +167,7 @@ impl Vault
             m_setup: setup,
             m_accounts: accounts,
             m_invites: invites,
+            m_addresses: addresses,
         })
     }
 
@@ -177,6 +193,14 @@ impl Vault
             writer.text(&invite.m_name);
             writer.bytes(&invite.m_digest);
             writer.long(invite.m_expires);
+        }
+
+        writer.long(self.m_addresses.len() as u64);
+
+        for (name, address) in &self.m_addresses
+        {
+            writer.text(name);
+            writer.text(address);
         }
 
         Zeroizing::new(writer.finish())
@@ -234,13 +258,42 @@ impl Vault
             return Ok(false);
         };
 
+        let address: Option<String> = self.m_addresses.remove(name);
         let saved: AuthResult<()> = self.save();
         if saved.is_err()
         {
             self.m_accounts.insert(name.to_string(), previous);
+
+            if let Some(address) = address
+            {
+                self.m_addresses.insert(name.to_string(), address);
+            }
         }
 
         saved.map(|()| true)
+    }
+
+    // records the login address and returns the previous one when it changed
+    pub fn visit(&mut self, name: &str, address: &str) -> AuthResult<Option<String>>
+    {
+        let previous: Option<String> = self.m_addresses.insert(name.to_string(), address.to_string());
+        if previous.as_deref() == Some(address)
+        {
+            return Ok(None);
+        }
+
+        if let Err(error) = self.save()
+        {
+            match previous
+            {
+                Some(previous) => self.m_addresses.insert(name.to_string(), previous),
+                None => self.m_addresses.remove(name),
+            };
+
+            return Err(error);
+        }
+
+        Ok(previous)
     }
 
     pub fn invite(&mut self, name: &str) -> AuthResult<String>
