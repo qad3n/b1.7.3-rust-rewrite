@@ -61,6 +61,9 @@ impl Minecraft
         }
     }
 
+    // runs after the texture pack stack changed
+    pub fn reloadTexturePacks(&self) { self.m_renderEngine.get().orNpe().refreshTextures(); }
+
     pub fn getOpenGlCapsChecker(&self) -> Option<Rc<OpenGlCapsChecker>> { self.m_glCapabilities.get() }
 
     pub fn getRenderChunkDebugInfo(&self) -> String { self.m_renderGlobal.get().orNpe().getDebugInfoRenders() }

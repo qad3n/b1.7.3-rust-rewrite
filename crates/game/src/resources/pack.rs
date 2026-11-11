@@ -75,6 +75,8 @@ impl Pack
 
     pub fn description(&self) -> &[String] { &self.m_description }
 
+    pub fn layout(&self) -> Layout { self.m_layout }
+
     pub fn icon(&self) -> Option<Vec<u8>> { self.m_source.borrow_mut().read(files::ICON) }
 
     pub(crate) fn read(&self, location: &Location) -> Option<Vec<u8>>

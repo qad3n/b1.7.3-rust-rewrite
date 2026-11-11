@@ -47,8 +47,8 @@ pub struct GuiSlot
     m_height: i32,
     pub m_top: i32,
     pub m_bottom: i32,
-    m_right: i32,
-    m_left: i32,
+    m_right: Cell<i32>,
+    m_left: Cell<i32>,
     pub m_posZ: i32,
     m_scrollUpButtonID: Cell<i32>,
     m_scrollDownButtonID: Cell<i32>,
@@ -104,8 +104,8 @@ impl GuiSlot
             m_height: height,
             m_top: minY,
             m_bottom: maxY,
-            m_right: width,
-            m_left: 0,
+            m_right: Cell::new(width),
+            m_left: Cell::new(0),
             m_posZ: entryHeight,
             m_scrollUpButtonID: Cell::new(0),
             m_scrollDownButtonID: Cell::new(0),
@@ -138,10 +138,23 @@ impl GuiSlot
 
     pub fn setRowWidth(&self, width: i32) { self.m_halfWidth.set(width / 2); }
 
+    // a list that fills one column of the screen instead of the whole width
+    pub fn setColumn(&self, left: i32, right: i32)
+    {
+        self.m_left.set(left);
+        self.m_right.set(right);
+    }
+
+    pub fn left(&self) -> i32 { self.m_left.get() }
+
+    pub fn right(&self) -> i32 { self.m_right.get() }
+
+    fn center(&self) -> i32 { (self.m_left.get() + self.m_right.get()) / 2 }
+
     pub fn getEntryAt(self: &Rc<Self>, x: i32, y: i32) -> i32
     {
-        let n: i32 = self.m_width / 2 - self.m_halfWidth.get();
-        let n2: i32 = self.m_width / 2 + self.m_halfWidth.get();
+        let n: i32 = self.center() - self.m_halfWidth.get();
+        let n2: i32 = self.center() + self.m_halfWidth.get();
         let n3: i32 = y - self.m_top - self.m_headerHeight.get() + self.m_amountScrolled.get() as i32 - 4;
         let n4: i32 = n3 / self.m_posZ;
         if x >= n && x <= n2 && n4 >= 0 && n3 >= 0 && n4 < self.getSize()
@@ -234,8 +247,8 @@ impl GuiSlot
         }
 
         let mut bl: bool = true;
-        let n10: i32 = self.m_width / 2 - self.m_halfWidth.get();
-        let n6: i32 = self.m_width / 2 + self.m_halfWidth.get();
+        let n10: i32 = self.center() - self.m_halfWidth.get();
+        let n6: i32 = self.center() + self.m_halfWidth.get();
         let n5: i32 = mouseY - self.m_top - self.m_headerHeight.get() + self.m_amountScrolled.get() as i32 - 4;
         let n4: i32 = n5 / self.m_posZ;
         if mouseX >= n10 && mouseX <= n6 && n4 >= 0 && n5 >= 0 && n4 < n7
@@ -273,7 +286,7 @@ impl GuiSlot
         self.drawBackground();
 
         let n7: i32 = self.getSize();
-        let n8: i32 = self.m_width / 2 + self.m_halfWidth.get() + row::SCROLLBAR_GAP;
+        let n8: i32 = self.center() + self.m_halfWidth.get() + row::SCROLLBAR_GAP;
         let n9: i32 = n8 + 6;
         self.handleMouse(mouseX, mouseY, n7, n8, n9);
         self.bindAmountScrolled();
@@ -287,7 +300,8 @@ impl GuiSlot
 
         let f: f32 = 32.0;
         let scrolled: i32 = self.m_amountScrolled.get() as i32;
-        let (left, right, top, bottom): (i32, i32, i32, i32) = (self.m_left, self.m_right, self.m_top, self.m_bottom);
+        let (left, right, top, bottom): (i32, i32, i32, i32) =
+            (self.m_left.get(), self.m_right.get(), self.m_top, self.m_bottom);
         let uv = |value: i32| (value as f32 / f) as f64;
 
         tessellator.startDrawingQuads();
@@ -298,7 +312,7 @@ impl GuiSlot
         tessellator.addVertexWithUV(left as f64, top as f64, 0.0, uv(left), uv(top + scrolled));
         tessellator.draw();
 
-        let n6: i32 = self.m_width / 2 - self.m_halfWidth.get() + row::INSET;
+        let n6: i32 = self.center() - self.m_halfWidth.get() + row::INSET;
         let n5: i32 = top + 4 - scrolled;
 
         if self.m_renderHeader.get()
@@ -325,8 +339,8 @@ impl GuiSlot
 
             if self.m_renderSelectionHighlight.get() && self.isSelected(n4)
             {
-                let n: i32 = self.m_width / 2 - self.m_halfWidth.get();
-                let n11: i32 = self.m_width / 2 + self.m_halfWidth.get();
+                let n: i32 = self.center() - self.m_halfWidth.get();
+                let n11: i32 = self.center() + self.m_halfWidth.get();
 
                 GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
                 GL11::glDisable(3553);

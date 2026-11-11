@@ -5,6 +5,7 @@ use game::port::text;
 use jvm::field::Field;
 use jvm::string::JString;
 use jvm::throwable::{OrNpe, Throwable};
+use jvm::warning;
 use lwjgl::input::Keyboard;
 use lwjgl::opengl::Display;
 use std::cell::Cell;
@@ -39,6 +40,8 @@ pub struct GameSettings
     pub m_vsync: Cell<bool>,
     pub m_fullscreen: Cell<bool>,
     pub m_skin: Field<String>,
+    // texture packs above the jar lowest first and unset until the texture pack screen saves a choice
+    pub m_texturePacks: Field<Option<Vec<String>>>,
     pub m_keyBindForward: Rc<KeyBinding>,
     pub m_keyBindLeft: Rc<KeyBinding>,
     pub m_keyBindBack: Rc<KeyBinding>,
@@ -91,6 +94,22 @@ fn parseFloat(s: &str) -> f32
     }
 }
 
+// pack names hold colons so the whole json list after the key is read
+fn parsePacks(line: &str) -> Option<Vec<String>>
+{
+    let (_, list) = line.split_once(':')?;
+    match serde_json::from_str(list)
+    {
+        Ok(packs) => Some(packs),
+
+        Err(error) =>
+        {
+            warning!("Ignoring the texturePacks option: {error}");
+            None
+        }
+    }
+}
+
 impl GameSettings
 {
     fn alloc(minecraft: Option<Rc<Minecraft>>, optionsFile: Option<PathBuf>) -> Self
@@ -134,6 +153,7 @@ impl GameSettings
             m_vsync: Cell::new(false),
             m_fullscreen: Cell::new(false),
             m_skin: Field::new("Default".to_owned()),
+            m_texturePacks: Field::new(None),
             m_keyBindForward: keyBindForward,
             m_keyBindLeft: keyBindLeft,
             m_keyBindBack: keyBindBack,
@@ -409,6 +429,7 @@ impl GameSettings
             "enableVsync" => self.m_vsync.set(value(1) == "true"),
             "fullscreen" => self.m_fullscreen.set(value(1) == "true"),
             "skin" => self.m_skin.set(value(1).to_owned()),
+            "texturePacks" => self.m_texturePacks.set(parsePacks(line)),
             "lastServer" if astring.len() >= 2 => self.m_lastServer.set(value(1).to_owned()),
             _ =>
             {}
@@ -478,6 +499,12 @@ impl GameSettings
             format!("skin:{}", self.m_skin.get()),
             format!("lastServer:{}", self.m_lastServer.get()),
         ];
+
+        if let Some(packs) = self.m_texturePacks.get()
+        {
+            let list: String = serde_json::to_string(&packs).expect("a list of strings always serializes");
+            lines.push(format!("texturePacks:{list}"));
+        }
 
         for keyBinding in &self.m_keyBindings
         {

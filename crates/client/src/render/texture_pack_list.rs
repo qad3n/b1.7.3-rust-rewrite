@@ -20,11 +20,12 @@ pub struct TexturePackList
 {
     m_availableTexturePacks: RefCell<Vec<Rc<TexturePack>>>,
     m_defaultTexturePack: Rc<TexturePack>,
-    pub m_selectedTexturePack: Field<Option<Rc<TexturePack>>>,
+    // packs above the jar lowest first
+    m_selected: RefCell<Vec<Rc<TexturePack>>>,
     m_availablePacksByKey: RefCell<HashMap<String, Rc<TexturePack>>>,
     m_mc: Rc<Minecraft>,
     m_texturePackDir: PathBuf,
-    m_currentTexturePack: Field<String>,
+    m_names: Field<Vec<String>>,
 }
 
 // beta lists zips only and a folder counts once it holds a modern pack.mcmeta
@@ -52,6 +53,28 @@ fn open(path: &Path) -> Pack
     }
 }
 
+fn samePacks(left: &[Rc<TexturePack>], right: &[Rc<TexturePack>]) -> bool
+{
+    left.len() == right.len() && left.iter().zip(right).all(|(old, new)| Rc::ptr_eq(old, new))
+}
+
+// the beta skin option names one pack and Default means none
+fn savedNames(settings: &GameSettings) -> Vec<String>
+{
+    settings.m_texturePacks.get().unwrap_or_else(||
+    {
+        let skin: String = settings.m_skin.get();
+        if skin == game::resources::vanilla().name()
+        {
+            Vec::new()
+        }
+        else
+        {
+            vec![skin]
+        }
+    })
+}
+
 impl TexturePackList
 {
     pub fn new(minecraft: &Rc<Minecraft>, gameDir: &Path) -> Rc<Self>
@@ -69,45 +92,54 @@ impl TexturePackList
         {
             m_availableTexturePacks: RefCell::new(Vec::new()),
             m_defaultTexturePack: defaultPack,
-            m_selectedTexturePack: Field::new(None),
+            m_selected: RefCell::new(Vec::new()),
             m_availablePacksByKey: RefCell::new(HashMap::new()),
             m_mc: Rc::clone(minecraft),
             m_texturePackDir: texturePackDir,
-            m_currentTexturePack: Field::new(settings.m_skin.get()),
+            m_names: Field::new(savedNames(&settings)),
         });
         list.updateAvaliableTexturePacks();
         list
     }
 
-    pub fn selected(&self) -> Rc<TexturePack> { self.m_selectedTexturePack.get().orNpe() }
+    pub fn defaultPack(&self) -> Rc<TexturePack> { Rc::clone(&self.m_defaultTexturePack) }
 
-    // the selected pack goes above the vanilla jar for every resource read
+    pub fn selected(&self) -> Vec<Rc<TexturePack>> { self.m_selected.borrow().clone() }
+
+    // the selected packs go above the vanilla jar for every resource read
     fn install(&self)
     {
-        let selected: Rc<TexturePack> = self.selected();
-        let packs: Vec<Rc<Pack>> = match Rc::ptr_eq(&selected, &self.m_defaultTexturePack)
-        {
-            true => Vec::new(),
-            false => vec![Rc::clone(selected.pack())],
-        };
+        let packs: Vec<Rc<Pack>> = self.m_selected.borrow().iter().map(|pack| Rc::clone(pack.pack())).collect();
         game::resources::install(&packs);
     }
 
-    pub fn setTexturePack(&self, pack: &Rc<TexturePack>) -> bool
+    // true when the stack changed and resources need a reload
+    pub fn setSelection(&self, packs: Vec<Rc<TexturePack>>) -> bool
     {
-        if self
-            .m_selectedTexturePack
-            .with(|selected| selected.as_ref().is_some_and(|selected| Rc::ptr_eq(selected, pack)))
+        if samePacks(&self.m_selected.borrow(), &packs)
         {
             return false;
         }
 
-        self.m_currentTexturePack.set(pack.pack().name().to_owned());
-        info!("Switching texture pack to {}", self.m_currentTexturePack.get());
-        self.m_selectedTexturePack.set(Some(Rc::clone(pack)));
+        let names: Vec<String> = packs.iter().map(|pack| pack.pack().name().to_owned()).collect();
+        let top: String = names.last().cloned().unwrap_or_else(|| game::resources::vanilla().name().to_owned());
+        info!(
+            "Switching texture packs to {}",
+            if names.is_empty()
+            {
+                top.clone()
+            }
+            else
+            {
+                names.join(", ")
+            }
+        );
+        self.m_names.set(names.clone());
+        *self.m_selected.borrow_mut() = packs;
 
         let settings: Rc<GameSettings> = self.m_mc.m_gameSettings.get().orNpe();
-        settings.m_skin.set(self.m_currentTexturePack.get());
+        settings.m_skin.set(top);
+        settings.m_texturePacks.set(Some(names));
         settings.saveOptions();
         self.install();
         true
@@ -115,10 +147,9 @@ impl TexturePackList
 
     pub fn updateAvaliableTexturePacks(&self)
     {
-        let previous: Option<Rc<TexturePack>> = self.m_selectedTexturePack.get();
+        let previous: Vec<Rc<TexturePack>> = self.selected();
         let mut arraylist: Vec<Rc<TexturePack>> = Vec::new();
 
-        self.m_selectedTexturePack.set(None);
         arraylist.push(Rc::clone(&self.m_defaultTexturePack));
 
         if file::exists(&self.m_texturePackDir) && file::isDirectory(&self.m_texturePackDir)
@@ -134,20 +165,17 @@ impl TexturePackList
                     self.m_availablePacksByKey.borrow_mut().insert(s.clone(), pack);
                 }
 
-                let texturepackbase1: Rc<TexturePack> = Rc::clone(&self.m_availablePacksByKey.borrow()[&s]);
-                if texturepackbase1.pack().name() == self.m_currentTexturePack.get().as_str()
-                {
-                    self.m_selectedTexturePack.set(Some(Rc::clone(&texturepackbase1)));
-                }
-
-                arraylist.push(texturepackbase1);
+                arraylist.push(Rc::clone(&self.m_availablePacksByKey.borrow()[&s]));
             }
         }
 
-        if self.m_selectedTexturePack.with(Option::is_none)
-        {
-            self.m_selectedTexturePack.set(Some(Rc::clone(&self.m_defaultTexturePack)));
-        }
+        // saved names keep their order and a pack whose file is gone drops out
+        let selected: Vec<Rc<TexturePack>> = self
+            .m_names
+            .get()
+            .iter()
+            .filter_map(|name| arraylist.iter().skip(1).find(|pack| pack.pack().name() == name.as_str()).cloned())
+            .collect();
 
         let removed: Vec<Rc<TexturePack>> = self
             .m_availableTexturePacks
@@ -169,7 +197,9 @@ impl TexturePackList
         *self.m_availableTexturePacks.borrow_mut() = arraylist;
 
         // a changed or removed pack file must not keep serving reads
-        let same: bool = previous.is_some_and(|previous| Rc::ptr_eq(&previous, &self.selected()));
+        let same: bool = samePacks(&previous, &selected);
+        *self.m_selected.borrow_mut() = selected;
+
         if !same
         {
             self.install();
