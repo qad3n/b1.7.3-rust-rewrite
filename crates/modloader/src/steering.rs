@@ -1,6 +1,6 @@
 use game::entity::{Entity, entity_living};
 use mod_protocol::spec::SteeringSpec;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -27,7 +27,8 @@ struct Flight
     m_speed: Option<f32>,
 }
 
-thread_local! {
+thread_local!
+{
     static FLIGHTS: RefCell<HashMap<i32, Flight>> = RefCell::new(HashMap::new());
 }
 
@@ -49,8 +50,9 @@ pub fn setSpeed(entity: &Entity, speed: f32)
 
 pub fn setAirJumps(entity: &Entity, jumps: i32)
 {
-    FLIGHTS.with(|flights| {
-        let mut flights = flights.borrow_mut();
+    FLIGHTS.with(|flights|
+    {
+        let mut flights: RefMut<HashMap<i32, Flight>> = flights.borrow_mut();
         let flight: &mut Flight = flights.entry(entity.m_entityId.get()).or_default();
         flight.m_maxJumps = Some(jumps);
         flight.m_jumpsLeft = flight.m_jumpsLeft.min(jumps);
@@ -74,6 +76,7 @@ pub fn travel(mount: &Rc<Entity>, steering: &SteeringSpec) -> bool
     {
         return false;
     }
+
     let input: &entity_living::LivingFields = entity_living::fields(&rider);
     let onGround: bool = mount.m_onGround.get();
     if steering.sneak_dismount && onGround && rider.isSneaking()
@@ -81,11 +84,14 @@ pub fn travel(mount: &Rc<Entity>, steering: &SteeringSpec) -> bool
         rider.mountEntity(None);
         return false;
     }
+
     mount.m_rotationYaw.set(rider.m_rotationYaw.get());
     mount.m_prevRotationYaw.set(rider.m_rotationYaw.get());
     mount.m_rotationPitch.set(rider.m_rotationPitch.get());
     mount.m_stepHeight.set(steering.step_height);
+
     let strafe: f32 = input.m_moveStrafing.get();
+
     let forward: f32 = if input.m_moveForward.get() <= 0.0
     {
         input.m_moveForward.get() * physics::REVERSE
@@ -97,10 +103,12 @@ pub fn travel(mount: &Rc<Entity>, steering: &SteeringSpec) -> bool
     let id: i32 = mount.m_entityId.get();
     let jumping: bool = input.m_isJumping.get();
     let mut flight: Flight = FLIGHTS.with(|flights| flights.borrow().get(&id).copied()).unwrap_or_default();
+
     if onGround
     {
         flight.m_jumpsLeft = flight.m_maxJumps.unwrap_or(steering.air_jumps);
     }
+
     let airReady: bool = flight.m_jumpsLeft > 0 && (!steering.air_jump_falling || mount.m_motionY.get() < 0.0);
     if jumping && !flight.m_wasJumping && (onGround || airReady)
     {
@@ -112,21 +120,27 @@ pub fn travel(mount: &Rc<Entity>, steering: &SteeringSpec) -> bool
         {
             steering.air_jump
         };
+
         if !onGround
         {
             flight.m_jumpsLeft -= 1;
         }
+
         mount.m_motionY.set(strength as f64);
     }
+
     flight.m_wasJumping = jumping;
     FLIGHTS.with(|flights| flights.borrow_mut().insert(id, flight));
+
     if mount.m_motionY.get() < 0.0 && !rider.isSneaking()
     {
         mount.m_motionY.set(mount.m_motionY.get() * steering.glide as f64);
     }
-    let world = mount.world();
+
+    let world: Rc<game::world::World> = mount.world();
     let slipperiness: f32 = entity_living::groundSlipperiness(mount, &world);
     let speed: f32 = flight.m_speed.unwrap_or(steering.speed);
+
     let factor: f32 = if onGround
     {
         speed * physics::GROUND_ACCELERATION / (slipperiness * slipperiness * slipperiness)
@@ -136,13 +150,17 @@ pub fn travel(mount: &Rc<Entity>, steering: &SteeringSpec) -> bool
         speed * physics::AIR_CONTROL
     };
     mount.moveFlying(strafe, forward, factor);
+
     let slipperiness: f32 = entity_living::groundSlipperiness(mount, &world);
+
     mount.moveEntity(mount.m_motionX.get(), mount.m_motionY.get(), mount.m_motionZ.get());
     mount.m_motionY.set((mount.m_motionY.get() - physics::GRAVITY) * physics::AIR_DRAG);
     mount.m_motionX.set(mount.m_motionX.get() * slipperiness as f64);
     mount.m_motionZ.set(mount.m_motionZ.get() * slipperiness as f64);
+
     let living: &entity_living::LivingFields = entity_living::fields(mount);
     living.m_lastWalkAnimationSpeed.set(living.m_walkAnimationSpeed.get());
+
     let dx: f64 = mount.posX() - mount.m_prevPosX.get();
     let dz: f64 = mount.posZ() - mount.m_prevPosZ.get();
     let speed: f32 = (((dx * dx + dz * dz).sqrt() as f32) * physics::WALK_ANIMATION).min(1.0);

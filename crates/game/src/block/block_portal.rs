@@ -9,18 +9,22 @@ pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
     let obsidian: i32 = Block::OBSIDIAN;
     let mut n3: i32 = 0;
     let mut n4: i32 = 0;
+
     if world.getBlockId(x - 1, y, z) == obsidian || world.getBlockId(x + 1, y, z) == obsidian
     {
         n3 = 1;
     }
+
     if world.getBlockId(x, y, z - 1) == obsidian || world.getBlockId(x, y, z + 1) == obsidian
     {
         n4 = 1;
     }
+
     if n3 == n4
     {
         return false;
     }
+
     if world.getBlockId(x - n3, y, z - n4) == 0
     {
         x -= n3;
@@ -32,11 +36,14 @@ pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
         for n in -1..=3
         {
             let bl: bool = n2 == -1 || n2 == 2 || n == -1 || n == 3;
+
             if !(n2 != -1 && n2 != 2 || n != -1 && n != 3)
             {
                 continue;
             }
+
             let n5: i32 = world.getBlockId(x + n3 * n2, y + n, z + n4 * n2);
+
             if !(if bl
             {
                 n5 != obsidian
@@ -48,11 +55,13 @@ pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
             {
                 continue;
             }
+
             return false;
         }
     }
 
     world.m_editingBlocks.set(true);
+
     for n2 in 0..2
     {
         for n in 0..3
@@ -60,6 +69,7 @@ pub fn tryToCreatePortal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
             world.setBlockWithNotify(x + n3 * n2, y + n, z + n4 * n2, Block::PORTAL);
         }
     }
+
     world.m_editingBlocks.set(false);
     true
 }
@@ -70,31 +80,37 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
     let obsidian: i32 = Block::OBSIDIAN;
     let mut n2: i32 = 0;
     let mut n3: i32 = 1;
+
     if world.getBlockId(x - 1, y, z) == id || world.getBlockId(x + 1, y, z) == id
     {
         n2 = 1;
         n3 = 0;
     }
+
     let mut n4: i32 = y;
     while world.getBlockId(x, n4 - 1, z) == id
     {
         n4 -= 1;
     }
+
     if world.getBlockId(x, n4 - 1, z) != obsidian
     {
         world.setBlockWithNotify(x, y, z, 0);
         return;
     }
+
     let mut n: i32 = 1;
     while n < 4 && world.getBlockId(x, n4 + n, z) == id
     {
         n += 1;
     }
+
     if n != 3 || world.getBlockId(x, n4 + n, z) != obsidian
     {
         world.setBlockWithNotify(x, y, z, 0);
         return;
     }
+
     let bl2: bool = world.getBlockId(x - 1, y, z) == id || world.getBlockId(x + 1, y, z) == id;
     let bl: bool = world.getBlockId(x, y, z - 1) == id || world.getBlockId(x, y, z + 1) == id;
     if bl2 && bl
@@ -102,6 +118,7 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
         world.setBlockWithNotify(x, y, z, 0);
         return;
     }
+
     if !(world.getBlockId(x + n2, y, z + n3) == obsidian && world.getBlockId(x - n2, y, z - n3) == id
         || world.getBlockId(x - n2, y, z - n3) == obsidian && world.getBlockId(x + n2, y, z + n3) == id)
     {
@@ -116,6 +133,7 @@ fn shouldSideBeRendered(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i
     {
         return false;
     }
+
     let bl2: bool = world.getBlockId(x - 1, y, z) == id && world.getBlockId(x - 2, y, z) != id;
     let bl3: bool = world.getBlockId(x + 1, y, z) == id && world.getBlockId(x + 2, y, z) != id;
     let bl4: bool = world.getBlockId(x, y, z - 1) == id && world.getBlockId(x, y, z - 2) != id;
@@ -126,6 +144,7 @@ fn shouldSideBeRendered(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i
     {
         return true;
     }
+
     bl && face == 3
 }
 
@@ -136,6 +155,7 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
         let pitch: f32 = random.nextFloat() * 0.4 + 0.8;
         world.playSoundEffect(x as f64 + 0.5, y as f64 + 0.5, z as f64 + 0.5, "portal.portal", 1.0, pitch);
     }
+
     for _ in 0..4
     {
         let mut d: f64 = (x as f32 + random.nextFloat()) as f64;
@@ -145,6 +165,7 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
         let mut d4: f64 = (random.nextFloat() as f64 - 0.5) * 0.5;
         let d5: f64 = (random.nextFloat() as f64 - 0.5) * 0.5;
         let mut d6: f64 = (random.nextFloat() as f64 - 0.5) * 0.5;
+
         if world.getBlockId(x - 1, y, z) == this.m_blockID || world.getBlockId(x + 1, y, z) == this.m_blockID
         {
             d3 = z as f64 + 0.5 + 0.25 * n as f64;
@@ -159,11 +180,13 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockPortal",
     m_parent: Some(&block_breakable::CLASS),
     getCollisionBoundingBoxFromPool: |_, _, _, _, _| None,
-    setBlockBoundsBasedOnState: |this, world, x, y, z| {
+    setBlockBoundsBasedOnState: |this, world, x, y, z|
+    {
         if world.getBlockId(x - 1, y, z) == this.m_blockID || world.getBlockId(x + 1, y, z) == this.m_blockID
         {
             let f: f32 = 0.5;
@@ -183,7 +206,8 @@ pub const CLASS: BlockClass = BlockClass {
     shouldSideBeRendered,
     quantityDropped: |_, _| 0,
     getRenderBlockPass: |_| 1,
-    onEntityCollidedWithBlock: |_, _, _, _, _, entity| {
+    onEntityCollidedWithBlock: |_, _, _, _, _, entity|
+    {
         if entity.m_ridingEntity.with(Option::is_none) && entity.m_riddenByEntity.with(Option::is_none)
         {
             entity.setInPortal();

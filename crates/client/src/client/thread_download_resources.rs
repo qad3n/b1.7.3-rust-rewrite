@@ -37,7 +37,7 @@ fn childText(element: &str, tag: &str) -> Result<String, Throwable>
 
 impl ThreadDownloadResources
 {
-    pub fn new(gameDir: &Path, minecraft: Rc<Minecraft>) -> ThreadDownloadResources
+    pub fn new(gameDir: &Path, minecraft: Rc<Minecraft>) -> Self
     {
         let resourcesFolder: PathBuf = gameDir.join("resources/");
         if !resourcesFolder.exists() && std::fs::create_dir_all(&resourcesFolder).is_err()
@@ -47,7 +47,9 @@ impl ThreadDownloadResources
                 &format!("The working directory could not be created: {}", resourcesFolder.display()),
             );
         }
-        ThreadDownloadResources {
+
+        Self
+        {
             m_resourcesFolder: resourcesFolder,
             m_mc: minecraft,
             m_closing: Cell::new(false),
@@ -60,6 +62,7 @@ impl ThreadDownloadResources
     {
         let document: String = String::from_utf8_lossy(&openStream(RESOURCES_URL)?).into_owned();
         let nodelist: Vec<&str> = document.split("<Contents>").skip(1).collect();
+
         for i in 0..2
         {
             for node in &nodelist
@@ -70,6 +73,7 @@ impl ThreadDownloadResources
                 if k > 0
                 {
                     self.downloadAndInstallResource(RESOURCES_URL, &s, k, i);
+
                     if self.m_closing.get()
                     {
                         return Ok(());
@@ -77,6 +81,7 @@ impl ThreadDownloadResources
                 }
             }
         }
+
         Ok(())
     }
 
@@ -101,11 +106,13 @@ impl ThreadDownloadResources
         for file in afile
         {
             let name: String = file.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+
             if file.is_dir()
             {
                 self.loadResource(&file, &format!("{prefix}{name}/"));
             }
-            else if jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, || {
+            else if jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, ||
+            {
                 self.m_mc.installResource(&format!("{prefix}{name}"), &file)
             })
             .is_err()
@@ -137,6 +144,7 @@ impl ThreadDownloadResources
         {
             return Ok(());
         }
+
         let file1: PathBuf = self.m_resourcesFolder.join(name);
         let length: i64 = std::fs::metadata(&file1).map_or(0, |metadata| metadata.len() as i64);
         if !file1.exists() || length != size
@@ -145,13 +153,16 @@ impl ThreadDownloadResources
             {
                 let _ = std::fs::create_dir_all(parent);
             }
+
             let s1: String = name.replace(' ', "%20");
             self.downloadResource(&format!("{url}{s1}"), &file1, size)?;
+
             if self.m_closing.get()
             {
                 return Ok(());
             }
         }
+
         self.m_mc.installResource(name, &file1);
         Ok(())
     }
@@ -169,14 +180,17 @@ impl ThreadDownloadResources
         let body: Vec<u8> = openStream(url)?;
         let mut output: std::fs::File =
             std::fs::File::create(dst).map_err(|error| jvm::io::fileNotFound(dst, &error))?;
+
         for chunk in body.chunks(4096)
         {
             output.write_all(chunk).map_err(|error| jvm::io::fromStd(&error))?;
+
             if self.m_closing.get()
             {
                 return Ok(());
             }
         }
+
         Ok(())
     }
 

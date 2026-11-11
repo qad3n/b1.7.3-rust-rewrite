@@ -7,14 +7,17 @@ pub struct SeedsExt
     m_plantBlock: i32,
 }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemSeeds",
     m_parent: Some(&ITEM),
-    onItemUse: |this, stack, _, world, x, y, z, face| {
+    onItemUse: |this, stack, _, world, x, y, z, face|
+    {
         if face != 1
         {
             return false;
         }
+
         let n: i32 = world.getBlockId(x, y, z);
         if n == Block::TILLED_FIELD && world.isAirBlock(x, y + 1, z)
         {
@@ -22,6 +25,7 @@ pub const CLASS: ItemClass = ItemClass {
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
             return true;
         }
+
         false
     },
     ..ITEM

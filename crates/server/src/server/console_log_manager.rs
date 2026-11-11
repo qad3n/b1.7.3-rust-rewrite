@@ -18,7 +18,7 @@ pub struct ConsoleLogFormatter;
 
 impl ConsoleLogFormatter
 {
-    fn new() -> ConsoleLogFormatter { ConsoleLogFormatter }
+    fn new() -> Self { Self }
 
     fn formatDate(millis: i64) -> String
     {
@@ -35,15 +35,17 @@ impl Formatter for ConsoleLogFormatter
     fn format(&self, logRecord: &LogRecord) -> String
     {
         let mut stringBuilder: String = String::new();
-        stringBuilder.push_str(&ConsoleLogFormatter::formatDate(logRecord.getMillis()));
+        stringBuilder.push_str(&Self::formatDate(logRecord.getMillis()));
         // rewrite: every level prints its name and the call site, java dropped CONFIG and other custom levels
         stringBuilder.push_str(&format!(" [{}] [{}] ", logRecord.getLevel().getLocalizedName(), logRecord.source()));
         stringBuilder.push_str(&logRecord.getMessage().to_string());
         stringBuilder.push('\n');
+
         if let Some(throwable) = logRecord.getThrown()
         {
             stringBuilder.push_str(&format!("{throwable}\n"));
         }
+
         stringBuilder
     }
 }

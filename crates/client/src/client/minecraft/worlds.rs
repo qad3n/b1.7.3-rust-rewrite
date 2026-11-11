@@ -41,11 +41,13 @@ impl Minecraft
     {
         info!("Opening world \"{name}\" from saves/{saveName}");
         self.changeWorld1(None);
+
         // rewrite: the save's mod id map applies before its chunks are read, and a world saved with mods keeps them
-        if let Some(dir) = Minecraft::minecraftDir()
+        if let Some(dir) = Self::minecraftDir()
         {
             modloader::remap::preload(&dir.join("saves").join(saveName));
         }
+
         let saveLoader: Rc<dyn ISaveFormat> = self.m_saveLoader.get().orNpe();
         if saveLoader.isOldMapFormat(saveName)
         {
@@ -73,6 +75,7 @@ impl Minecraft
     pub fn usePortal(&self)
     {
         jvm::system::println("Toggling dimension!!");
+
         let player: Rc<Entity> = self.thePlayer();
         let playerFields: &entity_player::PlayerFields = entity_player::fields(&player);
         if playerFields.m_dimension.get() == -1
@@ -85,9 +88,11 @@ impl Minecraft
         }
         self.theWorld().setEntityDead(&player);
         player.m_isDead.set(false);
+
         let mut d0: f64 = player.posX();
         let mut d1: f64 = player.posZ();
         let d2: f64 = 8.0;
+
         if playerFields.m_dimension.get() == -1
         {
             d0 /= d2;
@@ -99,10 +104,12 @@ impl Minecraft
                 player.m_rotationYaw.get(),
                 player.m_rotationPitch.get(),
             );
+
             if player.isEntityAlive()
             {
                 self.theWorld().updateEntityWithOptionalForce(&player, false);
             }
+
             let world: Rc<World> = World::newFromWorld(&self.theWorld(), WorldProvider::getProviderForDimension(-1));
             self.changeWorld(Some(world), "Entering the Nether", Some(&player));
         }
@@ -117,14 +124,17 @@ impl Minecraft
                 player.m_rotationYaw.get(),
                 player.m_rotationPitch.get(),
             );
+
             if player.isEntityAlive()
             {
                 self.theWorld().updateEntityWithOptionalForce(&player, false);
             }
+
             let world1: Rc<World> = World::newFromWorld(&self.theWorld(), WorldProvider::getProviderForDimension(0));
             self.changeWorld(Some(world1), "Leaving the Nether", Some(&player));
         }
         player.m_worldObj.set(self.m_theWorld.get());
+
         if player.isEntityAlive()
         {
             player.setLocationAndAngles(
@@ -147,36 +157,47 @@ impl Minecraft
     {
         let started: Instant = Instant::now();
         let previous: Option<Rc<World>> = self.m_theWorld.get();
+
         self.statFileWriter().func_27175_b();
         self.statFileWriter().syncStats();
         self.m_renderViewEntity.set(None);
+
         let loadingScreen: Rc<crate::gui::LoadingScreenRenderer> = self.loadingScreen();
         loadingScreen.printText(message);
         loadingScreen.displayLoadingString("");
         self.sndManager().playStreaming(None, 0.0, 0.0, 0.0, 0.0, 0.0);
+
         if let Some(previous) = self.m_theWorld.get()
         {
             let saving: Instant = Instant::now();
+
             previous.saveWorldIndirectly(Some(&*loadingScreen as &dyn IProgressUpdate));
             debug!("Saved the previous world in {}", took(saving));
         }
+
         self.m_theWorld.set(world.clone());
         // mods apply the world id map and load their world data before chunks are read
         modloader::play::worldChanged(previous.as_ref(), world.as_ref());
+
         let Some(world) = world
         else
         {
             self.m_thePlayer.set(None);
             self.m_systemTime.set(0);
+
             let left: bool = previous.is_some();
+
             releaseDiscardedWorld(previous, None);
+
             if left
             {
                 info!("Left the world in {}", took(started));
             }
+
             return;
         };
         self.playerController().initWorld(&world);
+
         if !self.isMultiplayerWorld()
         {
             if player.is_none()
@@ -189,12 +210,15 @@ impl Minecraft
             thePlayer.preparePlayerToSpawn();
             world.entityJoinedWorld(&thePlayer);
         }
+
         if !world.m_multiplayerWorld.get()
         {
             let preparing: Instant = Instant::now();
+
             self.prepareWorld(message);
             debug!("Built spawn terrain in {}", took(preparing));
         }
+
         if self.m_thePlayer.with(Option::is_none)
         {
             let created: Rc<Entity> = self.playerController().createPlayer(&world);
@@ -202,25 +226,32 @@ impl Minecraft
             created.preparePlayerToSpawn();
             self.playerController().flipPlayer(&created);
         }
+
         let thePlayer: Rc<Entity> = self.thePlayer();
         setMovementInputFromOptions(self, &thePlayer);
+
         if let Some(renderGlobal) = self.m_renderGlobal.get()
         {
             renderGlobal.changeWorld(Some(Rc::clone(&world)));
         }
+
         if let Some(effectRenderer) = self.m_effectRenderer.get()
         {
             effectRenderer.clearEffects(Some(Rc::clone(&world)));
         }
+
         self.playerController().adjustPlayer(&thePlayer);
+
         if player.is_some()
         {
             world.emptyMethod1();
         }
+
         let i: i32 = math_helper::floor_float(thePlayer.posX() as i32 as f32) >> 4;
         let j: i32 = math_helper::floor_float(thePlayer.posZ() as i32 as f32) >> 4;
         setCurrentChunkOver(&world, i, j);
         world.spawnPlayerWithLoadedChunks(&thePlayer);
+
         if world.m_isNewWorld.get()
         {
             world.saveWorldIndirectly(Some(&*loadingScreen as &dyn IProgressUpdate));
@@ -230,6 +261,7 @@ impl Minecraft
         self.m_renderViewEntity.set(Some(thePlayer));
         self.m_systemTime.set(0);
         releaseDiscardedWorld(previous, self.m_theWorld.get());
+
         let label: &str = if message.is_empty()
         {
             "Joining the world"
@@ -245,8 +277,11 @@ impl Minecraft
     {
         let saveLoader: Rc<dyn ISaveFormat> = self.m_saveLoader.get().orNpe();
         let loadingScreen: Rc<crate::gui::LoadingScreenRenderer> = self.loadingScreen();
+
         info!("Converting saves/{saveName} to {}", saveLoader.getName());
+
         let started: Instant = Instant::now();
+
         loadingScreen.printText(&format!("Converting World to {}", saveLoader.getName()));
         loadingScreen.displayLoadingString("This may take a while :)");
         saveLoader.convertMapFormat(saveName, &*loadingScreen);
@@ -259,18 +294,23 @@ impl Minecraft
         let loadingScreen: Rc<crate::gui::LoadingScreenRenderer> = self.loadingScreen();
         loadingScreen.printText(saveName);
         loadingScreen.displayLoadingString("Building terrain");
+
         let n: i32 = 128;
         let mut n2: i32 = 0;
         let mut n3: i32 = n * 2 / 16 + 1;
         n3 *= n3;
+
         let world: Rc<World> = self.theWorld();
         let mut chunkCoordinates: ChunkCoordinates = world.getSpawnPoint();
+
         if let Some(player) = self.m_thePlayer.get()
         {
             chunkCoordinates.m_x = player.posX() as i32;
             chunkCoordinates.m_z = player.posZ() as i32;
         }
+
         setCurrentChunkOver(&world, chunkCoordinates.m_x >> 4, chunkCoordinates.m_z >> 4);
+
         let mut i: i32 = -n;
         while i <= n
         {
@@ -284,8 +324,10 @@ impl Minecraft
                 {}
                 j += 16;
             }
+
             i += 16;
         }
+
         loadingScreen.displayLoadingString("Simulating world for a bit");
         world.prepare();
     }
@@ -309,6 +351,7 @@ impl Minecraft
         let mut chunkcoordinates: Option<ChunkCoordinates> = None;
         let mut chunkcoordinates1: Option<ChunkCoordinates> = None;
         let mut flag: bool = true;
+
         if let Some(player) = self.m_thePlayer.get()
             && !worldSpawn
         {
@@ -322,39 +365,49 @@ impl Minecraft
                 }
             }
         }
+
         let spawn: ChunkCoordinates = match chunkcoordinates1
         {
             Some(spawn) => spawn,
+
             None =>
             {
                 flag = false;
                 self.theWorld().getSpawnPoint()
             }
         };
+
         let world: Rc<World> = self.theWorld();
         setCurrentChunkOver(&world, spawn.m_x >> 4, spawn.m_z >> 4);
         world.setSpawnLocation();
         world.updateEntityList();
+
         let mut i: i32 = 0;
+
         if let Some(player) = self.m_thePlayer.get()
         {
             i = player.m_entityId.get();
             world.setEntityDead(&player);
         }
+
         self.m_renderViewEntity.set(None);
+
         let previous: Option<Rc<Entity>> = self.m_thePlayer.get();
         let player: Rc<Entity> = self.playerController().createPlayer(&world);
+
         // rewrite: mod stats and achievements outlive the dead player object
         if let Some(previous) = previous
         {
             entity_player::fields(&player).m_progress.copyFrom(&entity_player::fields(&previous).m_progress);
         }
+
         self.m_thePlayer.set(Some(Rc::clone(&player)));
         // the respawned player replaces the old one for mod packets and events
         modloader::play::playerChanged(Some(Rc::clone(&player)));
         entity_player::fields(&player).m_dimension.set(dimension);
         self.m_renderViewEntity.set(Some(Rc::clone(&player)));
         player.preparePlayerToSpawn();
+
         if flag
         {
             entity_player::setPlayerSpawnCoordinate(&player, chunkcoordinates);
@@ -366,6 +419,7 @@ impl Minecraft
                 0.0,
             );
         }
+
         self.playerController().flipPlayer(&player);
         world.spawnPlayerWithLoadedChunks(&player);
         setMovementInputFromOptions(self, &player);
@@ -373,6 +427,7 @@ impl Minecraft
         player.addRespawnParticles();
         self.playerController().adjustPlayer(&player);
         self.prepareWorld("Respawning");
+
         if self.m_currentScreen.get().is_some_and(|screen| screen.instanceOf("GuiGameOver"))
         {
             self.displayGuiScreen(None);

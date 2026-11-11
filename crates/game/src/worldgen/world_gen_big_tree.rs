@@ -29,9 +29,10 @@ pub struct WorldGenBigTree
 
 impl WorldGenBigTree
 {
-    pub fn new() -> WorldGenBigTree
+    pub fn new() -> Self
     {
-        WorldGenBigTree {
+        Self
+        {
             m_random: Random::new(),
             m_worldObj: Field::new(None),
             m_basePos: Cell::new([0, 0, 0]),
@@ -55,23 +56,29 @@ impl WorldGenBigTree
         let heightLimit: i32 = self.m_heightLimit.get();
         let basePos: [i32; 3] = self.m_basePos.get();
         let fch: i32 = self.m_foliageClusterHeight.get();
+
         self.m_height.set((heightLimit as f64 * self.m_trunkScale.get()) as i32);
+
         if self.m_height.get() >= heightLimit
         {
             self.m_height.set(heightLimit - 1);
         }
+
         let mut i: i32 = (1.382 + math::pow(self.m_foliageDensity.get() * heightLimit as f64 / 13.0, 2.0)) as i32;
         if i < 1
         {
             i = 1;
         }
+
         let mut aint: Vec<[i32; 4]> = vec![[0; 4]; (i * heightLimit) as usize];
         let mut j: i32 = basePos[1] + heightLimit - fch;
         let mut k: usize = 1;
         let l: i32 = basePos[1] + self.m_height.get();
         let mut i1: i32 = j - basePos[1];
+
         aint[0] = [basePos[0], j, basePos[2], l];
         j -= 1;
+
         while i1 >= 0
         {
             let mut j1: i32 = 0;
@@ -82,7 +89,9 @@ impl WorldGenBigTree
                 i1 -= 1;
                 continue;
             }
+
             let d0: f64 = 0.5;
+
             while j1 < i
             {
                 let d1: f64 = self.m_branchLengthScale.get() * (f as f64 * (self.m_random.nextFloat() as f64 + 0.328));
@@ -98,6 +107,7 @@ impl WorldGenBigTree
                         math::pow((basePos[0] - aint1[0]).abs() as f64, 2.0)
                             + math::pow((basePos[2] - aint1[2]).abs() as f64, 2.0),
                     );
+
                     let d4: f64 = d3 * self.m_branchSlope.get();
                     if aint1[1] as f64 - d4 > l as f64
                     {
@@ -107,17 +117,21 @@ impl WorldGenBigTree
                     {
                         aint3[1] = (aint1[1] as f64 - d4) as i32;
                     }
+
                     if self.tryBranch(&aint3, &aint1) == -1
                     {
                         aint[k] = [k1, j, l1, aint3[1]];
                         k += 1;
                     }
                 }
+
                 j1 += 1;
             }
+
             j -= 1;
             i1 -= 1;
         }
+
         aint.truncate(k);
         self.m_branches.set(aint);
     }
@@ -131,9 +145,11 @@ impl WorldGenBigTree
         let aint: [i32; 3] = [x, y, z];
         let mut aint1: [i32; 3] = [0, 0, 0];
         aint1[majorAxis] = aint[majorAxis];
+
         for j in -i..=i
         {
             aint1[b0] = aint[b0] + j;
+
             for k in -i..=i
             {
                 let d0: f64 = math::sqrt(math::pow(j.abs() as f64 + 0.5, 2.0) + math::pow(k.abs() as f64 + 0.5, 2.0));
@@ -141,6 +157,7 @@ impl WorldGenBigTree
                 {
                     continue;
                 }
+
                 aint1[b1] = aint[b1] + k;
                 let l: i32 = world.getBlockId(aint1[0], aint1[1], aint1[2]);
                 if l == 0 || l == 18
@@ -158,6 +175,7 @@ impl WorldGenBigTree
         {
             return -1.618f32;
         }
+
         let f: f32 = heightLimit as f32 / 2.0f32;
         let f1: f32 = heightLimit as f32 / 2.0f32 - height as f32;
         let f2: f32 = if f1 == 0.0f32
@@ -185,6 +203,7 @@ impl WorldGenBigTree
         {
             return 2.0f32;
         }
+
         3.0f32
     }
 
@@ -201,6 +220,7 @@ impl WorldGenBigTree
     {
         let mut aint: [i32; 3] = [0, 0, 0];
         let mut b1: usize = 0;
+
         for b0 in 0..3
         {
             aint[b0] = to[b0] - from[b0];
@@ -209,10 +229,12 @@ impl WorldGenBigTree
                 b1 = b0;
             }
         }
+
         if aint[b1] == 0
         {
             return;
         }
+
         let world: Rc<World> = self.world();
         let b2: usize = MINOR_AXES[b1];
         let b3: usize = MINOR_AXES[b1 + 3];
@@ -253,6 +275,7 @@ impl WorldGenBigTree
         let mut aint: [i32; 3] = [i, j, l];
         let mut aint1: [i32; 3] = [i, k, l];
         self.placeBranch(&aint, &aint1, 17);
+
         if self.m_trunkWidth.get() == 2
         {
             aint[0] += 1;
@@ -275,6 +298,7 @@ impl WorldGenBigTree
         for aint1 in branches
         {
             let aint2: [i32; 3] = [aint1[0], aint1[1], aint1[2]];
+
             aint[1] = aint1[3];
             let k: i32 = aint[1] - basePos[1];
             if self.shouldPlaceBranch(k)
@@ -288,6 +312,7 @@ impl WorldGenBigTree
     {
         let mut array: [i32; 3] = [0, 0, 0];
         let mut n: usize = 0;
+
         for i in 0..3
         {
             array[i] = to[i] - from[i];
@@ -296,10 +321,12 @@ impl WorldGenBigTree
                 n = i;
             }
         }
+
         if array[n] == 0
         {
             return -1;
         }
+
         let world: Rc<World> = self.world();
         let b: usize = MINOR_AXES[n];
         let b2: usize = MINOR_AXES[n + 3];
@@ -319,12 +346,15 @@ impl WorldGenBigTree
             {
                 break;
             }
+
             j += n2;
         }
+
         if j == n5
         {
             return -1;
         }
+
         j.abs()
     }
 
@@ -346,6 +376,7 @@ impl WorldGenBigTree
         {
             return false;
         }
+
         self.m_heightLimit.set(j);
         true
     }
@@ -356,10 +387,12 @@ impl WorldGenerator for WorldGenBigTree
     fn prepare(&self, d0: f64, d1: f64, d2: f64)
     {
         self.m_maxTrunkHeight.set((d0 * 12.0) as i32);
+
         if d0 > 0.5
         {
             self.m_foliageClusterHeight.set(5);
         }
+
         self.m_branchLengthScale.set(d1);
         self.m_foliageDensity.set(d2);
     }
@@ -367,17 +400,21 @@ impl WorldGenerator for WorldGenBigTree
     fn generate(&self, world: &Rc<World>, random: &Random, x: i32, y: i32, z: i32) -> bool
     {
         self.m_worldObj.set(Some(Rc::clone(world)));
+
         let i: i64 = random.nextLong();
         self.m_random.setSeed(i);
         self.m_basePos.set([x, y, z]);
+
         if self.m_heightLimit.get() == 0
         {
             self.m_heightLimit.set(5 + self.m_random.nextIntBounded(self.m_maxTrunkHeight.get()));
         }
+
         if !self.canPlace()
         {
             return false;
         }
+
         self.makeBranches();
         self.placeFoliage();
         self.placeTrunk();

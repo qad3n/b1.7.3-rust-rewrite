@@ -20,7 +20,8 @@ impl Packet34EntityTeleport
 {
     pub fn withPosition(id: i32, x: i32, y: i32, z: i32, yaw: i8, pitch: i8) -> Self
     {
-        Self {
+        Self
+        {
             m_entityId: id,
             m_xPosition: x,
             m_yPosition: y,
@@ -33,7 +34,8 @@ impl Packet34EntityTeleport
 
     pub fn new(entity: &Entity) -> Self
     {
-        Self {
+        Self
+        {
             m_entityId: entity.m_entityId.get(),
             m_xPosition: math_helper::encodePos(entity.m_posX.get()),
             m_yPosition: math_helper::encodePos(entity.m_posY.get()),

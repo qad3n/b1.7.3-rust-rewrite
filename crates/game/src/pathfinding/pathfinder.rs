@@ -17,9 +17,10 @@ pub struct Pathfinder
 
 impl Pathfinder
 {
-    pub fn new(world: Rc<dyn IBlockAccess>) -> Pathfinder
+    pub fn new(world: Rc<dyn IBlockAccess>) -> Self
     {
-        Pathfinder {
+        Self
+        {
             m_path: Path::new(),
             m_pointMap: RefCell::new(MCHash::new()),
             m_pathOptions: RefCell::new(vec![None; 32]),
@@ -54,6 +55,7 @@ impl Pathfinder
     {
         self.m_path.clearPath();
         self.m_pointMap.borrow_mut().clearMap();
+
         let bounds: &crate::math::AxisAlignedBB = &entity.m_boundingBox;
         let pathPoint: Rc<PathPoint> =
             self.openPoint(floor_double(bounds.minX()), floor_double(bounds.minY()), floor_double(bounds.minZ()));
@@ -63,6 +65,7 @@ impl Pathfinder
             floor_double(y),
             floor_double(z - (width / 2.0) as f64),
         );
+
         let pathPoint3: Rc<PathPoint> = PathPoint::new(
             floor_float(width + 1.0),
             floor_float(entity.m_height.get() + 1.0),
@@ -85,7 +88,9 @@ impl Pathfinder
         start.m_distanceToTarget.set(start.m_distanceToNext.get());
         self.m_path.clearPath();
         self.m_path.addPoint(start);
+
         let mut target2: Rc<PathPoint> = Rc::clone(start);
+
         while !self.m_path.isPathEmpty()
         {
             let dequeue: Rc<PathPoint> = self.m_path.dequeue();
@@ -100,6 +105,7 @@ impl Pathfinder
             }
 
             dequeue.m_isFirst.set(true);
+
             let pathOptions: i32 = self.findPathOptions(entity, &dequeue, bounds, target, range);
             for i in 0..pathOptions
             {
@@ -110,6 +116,7 @@ impl Pathfinder
                     node.m_previous.set(Some(Rc::clone(&dequeue)));
                     node.m_totalPathDistance.set(totalPathDistance);
                     node.m_distanceToNext.set(node.distanceTo(target));
+
                     if node.isAssigned()
                     {
                         self.m_path.changeDistance(&node, node.m_totalPathDistance.get() + node.m_distanceToNext.get());
@@ -127,6 +134,7 @@ impl Pathfinder
         {
             return None;
         }
+
         Some(self.createEntityPath(start, &target2))
     }
 
@@ -141,6 +149,7 @@ impl Pathfinder
     {
         let mut i: i32 = 0;
         let mut b0: i32 = 0;
+
         if self.getVerticalOffset(entity, node.m_xCoord, node.m_yCoord + 1, node.m_zCoord, bounds) == 1
         {
             b0 = 1;
@@ -152,6 +161,7 @@ impl Pathfinder
             self.getSafePoint(entity, node.m_xCoord + 1, node.m_yCoord, node.m_zCoord, bounds, b0),
             self.getSafePoint(entity, node.m_xCoord, node.m_yCoord, node.m_zCoord - 1, bounds, b0),
         ];
+
         for pathpoint in candidates.into_iter().flatten()
         {
             if !pathpoint.m_isFirst.get() && pathpoint.distanceTo(target) < range
@@ -175,6 +185,7 @@ impl Pathfinder
     ) -> Option<Rc<PathPoint>>
     {
         let mut pathpoint: Option<Rc<PathPoint>> = None;
+
         if self.getVerticalOffset(entity, x, y, z, bounds) == 1
         {
             pathpoint = Some(self.openPoint(x, y, z));
@@ -192,6 +203,7 @@ impl Pathfinder
         {
             let mut i: i32 = 0;
             let mut j: i32 = 0;
+
             while y > 0
             {
                 j = self.getVerticalOffset(entity, x, y - 1, z, bounds);
@@ -199,11 +211,13 @@ impl Pathfinder
                 {
                     break;
                 }
+
                 i += 1;
                 if i >= 4
                 {
                     return None;
                 }
+
                 y -= 1;
                 if y > 0
                 {
@@ -227,6 +241,7 @@ impl Pathfinder
         match found
         {
             Some(pathpoint) => pathpoint,
+
             None =>
             {
                 let pathpoint: Rc<PathPoint> = PathPoint::new(x, y, z);
@@ -249,6 +264,7 @@ impl Pathfinder
                     {
                         continue;
                     }
+
                     if l != Block::DOOR_STEEL && l != Block::DOOR_WOOD
                     {
                         let material: Rc<Material> = Rc::clone(&Block::byId(l).orNpe().m_blockMaterial);
@@ -292,8 +308,10 @@ impl Pathfinder
 
         let mut apathpoint: Vec<Option<Rc<PathPoint>>> = vec![None; i];
         let mut pathpoint1: Rc<PathPoint> = Rc::clone(target);
+
         i -= 1;
         apathpoint[i] = Some(Rc::clone(&pathpoint1));
+
         while let Some(previous) = pathpoint1.m_previous.get()
         {
             pathpoint1 = previous;

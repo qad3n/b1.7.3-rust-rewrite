@@ -25,6 +25,7 @@ fn logEntity(world: &World, entity: &Entity, action: &str)
         entity.posZ(),
         world.worldProvider().m_worldType.get()
     );
+
     match DEBUG_KINDS.iter().any(|kind| entity.instanceOf(kind))
     {
         true => debug!("{}", message),
@@ -32,7 +33,7 @@ fn logEntity(world: &World, entity: &Entity, action: &str)
     }
 }
 
-pub fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
+pub(crate) fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
 {
     // mods may refuse an entity before it joins
     if crate::hooks::fire(crate::hooks::GameEvent::EntityJoinWorld { world: this, entity })
@@ -46,11 +47,13 @@ pub fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
     {
         return false;
     }
+
     if isPlayer(entity)
     {
         this.m_playerEntities.add(Rc::clone(entity));
         this.updateAllPlayersSleepingFlag();
     }
+
     this.getChunkFromChunkCoords(i, j).addEntity(entity);
     this.m_loadedEntityList.add(Rc::clone(entity));
     this.obtainEntitySkin(entity);
@@ -58,7 +61,7 @@ pub fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
     true
 }
 
-pub fn obtainEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
+pub(crate) fn obtainEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
 {
     let mut i: i32 = 0;
     while i < this.m_worldAccesses.size()
@@ -68,7 +71,7 @@ pub fn obtainEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
     }
 }
 
-pub fn releaseEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
+pub(crate) fn releaseEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
 {
     let mut i: i32 = 0;
     while i < this.m_worldAccesses.size()
@@ -78,17 +81,20 @@ pub fn releaseEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
     }
 }
 
-pub fn setEntityDead(this: &Rc<World>, entity: &Rc<Entity>)
+pub(crate) fn setEntityDead(this: &Rc<World>, entity: &Rc<Entity>)
 {
     if let Some(rider) = entity.m_riddenByEntity.get()
     {
         rider.mountEntity(None);
     }
+
     if entity.m_ridingEntity.with(Option::is_some)
     {
         entity.mountEntity(None);
     }
+
     entity.setEntityDead();
+
     if isPlayer(entity)
     {
         this.m_playerEntities.remove(entity);
@@ -100,19 +106,23 @@ impl World
 {
     pub fn removePlayer(self: &Rc<Self>, entity: &Rc<Entity>)
     {
-        let this: &Rc<World> = self;
+        let this: &Rc<Self> = self;
+
         entity.setEntityDead();
+
         if isPlayer(entity)
         {
             this.m_playerEntities.remove(entity);
             this.updateAllPlayersSleepingFlag();
         }
+
         let i: i32 = entity.m_chunkCoordX.get();
         let j: i32 = entity.m_chunkCoordZ.get();
         if entity.m_addedToChunk.get() && this.chunkExists(i, j)
         {
             this.getChunkFromChunkCoords(i, j).removeEntity(entity);
         }
+
         this.m_loadedEntityList.remove(entity);
         this.releaseEntitySkin(entity);
         logEntity(this, entity, "Removed");
@@ -190,12 +200,14 @@ impl World
     {
         let boxes: Rc<JArrayList<Rc<AxisAlignedBB>>> = Rc::clone(&self.m_collidingBoundingBoxes);
         boxes.clear();
+
         let i: i32 = floor_double(shape.minX());
         let j: i32 = floor_double(shape.maxX() + 1.0);
         let k: i32 = floor_double(shape.minY());
         let l: i32 = floor_double(shape.maxY() + 1.0);
         let i1: i32 = floor_double(shape.minZ());
         let j1: i32 = floor_double(shape.maxZ() + 1.0);
+
         for k1 in i..j
         {
             for l1 in i1..j1
@@ -224,13 +236,16 @@ impl World
             {
                 boxes.add(bb);
             }
+
             if let Some(bb) = entity.getCollisionBox(&list.get(j2))
                 && bb.intersectsWith(shape)
             {
                 boxes.add(bb);
             }
+
             j2 += 1;
         }
+
         boxes
     }
 
@@ -241,15 +256,18 @@ impl World
         {
             let entity: Rc<Entity> = self.m_weatherEffects.get(i);
             entity.onUpdate();
+
             if entity.m_isDead.get()
             {
                 self.m_weatherEffects.removeAt(i);
                 i -= 1;
             }
+
             i += 1;
         }
 
         self.m_loadedEntityList.removeAll(&self.m_unloadedEntityList);
+
         let mut l: i32 = 0;
         while l < self.m_unloadedEntityList.size()
         {
@@ -260,14 +278,17 @@ impl World
             {
                 self.getChunkFromChunkCoords(j, k).removeEntity(&entity1);
             }
+
             l += 1;
         }
+
         let mut i1: i32 = 0;
         while i1 < self.m_unloadedEntityList.size()
         {
             self.releaseEntitySkin(&self.m_unloadedEntityList.get(i1));
             i1 += 1;
         }
+
         self.m_unloadedEntityList.clear();
 
         let mut j1: i32 = 0;
@@ -282,6 +303,7 @@ impl World
                     j1 += 1;
                     continue;
                 }
+
                 riding.m_riddenByEntity.set(None);
                 entity2.m_ridingEntity.set(None);
             }
@@ -299,15 +321,18 @@ impl World
                 {
                     self.getChunkFromChunkCoords(k1, l1).removeEntity(&entity2);
                 }
+
                 self.m_loadedEntityList.removeAt(j1);
                 j1 -= 1;
                 self.releaseEntitySkin(&entity2);
                 logEntity(self, &entity2, "Removed");
             }
+
             j1 += 1;
         }
 
         self.m_isTickingBlockEntities.set(true);
+
         let mut iterator: jvm::array_list::ListIterator = self.m_loadedTileEntityList.iterator();
         while iterator.hasNext(&self.m_loadedTileEntityList)
         {
@@ -316,9 +341,11 @@ impl World
             {
                 tileentity.updateEntity();
             }
+
             if tileentity.isRemoved()
             {
                 iterator.remove(&self.m_loadedTileEntityList);
+
                 let chunk: Rc<Chunk> =
                     self.getChunkFromChunkCoords(tileentity.m_xCoord.get() >> 4, tileentity.m_zCoord.get() >> 4);
                 chunk.removeChunkBlockTileEntity(
@@ -328,6 +355,7 @@ impl World
                 );
             }
         }
+
         self.m_isTickingBlockEntities.set(false);
 
         if !self.m_pendingBlockEntities.isEmpty()
@@ -338,10 +366,12 @@ impl World
                 {
                     continue;
                 }
+
                 if !self.m_loadedTileEntityList.containsIdentity(&tileentity1)
                 {
                     self.m_loadedTileEntityList.add(Rc::clone(&tileentity1));
                 }
+
                 let chunk1: Rc<Chunk> =
                     self.getChunkFromChunkCoords(tileentity1.m_xCoord.get() >> 4, tileentity1.m_zCoord.get() >> 4);
                 chunk1.setChunkBlockTileEntity(
@@ -356,6 +386,7 @@ impl World
                     tileentity1.m_zCoord.get(),
                 );
             }
+
             self.m_pendingBlockEntities.clear();
         }
     }
@@ -385,8 +416,10 @@ impl World
             {
                 return false;
             }
+
             i += 1;
         }
+
         true
     }
 
@@ -405,18 +438,22 @@ impl World
     pub fn getIsAnyLiquid(&self, bounds: &AxisAlignedBB) -> bool
     {
         let (mut i, j, mut k, l, mut i1, j1): (i32, i32, i32, i32, i32, i32) = Self::blockRange(bounds);
+
         if bounds.minX() < 0.0
         {
             i -= 1;
         }
+
         if bounds.minY() < 0.0
         {
             k -= 1;
         }
+
         if bounds.minZ() < 0.0
         {
             i1 -= 1;
         }
+
         for k1 in i..j
         {
             for l1 in k..l
@@ -431,6 +468,7 @@ impl World
                 }
             }
         }
+
         false
     }
 
@@ -454,6 +492,7 @@ impl World
                 }
             }
         }
+
         false
     }
 
@@ -472,6 +511,7 @@ impl World
 
         let mut flag: bool = false;
         let mut vec3d: Rc<Vec3D> = Vec3D::createVector(0.0, 0.0, 0.0);
+
         for k1 in i..j
         {
             for l1 in k..l
@@ -483,10 +523,12 @@ impl World
                     {
                         continue;
                     };
+
                     if Rc::ptr_eq(&block.m_blockMaterial, &material)
                     {
                         let d0: f64 =
                             ((l1 + 1) as f32 - block_fluid::getPercentAir(self.getBlockMetadata(k1, l1, i2))) as f64;
+
                         if l as f64 >= d0
                         {
                             flag = true;
@@ -500,11 +542,13 @@ impl World
         if vec3d.lengthVector() > 0.0
         {
             vec3d = vec3d.normalize();
+
             let d1: f64 = 0.014;
             entity.m_motionX.set(entity.m_motionX.get() + vec3d.x() * d1);
             entity.m_motionY.set(entity.m_motionY.get() + vec3d.y() * d1);
             entity.m_motionZ.set(entity.m_motionZ.get() + vec3d.z() * d1);
         }
+
         flag
     }
 
@@ -525,6 +569,7 @@ impl World
                 }
             }
         }
+
         false
     }
 
@@ -542,14 +587,17 @@ impl World
                     {
                         continue;
                     };
+
                     if Rc::ptr_eq(&block.m_blockMaterial, &material)
                     {
                         let j2: i32 = self.getBlockMetadata(k1, l1, i2);
                         let mut d0: f64 = (l1 + 1) as f64;
+
                         if j2 < 8
                         {
                             d0 = (l1 + 1) as f64 - j2 as f64 / 8.0;
                         }
+
                         if d0 >= bounds.minY()
                         {
                             return true;
@@ -558,6 +606,7 @@ impl World
                 }
             }
         }
+
         false
     }
 
@@ -596,19 +645,24 @@ impl World
                     {
                         i += 1;
                     }
+
                     j += 1;
                     f2 = (f2 as f64 + d2) as f32;
                 }
+
                 f1 = (f1 as f64 + d1) as f32;
             }
+
             f = (f as f64 + d0) as f32;
         }
+
         i as f32 / j as f32
     }
 
     pub fn onBlockHit(self: &Rc<Self>, player: Option<&Rc<Entity>>, x: i32, y: i32, z: i32, face: i32)
     {
         let (mut x, mut y, mut z): (i32, i32, i32) = (x, y, z);
+
         match face
         {
             0 => y -= 1,
@@ -619,6 +673,7 @@ impl World
             5 => x += 1,
             _ => (),
         }
+
         if self.getBlockId(x, y, z) == Block::FIRE
         {
             self.doEventFrom(player, 1004, x, y, z, 0);
@@ -634,10 +689,12 @@ impl World
     {
         let area: Rc<JArrayList<Rc<Entity>>> = Rc::clone(&self.m_entitiesInArea);
         area.clear();
+
         let i: i32 = floor_double((bounds.minX() - 2.0) / 16.0);
         let j: i32 = floor_double((bounds.maxX() + 2.0) / 16.0);
         let k: i32 = floor_double((bounds.minZ() - 2.0) / 16.0);
         let l: i32 = floor_double((bounds.maxZ() + 2.0) / 16.0);
+
         for i1 in i..=j
         {
             for j1 in k..=l
@@ -648,6 +705,7 @@ impl World
                 }
             }
         }
+
         area
     }
 
@@ -658,6 +716,7 @@ impl World
         let k: i32 = floor_double((bounds.minZ() - 2.0) / 16.0);
         let l: i32 = floor_double((bounds.maxZ() + 2.0) / 16.0);
         let mut arraylist: Vec<Rc<Entity>> = Vec::new();
+
         for i1 in i..=j
         {
             for j1 in k..=l
@@ -668,6 +727,7 @@ impl World
                 }
             }
         }
+
         arraylist
     }
 
@@ -683,14 +743,17 @@ impl World
             {
                 i += 1;
             }
+
             j += 1;
         }
+
         i
     }
 
     pub fn loadEntities(self: &Rc<Self>, entities: &[Rc<Entity>])
     {
         self.m_loadedEntityList.addAll(entities);
+
         for entity in entities
         {
             self.obtainEntitySkin(entity);
@@ -750,8 +813,10 @@ impl World
                 d0 = d1;
                 entityplayer = Some(entityplayer1);
             }
+
             i += 1;
         }
+
         entityplayer
     }
 
@@ -765,8 +830,10 @@ impl World
             {
                 return Some(player);
             }
+
             i += 1;
         }
+
         None
     }
 
@@ -782,6 +849,7 @@ impl World
                 self.getChunkFromChunkCoords(k, l);
             }
         }
+
         if !self.m_loadedEntityList.contains(entity)
         {
             self.m_loadedEntityList.add(Rc::clone(entity));
@@ -791,6 +859,7 @@ impl World
     pub fn updateEntityList(self: &Rc<Self>)
     {
         self.m_loadedEntityList.removeAll(&self.m_unloadedEntityList);
+
         let mut i: i32 = 0;
         while i < self.m_unloadedEntityList.size()
         {
@@ -801,14 +870,17 @@ impl World
             {
                 self.getChunkFromChunkCoords(j, k).removeEntity(&entity);
             }
+
             i += 1;
         }
+
         let mut l: i32 = 0;
         while l < self.m_unloadedEntityList.size()
         {
             self.releaseEntitySkin(&self.m_unloadedEntityList.get(l));
             l += 1;
         }
+
         self.m_unloadedEntityList.clear();
 
         let mut i1: i32 = 0;
@@ -823,9 +895,11 @@ impl World
                     i1 += 1;
                     continue;
                 }
+
                 riding.m_riddenByEntity.set(None);
                 entity1.m_ridingEntity.set(None);
             }
+
             if entity1.m_isDead.get()
             {
                 let j1: i32 = entity1.m_chunkCoordX.get();
@@ -834,11 +908,13 @@ impl World
                 {
                     self.getChunkFromChunkCoords(j1, k1).removeEntity(&entity1);
                 }
+
                 self.m_loadedEntityList.removeAt(i1);
                 i1 -= 1;
                 self.releaseEntitySkin(&entity1);
                 logEntity(self, &entity1, "Removed");
             }
+
             i1 += 1;
         }
     }
@@ -846,6 +922,7 @@ impl World
     pub fn updateAllPlayersSleepingFlag(&self)
     {
         self.m_allPlayersSleeping.set(!self.m_playerEntities.isEmpty());
+
         for entityplayer in self.m_playerEntities.toVec()
         {
             if !entityplayer.isPlayerSleeping()
@@ -859,6 +936,7 @@ impl World
     pub fn wakeUpAllPlayers(&self)
     {
         self.m_allPlayersSleeping.set(false);
+
         for entityplayer in self.m_playerEntities.toVec()
         {
             if entityplayer.isPlayerSleeping()
@@ -866,6 +944,7 @@ impl World
                 entityplayer.wakeUpPlayer(false, false, true);
             }
         }
+
         self.stopPrecipitation();
     }
 
@@ -880,22 +959,25 @@ impl World
                     return false;
                 }
             }
+
             return true;
         }
+
         false
     }
 }
 
-pub fn addWeatherEffect(this: &Rc<World>, entity: Rc<Entity>) -> bool
+pub(crate) fn addWeatherEffect(this: &Rc<World>, entity: Rc<Entity>) -> bool
 {
     this.m_weatherEffects.add(entity);
     true
 }
 
-pub fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requireLoaded: bool)
+pub(crate) fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requireLoaded: bool)
 {
     // mods observe each entity tick
     crate::hooks::fire(crate::hooks::GameEvent::EntityTick { entity });
+
     let i: i32 = floor_double(entity.posX());
     let j: i32 = floor_double(entity.posZ());
     let b0: i32 = 32;
@@ -909,6 +991,7 @@ pub fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requ
     entity.m_lastTickPosZ.set(entity.posZ());
     entity.m_prevRotationYaw.set(entity.m_rotationYaw.get());
     entity.m_prevRotationPitch.set(entity.m_rotationPitch.get());
+
     if requireLoaded && entity.m_addedToChunk.get()
     {
         if entity.m_ridingEntity.with(Option::is_some)
@@ -925,18 +1008,22 @@ pub fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requ
     {
         entity.m_posX.set(entity.m_lastTickPosX.get());
     }
+
     if entity.posY().is_nan() || entity.posY().is_infinite()
     {
         entity.m_posY.set(entity.m_lastTickPosY.get());
     }
+
     if entity.posZ().is_nan() || entity.posZ().is_infinite()
     {
         entity.m_posZ.set(entity.m_lastTickPosZ.get());
     }
+
     if entity.m_rotationPitch.get().is_nan() || entity.m_rotationPitch.get().is_infinite()
     {
         entity.m_rotationPitch.set(entity.m_prevRotationPitch.get());
     }
+
     if entity.m_rotationYaw.get().is_nan() || entity.m_rotationYaw.get().is_infinite()
     {
         entity.m_rotationYaw.set(entity.m_prevRotationYaw.get());
@@ -955,6 +1042,7 @@ pub fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requ
             this.getChunkFromChunkCoords(entity.m_chunkCoordX.get(), entity.m_chunkCoordZ.get())
                 .removeEntityAtIndex(entity, entity.m_chunkCoordY.get());
         }
+
         if this.chunkExists(k, i1)
         {
             entity.m_addedToChunk.set(true);
@@ -983,7 +1071,7 @@ pub fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requ
     }
 }
 
-pub fn newExplosion(
+pub(crate) fn newExplosion(
     this: &Rc<World>,
     source: Option<&Rc<Entity>>,
     x: f64,

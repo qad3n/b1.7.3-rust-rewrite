@@ -14,21 +14,27 @@ pub fn readLines(text: &str) -> Vec<&str>
             b'\n' | b'\r' =>
             {
                 lines.push(&text[start..index]);
+
                 if bytes[index] == b'\r' && bytes.get(index + 1) == Some(&b'\n')
                 {
                     index += 1;
                 }
+
                 start = index + 1;
             }
+
             _ =>
             {}
         }
+
         index += 1;
     }
+
     if start < bytes.len()
     {
         lines.push(&text[start..]);
     }
+
     lines
 }
 
@@ -38,11 +44,13 @@ pub fn split(line: &str, separator: char) -> Vec<&str>
     {
         return vec![line];
     }
+
     let mut parts: Vec<&str> = line.split(separator).collect();
     while parts.last() == Some(&"")
     {
         parts.pop();
     }
+
     parts
 }
 
@@ -52,11 +60,13 @@ pub fn splitUnits(text: &[u16], separator: u16) -> Vec<Vec<u16>>
     {
         return vec![Vec::new()];
     }
+
     let mut parts: Vec<Vec<u16>> = text.split(|&unit| unit == separator).map(<[u16]>::to_vec).collect();
     while parts.last().is_some_and(Vec::is_empty)
     {
         parts.pop();
     }
+
     parts
 }
 
@@ -90,7 +100,8 @@ pub fn decodePlatform(bytes: &[u8]) -> String
         Charset::Latin1 => bytes.iter().map(|&byte| byte as char).collect(),
         Charset::Ascii => bytes
             .iter()
-            .map(|&byte| {
+            .map(|&byte|
+            {
                 if byte < 0x80
                 {
                     byte as char

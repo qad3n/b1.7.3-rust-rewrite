@@ -42,6 +42,7 @@ pub fn install(logger: &Logger, dir: &Path, name: &'static str, formatter: fn() 
 {
     logger.setUseParentHandlers(false);
     logger.addHandler(Box::new(ConsoleHandler::new(formatter())));
+
     match open(dir, name)
     {
         Ok(()) => logger.addHandler(Box::new(FileLogHandler { m_formatter: formatter() })),
@@ -56,25 +57,33 @@ pub fn install(logger: &Logger, dir: &Path, name: &'static str, formatter: fn() 
 fn open(dir: &Path, name: &'static str) -> io::Result<()>
 {
     fs::create_dir_all(dir)?;
+
     let current: PathBuf = currentPath(dir, name);
     if current.exists()
     {
         compress(&stage(dir, name, &current)?)?;
     }
+
     compressStrays(dir, name);
     prune(dir, name);
+
     let file: File = File::create(&current)?;
     *lock() = Some(LogFile { m_dir: dir.to_path_buf(), m_name: name, m_file: file, m_written: 0 });
+
     let previous: Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Sync + Send + 'static> = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |info| {
+
+    std::panic::set_hook(Box::new(move |info|
+    {
         // thrown java exceptions unwind as panics and are reported where they are caught
         if !crate::throwable::standsForJava(info.payload())
         {
             let thread: String = std::thread::current().name().unwrap_or("unnamed").to_owned();
             write(&format!("thread \"{thread}\" {info}\n"));
         }
+
         previous(info);
     }));
+
     Ok(())
 }
 
@@ -87,11 +96,13 @@ pub fn write(text: &str)
     {
         return;
     };
+
     if let Err(error) = log.m_file.write_all(text.as_bytes())
     {
         eprintln!("log write failed: {error}");
         return;
     }
+
     log.m_written += text.len() as u64;
     if log.m_written >= limits::ROLL_BYTES
     {
@@ -105,12 +116,14 @@ fn roll(log: &mut LogFile)
     let staged: PathBuf = match stage(&log.m_dir, log.m_name, &log.current())
     {
         Ok(staged) => staged,
+
         Err(error) =>
         {
             eprintln!("log roll failed: {error}");
             return;
         }
     };
+
     match File::create(log.current())
     {
         Ok(file) =>
@@ -118,18 +131,23 @@ fn roll(log: &mut LogFile)
             log.m_file = file;
             log.m_written = 0;
         }
+
         Err(error) => eprintln!("log reopen failed: {error}"),
     }
+
     let dir: PathBuf = log.m_dir.clone();
     let name: &'static str = log.m_name;
     let spawned: io::Result<std::thread::JoinHandle<()>> =
-        std::thread::Builder::new().name("Log compressor".to_owned()).spawn(move || {
+        std::thread::Builder::new().name("Log compressor".to_owned()).spawn(move ||
+        {
             if let Err(error) = compress(&staged)
             {
                 eprintln!("log compress failed for {}: {error}", staged.display());
             }
+
             prune(&dir, name);
         });
+
     if let Err(error) = spawned
     {
         eprintln!("log compressor did not start: {error}");
@@ -143,6 +161,7 @@ fn stage(dir: &Path, name: &str, current: &Path) -> io::Result<PathBuf>
     let fields: DateFields = dateFields(millis);
     let date: String = format!("{:04}-{:02}-{:02}", fields.m_year, fields.m_month, fields.m_day);
     let mut index: u32 = 1;
+
     loop
     {
         let stem: String = format!("{name}-{date}-{index}");
@@ -152,6 +171,7 @@ fn stage(dir: &Path, name: &str, current: &Path) -> io::Result<PathBuf>
             fs::rename(current, &staged)?;
             return Ok(staged);
         }
+
         index += 1;
     }
 }
@@ -190,6 +210,7 @@ fn prune(dir: &Path, name: &str)
         .filter_map(|path| Some((fs::metadata(&path).ok()?.modified().ok()?, path)))
         .collect();
     archives.sort_by_key(|archive| std::cmp::Reverse(archive.0));
+
     for (_, path) in archives.iter().skip(limits::KEEP_ARCHIVES)
     {
         if let Err(error) = fs::remove_file(path)
@@ -211,6 +232,7 @@ fn listDir(dir: &Path) -> Vec<PathBuf>
     match fs::read_dir(dir)
     {
         Ok(entries) => entries.filter_map(|entry| entry.ok().map(|entry| entry.path())).collect(),
+
         Err(error) =>
         {
             eprintln!("could not list {}: {error}", dir.display());
@@ -238,7 +260,7 @@ pub struct LogFormatter;
 
 impl LogFormatter
 {
-    pub fn boxed() -> Box<dyn Formatter> { Box::new(LogFormatter) }
+    pub fn boxed() -> Box<dyn Formatter> { Box::new(Self) }
 }
 
 impl Formatter for LogFormatter
@@ -259,10 +281,12 @@ impl Formatter for LogFormatter
             record.source(),
             record.getMessage()
         );
+
         if let Some(thrown) = record.getThrown()
         {
             text.push_str(&format!("{thrown}\n"));
         }
+
         text
     }
 }

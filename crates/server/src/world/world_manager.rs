@@ -13,9 +13,9 @@ pub struct WorldManager
 
 impl WorldManager
 {
-    pub fn new(server: &Rc<MinecraftServer>, world: &Rc<World>) -> WorldManager
+    pub fn new(server: &Rc<MinecraftServer>, world: &Rc<World>) -> Self
     {
-        WorldManager { m_mcServer: Rc::clone(server), m_world: Rc::clone(world) }
+        Self { m_mcServer: Rc::clone(server), m_world: Rc::clone(world) }
     }
 
     fn worldType(&self) -> i32 { self.m_world.worldProvider().m_worldType.get() }

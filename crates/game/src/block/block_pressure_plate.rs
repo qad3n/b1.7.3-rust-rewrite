@@ -22,10 +22,12 @@ pub struct PlateExt
 fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _neighborBlock: i32)
 {
     let mut flag: bool = false;
+
     if !world.isBlockNormalCube(x, y - 1, z)
     {
         flag = true;
     }
+
     if flag
     {
         this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
@@ -43,6 +45,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     {
         return;
     }
+
     setStateIfMobInteractsWithPlate(this, world, x, y, z);
 }
 
@@ -56,6 +59,7 @@ fn onEntityCollidedWithBlock(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32
     {
         return;
     }
+
     setStateIfMobInteractsWithPlate(this, world, x, y, z);
 }
 
@@ -82,18 +86,22 @@ fn setStateIfMobInteractsWithPlate(this: &Rc<Block>, world: &Rc<World>, x: i32, 
     {
         list = Some(world.getEntitiesWithinAABBExcludingEntity(None, &plateBounds(x, y, z, f)).size() as usize);
     }
+
     if rule == EnumMobType::Mobs
     {
         list = Some(world.getEntitiesWithinAABB("EntityLiving", &plateBounds(x, y, z, f)).len());
     }
+
     if rule == EnumMobType::Players
     {
         list = Some(world.getEntitiesWithinAABB("EntityPlayer", &plateBounds(x, y, z, f)).len());
     }
+
     if list.orNpe() > 0
     {
         flag1 = true;
     }
+
     if flag1 && !flag
     {
         world.setBlockMetadataWithNotify(x, y, z, 1);
@@ -102,6 +110,7 @@ fn setStateIfMobInteractsWithPlate(this: &Rc<Block>, world: &Rc<World>, x: i32, 
         world.markBlocksDirty(x, y, z, x, y, z);
         world.playSoundEffect(x as f64 + 0.5, y as f64 + 0.1, z as f64 + 0.5, "random.click", 0.3, 0.6);
     }
+
     if !flag1 && flag
     {
         world.setBlockMetadataWithNotify(x, y, z, 0);
@@ -110,6 +119,7 @@ fn setStateIfMobInteractsWithPlate(this: &Rc<Block>, world: &Rc<World>, x: i32, 
         world.markBlocksDirty(x, y, z, x, y, z);
         world.playSoundEffect(x as f64 + 0.5, y as f64 + 0.1, z as f64 + 0.5, "random.click", 0.3, 0.5);
     }
+
     if flag1
     {
         world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());
@@ -124,6 +134,7 @@ fn onBlockRemoval(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
         world.notifyBlocksOfNeighborChange(x, y, z, this.m_blockID);
         world.notifyBlocksOfNeighborChange(x, y - 1, z, this.m_blockID);
     }
+
     (BLOCK.onBlockRemoval)(this, world, x, y, z);
 }
 
@@ -131,6 +142,7 @@ fn setBlockBoundsBasedOnState(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32
 {
     let flag: bool = world.getBlockMetadata(x, y, z) == 1;
     let f: f32 = 0.0625;
+
     if flag
     {
         this.setBlockBounds(f, 0.0, f, 1.0 - f, 0.03125, 1.0 - f);
@@ -141,7 +153,8 @@ fn setBlockBoundsBasedOnState(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockPressurePlate",
     m_parent: Some(&BLOCK),
     tickRate: |_| 20,
@@ -156,7 +169,8 @@ pub const CLASS: BlockClass = BlockClass {
     onBlockRemoval,
     setBlockBoundsBasedOnState,
     isPoweringTo: |_, world, x, y, z, _| world.getBlockMetadata(x, y, z) > 0,
-    isIndirectlyPoweringTo: |_, world, x, y, z, dir| {
+    isIndirectlyPoweringTo: |_, world, x, y, z, dir|
+    {
         if world.getBlockMetadata(x, y, z) == 0
         {
             false
@@ -167,7 +181,8 @@ pub const CLASS: BlockClass = BlockClass {
         }
     },
     canProvidePower: |_| true,
-    setBlockBoundsForItemRender: |this| {
+    setBlockBoundsForItemRender: |this|
+    {
         let f: f32 = 0.5;
         let f1: f32 = 0.125;
         let f2: f32 = 0.5;

@@ -6,7 +6,7 @@ use game::tileentity::{TileEntity, tile_entity_piston};
 use game::world::{IBlockAccess, World};
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
 pub struct TileEntityRendererPiston
@@ -16,7 +16,7 @@ pub struct TileEntityRendererPiston
 
 impl TileEntityRendererPiston
 {
-    pub fn new() -> TileEntityRendererPiston { TileEntityRendererPiston { m_blockRenderer: RefCell::new(None) } }
+    pub fn new() -> Self { Self { m_blockRenderer: RefCell::new(None) } }
 }
 
 impl TileEntitySpecialRenderer for TileEntityRendererPiston
@@ -32,23 +32,26 @@ impl TileEntitySpecialRenderer for TileEntityRendererPiston
         {
             return;
         }
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         self.bindTextureByName("/terrain.png");
         RenderHelper::disableStandardItemLighting();
         GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
         GL11::glEnable(GL11::GL_BLEND);
         GL11::glDisable(GL11::GL_CULL_FACE);
-        GL11::glShadeModel(
-            if Minecraft::isAmbientOcclusionEnabled()
-            {
-                GL11::GL_SMOOTH
-            }
-            else
-            {
-                GL11::GL_FLAT
-            },
-        );
+
+        let mode: i32 = if Minecraft::isAmbientOcclusionEnabled()
+        {
+            GL11::GL_SMOOTH
+        }
+        else
+        {
+            GL11::GL_FLAT
+        };
+        GL11::glShadeModel(mode);
         tessellator.startDrawingQuads();
+
         let (x, y, z): (i32, i32, i32) = (piston.m_xCoord.get(), piston.m_yCoord.get(), piston.m_zCoord.get());
         tessellator.setTranslationD(
             (d as f32 - x as f32 + tile_entity_piston::getRenderOffsetX(piston, f)) as f64,
@@ -56,7 +59,8 @@ impl TileEntitySpecialRenderer for TileEntityRendererPiston
             (d3 as f32 - z as f32 + tile_entity_piston::getRenderOffsetZ(piston, f)) as f64,
         );
         tessellator.setColorOpaque(1, 1, 1);
-        let mut renderer = self.m_blockRenderer.borrow_mut();
+
+        let mut renderer: RefMut<Option<RenderBlocks>> = self.m_blockRenderer.borrow_mut();
         let renderer: &mut RenderBlocks = renderer.as_mut().orNpe();
         let extension: Rc<Block> = Block::pistonExtension();
         if Rc::ptr_eq(&block, &extension) && tile_entity_piston::getProgress(piston, f) < 0.5

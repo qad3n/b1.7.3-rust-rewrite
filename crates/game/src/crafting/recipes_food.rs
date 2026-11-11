@@ -2,7 +2,7 @@ use crate::block::Block;
 use crate::crafting::{CraftingManager, Ingredient};
 use crate::item::{Item, ItemStack};
 
-pub(super) fn addRecipes(manager: &CraftingManager)
+pub(crate) fn addRecipes(manager: &CraftingManager)
 {
     manager.addRecipe(
         ItemStack::withItem(&Item::bowlSoup()),

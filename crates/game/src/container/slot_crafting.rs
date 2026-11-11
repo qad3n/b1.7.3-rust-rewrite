@@ -26,7 +26,8 @@ const CRAFT_ACHIEVEMENTS: [CraftAchievement; 8] = [
     CraftAchievement { m_itemID: || Item::hoeWood().m_shiftedIndex, m_achievement: AchievementList::buildHoe },
     CraftAchievement { m_itemID: || Item::bread().m_shiftedIndex, m_achievement: AchievementList::makeBread },
     CraftAchievement { m_itemID: || Item::cake().m_shiftedIndex, m_achievement: AchievementList::bakeCake },
-    CraftAchievement {
+    CraftAchievement
+    {
         m_itemID: || Item::pickaxeStone().m_shiftedIndex,
         m_achievement: AchievementList::buildBetterPickaxe,
     },
@@ -44,10 +45,12 @@ fn onPickupFromSlot(this: &Rc<Slot>, item: Option<Rc<ItemStack>>)
     item.onCrafting(&thePlayer.world(), &thePlayer);
     // mods observe crafted items
     crate::hooks::fire(crate::hooks::GameEvent::ItemCrafted { player: &thePlayer, stack: &item });
+
     if let Some(row) = CRAFT_ACHIEVEMENTS.iter().find(|row| item.m_itemID.get() == (row.m_itemID)())
     {
         thePlayer.addStat((row.m_achievement)().as_ref(), 1);
     }
+
     let craftMatrix: &Rc<dyn IInventory> = &fields(this).m_craftMatrix;
     for i in 0..craftMatrix.getSizeInventory()
     {
@@ -55,6 +58,7 @@ fn onPickupFromSlot(this: &Rc<Slot>, item: Option<Rc<ItemStack>>)
         if let Some(itemstack) = itemstack
         {
             craftMatrix.decrStackSize(i, 1);
+
             if itemstack.getItem().hasContainerItem()
             {
                 craftMatrix.setInventorySlotContents(
@@ -66,7 +70,8 @@ fn onPickupFromSlot(this: &Rc<Slot>, item: Option<Rc<ItemStack>>)
     }
 }
 
-pub const CLASS: SlotClass = SlotClass {
+pub const CLASS: SlotClass = SlotClass
+{
     m_name: "SlotCrafting",
     m_parent: Some(&SLOT),
     m_interfaces: &[],

@@ -14,7 +14,7 @@ impl WorldGenerator for WorldGenGlowStone1
     }
 }
 
-pub(super) fn generateGlowStone(world: &Rc<World>, random: &Random, x: i32, y: i32, z: i32) -> bool
+pub(crate) fn generateGlowStone(world: &Rc<World>, random: &Random, x: i32, y: i32, z: i32) -> bool
 {
     if !world.isAirBlock(x, y, z)
     {
@@ -24,7 +24,9 @@ pub(super) fn generateGlowStone(world: &Rc<World>, random: &Random, x: i32, y: i
     {
         return false;
     }
+
     world.setBlockWithNotify(x, y, z, Block::GLOW_STONE);
+
     for _ in 0..1500
     {
         let j: i32 = x + random.nextIntBounded(8) - random.nextIntBounded(8);
@@ -33,6 +35,7 @@ pub(super) fn generateGlowStone(world: &Rc<World>, random: &Random, x: i32, y: i
         if world.getBlockId(j, k, l) == 0
         {
             let mut i1: i32 = 0;
+
             for j1 in 0..6
             {
                 let k1: i32 = match j1
@@ -49,11 +52,13 @@ pub(super) fn generateGlowStone(world: &Rc<World>, random: &Random, x: i32, y: i
                     i1 += 1;
                 }
             }
+
             if i1 == 1
             {
                 world.setBlockWithNotify(j, k, l, Block::GLOW_STONE);
             }
         }
     }
+
     true
 }

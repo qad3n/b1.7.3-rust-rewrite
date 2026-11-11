@@ -21,8 +21,10 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
-crate::vtable! {
-    TileEntityClass for TileEntity {
+crate::vtable!
+{
+    TileEntityClass for TileEntity
+    {
         fn canInteractWith(player: &Rc<Entity>) -> bool;
         fn decrStackSize(slot: i32, amount: i32) -> Option<Rc<ItemStack>>;
         fn getBlockMetadata() -> i32;
@@ -43,21 +45,24 @@ fn notInventory(name: &str) -> !
     jvm::throwable::throw(&jvm::throwable::ERROR, &format!("java.lang.AbstractMethodError: {name}"))
 }
 
-pub const TILE_ENTITY: TileEntityClass = TileEntityClass {
+pub const TILE_ENTITY: TileEntityClass = TileEntityClass
+{
     m_name: "TileEntity",
     m_parent: None,
     m_interfaces: &[],
     canInteractWith: |_, _| notInventory("canInteractWith"),
     decrStackSize: |_, _, _| notInventory("decrStackSize"),
     getDescriptionPacket: |_| None,
-    getBlockMetadata: |this| {
+    getBlockMetadata: |this|
+    {
         this.world().getBlockMetadata(this.m_xCoord.get(), this.m_yCoord.get(), this.m_zCoord.get())
     },
     getInvName: |_| notInventory("getInvName"),
     getInventoryStackLimit: |_| notInventory("getInventoryStackLimit"),
     getSizeInventory: |_| notInventory("getSizeInventory"),
     getStackInSlot: |_, _| notInventory("getStackInSlot"),
-    readFromNBT: |this, nbt| {
+    readFromNBT: |this, nbt|
+    {
         this.m_xCoord.set(nbt.getInteger("x"));
         this.m_yCoord.set(nbt.getInteger("y"));
         this.m_zCoord.set(nbt.getInteger("z"));
@@ -66,7 +71,8 @@ pub const TILE_ENTITY: TileEntityClass = TileEntityClass {
     },
     setInventorySlotContents: |_, _, _| notInventory("setInventorySlotContents"),
     updateEntity: |_| {},
-    writeToNBT: |this, nbt| {
+    writeToNBT: |this, nbt|
+    {
         let Some(kind) = TileEntityKind::forClass(this.className())
         else
         {
@@ -88,7 +94,7 @@ pub struct TileEntity
 {
     pub m_class: &'static TileEntityClass,
     m_ext: Box<dyn Any>,
-    m_this: Weak<TileEntity>,
+    m_this: Weak<Self>,
     pub m_worldObj: Field<Option<Rc<World>>>,
     pub m_xCoord: Cell<i32>,
     pub m_yCoord: Cell<i32>,
@@ -120,49 +126,57 @@ pub struct TileEntityRow
 }
 
 const MAPPINGS: [TileEntityRow; 8] = [
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::Furnace,
         m_className: "TileEntityFurnace",
         m_id: "Furnace",
         m_create: tile_entity_furnace::create,
     },
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::Chest,
         m_className: "TileEntityChest",
         m_id: "Chest",
         m_create: tile_entity_chest::create,
     },
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::RecordPlayer,
         m_className: "BlockJukeBox$TileEntityRecordPlayer",
         m_id: "RecordPlayer",
         m_create: block_juke_box::newRecordPlayer,
     },
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::Dispenser,
         m_className: "TileEntityDispenser",
         m_id: "Trap",
         m_create: tile_entity_dispenser::create,
     },
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::Sign,
         m_className: "TileEntitySign",
         m_id: "Sign",
         m_create: tile_entity_sign::create,
     },
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::MobSpawner,
         m_className: "TileEntityMobSpawner",
         m_id: "MobSpawner",
         m_create: tile_entity_mob_spawner::create,
     },
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::Note,
         m_className: "TileEntityNote",
         m_id: "Music",
         m_create: tile_entity_note::create,
     },
-    TileEntityRow {
+    TileEntityRow
+    {
         m_kind: TileEntityKind::Piston,
         m_className: "TileEntityPiston",
         m_id: "Piston",
@@ -181,12 +195,12 @@ impl TileEntityKind
         }
     }
 
-    pub fn forClass(className: &str) -> Option<TileEntityKind>
+    pub fn forClass(className: &str) -> Option<Self>
     {
         MAPPINGS.iter().find(|row| row.m_className == className).map(|row| row.m_kind)
     }
 
-    pub fn forId(id: &JString) -> Option<TileEntityKind>
+    pub fn forId(id: &JString) -> Option<Self>
     {
         MAPPINGS.iter().find(|row| JString::from(row.m_id) == *id).map(|row| row.m_kind)
     }
@@ -198,9 +212,10 @@ impl TileEntityKind
 
 impl TileEntity
 {
-    pub fn new(class: &'static TileEntityClass, ext: Box<dyn Any>) -> Rc<TileEntity>
+    pub fn new(class: &'static TileEntityClass, ext: Box<dyn Any>) -> Rc<Self>
     {
-        Rc::new_cyclic(|this| TileEntity {
+        Rc::new_cyclic(|this| Self
+        {
             // mod content reuses a vanilla constructor with a class derived from it
             m_class: crate::hooks::tileEntityClass(class),
             m_ext: ext,
@@ -220,28 +235,30 @@ impl TileEntity
 
     pub fn world(&self) -> Rc<World> { self.m_worldObj.get().orNpe() }
 
-    fn this(&self) -> Rc<TileEntity> { self.m_this.upgrade().expect("a live tile entity is owned by an Rc") }
+    fn this(&self) -> Rc<Self> { self.m_this.upgrade().expect("a live tile entity is owned by an Rc") }
 
-    pub fn castNullable(tileEntity: Option<Rc<TileEntity>>, className: &str) -> Option<Rc<TileEntity>>
+    pub fn castNullable(tileEntity: Option<Rc<Self>>, className: &str) -> Option<Rc<Self>>
     {
         // forwards to port castNullable until item_sign calls port directly
         crate::port::tile_entity::castNullable(tileEntity, className)
     }
 
-    pub fn createAndLoadEntity(nbt: &NBTTagCompound) -> Option<Rc<TileEntity>>
+    pub fn createAndLoadEntity(nbt: &NBTTagCompound) -> Option<Rc<Self>>
     {
         let id: Option<JString> = nbt.getString("id");
         // mod tile entities are created by the loader when no vanilla kind matches
-        let tileEntity: Option<Rc<TileEntity>> = id
+        let tileEntity: Option<Rc<Self>> = id
             .as_ref()
             .and_then(TileEntityKind::forId)
             .map(TileEntityKind::newInstance)
             .or_else(|| id.as_ref().and_then(|id| crate::hooks::createTileEntity(&id.to_string())));
+
         match &tileEntity
         {
             Some(entity) => entity.readFromNBT(nbt),
             None => warning!("Skipping TileEntity with id {}", JString::display(id.as_ref())),
         }
+
         tileEntity
     }
 

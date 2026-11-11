@@ -26,8 +26,11 @@ fn stack(this: &TileEntity, index: i32) -> Option<Rc<ItemStack>> { tile_entity_c
 fn readFromNBT(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
 {
     (TILE_ENTITY.readFromNBT)(this, nbt);
+
     let nbttaglist: Rc<NBTBase> = nbt.getTagList("Items");
+
     *stacks(this).borrow_mut() = vec![None; this.getSizeInventory() as usize];
+
     for i in 0..nbttaglist.list().tagCount()
     {
         let tag: Rc<NBTBase> = nbttaglist.list().tagAt(i);
@@ -38,6 +41,7 @@ fn readFromNBT(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
             tile_entity_chest::setSlot(stacks(this), b0 as i32, Some(ItemStack::withNbt(nbttagcompound)));
         }
     }
+
     let furnace: &FurnaceExt = fields(this);
     furnace.m_furnaceBurnTime.set(nbt.getShort("BurnTime") as i32);
     furnace.m_furnaceCookTime.set(nbt.getShort("CookTime") as i32);
@@ -49,6 +53,7 @@ fn writeToNBT(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
     (TILE_ENTITY.writeToNBT)(this, nbt);
     nbt.setShort("BurnTime", fields(this).m_furnaceBurnTime.get() as i16);
     nbt.setShort("CookTime", fields(this).m_furnaceCookTime.get() as i16);
+
     let nbttaglist: Rc<NBTBase> = NBTTagList::create();
     let length: i32 = stacks(this).borrow().len() as i32;
     for i in 0..length
@@ -61,6 +66,7 @@ fn writeToNBT(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
             nbttaglist.list().setTag(nbttagcompound);
         }
     }
+
     nbt.setTag("Items", &nbttaglist);
 }
 
@@ -76,6 +82,7 @@ pub fn getBurnTimeRemainingScaled(this: &TileEntity, range: i32) -> i32
     {
         furnace.m_currentItemBurnTime.set(200);
     }
+
     furnace.m_furnaceBurnTime.get() * range / furnace.m_currentItemBurnTime.get()
 }
 
@@ -86,10 +93,12 @@ fn updateEntity(this: &Rc<TileEntity>)
     let furnace: &FurnaceExt = fields(this);
     let bl: bool = furnace.m_furnaceBurnTime.get() > 0;
     let mut bl2: bool = false;
+
     if furnace.m_furnaceBurnTime.get() > 0
     {
         furnace.m_furnaceBurnTime.set(furnace.m_furnaceBurnTime.get() - 1);
     }
+
     let world: Rc<World> = this.world();
     if !world.m_multiplayerWorld.get()
     {
@@ -98,12 +107,15 @@ fn updateEntity(this: &Rc<TileEntity>)
             let burnTime: i32 = getItemBurnTime(stack(this, 1));
             furnace.m_furnaceBurnTime.set(burnTime);
             furnace.m_currentItemBurnTime.set(burnTime);
+
             if furnace.m_furnaceBurnTime.get() > 0
             {
                 bl2 = true;
+
                 if let Some(fuel) = stack(this, 1)
                 {
                     fuel.m_stackSize.set(fuel.m_stackSize.get() - 1);
+
                     if fuel.m_stackSize.get() == 0
                     {
                         tile_entity_chest::setSlot(stacks(this), 1, None);
@@ -111,9 +123,11 @@ fn updateEntity(this: &Rc<TileEntity>)
                 }
             }
         }
+
         if isBurning(this) && canSmelt(this)
         {
             furnace.m_furnaceCookTime.set(furnace.m_furnaceCookTime.get() + 1);
+
             if furnace.m_furnaceCookTime.get() == 200
             {
                 furnace.m_furnaceCookTime.set(0);
@@ -125,6 +139,7 @@ fn updateEntity(this: &Rc<TileEntity>)
         {
             furnace.m_furnaceCookTime.set(0);
         }
+
         if bl != (furnace.m_furnaceBurnTime.get() > 0)
         {
             bl2 = true;
@@ -137,6 +152,7 @@ fn updateEntity(this: &Rc<TileEntity>)
             );
         }
     }
+
     if bl2
     {
         this.onInventoryChanged();
@@ -168,6 +184,7 @@ fn canSmelt(this: &Rc<TileEntity>) -> bool
     {
         return true;
     }
+
     output.m_stackSize.get() < itemStack.getMaxStackSize()
 }
 
@@ -177,11 +194,14 @@ pub fn smeltItem(this: &Rc<TileEntity>)
     {
         return;
     }
+
     let input: Rc<ItemStack> = stack(this, 0).orNpe();
     let itemStack: Rc<ItemStack> = FurnaceRecipes::smelting().getSmeltingResult(input.getItem().m_shiftedIndex).orNpe();
+
     match stack(this, 2)
     {
         None => tile_entity_chest::setSlot(stacks(this), 2, Some(itemStack.copy())),
+
         Some(output) =>
         {
             if output.m_itemID.get() == itemStack.m_itemID.get()
@@ -190,7 +210,9 @@ pub fn smeltItem(this: &Rc<TileEntity>)
             }
         }
     }
+
     input.m_stackSize.set(input.m_stackSize.get() - 1);
+
     if input.m_stackSize.get() <= 0
     {
         tile_entity_chest::setSlot(stacks(this), 0, None);
@@ -204,6 +226,7 @@ pub fn getItemBurnTime(item: Option<Rc<ItemStack>>) -> i32
     {
         return 0;
     };
+
     // fuel values registered by mods come first
     if let Some(ticks) = crate::hooks::fuel(&item)
     {
@@ -230,17 +253,20 @@ pub fn getItemBurnTime(item: Option<Rc<ItemStack>>) -> i32
     {
         return 100;
     }
+
     0
 }
 
-pub const CLASS: TileEntityClass = TileEntityClass {
+pub const CLASS: TileEntityClass = TileEntityClass
+{
     m_name: "TileEntityFurnace",
     m_parent: Some(&TILE_ENTITY),
     m_interfaces: &["IInventory"],
     getSizeInventory: |this| stacks(this).borrow().len() as i32,
     getStackInSlot: |this, index| stack(this, index),
     decrStackSize: |this, index, amount| tile_entity_chest::decrSlot(this, stacks(this), index, amount, false),
-    setInventorySlotContents: |this, index, item| {
+    setInventorySlotContents: |this, index, item|
+    {
         tile_entity_chest::setSlotContents(this, stacks(this), index, item, false)
     },
     getInvName: |_| "Furnace",
@@ -254,7 +280,8 @@ pub const CLASS: TileEntityClass = TileEntityClass {
 
 pub fn create() -> Rc<TileEntity>
 {
-    let ext: FurnaceExt = FurnaceExt {
+    let ext: FurnaceExt = FurnaceExt
+    {
         m_furnaceItemStacks: RefCell::new(vec![None; 3]),
         m_furnaceBurnTime: Cell::new(0),
         m_currentItemBurnTime: Cell::new(0),

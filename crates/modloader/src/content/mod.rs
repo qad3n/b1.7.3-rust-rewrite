@@ -60,7 +60,8 @@ struct Tables
     m_fuel: HashMap<i32, i32>,
 }
 
-thread_local! {
+thread_local!
+{
     static TABLES: RefCell<Tables> = RefCell::new(Tables::default());
 }
 
@@ -71,8 +72,10 @@ pub fn itemData(id: i32) -> Option<Rc<ItemData>> { TABLES.with(|tables| tables.b
 // the now playing line of a mod disc, by its streaming sound
 pub fn recordTitle(sound: &str) -> Option<String>
 {
-    TABLES.with(|tables| {
-        tables.borrow().m_items.values().find_map(|data| {
+    TABLES.with(|tables|
+    {
+        tables.borrow().m_items.values().find_map(|data|
+        {
             data.m_spec.record.as_ref().filter(|record| record.sound == sound).map(|record| record.title.clone())
         })
     })
@@ -104,6 +107,7 @@ pub fn textureSlot(texture: &str, atlas: crate::atlas::Atlas) -> Option<i32>
     if id.isVanilla()
     {
         let (sheet, slot) = id.path().split_once('/')?;
+
         let expected: &str = match atlas
         {
             crate::atlas::Atlas::Terrain => "terrain",
@@ -118,6 +122,7 @@ pub fn textureSlot(texture: &str, atlas: crate::atlas::Atlas) -> Option<i32>
             None
         };
     }
+
     crate::atlas::slotOf(atlas, &id)
 }
 

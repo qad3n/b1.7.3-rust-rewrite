@@ -57,7 +57,8 @@ use std::path::Path;
 
 pub const LOADER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-thread_local! {
+thread_local!
+{
     static PATHS: OnceCell<LoaderPaths> = const { OnceCell::new() };
 }
 
@@ -74,6 +75,7 @@ pub fn bootstrap(root: &Path)
             &format!("could not create {} or {}: {error}", paths.m_mods.display(), paths.m_config.display()),
         );
     }
+
     lifecycle::load(&paths);
     PATHS.with(|slot| slot.set(paths).ok());
 }

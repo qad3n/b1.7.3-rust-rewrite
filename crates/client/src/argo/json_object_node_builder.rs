@@ -12,7 +12,7 @@ pub struct JsonObjectNodeBuilder
 
 impl JsonObjectNodeBuilder
 {
-    pub fn new() -> JsonObjectNodeBuilder { JsonObjectNodeBuilder::default() }
+    pub fn new() -> Self { Self::default() }
 
     pub fn withField(&self, fieldBuilder: Rc<JsonFieldBuilder>) -> &Self
     {
@@ -26,10 +26,12 @@ impl JsonNodeBuilder for JsonObjectNodeBuilder
     fn build(&self) -> Rc<JsonNode>
     {
         let mut fields: JsonFields = JHashMap::new();
+
         for fieldBuilder in self.m_fieldBuilders.borrow().clone()
         {
             fields.put(fieldBuilder.buildKey(), fieldBuilder.buildValue());
         }
+
         JsonNodeFactories::object(&fields)
     }
 }

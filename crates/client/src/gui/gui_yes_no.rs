@@ -14,23 +14,31 @@ struct YesNoExt
 
 fn fields(this: &GuiScreen) -> &YesNoExt { this.ext::<YesNoExt>() }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiYesNo",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let ext: &YesNoExt = fields(this);
         let x: i32 = this.m_width.get() / 2 - 155;
         let y: i32 = this.m_height.get() / 6 + 96;
         this.m_controlList.add(GuiButton::small(0, x + 0, y, &ext.m_confirmText));
         this.m_controlList.add(GuiButton::small(1, x + 160, y, &ext.m_abortText));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         fields(this).m_parentScreen.deleteWorld(button.m_id.get() == 0, fields(this).m_worldNumber);
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         let ext: &YesNoExt = fields(this);
+
         this.drawDefaultBackground();
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         this.m_gui.drawCenteredString(&font, &ext.m_message1, this.m_width.get() / 2, 70, 0xFFFFFF);
         this.m_gui.drawCenteredString(&font, &ext.m_message2, this.m_width.get() / 2, 90, 0xFFFFFF);
@@ -52,7 +60,8 @@ impl GuiYesNo
         id: i32,
     ) -> Rc<GuiScreen>
     {
-        let ext: YesNoExt = YesNoExt {
+        let ext: YesNoExt = YesNoExt
+        {
             m_parentScreen: Rc::clone(listener),
             m_message1: title.to_string(),
             m_message2: description.to_string(),

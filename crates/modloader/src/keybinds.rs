@@ -11,13 +11,15 @@ pub struct Keybind
     pub m_handler: Handle,
 }
 
-thread_local! {
+thread_local!
+{
     static KEYBINDS: RefCell<Vec<Keybind>> = const { RefCell::new(Vec::new()) };
 }
 
 pub fn register(modIndex: usize, name: String, key: i32, handler: Handle)
 {
-    KEYBINDS.with(|binds| {
+    KEYBINDS.with(|binds|
+    {
         binds.borrow_mut().push(Keybind { m_mod: modIndex, m_name: name, m_key: key, m_handler: handler })
     });
 }
@@ -26,7 +28,8 @@ pub fn all() -> Vec<Keybind> { KEYBINDS.with(|binds| binds.borrow().clone()) }
 
 pub fn setKey(name: &str, key: i32)
 {
-    KEYBINDS.with(|binds| {
+    KEYBINDS.with(|binds|
+    {
         for bind in binds.borrow_mut().iter_mut().filter(|bind| bind.m_name == name)
         {
             bind.m_key = key;
@@ -39,6 +42,7 @@ pub fn conflicts() -> Vec<(String, String)>
 {
     let binds: Vec<Keybind> = all();
     let mut found: Vec<(String, String)> = Vec::new();
+
     for (index, bind) in binds.iter().enumerate()
     {
         for other in &binds[index + 1..]
@@ -49,6 +53,7 @@ pub fn conflicts() -> Vec<(String, String)>
             }
         }
     }
+
     found
 }
 

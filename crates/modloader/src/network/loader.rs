@@ -1,7 +1,9 @@
 use super::{Channel, Handler};
 use crate::host::context;
+use crate::screens::OpenRequest;
 use game::block::Block;
 use game::entity::Entity;
+use game::entity::entity_falling_sand::FallingSandFields;
 use mod_protocol::abi::BlockPos;
 use mod_protocol::handshake::ChannelDirection;
 use mod_protocol::{Identifier, wire};
@@ -157,7 +159,8 @@ fn clientHandler<T: for<'de> Deserialize<'de> + 'static>(apply: fn(T)) -> Handle
     })
 }
 
-thread_local! {
+thread_local!
+{
     static SERVER_TICK: std::cell::Cell<i32> = const { std::cell::Cell::new(0) };
     // spawns that reached a client still joining its world, replayed once the world is there
     static PENDING_SPAWNS: std::cell::RefCell<Vec<SpawnEntity>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -169,6 +172,7 @@ pub fn flushPendingSpawns()
     {
         return;
     }
+
     for message in PENDING_SPAWNS.with(|pending| std::mem::take(&mut *pending.borrow_mut()))
     {
         spawnEntity(message);
@@ -202,15 +206,19 @@ fn spawnEntity(message: SpawnEntity)
         message.rotation[1],
     );
     entity.setVelocity(message.motion[0], message.motion[1], message.motion[2]);
+
     if entity.instanceOf("EntityLiving")
     {
         game::entity::entity_living::fields(&entity).m_isMultiplayerEntity.set(true);
     }
+
     if !message.data.is_empty()
     {
         crate::entities::setData(&entity, &crate::entities::kindNamespace(&entity), message.data);
     }
+
     crate::entities::claimStashedSynced(&entity);
+
     if let Err(reason) = crate::netplay::addClientEntity(message.id, entity)
     {
         crate::log::warn(crate::log::LOADER, &reason);
@@ -220,9 +228,10 @@ fn spawnEntity(message: SpawnEntity)
 // a synced entity update can beat the spawn of a fresh entity, the spawn handler then applies the stored copy
 fn entitySynced(message: EntitySynced)
 {
-    let entity = crate::network::localPlayer()
+    let entity: Option<Rc<game::entity::Entity>> = crate::network::localPlayer()
         .and_then(|player| player.m_worldObj.get())
         .and_then(|world| context::entityById(&world, message.id));
+
     match entity
     {
         Some(entity) => crate::entities::setSynced(&entity, &message.owner, message.data),
@@ -237,21 +246,24 @@ fn biomeColumn(message: BiomeColumn)
     {
         return;
     };
+
     crate::biomes::turn(dimension, message.x, message.z, biome);
 }
 
 fn movingBlock(message: MovingBlock)
 {
-    let entity = crate::network::localPlayer()
+    let entity: Option<Rc<game::entity::Entity>> = crate::network::localPlayer()
         .and_then(|player| player.m_worldObj.get())
         .and_then(|world| context::entityById(&world, message.id))
         .filter(|entity| entity.instanceOf("EntityFallingSand"));
+
     let Some(entity) = entity
     else
     {
         return;
     };
-    let fields = game::entity::entity_falling_sand::fields(&entity);
+
+    let fields: &FallingSandFields = game::entity::entity_falling_sand::fields(&entity);
     fields.m_blockID.set(message.block);
     fields.m_metadata.set(message.meta);
 }
@@ -263,6 +275,7 @@ fn tileData(message: super::sync::TileData)
     {
         return;
     };
+
     if let Some(tile) = world.getBlockTileEntity(message.pos.x, message.pos.y, message.pos.z)
         && let Some(ext) = tile.tryExt::<crate::tiles::ModTileExt>()
     {
@@ -277,7 +290,8 @@ fn openScreen(message: OpenScreen)
     {
         Some(screen) =>
         {
-            let request = crate::screens::OpenRequest {
+            let request: OpenRequest = crate::screens::OpenRequest
+            {
                 m_screen: screen,
                 m_pos: message.pos,
                 m_data: message.data,
@@ -285,6 +299,7 @@ fn openScreen(message: OpenScreen)
             };
             crate::screens::openLocal(request);
         }
+
         None => crate::log::warn(crate::log::LOADER, &format!("server opened unknown screen {}", message.screen)),
     }
 }
@@ -333,12 +348,15 @@ fn tick(message: Tick) { game::entity::remote::setServerTick(Some(message.tick))
 
 pub fn sendTick()
 {
-    let tick: i32 = SERVER_TICK.with(|cell| {
+    let tick: i32 = SERVER_TICK.with(|cell|
+    {
         cell.set(cell.get().wrapping_add(1));
         cell.get()
     });
+
     let channel: Identifier = id(TICK);
     let bytes: Vec<u8> = wire::encode(&Tick { tick });
+
     for player in crate::netsync::peersWith(&channel)
     {
         super::sendToConnection(player, &channel, &bytes);
@@ -363,9 +381,11 @@ pub fn register()
         (EFFECTS, clientHandler(crate::content::effects::received)),
         (PROGRESS, clientHandler(crate::content::progress::received)),
     ];
+
     for (name, handler) in channels
     {
-        super::registerChannel(Channel {
+        super::registerChannel(Channel
+        {
             m_id: id(name),
             m_version: "1".to_owned(),
             m_direction: ChannelDirection::ToClient,
@@ -373,7 +393,9 @@ pub fn register()
             m_onClient: Some(handler),
         });
     }
-    super::registerChannel(Channel {
+
+    super::registerChannel(Channel
+    {
         m_id: id(STOP_USING),
         m_version: "1".to_owned(),
         m_direction: ChannelDirection::ToServer,
@@ -386,11 +408,14 @@ pub fn register()
 pub fn broadcastNear<T: Serialize>(channel: &str, world: &Rc<game::world::World>, pos: [f64; 3], message: &T)
 {
     const RANGE_SQUARED: f64 = 64.0 * 64.0;
+
     if !crate::side::isServer()
     {
         return;
     }
+
     let bytes: Vec<u8> = wire::encode(message);
+
     for player in world.m_playerEntities.toVec()
     {
         let dx: f64 = player.m_posX.get() - pos[0];
@@ -409,6 +434,7 @@ pub fn stopUsing(player: &Rc<Entity>)
     {
         super::sendToServer(&id(STOP_USING), Vec::new());
     }
+
     game::entity::entity_player::stopUsingItem(player);
 }
 

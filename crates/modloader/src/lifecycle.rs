@@ -1,8 +1,9 @@
+use crate::config::ModConfig;
 use crate::content::{self, data};
 use crate::discovery::{self, Discovered};
 use crate::manifest::{SideSpec, WASM_FILE};
 use crate::paths::LoaderPaths;
-use crate::registry::{self, RegistryError};
+use crate::registry::{self, BlockEntry, ItemEntry, RecipeEntry, RegistryError, Row};
 use crate::resolver::{self, Candidate, Problem, Resolution};
 use crate::state::{self, ModRuntime, Phase};
 use crate::wasm::ModInstance;
@@ -23,12 +24,13 @@ pub mod ids
     pub const ITEM_LIMIT: i32 = 32000;
     pub const ENTITY_FIRST: i32 = 1000;
     pub const TILE_ENTITY_FIRST: i32 = 100;
-    pub const RECIPE_FIRST: i32 = 10_000;
+    pub const RECIPE_FIRST: i32 = 10000;
     pub const DIMENSION_FIRST: i32 = 2;
     pub const BIOME_FIRST: i32 = 13;
 }
 
-thread_local! {
+thread_local!
+{
     static RECIPE_REMOVALS: RefCell<Vec<Identifier>> = const { RefCell::new(Vec::new()) };
     static PENDING_LOOKUPS: RefCell<Vec<(usize, Identifier, Identifier, Handle)>> = const { RefCell::new(Vec::new()) };
     static BLOCK_LIMIT: std::cell::Cell<i32> = const { std::cell::Cell::new(ids::BLOCK_LIMIT) };
@@ -74,15 +76,19 @@ fn logReport(problems: &[Problem], skipped: &[(String, String)])
     {
         log::info(log::LOADER, &format!("skipped {id}: {reason}"));
     }
+
     if problems.is_empty()
     {
         return;
     }
+
     let mut report: String = format!("{} mod loading problems:", problems.len());
+
     for problem in problems
     {
         report.push_str(&format!("\n  {} ({}): {}", problem.m_mod, problem.m_file, problem.m_reason));
     }
+
     log::error(log::LOADER, &report);
 }
 
@@ -96,6 +102,7 @@ fn instantiate(runtime: &mut ModRuntime, paths: &LoaderPaths) -> Result<(), Stri
     };
 
     let started: Instant = Instant::now();
+
     runtime.m_instance = Some(ModInstance::load(runtime.m_index, &wasm, &paths.m_cache)?);
     log::debug(runtime.id(), &format!("mod.wasm ({} KiB) instantiated in {}", wasm.len() / 1024, took(started)));
     Ok(())
@@ -114,11 +121,14 @@ fn allocate(
 fn freezeRegistries() -> Result<(), RegistryError>
 {
     let blockLimit: i32 = blockLimit();
-    registry::with(|registries| {
+
+    registry::with(|registries|
+    {
         let vanillaItems: std::collections::HashSet<i32> =
             registries.m_items.rows().filter(|row| row.m_id.isVanilla()).map(|row| row.m_numeric).collect();
         // block ids above 255 must not land on a vanilla item id, the item form shares the number
         registries.m_blocks.freeze(allocate(ids::BLOCK_FIRST_FREE, blockLimit, &|id| vanillaItems.contains(&id)))?;
+
         let blocks: std::collections::BTreeMap<Identifier, i32> = registries.m_blocks.snapshot();
         let mut items = allocate(ids::ITEM_FIRST, ids::ITEM_LIMIT, &|_| false);
         registries.m_items.freeze(|id, taken| blocks.get(id).copied().or_else(|| items(id, taken)))?;
@@ -145,18 +155,21 @@ fn fail(owner: &str, reason: String)
 
 fn rebuildBlock(id: &Identifier, owner: &str)
 {
-    let row = registry::with(|registries| clone(registries.m_blocks.get(id).expect("the id was just listed")));
+    let row: Row<BlockEntry> =
+        registry::with(|registries| clone(registries.m_blocks.get(id).expect("the id was just listed")));
     let tile: Option<Identifier> = row.m_value.m_spec.as_ref().and_then(|spec| spec.tile_entity.clone());
     let bound: Result<(), String> = match &tile
     {
         Some(tile) => tiles::bindBlock(row.m_numeric, tile),
         None => Ok(()),
     };
+
     if row.m_id.isVanilla()
     {
         game::block::Block::unregister(row.m_numeric);
         game::item::Item::unregister(row.m_numeric);
     }
+
     if let Err(reason) = bound.and_then(|()| content::blocks::build(&row, ownerIndex(owner)))
     {
         fail(owner, format!("block {id}: {reason}"));
@@ -177,7 +190,8 @@ pub fn buildContent()
 
 fn buildRegistered()
 {
-    let blocks: Vec<(Identifier, String)> = registry::with(|registries| {
+    let blocks: Vec<(Identifier, String)> = registry::with(|registries|
+    {
         registries
             .m_blocks
             .rows()
@@ -189,12 +203,14 @@ fn buildRegistered()
     {
         rebuildBlock(&id, &owner);
     }
-    let itemIds: Vec<(Identifier, String)> = registry::with(|registries| {
+
+    let itemIds: Vec<(Identifier, String)> = registry::with(|registries|
+    {
         registries.m_items.modded().map(|row| (row.m_id.clone(), row.m_owner.clone())).collect()
     });
     for (id, owner) in itemIds
     {
-        let row = registry::with(|registries| cloneItem(registries.m_items.get(&id).expect("listed")));
+        let row: Row<ItemEntry> = registry::with(|registries| cloneItem(registries.m_items.get(&id).expect("listed")));
         if let Err(reason) = content::items::build(&row, ownerIndex(&owner))
         {
             fail(&owner, format!("item {id}: {reason}"));
@@ -204,7 +220,8 @@ fn buildRegistered()
 
 fn clone(row: &registry::Row<registry::BlockEntry>) -> registry::Row<registry::BlockEntry>
 {
-    registry::Row {
+    registry::Row
+    {
         m_id: row.m_id.clone(),
         m_numeric: row.m_numeric,
         m_owner: row.m_owner.clone(),
@@ -215,7 +232,8 @@ fn clone(row: &registry::Row<registry::BlockEntry>) -> registry::Row<registry::B
 
 fn cloneItem(row: &registry::Row<registry::ItemEntry>) -> registry::Row<registry::ItemEntry>
 {
-    registry::Row {
+    registry::Row
+    {
         m_id: row.m_id.clone(),
         m_numeric: row.m_numeric,
         m_owner: row.m_owner.clone(),
@@ -235,9 +253,11 @@ fn removeVanillaRecipes()
     let mut removals: Vec<i32> = RECIPE_REMOVALS
         .with(|list| list.borrow_mut().drain(..).collect::<Vec<Identifier>>())
         .iter()
-        .filter_map(|id| {
-            registry::with(|registries| {
-                let row = registries
+        .filter_map(|id|
+        {
+            registry::with(|registries|
+            {
+                let row: Option<&Row<RecipeEntry>> = registries
                     .m_recipes
                     .get(id)
                     .or_else(|| legacyRecipe(id).and_then(|n| registries.m_recipes.byNumeric(n)));
@@ -250,7 +270,8 @@ fn removeVanillaRecipes()
 
 fn applyRecipes()
 {
-    let recipes: Vec<(String, Identifier, mod_protocol::spec::RecipeSpec)> = registry::with(|registries| {
+    let recipes: Vec<(String, Identifier, mod_protocol::spec::RecipeSpec)> = registry::with(|registries|
+    {
         registries
             .m_recipes
             .modded()
@@ -265,6 +286,7 @@ fn applyRecipes()
             fail(&owner, format!("recipe {id}: {reason}"));
         }
     }
+
     content::recipes::finish();
 }
 
@@ -283,6 +305,7 @@ fn applyLate()
 {
     WORLDGEN.with(|list| *list.borrow_mut() = data::takeWorldgen());
     applyWorldgen();
+
     for (modIndex, api, block, handler) in PENDING_LOOKUPS.with(|list| list.borrow_mut().drain(..).collect::<Vec<_>>())
     {
         match registry::with(|registries| registries.blockId(&block))
@@ -291,6 +314,7 @@ fn applyLate()
             None => fail(&state::modId(modIndex), format!("lookup {api} names unknown block {block}")),
         }
     }
+
     dimensions::finish();
     crate::entities::registerSpawns();
     crate::modify::applySpawns();
@@ -302,16 +326,21 @@ fn loadSprites()
     {
         return;
     }
+
     let mods: Vec<Rc<ModRuntime>> = state::mods();
-    let read = |path: &str, id: &Identifier| -> Option<Vec<u8>> {
+
+    let read = |path: &str, id: &Identifier| -> Option<Vec<u8>>
+    {
         let owner: Rc<ModRuntime> = mods.iter().find(|runtime| runtime.id() == id.namespace())?.clone();
         let bytes: Option<Vec<u8>> = owner.m_source.borrow_mut().read(path);
         bytes
     };
     let problems: Vec<String> =
-        atlas::loadSprites(&|id: &Identifier| read(&atlas::texturePath(id), id), &|id: &Identifier| {
+        atlas::loadSprites(&|id: &Identifier| read(&atlas::texturePath(id), id), &|id: &Identifier|
+        {
             read(&atlas::metaPath(id), id).and_then(|bytes| String::from_utf8(bytes).ok())
         });
+
     for problem in problems
     {
         log::warn(log::LOADER, &problem);
@@ -342,7 +371,8 @@ pub fn load(paths: &LoaderPaths)
 
 fn registryCounts() -> String
 {
-    registry::with(|registries| {
+    registry::with(|registries|
+    {
         format!(
             "{} blocks, {} items, {} entities, {} tile entities, {} recipes, {} dimensions, {} biomes",
             registries.m_blocks.modded().count(),
@@ -365,9 +395,13 @@ pub fn keep()
     {
         return;
     };
+
     log::warn(log::LOADER, "this world was saved with mods that are not installed, keeping their content");
+
     let started: bool = state::phase() != Phase::Bootstrap;
+
     state::setKeeper(true);
+
     if !started
     {
         start(&paths);
@@ -377,7 +411,9 @@ pub fn keep()
 fn start(paths: &LoaderPaths)
 {
     let started: Instant = Instant::now();
+
     log::info(log::LOADER, &format!("loading mods from {}", paths.m_mods.display()));
+
     let (found, errors) = discovery::discover(&paths.m_mods);
     for discovered in &found
     {
@@ -396,6 +432,7 @@ fn start(paths: &LoaderPaths)
     {
         state::problem(state::UNKNOWN_MOD, &error.m_path.display().to_string(), &error.m_reason);
     }
+
     let candidates: Vec<Candidate> = found
         .iter()
         .map(|discovered| Candidate { m_manifest: discovered.m_manifest.clone(), m_file: fileName(discovered) })
@@ -406,13 +443,15 @@ fn start(paths: &LoaderPaths)
 
     state::addProblems(resolution.m_problems.clone());
     state::setSkipped(resolution.m_skipped.clone());
+
     let mut found: Vec<Option<Discovered>> = found.into_iter().map(Some).collect();
     let mut runtimes: Vec<ModRuntime> = Vec::new();
+
     for (index, candidateIndex) in resolution.m_order.iter().enumerate()
     {
         let discovered: Discovered = found[*candidateIndex].take().expect("each candidate is ordered once");
         let file: String = fileName(&discovered);
-        let config = crate::config::ModConfig::new(&paths.m_config, &discovered.m_manifest.id);
+        let config: ModConfig = crate::config::ModConfig::new(&paths.m_config, &discovered.m_manifest.id);
         runtimes.push(ModRuntime::new(
             index,
             discovered.m_manifest,
@@ -422,6 +461,7 @@ fn start(paths: &LoaderPaths)
             config,
         ));
     }
+
     crate::hooks::install();
     crate::network::loader::register();
     crate::network::blocks::register();
@@ -429,8 +469,11 @@ fn start(paths: &LoaderPaths)
     game::item::Item::byId(256);
     registry::with(|_| ());
     state::setPhase(Phase::Register);
+
     let stage: Instant = Instant::now();
+
     content::tags::seed();
+
     for runtime in &mut runtimes
     {
         let id: String = runtime.id().to_owned();
@@ -439,29 +482,38 @@ fn start(paths: &LoaderPaths)
         {
             state::problem(&id, &runtime.m_file, &problem);
         }
+
         if let Err(reason) = instantiate(runtime, paths)
         {
             state::problem(&id, &runtime.m_file, &reason);
         }
     }
+
     state::setMods(runtimes.into_iter().map(Rc::new).collect());
+
     for runtime in state::mods()
     {
         runtime.call(&GuestCall::Lifecycle(Lifecycle::Register(runtime.id().to_owned())));
     }
+
     for (owner, reason) in crate::states::registerPages()
     {
         state::problem(&owner, "", &reason);
     }
+
     atlas::assign();
     log::debug(log::LOADER, &format!("register phase took {}", took(stage)));
+
     if let Err(error) = freezeRegistries()
     {
         state::problem(log::LOADER, "", &error.to_string());
     }
+
     state::setPhase(Phase::Frozen);
     log::debug(log::LOADER, &format!("registries frozen with {}", registryCounts()));
-    registry::with(|registries| {
+
+    registry::with(|registries|
+    {
         for runtime in state::mods()
         {
             registry::report(registries, runtime.id());
@@ -469,6 +521,7 @@ fn start(paths: &LoaderPaths)
     });
 
     let stage: Instant = Instant::now();
+
     crate::netsync::checkSides();
     buildContent();
     removeVanillaRecipes();
@@ -492,11 +545,14 @@ fn start(paths: &LoaderPaths)
     post(EventKind::LoadComplete);
     state::setPhase(Phase::Running);
     crate::netsync::rememberLocalSnapshot();
+
     for runtime in state::mods().iter().filter(|runtime| runtime.isActive())
     {
         log::info(log::LOADER, &format!("loaded {} {} ({})", runtime.id(), runtime.m_manifest.version, runtime.m_file));
     }
+
     logReport(&state::problems(), &resolution.m_skipped);
+
     let active: usize = state::mods().iter().filter(|runtime| runtime.isActive()).count();
     log::info(log::LOADER, &format!("{active} of {} mods loaded in {}", found.len(), took(started)));
 }
@@ -505,6 +561,7 @@ fn start(paths: &LoaderPaths)
 pub fn rebuild()
 {
     let started: Instant = Instant::now();
+
     tiles::clearBindings();
     buildContent();
     applyRecipes();

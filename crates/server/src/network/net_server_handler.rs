@@ -11,7 +11,8 @@ use game::math::{AxisAlignedBB, math_helper};
 use game::network::net_handler::NetHandler;
 use game::network::network_manager::NetworkManager;
 use game::network::packet::Packet;
-use game::network::packets::{
+use game::network::packets::
+{
     Packet0KeepAlive, Packet3Chat, Packet7UseEntity, Packet9Respawn, Packet10Flying, Packet13PlayerLookMove,
     Packet14BlockDig, Packet15Place, Packet16BlockItemSwitch, Packet18Animation, Packet19EntityAction,
     Packet27Position, Packet53BlockChange, Packet101CloseWindow, Packet102WindowClick, Packet103SetSlot,
@@ -32,7 +33,7 @@ use std::time::Instant;
 
 pub struct NetServerHandler
 {
-    m_self: Weak<NetServerHandler>,
+    m_self: Weak<Self>,
     pub m_netManager: Rc<NetworkManager>,
     pub m_connectionClosed: Cell<bool>,
     m_mcServer: Rc<MinecraftServer>,
@@ -51,13 +52,10 @@ pub struct NetServerHandler
 
 impl NetServerHandler
 {
-    pub fn new(
-        server: &Rc<MinecraftServer>,
-        connection: &Rc<NetworkManager>,
-        player: &Rc<Entity>,
-    ) -> Rc<NetServerHandler>
+    pub fn new(server: &Rc<MinecraftServer>, connection: &Rc<NetworkManager>, player: &Rc<Entity>) -> Rc<Self>
     {
-        let handler: Rc<NetServerHandler> = Rc::new_cyclic(|this| NetServerHandler {
+        let handler: Rc<Self> = Rc::new_cyclic(|this| Self
+        {
             m_self: this.clone(),
             m_connectionClosed: Cell::new(false),
             m_ticks: Cell::new(0),
@@ -95,6 +93,7 @@ impl NetServerHandler
     {
         self.m_moved.set(false);
         self.m_netManager.processReadPackets();
+
         if self.m_ticks.get() - self.m_lastKeepAliveTime.get() > 20
         {
             self.sendPacket(Box::new(Packet0KeepAlive::default()));
@@ -104,6 +103,7 @@ impl NetServerHandler
     pub fn kickPlayer(&self, reason: &str)
     {
         info!("Kicking {}: {reason}", self.username());
+
         let player: Rc<Entity> = self.player();
         entity_player_mp::onDisconnect(&player);
         self.sendPacket(Box::new(Packet255KickDisconnect::new(JString::from(reason))));
@@ -121,6 +121,7 @@ impl NetServerHandler
         self.m_lastPosX.set(x);
         self.m_lastPosY.set(y);
         self.m_lastPosZ.set(z);
+
         let player: Rc<Entity> = self.player();
         player.setPositionAndRotation(x, y, z, yaw, pitch);
         entity_player_mp::netServerHandler(&player).sendPacket(Box::new(Packet13PlayerLookMove::new(
@@ -139,7 +140,9 @@ impl NetServerHandler
         // 12-bit block ids reach modded clients through a loader extension after the vanilla packet
         let (packet, extension) = modloader::network::blocks::outgoing(&self.player(), packet);
         let chunkData: bool = packet.base().m_isChunkDataPacket;
+
         self.m_netManager.addToSendQueue(packet);
+
         if let Some(extension) = extension
             && let Some((channel, body)) = modloader::network::blocks::encodeExtension(&self.player(), &extension)
         {
@@ -154,6 +157,7 @@ impl NetServerHandler
             };
             self.m_netManager.addToSendQueue(Box::new(payload));
         }
+
         self.m_lastKeepAliveTime.set(self.m_ticks.get());
     }
 
@@ -174,8 +178,10 @@ impl NetServerHandler
             {
                 self.sendPacket(Box::new(Packet3Chat::new(JString::from(line))));
             }
+
             return;
         }
+
         let mut command: JString = command.clone();
         if command.toLowerCase().startsWith("/me ")
         {
@@ -196,12 +202,14 @@ impl NetServerHandler
                 .into_iter()
                 .map(JString::fromUtf16)
                 .collect();
+
             if astring.len() >= 3
             {
                 command = command.substringFrom(command.indexOf(b' ' as u16)).trim();
                 command = command.substringFrom(command.indexOf(b' ' as u16)).trim();
                 command = JString::from(format!("\u{a7}7{} whispers {command}", self.username()).as_str());
                 info!("{command} to {}", astring[1]);
+
                 if !self.m_mcServer.configManager().sendPacketToPlayer(&astring[1], Box::new(Packet3Chat::new(command)))
                 {
                     self.sendPacket(Box::new(Packet3Chat::new(JString::from(
@@ -214,6 +222,7 @@ impl NetServerHandler
         {
             let s: JString = command.substringFrom(1);
             info!("{} issued server command: {s}", self.username());
+
             let listener: Rc<dyn ICommandListener> = self.m_self.upgrade().orNpe();
             self.m_mcServer.addCommand(&s.to_string(), listener);
         }
@@ -231,6 +240,7 @@ impl NetServerHandler
     fn authPayload(&self, data: &[u8])
     {
         let service: Rc<ServerAuth> = self.m_mcServer.auth();
+
         let Ok(message) = auth::Message::decode(data)
         else
         {
@@ -253,6 +263,7 @@ impl NetServerHandler
         };
 
         let now: Instant = Instant::now();
+
         if matches!(message, auth::Message::Ke1(_))
         {
             if let Err(reason) = self.startChange(&service, &name, &display, now)
@@ -264,6 +275,7 @@ impl NetServerHandler
 
         let outcome: Option<auth::Outcome> =
             self.m_passwordChange.borrow_mut().as_mut().map(|change| change.receive(&mut service.vault(), message));
+
         let finished: Option<String> = match outcome
         {
             None =>
@@ -271,6 +283,7 @@ impl NetServerHandler
                 debug!("Ignored an auth message from {display} with no password change running");
                 None
             }
+
             Some(auth::Outcome::Send(reply)) =>
             {
                 // counted before the proof so a client that walks away after ke2 still pays the backoff
@@ -278,22 +291,27 @@ impl NetServerHandler
                 {
                     service.limiter().failed(&name, now);
                 }
+
                 self.authReply(&reply);
                 None
             }
+
             Some(auth::Outcome::Wait) => None,
+
             Some(auth::Outcome::Changed) =>
             {
                 service.limiter().succeeded(&name);
                 info!("{display} changed their password");
                 Some(String::from("Password changed"))
             }
+
             Some(auth::Outcome::Fail(reason)) =>
             {
                 service.limiter().failed(&name, now);
                 info!("{display} failed a password change: {reason}");
                 Some(reason)
             }
+
             Some(auth::Outcome::Refuse(reason)) => Some(reason),
             Some(auth::Outcome::Authed(_)) => Some(String::from("Protocol error")),
         };
@@ -310,6 +328,7 @@ impl NetServerHandler
         {
             return Err(String::from("Password changes need an encrypted connection"));
         }
+
         let ip: std::net::IpAddr = self.m_netManager.remoteIp().ok_or("Protocol error")?;
         service.limiter().attempt(ip, name, now)?;
         *self.m_passwordChange.borrow_mut() = Some(auth::Handshake::change(name, display));
@@ -338,7 +357,9 @@ impl NetHandler for NetServerHandler
     {
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(self.dimension());
         let player: Rc<Entity> = self.player();
+
         self.m_moved.set(true);
+
         if !self.m_hasMoved.get()
         {
             let d0: f64 = packet.m_yPosition - self.m_lastPosY.get();
@@ -349,44 +370,54 @@ impl NetHandler for NetServerHandler
                 self.m_hasMoved.set(true);
             }
         }
+
         if !self.m_hasMoved.get()
         {
             return;
         }
+
         if let Some(riding) = player.m_ridingEntity.get()
         {
             let mut f4: f32 = player.m_rotationYaw.get();
             let mut f: f32 = player.m_rotationPitch.get();
+
             riding.updateRiderPosition();
+
             let d9: f64 = player.m_posX.get();
             let d10: f64 = player.m_posY.get();
             let d11: f64 = player.m_posZ.get();
             let mut d12: f64 = 0.0;
             let mut d14: f64 = 0.0;
+
             if packet.m_rotating
             {
                 f4 = packet.m_yaw;
                 f = packet.m_pitch;
             }
+
             if packet.m_moving && packet.m_yPosition == -999.0 && packet.m_stance == -999.0
             {
                 d12 = packet.m_xPosition;
                 d14 = packet.m_zPosition;
             }
+
             player.m_onGround.set(packet.m_onGround);
             entity_player_mp::onUpdateEntity(&player, true);
             player.moveEntity(d12, 0.0, d14);
             player.setPositionAndRotation(d9, d10, d11, f4, f);
             player.m_motionX.set(d12);
             player.m_motionZ.set(d14);
+
             if let Some(riding) = player.m_ridingEntity.get()
             {
                 world_server::tickVehicle(&worldserver, &riding, true);
             }
+
             if let Some(riding) = player.m_ridingEntity.get()
             {
                 riding.updateRiderPosition();
             }
+
             self.m_mcServer.configManager().r#move(&player);
             self.m_lastPosX.set(player.m_posX.get());
             self.m_lastPosY.set(player.m_posY.get());
@@ -394,6 +425,7 @@ impl NetHandler for NetServerHandler
             worldserver.updateEntity(&player);
             return;
         }
+
         if player.isPlayerSleeping()
         {
             entity_player_mp::onUpdateEntity(&player, true);
@@ -407,10 +439,13 @@ impl NetHandler for NetServerHandler
             worldserver.updateEntity(&player);
             return;
         }
+
         let d8: f64 = player.m_posY.get();
+
         self.m_lastPosX.set(player.m_posX.get());
         self.m_lastPosY.set(player.m_posY.get());
         self.m_lastPosZ.set(player.m_posZ.get());
+
         let mut d1: f64 = player.m_posX.get();
         let mut d2: f64 = player.m_posY.get();
         let mut d3: f64 = player.m_posZ.get();
@@ -421,11 +456,13 @@ impl NetHandler for NetServerHandler
         {
             moving = false;
         }
+
         if moving
         {
             d1 = packet.m_xPosition;
             d2 = packet.m_yPosition;
             d3 = packet.m_zPosition;
+
             let d4: f64 = packet.m_stance - packet.m_yPosition;
             if !player.isPlayerSleeping() && (d4 > 1.65 || d4 < 0.1)
             {
@@ -433,24 +470,29 @@ impl NetHandler for NetServerHandler
                 warning!("{} had an illegal stance: {}", self.username(), doubleToString(d4));
                 return;
             }
+
             if packet.m_xPosition.abs() > 3.2E7 || packet.m_zPosition.abs() > 3.2E7
             {
                 self.kickPlayer("Illegal position");
                 return;
             }
         }
+
         if packet.m_rotating
         {
             f1 = packet.m_yaw;
             f2 = packet.m_pitch;
         }
+
         entity_player_mp::onUpdateEntity(&player, true);
         player.m_ySize.set(0.0);
         player.setPositionAndRotation(self.m_lastPosX.get(), self.m_lastPosY.get(), self.m_lastPosZ.get(), f1, f2);
+
         if !self.m_hasMoved.get()
         {
             return;
         }
+
         let mut d13: f64 = d1 - player.m_posX.get();
         let mut d5: f64 = d2 - player.m_posY.get();
         let mut d6: f64 = d3 - player.m_posZ.get();
@@ -461,6 +503,7 @@ impl NetHandler for NetServerHandler
             self.kickPlayer("You moved too quickly :( (Hacking?)");
             return;
         }
+
         let f3: f32 = 0.0625;
         let flag: bool = worldserver
             .getCollidingBoundingBoxes(&player, &player.m_boundingBox.copy().contract(f3 as f64, f3 as f64, f3 as f64))
@@ -473,9 +516,12 @@ impl NetHandler for NetServerHandler
         {
             d5 = 0.0;
         }
+
         d6 = d3 - player.m_posZ.get();
         d7 = d13 * d13 + d5 * d5 + d6 * d6;
+
         let mut flag1: bool = false;
+
         if d7 > 0.0625 && !player.isPlayerSleeping()
         {
             flag1 = true;
@@ -488,18 +534,23 @@ impl NetHandler for NetServerHandler
                 doubleToString(player.m_posZ.get())
             );
         }
+
         player.setPositionAndRotation(d1, d2, d3, f1, f2);
+
         let flag2: bool = worldserver
             .getCollidingBoundingBoxes(&player, &player.m_boundingBox.copy().contract(f3 as f64, f3 as f64, f3 as f64))
             .size()
             == 0;
+
         if flag && (flag1 || !flag2) && !player.isPlayerSleeping()
         {
             self.teleportTo(self.m_lastPosX.get(), self.m_lastPosY.get(), self.m_lastPosZ.get(), f1, f2);
             return;
         }
+
         let axisalignedbb: Rc<AxisAlignedBB> =
             player.m_boundingBox.copy().expand(f3 as f64, f3 as f64, f3 as f64).addCoord(0.0, -0.55, 0.0);
+
         if self.m_mcServer.m_allowFlight.get() || worldserver.containsNonAir(&axisalignedbb)
         {
             self.m_playerInAirTime.set(0);
@@ -507,6 +558,7 @@ impl NetHandler for NetServerHandler
         else if d5 >= -0.03125
         {
             self.m_playerInAirTime.set(self.m_playerInAirTime.get() + 1);
+
             if self.m_playerInAirTime.get() > 80
             {
                 warning!("{} was kicked for floating too long!", self.username());
@@ -523,26 +575,33 @@ impl NetHandler for NetServerHandler
     {
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(self.dimension());
         let player: Rc<Entity> = self.player();
+
         if packet.m_status == 4
         {
             player.dropCurrentItem();
             return;
         }
+
         let flag: bool = worldserver.worldProvider().m_worldType.get() != 0
             || self.m_mcServer.configManager().isOp(entity_player::fields(&player).m_username.get().as_ref());
         world_server::fields(&worldserver).m_bypassSpawnProtection.set(flag);
+
         let mut flag1: bool = false;
+
         if packet.m_status == 0
         {
             flag1 = true;
         }
+
         if packet.m_status == 2
         {
             flag1 = true;
         }
+
         let i: i32 = packet.m_xPosition;
         let j: i32 = packet.m_yPosition;
         let k: i32 = packet.m_zPosition;
+
         if flag1
         {
             let d0: f64 = player.m_posX.get() - (i as f64 + 0.5);
@@ -554,6 +613,7 @@ impl NetHandler for NetServerHandler
                 return;
             }
         }
+
         let chunkcoordinates: ChunkCoordinates = worldserver.getSpawnPoint();
         let l: i32 = math_helper::abs((i - chunkcoordinates.m_x) as f32) as i32;
         let mut i1: i32 = math_helper::abs((k - chunkcoordinates.m_z) as f32) as i32;
@@ -561,7 +621,9 @@ impl NetHandler for NetServerHandler
         {
             i1 = l;
         }
-        let handler: Rc<NetServerHandler> = entity_player_mp::netServerHandler(&player);
+
+        let handler: Rc<Self> = entity_player_mp::netServerHandler(&player);
+
         if packet.m_status == 0
         {
             if i1 <= 16 && !flag
@@ -581,6 +643,7 @@ impl NetHandler for NetServerHandler
         else if packet.m_status == 2
         {
             entity_player_mp::fields(&player).m_itemInWorldManager.get().orNpe().finishMiningBlock(i, j, k);
+
             if worldserver.getBlockId(i, j, k) != 0
             {
                 handler.sendPacket(Box::new(Packet53BlockChange::new(i, j, k, &worldserver)));
@@ -609,7 +672,9 @@ impl NetHandler for NetServerHandler
         let flag: bool = worldserver.worldProvider().m_worldType.get() != 0
             || self.m_mcServer.configManager().isOp(entity_player::fields(&player).m_username.get().as_ref());
         world_server::fields(&worldserver).m_bypassSpawnProtection.set(flag);
-        let handler: Rc<NetServerHandler> = entity_player_mp::netServerHandler(&player);
+
+        let handler: Rc<Self> = entity_player_mp::netServerHandler(&player);
+
         if packet.m_direction == 255
         {
             let Some(itemstack) = &itemstack
@@ -617,6 +682,7 @@ impl NetHandler for NetServerHandler
             {
                 return;
             };
+
             entity_player_mp::fields(&player).m_itemInWorldManager.get().orNpe().useItem(
                 &player,
                 &worldserver,
@@ -636,6 +702,7 @@ impl NetHandler for NetServerHandler
             {
                 j1 = i1;
             }
+
             if self.m_hasMoved.get()
                 && player.getDistanceSq(i as f64 + 0.5, j as f64 + 0.5, k as f64 + 0.5) < 64.0
                 && (j1 > 16 || flag)
@@ -650,50 +717,64 @@ impl NetHandler for NetServerHandler
                     l,
                 );
             }
+
             handler.sendPacket(Box::new(Packet53BlockChange::new(i, j, k, &worldserver)));
+
             if l == 0
             {
                 j -= 1;
             }
+
             if l == 1
             {
                 j += 1;
             }
+
             if l == 2
             {
                 k -= 1;
             }
+
             if l == 3
             {
                 k += 1;
             }
+
             if l == 4
             {
                 i -= 1;
             }
+
             if l == 5
             {
                 i += 1;
             }
+
             handler.sendPacket(Box::new(Packet53BlockChange::new(i, j, k, &worldserver)));
         }
         itemstack = inventory.getCurrentItem();
+
         let currentItem: usize = inventory.m_currentItem.get() as usize;
+
         if let Some(itemstack) = &itemstack
             && itemstack.m_stackSize.get() == 0
         {
             inventory.m_mainInventory.borrow_mut()[currentItem] = None;
         }
+
         let ext: &entity_player_mp::PlayerMPExt = entity_player_mp::fields(&player);
         ext.m_isChangingQuantityOnly.set(true);
+
         let copied: Option<Rc<ItemStack>> =
             ItemStack::copyItemStack(inventory.m_mainInventory.borrow()[currentItem].as_ref());
         inventory.m_mainInventory.borrow_mut()[currentItem] = copied;
+
         let playerInventory: Rc<dyn IInventory> = Rc::clone(&inventory) as Rc<dyn IInventory>;
         let slot: Option<Rc<Slot>> =
             self.craftingInventory().getSlotFor(&playerInventory, inventory.m_currentItem.get());
         self.craftingInventory().updateCraftingResults();
         ext.m_isChangingQuantityOnly.set(false);
+
         let packetStack: Option<Rc<ItemStack>> = PacketItemStack::toItemStackOption(packet.m_itemStack);
         if !ItemStack::areItemStacksEqual(inventory.getCurrentItem().as_ref(), packetStack.as_ref())
         {
@@ -703,12 +784,14 @@ impl NetHandler for NetServerHandler
                 inventory.getCurrentItem().as_ref(),
             )));
         }
+
         world_server::fields(&worldserver).m_bypassSpawnProtection.set(false);
     }
 
     fn handleErrorMessage(&self, reason: &JString, _args: &[JString])
     {
         let player: Rc<Entity> = self.player();
+
         info!("{} lost connection: {reason}", self.username());
         self.m_mcServer.configManager().sendPacketToAllPlayers(Box::new(Packet3Chat::new(JString::from(
             format!("\u{a7}e{} left the game.", self.username()).as_str(),
@@ -733,6 +816,7 @@ impl NetHandler for NetServerHandler
             warning!("{} tried to set an invalid carried item", self.username());
             return;
         }
+
         entity_player::inventory(&self.player()).m_currentItem.set(packet.m_id);
     }
 
@@ -759,12 +843,14 @@ impl NetHandler for NetServerHandler
             self.kickPlayer("Chat message too long");
             return;
         }
+
         let trim: JString = message.trim();
-        if !NetServerHandler::isAllowed(&trim)
+        if !Self::isAllowed(&trim)
         {
             self.kickPlayer("Illegal characters in chat");
             return;
         }
+
         if trim.startsWith("/")
         {
             self.handleSlashCommand(&trim);
@@ -777,6 +863,7 @@ impl NetHandler for NetServerHandler
             {
                 return;
             };
+
             let string: String = format!("<{}> {trim}", self.username());
             info!("{}", string);
             self.m_mcServer
@@ -843,6 +930,7 @@ impl NetHandler for NetServerHandler
         {
             return;
         }
+
         self.m_playerEntity.set(self.m_mcServer.configManager().recreatePlayerEntity(&player, 0));
     }
 
@@ -863,6 +951,7 @@ impl NetHandler for NetServerHandler
                 packet.m_quickMove,
                 &player,
             );
+
             let packetStack: Option<Rc<ItemStack>> = PacketItemStack::toItemStackOption(packet.m_itemStack);
             if ItemStack::areItemStacksEqual(packetStack.as_ref(), itemstack.as_ref())
             {
@@ -871,6 +960,7 @@ impl NetHandler for NetServerHandler
                     packet.m_action,
                     true,
                 )));
+
                 let ext: &entity_player_mp::PlayerMPExt = entity_player_mp::fields(&player);
                 ext.m_isChangingQuantityOnly.set(true);
                 self.craftingInventory().updateCraftingResults();
@@ -886,6 +976,7 @@ impl NetHandler for NetServerHandler
                     false,
                 )));
                 self.craftingInventory().setCanCraft(&player, false);
+
                 let mut arraylist: Vec<Option<Rc<ItemStack>>> = Vec::new();
                 let mut i: i32 = 0;
                 while i < self.craftingInventory().m_slots.size()
@@ -893,6 +984,7 @@ impl NetHandler for NetServerHandler
                     arraylist.push(self.craftingInventory().m_slots.get(i).getStack());
                     i += 1;
                 }
+
                 entity_player_mp::updateCraftingInventory(&player, &self.craftingInventory(), &arraylist);
             }
         }
@@ -918,8 +1010,10 @@ impl NetHandler for NetServerHandler
         {
             return;
         }
+
         let tileentity: Option<Rc<TileEntity>> =
             worldserver.getBlockTileEntity(packet.m_xPosition, packet.m_yPosition, packet.m_zPosition);
+
         if let Some(tileentity) = &tileentity
             && tileentity.instanceOf("TileEntitySign")
             && !tile_entity_sign::getIsEditAble(tileentity)
@@ -927,7 +1021,9 @@ impl NetHandler for NetServerHandler
             self.m_mcServer.logWarning(&format!("Player {} just tried to change non-editable sign", self.username()));
             return;
         }
+
         let mut signLines: Vec<Option<JString>> = packet.m_signLines.clone().orNpe();
+
         for k in 0..4
         {
             let mut flag: bool = true;
@@ -936,15 +1032,17 @@ impl NetHandler for NetServerHandler
             {
                 flag = false;
             }
-            else if !NetServerHandler::isAllowed(line)
+            else if !Self::isAllowed(line)
             {
                 flag = false;
             }
+
             if !flag
             {
                 signLines[k] = Some(JString::from("!?"));
             }
         }
+
         if let Some(tileentity) = tileentity
             && tileentity.instanceOf("TileEntitySign")
         {
@@ -952,11 +1050,13 @@ impl NetHandler for NetServerHandler
             let i1: i32 = packet.m_yPosition;
             let j1: i32 = packet.m_zPosition;
             let sign: &tile_entity_sign::SignExt = tile_entity_sign::fields(&tileentity);
+
             for j in 0..4
             {
                 let line: Option<JString> = signLines[j].clone();
                 sign.m_signText.update(|text| text[j] = line);
             }
+
             tile_entity_sign::setEditable(&tileentity, false);
             tileentity.onInventoryChanged();
             worldserver.markBlockNeedsUpdate(l, i1, j1);

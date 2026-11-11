@@ -1,3 +1,4 @@
+use crate::content::BlockData;
 use crate::{content, events};
 use common::nbt::NBTTagCompound;
 use game::block::Block;
@@ -18,8 +19,9 @@ impl LoaderHooks for Hooks
 
     fn component(&self, component: game::hooks::Component, block: i32) -> Option<bool>
     {
-        let data = content::blockData(block)?;
+        let data: Rc<BlockData> = content::blockData(block)?;
         let spec = &data.m_spec;
+
         match component
         {
             game::hooks::Component::RedstoneConnect => spec.redstone_connect,
@@ -48,10 +50,13 @@ impl LoaderHooks for Hooks
     {
         content::worldgen::populate(world, chunkX, chunkZ);
         crate::dimensions::populate(world, chunkX, chunkZ);
+
         if events::hasListeners(EventKind::ChunkPopulate)
         {
             let dimension: i32 = crate::host::context::dimension(world);
-            crate::host::context::withWorld(world, || {
+
+            crate::host::context::withWorld(world, ||
+            {
                 events::post(EventKind::ChunkPopulate, EventData::Chunk { world: dimension, x: chunkX, z: chunkZ })
             });
         }
@@ -110,6 +115,7 @@ impl LoaderHooks for Hooks
         {
             return Some((key, 0));
         }
+
         Some((crate::entities::keyOf(entity)?, crate::entities::numericOf(entity)?))
     }
 

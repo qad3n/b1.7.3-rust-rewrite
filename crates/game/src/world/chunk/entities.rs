@@ -11,9 +11,10 @@ use jvm::throwable::OrNpe;
 use jvm::warning;
 use std::rc::Rc;
 
-pub fn addEntity(this: &Rc<Chunk>, entity: &Rc<Entity>)
+pub(crate) fn addEntity(this: &Rc<Chunk>, entity: &Rc<Entity>)
 {
     this.m_hasEntities.set(true);
+
     let i: i32 = floor_double(entity.posX() / 16.0);
     let j: i32 = floor_double(entity.posZ() / 16.0);
     if i != this.m_xPosition || j != this.m_zPosition
@@ -27,10 +28,12 @@ pub fn addEntity(this: &Rc<Chunk>, entity: &Rc<Entity>)
     {
         k = 0;
     }
+
     if k >= this.m_entities.len() as i32
     {
         k = this.m_entities.len() as i32 - 1;
     }
+
     entity.m_addedToChunk.set(true);
     entity.m_chunkCoordX.set(this.m_xPosition);
     entity.m_chunkCoordY.set(k);
@@ -38,17 +41,19 @@ pub fn addEntity(this: &Rc<Chunk>, entity: &Rc<Entity>)
     this.m_entities[k as usize].add(Rc::clone(entity));
 }
 
-pub fn removeEntityAtIndex(this: &Rc<Chunk>, entity: &Rc<Entity>, chunkY: i32)
+pub(crate) fn removeEntityAtIndex(this: &Rc<Chunk>, entity: &Rc<Entity>, chunkY: i32)
 {
     let mut chunkY: i32 = chunkY;
     if chunkY < 0
     {
         chunkY = 0;
     }
+
     if chunkY >= this.m_entities.len() as i32
     {
         chunkY = this.m_entities.len() as i32 - 1;
     }
+
     this.m_entities[chunkY as usize].remove(entity);
 }
 
@@ -57,7 +62,7 @@ fn tileAt(this: &Chunk, position: &ChunkPosition) -> Option<Rc<TileEntity>>
     this.m_chunkTileEntityMap.with(|map| map.get(position))
 }
 
-pub fn getChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32) -> Option<Rc<TileEntity>>
+pub(crate) fn getChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32) -> Option<Rc<TileEntity>>
 {
     let chunkposition: ChunkPosition = ChunkPosition::new(localX, y, localZ);
     let mut tileentity: Option<Rc<TileEntity>> = tileAt(this, &chunkposition);
@@ -68,6 +73,7 @@ pub fn getChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i3
         {
             return None;
         }
+
         let blockcontainer: Rc<Block> = Block::byId(i).orNpe();
         blockcontainer.onBlockAdded(&this.world(), this.m_xPosition * 16 + localX, y, this.m_zPosition * 16 + localZ);
         tileentity = tileAt(this, &chunkposition);
@@ -79,28 +85,32 @@ pub fn getChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i3
         this.m_chunkTileEntityMap.update(|map| map.remove(&chunkposition));
         return None;
     }
+
     tileentity
 }
 
-pub fn addTileEntity(this: &Rc<Chunk>, blockEntity: &Rc<TileEntity>)
+pub(crate) fn addTileEntity(this: &Rc<Chunk>, blockEntity: &Rc<TileEntity>)
 {
     let i: i32 = blockEntity.m_xCoord.get() - this.m_xPosition * 16;
     let j: i32 = blockEntity.m_yCoord.get();
     let k: i32 = blockEntity.m_zCoord.get() - this.m_zPosition * 16;
     this.setChunkBlockTileEntity(i, j, k, blockEntity);
+
     if this.m_isChunkLoaded.get()
     {
         this.world().m_loadedTileEntityList.add(Rc::clone(blockEntity));
     }
 }
 
-pub fn setChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, blockEntity: &Rc<TileEntity>)
+pub(crate) fn setChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, blockEntity: &Rc<TileEntity>)
 {
     let chunkPosition: ChunkPosition = ChunkPosition::new(localX, y, localZ);
+
     blockEntity.m_worldObj.set(this.m_worldObj.get());
     blockEntity.m_xCoord.set(this.m_xPosition * 16 + localX);
     blockEntity.m_yCoord.set(y);
     blockEntity.m_zCoord.set(this.m_zPosition * 16 + localZ);
+
     let id: i32 = this.getBlockID(localX, y, localZ);
     // rewrite: the isBlockContainer table BlockContainer fills, so mod blocks with tile entities on any template pass
     if id == 0 || !Block::isBlockContainer(id)
@@ -108,11 +118,12 @@ pub fn setChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i3
         warning!("Attempted to place a tile entity where there was no entity tile!");
         return;
     }
+
     blockEntity.cancelRemoval();
     this.m_chunkTileEntityMap.update(|map| map.put(chunkPosition, Rc::clone(blockEntity)));
 }
 
-pub fn removeChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
+pub(crate) fn removeChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
 {
     let chunkposition: ChunkPosition = ChunkPosition::new(localX, y, localZ);
     if this.m_isChunkLoaded.get()
@@ -122,36 +133,43 @@ pub fn removeChunkBlockTileEntity(this: &Rc<Chunk>, localX: i32, y: i32, localZ:
     }
 }
 
-pub fn onChunkLoad(this: &Rc<Chunk>)
+pub(crate) fn onChunkLoad(this: &Rc<Chunk>)
 {
     this.m_isChunkLoaded.set(true);
+
     let world: Rc<World> = this.world();
     // mods observe chunk loads
     crate::hooks::fire(crate::hooks::GameEvent::ChunkLoad { world: &world, x: this.m_xPosition, z: this.m_zPosition });
     world.loadBlockEntities(&this.m_chunkTileEntityMap.with(JHashMap::values));
+
     for list in &this.m_entities
     {
         world.loadEntities(&list.toVec());
     }
 }
 
-pub fn onChunkUnload(this: &Rc<Chunk>)
+pub(crate) fn onChunkUnload(this: &Rc<Chunk>)
 {
     this.m_isChunkLoaded.set(false);
+
     // mods observe chunk unloads
     if let Some(world) = this.m_worldObj.get()
     {
-        crate::hooks::fire(crate::hooks::GameEvent::ChunkUnload {
+        crate::hooks::fire(crate::hooks::GameEvent::ChunkUnload
+        {
             world: &world,
             x: this.m_xPosition,
             z: this.m_zPosition,
         });
     }
+
     for tileentity in this.m_chunkTileEntityMap.with(JHashMap::values)
     {
         tileentity.markRemoved();
     }
+
     let world: Rc<World> = this.world();
+
     for list in &this.m_entities
     {
         world.unloadEntities(&list.toVec());
@@ -162,18 +180,21 @@ fn chunkRange(this: &Chunk, bounds: &AxisAlignedBB) -> (i32, i32)
 {
     let mut i: i32 = floor_double((bounds.minY() - 2.0) / 16.0);
     let mut j: i32 = floor_double((bounds.maxY() + 2.0) / 16.0);
+
     if i < 0
     {
         i = 0;
     }
+
     if j >= this.m_entities.len() as i32
     {
         j = this.m_entities.len() as i32 - 1;
     }
+
     (i, j)
 }
 
-pub fn getEntitiesWithinAABBForEntity(
+pub(crate) fn getEntitiesWithinAABBForEntity(
     this: &Rc<Chunk>,
     exclude: Option<&Rc<Entity>>,
     bounds: &AxisAlignedBB,
@@ -193,12 +214,18 @@ pub fn getEntitiesWithinAABBForEntity(
             {
                 entities.add(entity);
             }
+
             l += 1;
         }
     }
 }
 
-pub fn getEntitiesOfTypeWithinAAAB(this: &Rc<Chunk>, kind: &str, bounds: &AxisAlignedBB, entities: &mut Vec<Rc<Entity>>)
+pub(crate) fn getEntitiesOfTypeWithinAAAB(
+    this: &Rc<Chunk>,
+    kind: &str,
+    bounds: &AxisAlignedBB,
+    entities: &mut Vec<Rc<Entity>>,
+)
 {
     let (i, j): (i32, i32) = chunkRange(this, bounds);
     for k in i..=j
@@ -212,18 +239,21 @@ pub fn getEntitiesOfTypeWithinAAAB(this: &Rc<Chunk>, kind: &str, bounds: &AxisAl
             {
                 entities.push(entity);
             }
+
             l += 1;
         }
     }
 }
 
-pub fn needsSaving(this: &Rc<Chunk>, saveEntities: bool) -> bool
+pub(crate) fn needsSaving(this: &Rc<Chunk>, saveEntities: bool) -> bool
 {
     if this.m_neverSave.get()
     {
         return false;
     }
+
     let time: i64 = this.world().getWorldTime();
+
     if saveEntities
     {
         if this.m_hasEntities.get() && time != this.m_lastSaveTime.get()
@@ -235,5 +265,6 @@ pub fn needsSaving(this: &Rc<Chunk>, saveEntities: bool) -> bool
     {
         return true;
     }
+
     this.m_isModified.get()
 }

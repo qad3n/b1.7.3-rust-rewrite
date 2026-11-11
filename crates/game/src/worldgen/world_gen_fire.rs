@@ -20,6 +20,7 @@ impl WorldGenerator for WorldGenFire
                 world.setBlockWithNotify(j, k, l, Block::FIRE);
             }
         }
+
         true
     }
 }

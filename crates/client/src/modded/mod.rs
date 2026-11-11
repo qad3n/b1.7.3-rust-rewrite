@@ -11,8 +11,9 @@ pub mod textures;
 
 use crate::client::Minecraft;
 use crate::gui::{GuiIngame, GuiScreen, ScaledResolution};
+use game::container::Container;
 use game::entity::{Entity, entity_player};
-use game::inventory::IInventory;
+use game::inventory::{IInventory, InventoryPlayer};
 use game::item::ItemStack;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
@@ -49,6 +50,7 @@ impl modloader::netplay::Platform for ClientPlatform
             travel(&*self.mc()?, player, dimension, pos);
             return Ok(());
         }
+
         player.setLocationAndAngles(pos[0], pos[1], pos[2], player.m_rotationYaw.get(), player.m_rotationPitch.get());
         Ok(())
     }
@@ -68,7 +70,7 @@ impl modloader::netplay::Platform for ClientPlatform
 
     fn addClientEntity(&self, id: i32, entity: Rc<Entity>) -> Result<(), String>
     {
-        let world = self.mc()?.m_theWorld.get().ok_or("no client world")?;
+        let world: Rc<game::world::World> = self.mc()?.m_theWorld.get().ok_or("no client world")?;
         crate::world::world_client::forceEntity(&world, id, &entity);
         Ok(())
     }
@@ -82,18 +84,22 @@ pub(crate) fn travel(mc: &Minecraft, player: &Rc<Entity>, dimension: i32, pos: [
     {
         return;
     };
+
     entity_player::fields(player).m_dimension.set(dimension);
     world.setEntityDead(player);
     player.m_isDead.set(false);
+
     let target =
         game::world::World::newFromWorld(&world, game::world::WorldProvider::getProviderForDimension(dimension));
     mc.changeWorld(Some(target), "Changing dimension", Some(player));
     player.m_worldObj.set(mc.m_theWorld.get());
     player.setLocationAndAngles(pos[0], pos[1], pos[2], player.m_rotationYaw.get(), player.m_rotationPitch.get());
+
     if let Some(world) = mc.m_theWorld.get()
     {
         world.updateEntityWithOptionalForce(player, false);
     }
+
     modloader::play::dimensionChanged(player, world.worldProvider().m_worldType.get(), dimension);
 }
 
@@ -101,25 +107,30 @@ pub(crate) fn travel(mc: &Minecraft, player: &Rc<Entity>, dimension: i32, pos: [
 fn open(mc: &Rc<Minecraft>, request: OpenRequest)
 {
     let OpenRequest { m_screen: screenType, m_pos: pos, m_data: data, m_window: window } = request;
+
     if screenType.m_spec.slots.is_empty()
     {
         mc.displayGuiScreen(Some(screen::plain(screenType, pos, data)));
         return;
     }
+
     let Some(player) = mc.m_thePlayer.get()
     else
     {
         return;
     };
+
     let local: Option<Rc<dyn IInventory>> = (window == 0)
-        .then(|| {
+        .then(||
+        {
             mc.m_theWorld.get().zip(pos).and_then(|(world, pos)| modloader::containers::tileInventory(&world, pos))
         })
         .flatten();
     let inventory: Rc<dyn IInventory> = local.unwrap_or_else(|| modloader::containers::scratchInventory(&screenType));
     let playerInventory: Rc<dyn IInventory> = entity_player::inventory(&player);
-    let menu = modloader::containers::create(&screenType, playerInventory, inventory, pos.is_none());
+    let menu: Rc<Container> = modloader::containers::create(&screenType, playerInventory, inventory, pos.is_none());
     mc.displayGuiScreen(Some(screen::container(screenType, Rc::clone(&menu), pos, data)));
+
     if window != 0
     {
         entity_player::fields(&player).m_craftingInventory.get().orNpe().m_windowId.set(window);
@@ -129,25 +140,33 @@ fn open(mc: &Rc<Minecraft>, request: OpenRequest)
 pub fn install(mc: &Rc<Minecraft>)
 {
     modloader::netplay::install(Rc::new(ClientPlatform { m_mc: Rc::downgrade(mc) }));
+
     let weak: Weak<Minecraft> = Rc::downgrade(mc);
-    modloader::screens::setOpener(Box::new(move |request: OpenRequest| {
+
+    modloader::screens::setOpener(Box::new(move |request: OpenRequest|
+    {
         if let Some(mc) = weak.upgrade()
         {
             open(&mc, request);
         }
     }));
+
     let weak: Weak<Minecraft> = Rc::downgrade(mc);
-    modloader::screens::setWorldDrawer(Box::new(move |partial: f32| {
+
+    modloader::screens::setWorldDrawer(Box::new(move |partial: f32|
+    {
         let Some(mc) = weak.upgrade()
         else
         {
             return;
         };
+
         // the render engine exists once a world draws, the mod sprite effect joins vanilla's list then
         if let Some(engine) = mc.m_renderEngine.get()
         {
             textures::register(&engine);
         }
+
         drawWorld(&mc, partial);
     }));
 }
@@ -160,6 +179,7 @@ fn drawWorld(mc: &Rc<Minecraft>, partial: f32)
     {
         return;
     };
+
     let between = |last: f64, now: f64| last + (now - last) * f64::from(partial);
     let camera: [f64; 3] = [
         between(viewer.m_lastTickPosX.get(), viewer.posX()),
@@ -168,18 +188,22 @@ fn drawWorld(mc: &Rc<Minecraft>, partial: f32)
     ];
     // world draw lists are sheets seen from both sides, as vanilla weather is
     GL11::glDisable(GL11::GL_CULL_FACE);
+
     for ops in modloader::screens::worldOps(partial, camera)
     {
         GL11::glPushMatrix();
+
         for op in &ops
         {
             entity_model::glOp(op, false);
         }
+
         GL11::glPopMatrix();
         // a handler leaves lighting as it found it, colour and blend come back to the world's
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         GL11::glDisable(GL11::GL_BLEND);
     }
+
     GL11::glEnable(GL11::GL_CULL_FACE);
 }
 
@@ -189,13 +213,16 @@ const UNKNOWN_COMMAND: &str = "Unknown command, try /help";
 pub fn localChat(mc: &Rc<Minecraft>, player: &Rc<Entity>, line: &str)
 {
     let gui: Rc<GuiIngame> = mc.m_ingameGUI.get().orNpe();
+
     let reply: Option<String> = match line.strip_prefix('/')
     {
         Some(command) =>
         {
             Some(modloader::play::command(command, Some(player), true).unwrap_or_else(|| UNKNOWN_COMMAND.to_owned()))
         }
-        None => modloader::play::chat(player, line).map(|message| {
+
+        None => modloader::play::chat(player, line).map(|message|
+        {
             let name: String =
                 entity_player::fields(player).m_username.get().map(|name| name.to_string()).unwrap_or_default();
             format!("<{name}> {message}")
@@ -214,8 +241,10 @@ pub fn drawOverlays(screen: &Rc<crate::gui::GuiScreen>, origin: (i32, i32), size
     {
         return;
     }
+
     // slot items the container drew would hide overlay items behind their depth
     GL11::glClear(GL11::GL_DEPTH_BUFFER_BIT);
+
     let relative: [i32; 2] = [mouse[0] - origin.0, mouse[1] - origin.1];
     for list in modloader::screens::drawOverlays(screen.className(), size, relative)
     {
@@ -230,6 +259,7 @@ pub fn tooltipLines(stack: &ItemStack) -> Vec<String>
     {
         return Vec::new();
     }
+
     modloader::screens::tooltipLines(&modloader::host::context::stackData(stack))
 }
 
@@ -264,8 +294,10 @@ pub fn drawHud(mc: &Rc<Minecraft>, partial: f32)
     {
         return;
     };
+
     let resolution: ScaledResolution =
         ScaledResolution::new(&settings, mc.m_displayWidth.get(), mc.m_displayHeight.get());
+
     for list in modloader::play::hud(partial, resolution.getScaledWidth(), resolution.getScaledHeight())
     {
         draw::draw(mc, &list, 0, 0, [-1, -1]);
@@ -302,13 +334,16 @@ pub fn devCommands(mc: &Minecraft)
     {
         return;
     };
+
     if let Err(error) = std::fs::remove_file(dir.join("devcmd.request"))
     {
         modloader::log::warn(modloader::log::LOADER, &format!("devcmd request not removed: {error}"));
         return;
     }
+
     let replies: Vec<String> =
         text.lines().filter(|line| !line.trim().is_empty()).map(|line| devCommand(mc, line.trim())).collect();
+
     if let Err(error) = std::fs::write(dir.join("devcmd.done"), replies.join("\n"))
     {
         modloader::log::warn(modloader::log::LOADER, &format!("devcmd result not written: {error}"));
@@ -329,6 +364,7 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
             mc.displayGuiScreen(None);
             format!("opened {save}")
         }
+
         ["quit"] =>
         {
             // as the pause menu's quit button, a server hears that the player left
@@ -337,13 +373,16 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
             {
                 world.sendQuittingDisconnectingPacket();
             }
+
             mc.changeWorld1(None);
             mc.displayGuiScreen(Some(crate::gui::GuiMainMenu::new()));
             "quit to title".to_owned()
         }
+
         ["hold", item, rest @ ..] =>
         {
             let count: i32 = rest.first().and_then(|count| count.parse().ok()).unwrap_or(1);
+
             let Some(player) = mc.m_thePlayer.get()
             else
             {
@@ -354,13 +393,15 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
             {
                 return format!("no item {item}");
             };
-            let inventory = entity_player::inventory(&player);
+
+            let inventory: Rc<InventoryPlayer> = entity_player::inventory(&player);
             inventory.setInventorySlotContents(
                 inventory.m_currentItem.get(),
                 Some(game::item::ItemStack::withDamage(id, count, 0)),
             );
             format!("holding {count} {item}")
         }
+
         ["set", x, y, z, block] =>
         {
             let Some(world) = mc.m_theWorld.get()
@@ -375,13 +416,18 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
             {
                 return format!("set takes numbers: {line}");
             };
+
             world.setBlockWithNotify(x, y, z, block);
             format!("set {x} {y} {z} to {block}")
         }
+
         ["held"] =>
         {
-            let held = mc.m_thePlayer.get().and_then(|player| entity_player::inventory(&player).getCurrentItem());
-            held.map_or("empty hand".to_owned(), |stack| {
+            let held: Option<Rc<game::item::ItemStack>> =
+                mc.m_thePlayer.get().and_then(|player| entity_player::inventory(&player).getCurrentItem());
+
+            held.map_or("empty hand".to_owned(), |stack|
+            {
                 format!(
                     "{} x{} components {:?}",
                     stack.m_itemID.get(),
@@ -390,11 +436,13 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
                 )
             })
         }
+
         ["use"] =>
         {
             mc.clickMouse(1);
             "used held item".to_owned()
         }
+
         _ => match line.strip_prefix('/')
         {
             Some(command) => modloader::play::command(command, mc.m_thePlayer.get().as_ref(), true)
@@ -422,6 +470,7 @@ pub fn devShot(width: i32, height: i32)
     {
         return;
     };
+
     let request: std::path::PathBuf = dir.join("devshot.request");
     if std::fs::remove_file(&request).is_ok()
     {

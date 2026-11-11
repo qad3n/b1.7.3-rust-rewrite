@@ -36,18 +36,20 @@ pub struct StatFileWriter
 
 impl StatFileWriter
 {
-    pub fn new(session: &Rc<Session>, parentDir: &Path) -> StatFileWriter
+    pub fn new(session: &Rc<Session>, parentDir: &Path) -> Self
     {
         let file1: PathBuf = parentDir.join("stats");
         if !file1.exists()
         {
             let _created: bool = std::fs::create_dir(&file1).is_ok();
         }
+
         let listed: Vec<PathBuf> = std::fs::read_dir(parentDir)
             .ok()
             .orNpe()
             .filter_map(|entry| entry.ok().map(|entry| entry.path()))
             .collect();
+
         for file2 in listed
         {
             let name: String = file2.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
@@ -57,11 +59,14 @@ impl StatFileWriter
                 if !file3.exists()
                 {
                     jvm::system::println(&format!("Relocating {name}"));
+
                     let _renamed: bool = std::fs::rename(&file2, &file3).is_ok();
                 }
             }
         }
-        let writer: StatFileWriter = StatFileWriter {
+
+        let writer: Self = Self
+        {
             m_stats: RefCell::new(Vec::new()),
             m_unsentStats: RefCell::new(Vec::new()),
             m_dirty: Cell::new(false),
@@ -96,7 +101,9 @@ impl StatFileWriter
         {
             return;
         };
+
         self.m_dirty.set(true);
+
         for (stat, amount) in &amounts
         {
             Self::writeStatToMap(&mut self.m_unsentStats.borrow_mut(), stat, *amount);
@@ -111,6 +118,7 @@ impl StatFileWriter
         {
             return;
         };
+
         for (stat, value) in &stats
         {
             let n2: i32 = get(&self.m_unsentStats.borrow(), stat).unwrap_or(0);
@@ -125,7 +133,9 @@ impl StatFileWriter
         {
             return;
         };
+
         self.m_dirty.set(true);
+
         for (stat, value) in &stats
         {
             Self::writeStatToMap(&mut self.m_unsentStats.borrow_mut(), stat, *value);
@@ -137,9 +147,11 @@ impl StatFileWriter
         let mut hashMap: StatMap = Vec::new();
         let string: &str = "local";
         let mut stringBuilder: String = String::new();
+
         let root: JsonRootNode = match JdomParser.parse(&JString::from(data))
         {
             Ok(root) => root,
+
             Err(exception) =>
             {
                 exception.printStackTrace();
@@ -158,16 +170,19 @@ impl StatFileWriter
                 jvm::integer::parseInt(&key.getText()).unwrap_or_else(|exception| jvm::throwable::rethrow(exception));
             let n2: i32 =
                 jvm::integer::parseInt(&value.getText()).unwrap_or_else(|exception| jvm::throwable::rethrow(exception));
+
             let Some(statBase) = StatList::byKey(n)
             else
             {
                 jvm::system::println(&format!("{n} is not a valid stat"));
                 continue;
             };
+
             let guid: Option<String> = StatList::byKey(n).orNpe().m_statGuid.get();
             stringBuilder.push_str(&format!("{},{n2},", guid.as_deref().unwrap_or("null")));
             put(&mut hashMap, &statBase, n2);
         }
+
         let mD5String: MD5String = MD5String::new(string);
         let string2: String = mD5String.digest(&stringBuilder);
         if JString::from(string2.as_str()) != root.getStringValue(&[PathElement::Field("checksum".to_string())])
@@ -175,6 +190,7 @@ impl StatFileWriter
             jvm::system::println("CHECKSUM MISMATCH");
             return None;
         }
+
         Some(hashMap)
     }
 
@@ -183,7 +199,9 @@ impl StatFileWriter
         let mut stringBuilder: String = String::new();
         let mut stringBuilder2: String = String::new();
         let mut bl: bool = true;
+
         stringBuilder.push_str("{\r\n");
+
         if let (Some(playerName), Some(sessionId)) = (playerName, sessionId)
         {
             stringBuilder.push_str("  \"user\":{\r\n");
@@ -191,7 +209,9 @@ impl StatFileWriter
             stringBuilder.push_str(&format!("    \"sessionid\":\"{sessionId}\"\r\n"));
             stringBuilder.push_str("  },\r\n");
         }
+
         stringBuilder.push_str("  \"stats-change\":[");
+
         for (stat, value) in stats
         {
             if !bl
@@ -205,11 +225,14 @@ impl StatFileWriter
             stringBuilder.push_str(&format!("\r\n    {{\"{}\":{value}", stat.m_statId));
             stringBuilder2.push_str(&format!("{},{value},", stat.m_statGuid.get().as_deref().unwrap_or("null")));
         }
+
         if !bl
         {
             stringBuilder.push('}');
         }
+
         let mD5String: MD5String = MD5String::new(sessionId.unwrap_or("null"));
+
         stringBuilder.push_str("\r\n  ],\r\n");
         stringBuilder.push_str(&format!("  \"checksum\":\"{}\"\r\n", mD5String.digest(&stringBuilder2)));
         stringBuilder.push('}');
@@ -243,6 +266,7 @@ impl StatFileWriter
         {
             syncher.save(&self.getUnsent());
         }
+
         syncher.tick(self);
     }
 }

@@ -1,4 +1,5 @@
-use crate::argo::{
+use crate::argo::
+{
     JsonArrayNodeBuilder, JsonFieldBuilder, JsonListener, JsonNodeBuilder, JsonNodeBuilders, JsonObjectNodeBuilder,
     JsonRootNode, NodeContainer,
 };
@@ -44,7 +45,7 @@ pub struct JsonListenerToJdomAdapter
 
 impl JsonListenerToJdomAdapter
 {
-    pub fn new() -> JsonListenerToJdomAdapter { JsonListenerToJdomAdapter::default() }
+    pub fn new() -> Self { Self::default() }
 
     pub fn getDocument(&self) -> JsonRootNode { self.m_root.as_ref().orNpe().build() }
 

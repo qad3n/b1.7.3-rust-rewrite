@@ -3,7 +3,7 @@ use game::tags::{Registry, TagRow};
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{TagEntry, TagRef};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet};
 
 type Key = (RegistryKind, Identifier);
@@ -18,7 +18,8 @@ const REGISTRIES: [(RegistryKind, &str, &str); 4] = [
 ];
 
 // shared lists such as c:ores/ruby that mods fill and read without depending on each other
-thread_local! {
+thread_local!
+{
     static TAGS: RefCell<Entries> = const { RefCell::new(BTreeMap::new()) };
     // the client's own tags while a modded server's tags stand in for them
     static LOCAL: RefCell<Option<Entries>> = const { RefCell::new(None) };
@@ -43,13 +44,16 @@ pub fn add(registry: RegistryKind, tag: Identifier, values: Vec<Identifier>, rep
 
 pub fn addEntries(registry: RegistryKind, tag: Identifier, entries: Vec<TagEntry>, replace: bool)
 {
-    TAGS.with(|tags| {
-        let mut tags = tags.borrow_mut();
+    TAGS.with(|tags|
+    {
+        let mut tags: RefMut<BTreeMap<(RegistryKind, Identifier), BTreeSet<TagEntry>>> = tags.borrow_mut();
         let members: &mut BTreeSet<TagEntry> = tags.entry((registry, tag)).or_default();
+
         if replace
         {
             members.clear();
         }
+
         members.extend(entries);
     });
 }
@@ -85,6 +89,7 @@ pub fn seed()
             crate::registry::with(|registries| row.m_seeds.iter().filter_map(|n| name(registries, row, *n)).collect());
         add(kind(row.m_registry), Identifier::minecraft(row.m_name), members, false);
     }
+
     for row in &game::tags::BIOME_ROWS
     {
         let members: Vec<Identifier> = row.m_seeds.iter().filter_map(|name| vanillaBiome(name)).collect();
@@ -99,16 +104,21 @@ pub fn push()
     {
         let members: BTreeMap<Identifier, bool> =
             resolved(kind(row.m_registry), &Identifier::minecraft(row.m_name), &mut Vec::new());
-        let mut ids: Vec<i32> = crate::registry::with(|registries| {
+
+        let mut ids: Vec<i32> = crate::registry::with(|registries|
+        {
             members.keys().filter_map(|member| numeric(registries, row.m_registry, member)).collect()
         });
+
         // a block with more than 16 states spans hidden page ids that are the same block
         if row.m_registry == Registry::Block
         {
             ids.extend(members.keys().flat_map(crate::states::pageIds));
         }
+
         game::tags::set(row.m_tag, &ids);
     }
+
     for row in &game::tags::BIOME_ROWS
     {
         let members: BTreeMap<Identifier, bool> =
@@ -152,8 +162,11 @@ pub fn report()
         {
             continue;
         };
+
         let members: BTreeMap<Identifier, bool> = resolved(registry, &tag, &mut problems);
-        let missing: Vec<Identifier> = crate::registry::with(|registries| {
+
+        let missing: Vec<Identifier> = crate::registry::with(|registries|
+        {
             members
                 .iter()
                 .filter(|(member, required)| **required && numeric(registries, engine, member).is_none())
@@ -162,6 +175,7 @@ pub fn report()
         });
         problems.extend(missing.iter().map(|member| format!("tag #{tag} lists {member}, which is not registered")));
     }
+
     let unique: BTreeSet<String> = problems.into_iter().collect();
     for problem in unique
     {
@@ -174,6 +188,7 @@ pub fn table() -> String
 {
     let keys: Vec<Key> = TAGS.with(|tags| tags.borrow().keys().cloned().collect());
     let mut text: String = String::new();
+
     for (registry, tag) in keys
     {
         let Some(registryName) = registryName(registry)
@@ -181,9 +196,11 @@ pub fn table() -> String
         {
             continue;
         };
+
         let members: Vec<String> = values(registry, &tag).iter().map(Identifier::to_string).collect();
         text.push_str(&format!("{registryName} {tag} {}\n", members.join(" ")));
     }
+
     text
 }
 
@@ -191,6 +208,7 @@ pub fn table() -> String
 pub fn applySynced(text: &str) -> Result<(), String>
 {
     let mut synced: Entries = BTreeMap::new();
+
     for line in text.lines()
     {
         let mut words = line.split(' ').filter(|word| !word.is_empty());
@@ -199,21 +217,28 @@ pub fn applySynced(text: &str) -> Result<(), String>
         {
             return Err(format!("bad tag line '{line}'"));
         };
+
         let registry: RegistryKind =
             registryKind(registryName).ok_or_else(|| format!("unknown tag registry {registryName}"))?;
         let tag: Identifier = Identifier::parse(tag).map_err(|error| error.to_string())?;
         let mut members: BTreeSet<TagEntry> = BTreeSet::new();
+
         for word in words
         {
             let id: Identifier = Identifier::parse(word).map_err(|error| error.to_string())?;
             members.insert(TagEntry { target: TagRef::Id(id), required: false });
         }
+
         synced.insert((registry, tag), members);
     }
+
     let own: Entries = TAGS.with(|tags| std::mem::replace(&mut *tags.borrow_mut(), synced));
-    LOCAL.with(|local| {
+
+    LOCAL.with(|local|
+    {
         local.borrow_mut().get_or_insert(own);
     });
+
     push();
     Ok(())
 }
@@ -230,7 +255,8 @@ pub fn restoreLocal()
 // members of one tag with nested tags expanded, each marked required when any path to it is
 fn resolved(registry: RegistryKind, tag: &Identifier, problems: &mut Vec<String>) -> BTreeMap<Identifier, bool>
 {
-    TAGS.with(|tags| {
+    TAGS.with(|tags|
+    {
         let mut members: BTreeMap<Identifier, bool> = BTreeMap::new();
         expand(&tags.borrow(), registry, tag, &mut Vec::new(), &mut members, problems);
         members
@@ -253,15 +279,18 @@ fn expand(
     };
 
     trail.push(tag.clone());
+
     for entry in entries
     {
         match &entry.target
         {
             TagRef::Id(id) => *members.entry(id.clone()).or_insert(false) |= entry.required,
+
             TagRef::Tag(nested) if trail.contains(nested) =>
             {
                 problems.push(format!("tag #{tag} includes #{nested}, which already includes it"));
             }
+
             TagRef::Tag(nested) if !tags.contains_key(&(registry, nested.clone())) =>
             {
                 if entry.required
@@ -269,9 +298,11 @@ fn expand(
                     problems.push(format!("tag #{tag} includes #{nested}, which does not exist"));
                 }
             }
+
             TagRef::Tag(nested) => expand(tags, registry, nested, trail, members, problems),
         }
     }
+
     trail.pop();
 }
 

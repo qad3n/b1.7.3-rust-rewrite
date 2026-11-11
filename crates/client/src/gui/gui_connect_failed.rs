@@ -10,14 +10,17 @@ struct ConnectFailedExt
     m_errorDetail: String,
 }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiConnectFailed",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
     updateScreen: |_| {},
     keyTyped: |_, _, _| {},
-    initGui: |this| {
+    initGui: |this|
+    {
         let stringtranslate: Rc<StringTranslate> = StringTranslate::getInstance();
+
         this.m_controlList.clear();
         this.m_controlList.add(GuiButton::new(
             0,
@@ -26,15 +29,21 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             &stringtranslate.translateKey("gui.toMenu"),
         ));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if button.m_id.get() == 0
         {
             this.mc().displayGuiScreen(Some(GuiMainMenu::new()));
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         let ext: &ConnectFailedExt = this.ext::<ConnectFailedExt>();
+
         this.drawDefaultBackground();
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         let center: i32 = this.m_width.get() / 2;
         this.m_gui.drawCenteredString(&font, &ext.m_errorMessage, center, this.m_height.get() / 2 - 50, 16777215);
@@ -52,7 +61,9 @@ impl GuiConnectFailed
     {
         let stringtranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         let args: Vec<String> = reasonArgs.iter().map(JString::to_string).collect();
-        let ext: ConnectFailedExt = ConnectFailedExt {
+
+        let ext: ConnectFailedExt = ConnectFailedExt
+        {
             m_errorMessage: stringtranslate.translateKey(title),
             m_errorDetail: stringtranslate.translateKeyFormat(reason, &args),
         };

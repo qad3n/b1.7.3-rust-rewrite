@@ -1,6 +1,7 @@
 use super::{CHUNK, ChunkClass};
 
-pub const EMPTY_CHUNK: ChunkClass = ChunkClass {
+pub const EMPTY_CHUNK: ChunkClass = ChunkClass
+{
     m_name: "EmptyChunk",
     m_parent: Some(&CHUNK),
     m_interfaces: &[],
@@ -32,14 +33,17 @@ pub const EMPTY_CHUNK: ChunkClass = ChunkClass {
     getEntitiesWithinAABBForEntity: |_, _, _, _| {},
     getEntitiesOfTypeWithinAAAB: |_, _, _, _| {},
     needsSaving: |_, _| false,
-    setChunkData: |_, _, minX, minY, minZ, maxX, maxY, maxZ, _| {
+    setChunkData: |_, _, minX, minY, minZ, maxX, maxY, maxZ, _|
+    {
         let n: i32 = maxX - minX;
         let n2: i32 = maxY - minY;
         let n3: i32 = maxZ - minZ;
         let n4: i32 = n * n2 * n3;
         n4 + n4 / 2 * 3
     },
-    getChunkData: |_, data, minX, minY, minZ, maxX, maxY, maxZ, size| {
+
+    getChunkData: |_, data, minX, minY, minZ, maxX, maxY, maxZ, size|
+    {
         let n: i32 = maxX - minX;
         let n2: i32 = maxY - minY;
         let n3: i32 = maxZ - minZ;

@@ -18,35 +18,40 @@ struct ToolMaterialRow
 }
 
 const MATERIALS: [ToolMaterialRow; 5] = [
-    ToolMaterialRow {
+    ToolMaterialRow
+    {
         m_material: EnumToolMaterial::Wood,
         m_harvestLevel: 0,
         m_maxUses: 59,
         m_efficiencyOnProperMaterial: 2.0,
         m_damageVsEntity: 0,
     },
-    ToolMaterialRow {
+    ToolMaterialRow
+    {
         m_material: EnumToolMaterial::Stone,
         m_harvestLevel: 1,
         m_maxUses: 131,
         m_efficiencyOnProperMaterial: 4.0,
         m_damageVsEntity: 1,
     },
-    ToolMaterialRow {
+    ToolMaterialRow
+    {
         m_material: EnumToolMaterial::Iron,
         m_harvestLevel: 2,
         m_maxUses: 250,
         m_efficiencyOnProperMaterial: 6.0,
         m_damageVsEntity: 2,
     },
-    ToolMaterialRow {
+    ToolMaterialRow
+    {
         m_material: EnumToolMaterial::Emerald,
         m_harvestLevel: 3,
         m_maxUses: 1561,
         m_efficiencyOnProperMaterial: 8.0,
         m_damageVsEntity: 3,
     },
-    ToolMaterialRow {
+    ToolMaterialRow
+    {
         m_material: EnumToolMaterial::Gold,
         m_harvestLevel: 0,
         m_maxUses: 32,

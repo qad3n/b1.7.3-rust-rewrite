@@ -2,7 +2,8 @@ use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::item::Item;
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockClay",
     m_parent: Some(&BLOCK),
     idDropped: |_, _, _| Item::clay().m_shiftedIndex,

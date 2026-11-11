@@ -1,4 +1,5 @@
-use crate::dimensions::{self, ModDimension};
+use crate::dimensions::{self, ModBiome, ModDimension};
+use crate::state::ModRuntime;
 use common::world::{IProgressUpdate, NibbleArray};
 use game::block::Block;
 use game::math::Vec3D;
@@ -18,7 +19,8 @@ mod chunk
 
 const DEFAULT_GROUND: i32 = 64;
 
-thread_local! {
+thread_local!
+{
     // one biome per mod dimension, keyed by its identifier so a remapped numeric id never picks another's biome
     static BIOMES: RefCell<HashMap<mod_protocol::Identifier, Rc<BiomeGenBase>>> = RefCell::new(HashMap::new());
     // sky color of each mod dimension biome, keyed by the biome object
@@ -39,10 +41,12 @@ pub fn setSkyTime(dimension: i32, time: Option<i64>)
 fn biomeKey(biome: &Rc<BiomeGenBase>) -> usize { Rc::as_ptr(biome) as usize }
 
 // a mod dimension's biome paints the sky with the dimension's color, as BiomeGenSky does for the sky dimension
-const MOD_BIOME: BiomeGenBaseClass = BiomeGenBaseClass {
+const MOD_BIOME: BiomeGenBaseClass = BiomeGenBaseClass
+{
     m_name: "BiomeGenMod",
     m_parent: Some(&game::worldgen::BIOME_GEN_BASE),
-    getSkyColorByTemp: |this, temperature| {
+    getSkyColorByTemp: |this, temperature|
+    {
         SKIES
             .with(|skies| skies.borrow().get(&biomeKey(this)).copied())
             .unwrap_or_else(|| (game::worldgen::BIOME_GEN_BASE.getSkyColorByTemp)(this, temperature))
@@ -57,7 +61,8 @@ fn blockId(id: Option<&mod_protocol::Identifier>, fallback: i32) -> i32
     id.and_then(|id| crate::registry::with(|registries| registries.blockId(id))).unwrap_or(fallback)
 }
 
-thread_local! {
+thread_local!
+{
     // one biome object per mod biome, shared by every dimension that lists it
     static MOD_BIOMES: RefCell<HashMap<mod_protocol::Identifier, Rc<BiomeGenBase>>> = RefCell::new(HashMap::new());
 }
@@ -69,7 +74,8 @@ fn makeBiome(id: &mod_protocol::Identifier, sky: u32) -> Rc<BiomeGenBase>
     {
         return biome;
     }
-    let spec = dimensions::biomes().into_iter().find(|biome| biome.m_id == *id);
+
+    let spec: Option<ModBiome> = dimensions::biomes().into_iter().find(|biome| biome.m_id == *id);
     let biome: Rc<BiomeGenBase> = match spec
     {
         Some(modBiome) =>
@@ -85,12 +91,15 @@ fn makeBiome(id: &mod_protocol::Identifier, sky: u32) -> Rc<BiomeGenBase>
             crate::entities::addSpawns(&biome, &modBiome.m_id);
             biome
         }
+
         None => BiomeGenBase::plains(),
     };
+
     if sky != 0
     {
         SKIES.with(|skies| skies.borrow_mut().insert(biomeKey(&biome), sky as i32));
     }
+
     MOD_BIOMES.with(|biomes| biomes.borrow_mut().insert(id.clone(), Rc::clone(&biome)));
     biome
 }
@@ -102,15 +111,18 @@ fn biomeFor(dimension: &ModDimension) -> Rc<BiomeGenBase>
     {
         return biome;
     }
+
     let biome: Rc<BiomeGenBase> = match dimension.m_spec.biome.as_ref()
     {
         Some(id) => makeBiome(id, dimension.m_spec.sky_color),
         None => BiomeGenBase::plains(),
     };
+
     if dimension.m_spec.sky_color != 0
     {
         SKIES.with(|skies| skies.borrow_mut().insert(biomeKey(&biome), dimension.m_spec.sky_color as i32));
     }
+
     BIOMES.with(|biomes| biomes.borrow_mut().insert(dimension.m_id.clone(), Rc::clone(&biome)));
     biome
 }
@@ -132,25 +144,29 @@ impl FlatGenerator
     fn guestChunk(&self, world: &Rc<World>, chunkX: i32, chunkZ: i32) -> Option<Rc<Chunk>>
     {
         let (modIndex, handler) = self.m_terrain?;
-        let runtime = crate::state::modAt(modIndex)?;
+        let runtime: Rc<ModRuntime> = crate::state::modAt(modIndex)?;
         let chunk: ChunkInfo = ChunkInfo { world: self.m_dimension, x: chunkX, z: chunkZ, seed: world.getRandomSeed() };
         let reply: Option<GuestReply> =
             crate::host::context::withWorld(world, || runtime.call(&GuestCall::Terrain { handler, chunk }));
+
         let Some(GuestReply::Chunk { blocks, meta }) = reply
         else
         {
             return None;
         };
+
         let wanted: usize = chunk::TERRAIN_HEIGHT * chunk::COLUMNS;
         if blocks.len() != wanted || meta.len() != wanted
         {
             crate::log::warn(runtime.id(), &format!("terrain chunk has {} blocks, wanted {wanted}", blocks.len()));
             return None;
         }
+
         let blocks: Vec<u16> = pad(&blocks, world.height() as usize);
         let meta: Vec<u8> = pad(&meta, world.height() as usize);
         let low: Vec<i8> = blocks.iter().map(|block| (*block & 0xFF) as i8).collect();
         let result: Rc<Chunk> = Chunk::withBlocks(world, low, chunkX, chunkZ);
+
         for (index, block) in blocks.iter().enumerate()
         {
             if *block > 0xFF
@@ -158,6 +174,7 @@ impl FlatGenerator
                 result.setBlockHigh(index as i32, *block as i32);
             }
         }
+
         let packed: Vec<i8> = meta.chunks(2).map(|pair| ((pair[0] & 0xF) | (pair[1] & 0xF) << 4) as i8).collect();
         result.m_data.set(Some(Rc::new(NibbleArray::withData(packed))));
         result.generateHeightMap();
@@ -176,19 +193,24 @@ impl IChunkProvider for FlatGenerator
         {
             return chunk;
         }
+
         let height: i32 = world.height();
         let mut blocks: Vec<i8> = vec![0; world.volume()];
         let low: i8 = (self.m_fill & 0xFF) as i8;
+
         for column in 0..game::world::COLUMNS
         {
             let base: usize = (column * height) as usize;
             blocks[base] = Block::BEDROCK as i8;
+
             for y in 1..self.m_ground.clamp(1, height)
             {
                 blocks[base + y as usize] = low;
             }
         }
+
         let chunk: Rc<Chunk> = Chunk::withBlocks(&world, blocks, chunkX, chunkZ);
+
         if self.m_fill > 0xFF
         {
             for column in 0..game::world::COLUMNS
@@ -199,11 +221,14 @@ impl IChunkProvider for FlatGenerator
                 }
             }
         }
+
         chunk.generateHeightMap();
+
         // a stand in for a terrain mod that failed is never saved, so the real terrain comes back once the mod works
         if self.m_terrain.is_some()
         {
             chunk.m_neverSave.set(true);
+
             if !self.m_failed.replace(true)
             {
                 crate::log::error(
@@ -215,6 +240,7 @@ impl IChunkProvider for FlatGenerator
                 );
             }
         }
+
         chunk
     }
 
@@ -246,6 +272,7 @@ fn fogColor(this: &Rc<WorldProvider>, timeOfDay: f32, tickDelta: f32) -> Rc<Vec3
         {
             let color: u32 = dimension.m_spec.fog_color;
             let channel = |shift: u32| ((color >> shift) & 0xFF) as f32 / 255.0;
+
             let daylight: f32 = if dimension.m_spec.has_sky
             {
                 (game::math::math_helper::cos(timeOfDay * std::f32::consts::PI * 2.0) * 2.0 + 0.5).clamp(0.0, 1.0)
@@ -260,20 +287,24 @@ fn fogColor(this: &Rc<WorldProvider>, timeOfDay: f32, tickDelta: f32) -> Rc<Vec3
                 (channel(0) * (daylight * 0.91 + 0.09)) as f64,
             )
         }
+
         None => (WORLD_PROVIDER.getFogColor)(this, timeOfDay, tickDelta),
     }
 }
 
-pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
+pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass
+{
     m_name: "WorldProviderMod",
     m_parent: Some(&WORLD_PROVIDER),
-    registerWorldChunkManager: |this| {
+    registerWorldChunkManager: |this|
+    {
         let dimension: i32 = this.m_worldType.get();
         let Some(spec) = dimensions::dimension(dimension)
         else
         {
             return (WORLD_PROVIDER.registerWorldChunkManager)(this);
         };
+
         let sky: u32 = spec.m_spec.sky_color;
         let sourced: Option<Rc<WorldChunkManager>> =
             crate::biomes::manager(&this.world(), &spec, |id| makeBiome(id, sky));
@@ -281,11 +312,15 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
             .set(Some(sourced.unwrap_or_else(|| WorldChunkManager::newHell(biomeFor(&spec), 0.5, 0.0))));
         this.m_hasNoSky.set(!spec.m_spec.has_sky);
     },
-    getChunkProvider: |this| {
+
+    getChunkProvider: |this|
+    {
         let world: Rc<World> = this.world();
         let flat: Option<ModDimension> = spec(this);
         let fill: i32 = blockId(flat.as_ref().and_then(|spec| spec.m_spec.fill_block.as_ref()), Block::STONE);
-        let ground: i32 = flat.map_or(DEFAULT_GROUND, |spec| {
+
+        let ground: i32 = flat.map_or(DEFAULT_GROUND, |spec|
+        {
             if spec.m_spec.ground_height > 0
             {
                 spec.m_spec.ground_height
@@ -295,9 +330,12 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
                 DEFAULT_GROUND
             }
         });
+
         let dimension: i32 = this.m_worldType.get();
         let terrain: Option<(usize, Handle)> = spec(this).and_then(|spec| dimensions::terrain(&spec.m_id));
-        Rc::new(FlatGenerator {
+
+        Rc::new(FlatGenerator
+        {
             m_world: Rc::downgrade(&world),
             m_fill: fill,
             m_ground: ground,
@@ -307,12 +345,15 @@ pub const MOD_PROVIDER: WorldProviderClass = WorldProviderClass {
         })
     },
     getFogColor: fogColor,
-    calculateCelestialAngle: |this, time, tickDelta| {
+    calculateCelestialAngle: |this, time, tickDelta|
+    {
         let dimension: i32 = this.m_worldType.get();
         let shown: i64 = SKY_TIMES.with(|times| times.borrow().get(&dimension).copied()).unwrap_or(time);
         (WORLD_PROVIDER.calculateCelestialAngle)(this, shown, tickDelta)
     },
-    canCoordinateBeSpawn: |this, x, z| {
+
+    canCoordinateBeSpawn: |this, x, z|
+    {
         this.world().getChunkFromChunkCoords(x >> 4, z >> 4).getHeightValue(x & 15, z & 15) > 0
     },
     canRespawnHere: |this| spec(this).is_some_and(|dimension| dimension.m_spec.beds),
@@ -324,6 +365,7 @@ pub fn provider(dimension: i32) -> Option<Rc<WorldProvider>>
     let spec: ModDimension = dimensions::dimension(dimension)?;
     let provider: Rc<WorldProvider> = WorldProvider::alloc(&MOD_PROVIDER);
     provider.m_worldType.set(dimension);
+
     let height: dimensions::Height = dimensions::height(&spec.m_id);
     provider.m_height.set(height.m_world);
     provider.m_buildLimit.set(height.m_build);
@@ -338,11 +380,14 @@ fn pad<T: Copy + Default>(cells: &[T], height: usize) -> Vec<T>
     {
         return cells.to_vec();
     }
+
     let mut padded: Vec<T> = vec![T::default(); chunk::COLUMNS * height];
     let kept: usize = chunk::TERRAIN_HEIGHT.min(height);
+
     for (column, cells) in cells.chunks(chunk::TERRAIN_HEIGHT).enumerate()
     {
         padded[column * height..column * height + kept].copy_from_slice(&cells[..kept]);
     }
+
     padded
 }

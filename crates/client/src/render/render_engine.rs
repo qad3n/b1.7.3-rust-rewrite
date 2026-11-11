@@ -1,4 +1,7 @@
-use crate::render::{GLAllocation, ImageBuffer, TextureFX, TexturePackBase, TexturePackList, ThreadDownloadImageData};
+use crate::render::
+{
+    GLAllocation, ImageBuffer, TextureFX, TextureFXFields, TexturePackBase, TexturePackList, ThreadDownloadImageData,
+};
 use crate::settings::GameSettings;
 use jvm::hash_map::JHashMap;
 use jvm::image::{BufferedImage, Color, Graphics, ImageIO};
@@ -6,7 +9,7 @@ use jvm::io::{InputStream, IoResult};
 use jvm::throwable::OrNpe;
 use lwjgl::buffers::{ByteBuffer, IntBuffer};
 use lwjgl::opengl::{GL11, TextureScale};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -15,7 +18,8 @@ const MISSING_TEXTURE_SIZE: i32 = 64;
 const MIPMAP_LEVELS: i32 = 4;
 const TILE: i32 = 16;
 
-thread_local! {
+thread_local!
+{
     static USE_MIPMAPS: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -59,12 +63,14 @@ fn weightedAverageColor(color1: i32, color2: i32) -> i32
     let mut i: i32 = (color1 & 0xFF000000u32 as i32) >> 24 & 0xFF;
     let mut j: i32 = (color2 & 0xFF000000u32 as i32) >> 24 & 0xFF;
     let mut alpha: i32 = 255;
+
     if i + j == 0
     {
         i = 1;
         j = 1;
         alpha = 0;
     }
+
     let k: i32 = (color1 >> 16 & 0xFF) * i;
     let l: i32 = (color1 >> 8 & 0xFF) * i;
     let i1: i32 = (color1 & 0xFF) * i;
@@ -90,6 +96,7 @@ fn readTextureImage(stream: Option<Box<dyn InputStream>>) -> IoResult<Rc<Buffere
 {
     let mut stream: Option<Box<dyn InputStream>> = stream;
     let image: Option<BufferedImage> = ImageIO::read(stream.as_mut())?;
+
     stream.orNpe().close()?;
     Ok(Rc::new(image.orNpe()))
 }
@@ -99,10 +106,12 @@ fn unwrapImageByColumns(image: &BufferedImage) -> Rc<BufferedImage>
     let i: i32 = image.getWidth() / TILE;
     let bufferedimage: BufferedImage = BufferedImage::new(TILE, image.getHeight() * i, BufferedImage::TYPE_INT_ARGB);
     let graphics: Graphics<'_> = bufferedimage.getGraphics();
+
     for j in 0..i
     {
         graphics.drawImage(image, -j * TILE, j * image.getHeight());
     }
+
     graphics.dispose();
     Rc::new(bufferedimage)
 }
@@ -129,7 +138,7 @@ impl RenderEngine
 
     pub fn setUseMipmaps(value: bool) { USE_MIPMAPS.with(|flag| flag.set(value)); }
 
-    pub fn new(texturePacks: &Rc<TexturePackList>, options: Option<Rc<GameSettings>>) -> Rc<RenderEngine>
+    pub fn new(texturePacks: &Rc<TexturePackList>, options: Option<Rc<GameSettings>>) -> Rc<Self>
     {
         let missing: BufferedImage =
             BufferedImage::new(MISSING_TEXTURE_SIZE, MISSING_TEXTURE_SIZE, BufferedImage::TYPE_INT_ARGB);
@@ -139,7 +148,9 @@ impl RenderEngine
         graphics.setColor(Color::BLACK);
         graphics.drawString("missingtex", 1, 10);
         graphics.dispose();
-        Rc::new(RenderEngine {
+
+        Rc::new(Self
+        {
             m_textureMap: RefCell::new(HashMap::new()),
             m_colors: RefCell::new(HashMap::new()),
             m_textureNameToImageMap: RefCell::new(JHashMap::new()),
@@ -167,16 +178,19 @@ impl RenderEngine
         match textureKind(path)
         {
             TextureKind::Columns(rest) => Ok(unwrapImageByColumns(&*readTextureImage(pack.getResourceAsStream(rest))?)),
+
             TextureKind::Clamp(rest) =>
             {
                 self.m_clampTexture.set(true);
                 readTextureImage(pack.getResourceAsStream(rest))
             }
+
             TextureKind::Blur(rest) =>
             {
                 self.m_blurTexture.set(true);
                 readTextureImage(pack.getResourceAsStream(rest))
             }
+
             TextureKind::Plain(rest) => match pack.getResourceAsStream(rest)
             {
                 // mod textures under /mods/ come from the mod files, terrain and item sheets get mod sprites painted in
@@ -215,15 +229,18 @@ impl RenderEngine
         {
             return Rc::clone(colors);
         }
+
         let pack: Rc<dyn TexturePackBase> = self.m_texturePack.selected();
         let colors: Vec<i32> = match self.loadImage(&pack, path, true)
         {
             Ok(image) =>
             {
                 let colors: Vec<i32> = readColors(&image);
+
                 self.resetFilter(path);
                 colors
             }
+
             Err(error) =>
             {
                 error.printStackTrace();
@@ -248,8 +265,10 @@ impl RenderEngine
         {
             return *texture;
         }
+
         let pack: Rc<dyn TexturePackBase> = self.m_texturePack.selected();
         let j: i32 = self.generateTextureName();
+
         let texture: i32 = match self.loadImage(&pack, path, true)
         {
             Ok(image) =>
@@ -260,10 +279,12 @@ impl RenderEngine
                 self.resetFilter(path);
                 j
             }
+
             Err(error) =>
             {
                 error.printStackTrace();
                 GLAllocation::generateTextureNames(&self.m_singleIntBuffer);
+
                 let i: i32 = self.m_singleIntBuffer.getAt(0);
                 self.setupTexture(&self.m_missingTextureImage, i);
                 i
@@ -284,6 +305,7 @@ impl RenderEngine
     fn applyTextureParameters(&self)
     {
         let target: i32 = GL11::GL_TEXTURE_2D;
+
         if Self::useMipmaps()
         {
             GL11::glTexParameteri(target, GL11::GL_TEXTURE_MIN_FILTER, GL11::GL_NEAREST_MIPMAP_LINEAR);
@@ -294,11 +316,13 @@ impl RenderEngine
             GL11::glTexParameteri(target, GL11::GL_TEXTURE_MIN_FILTER, GL11::GL_NEAREST);
             GL11::glTexParameteri(target, GL11::GL_TEXTURE_MAG_FILTER, GL11::GL_NEAREST);
         }
+
         if self.m_blurTexture.get()
         {
             GL11::glTexParameteri(target, GL11::GL_TEXTURE_MIN_FILTER, GL11::GL_LINEAR);
             GL11::glTexParameteri(target, GL11::GL_TEXTURE_MAG_FILTER, GL11::GL_LINEAR);
         }
+
         let wrap: i32 = if self.m_clampTexture.get()
         {
             GL11::GL_CLAMP
@@ -315,26 +339,31 @@ impl RenderEngine
     {
         let anaglyph: bool = self.anaglyph();
         let mut abyte: Vec<i8> = vec![0; length];
+
         for (i, &color) in colors.iter().enumerate()
         {
             let a: i32 = color >> 24 & 0xFF;
             let mut r: i32 = color >> 16 & 0xFF;
             let mut g: i32 = color >> 8 & 0xFF;
             let mut b: i32 = color & 0xFF;
+
             if anaglyph
             {
                 let l1: i32 = (r * 30 + g * 59 + b * 11) / 100;
                 let i2: i32 = (r * 30 + g * 70) / 100;
                 let j2: i32 = (r * 30 + b * 70) / 100;
+
                 r = l1;
                 g = i2;
                 b = j2;
             }
+
             abyte[i * 4] = r as i8;
             abyte[i * 4 + 1] = g as i8;
             abyte[i * 4 + 2] = b as i8;
             abyte[i * 4 + 3] = a as i8;
         }
+
         abyte
     }
 
@@ -348,6 +377,7 @@ impl RenderEngine
     fn downsample(&self, sourceWidth: i32, width: i32, height: i32, combine: fn(i32, i32) -> i32)
     {
         let data: &ByteBuffer = &self.m_imageData;
+
         for x in 0..width
         {
             for y in 0..height
@@ -363,6 +393,7 @@ impl RenderEngine
     {
         GL11::glBindTexture(GL11::GL_TEXTURE_2D, id);
         self.applyTextureParameters();
+
         let i: i32 = image.getWidth();
         let j: i32 = image.getHeight();
         let colors: Vec<i32> = readColors(image);
@@ -379,6 +410,7 @@ impl RenderEngine
             GL11::GL_UNSIGNED_BYTE,
             Some(&self.m_imageData),
         );
+
         if Self::useMipmaps()
         {
             for j3 in 1..=MIPMAP_LEVELS
@@ -406,6 +438,7 @@ impl RenderEngine
     {
         GL11::glBindTexture(GL11::GL_TEXTURE_2D, id);
         self.applyTextureParameters();
+
         let abyte: Vec<i8> = self.toBytes(colors, (width * height * 4) as usize);
         self.uploadBytes(&abyte);
         GL11::glTexSubImage2D(
@@ -447,6 +480,7 @@ impl RenderEngine
             }
             data.m_textureSetupComplete.set(true);
         }
+
         match data.filter(|data| data.m_textureName.get() >= 0)
         {
             Some(data) => data.m_textureName.get(),
@@ -468,8 +502,10 @@ impl RenderEngine
                 let created: Rc<ThreadDownloadImageData> = Rc::new(ThreadDownloadImageData::new(url, processor));
                 self.m_urlToImageDataMap.borrow_mut().insert(url.to_owned(), created);
             }
+
             Some(data) => data.m_referenceCount.set(data.m_referenceCount.get() + 1),
         }
+
         data
     }
 
@@ -480,13 +516,16 @@ impl RenderEngine
         {
             return;
         };
+
         data.m_referenceCount.set(data.m_referenceCount.get() - 1);
+
         if data.m_referenceCount.get() == 0
         {
             if data.m_textureName.get() >= 0
             {
                 self.deleteTexture(data.m_textureName.get());
             }
+
             self.m_urlToImageDataMap.borrow_mut().remove(url);
         }
     }
@@ -508,12 +547,14 @@ impl RenderEngine
         let textures: Vec<Rc<dyn TextureFX>> = self.m_textureList.borrow().clone();
         for texturefx in &textures
         {
-            let fx = texturefx.fx();
+            let fx: &TextureFXFields = texturefx.fx();
             fx.m_anaglyphEnabled.set(self.m_options.as_ref().orNpe().m_anaglyph.get());
             texturefx.onTick();
             self.uploadFX(texturefx.as_ref());
             texturefx.bindImage(self);
+
             let iconIndex: i32 = fx.m_iconIndex.get();
+
             for j in 0..fx.m_tileSize.get()
             {
                 for k in 0..fx.m_tileSize.get()
@@ -529,6 +570,7 @@ impl RenderEngine
                         GL11::GL_UNSIGNED_BYTE,
                         &self.m_imageData,
                     );
+
                     if Self::useMipmaps()
                     {
                         for l in 1..=MIPMAP_LEVELS
@@ -552,6 +594,7 @@ impl RenderEngine
                 }
             }
         }
+
         for texturefx1 in &textures
         {
             let textureId: i32 = texturefx1.fx().m_textureId.get();
@@ -559,6 +602,7 @@ impl RenderEngine
             {
                 continue;
             }
+
             self.uploadFX(texturefx1.as_ref());
             GL11::glBindTexture(GL11::GL_TEXTURE_2D, textureId);
             GL11::glTexSubImage2D(
@@ -572,6 +616,7 @@ impl RenderEngine
                 GL11::GL_UNSIGNED_BYTE,
                 &self.m_imageData,
             );
+
             if Self::useMipmaps()
             {
                 for k3 in 1..=MIPMAP_LEVELS
@@ -611,12 +656,15 @@ impl RenderEngine
         {
             self.setupTexture(&image, id);
         }
+
         for data in self.m_urlToImageDataMap.borrow().values()
         {
             data.m_textureSetupComplete.set(false);
         }
+
         let textures: Vec<(String, i32)> =
             self.m_textureMap.borrow().iter().map(|(path, id)| (path.clone(), *id)).collect();
+
         for (path, id) in textures
         {
             match self.loadImage(&pack, &path, false)
@@ -628,21 +676,25 @@ impl RenderEngine
                     TextureScale::set(id, modloader::atlas::vScale(&path));
                     self.resetFilters();
                 }
+
                 Err(error) => error.printStackTrace(),
             }
         }
+
         let colors: Vec<(String, Rc<RefCell<Vec<i32>>>)> =
             self.m_colors.borrow().iter().map(|(path, colors)| (path.clone(), Rc::clone(colors))).collect();
+
         for (path, colors) in colors
         {
             match self.loadImage(&pack, &path, false)
             {
                 Ok(image) =>
                 {
-                    let mut colors = colors.borrow_mut();
+                    let mut colors: RefMut<Vec<i32>> = colors.borrow_mut();
                     image.getRGBRegion(0, 0, image.getWidth(), image.getHeight(), &mut colors, 0, image.getWidth());
                     self.resetFilters();
                 }
+
                 Err(error) => error.printStackTrace(),
             }
         }

@@ -22,6 +22,7 @@ fn download(url: &str, processor: Option<Box<dyn ImageBuffer>>) -> Result<Option
     let bytes: Vec<u8> = openStream(url)?;
     let mut input: ByteArrayInputStream = ByteArrayInputStream::new(bytes);
     let image: Option<BufferedImage> = ImageIO::read(Some(&mut input))?;
+
     Ok(match processor
     {
         Some(mut processor) => processor.parseUserSkin(image),
@@ -31,26 +32,31 @@ fn download(url: &str, processor: Option<Box<dyn ImageBuffer>>) -> Result<Option
 
 impl ThreadDownloadImageData
 {
-    pub fn new(url: &str, processor: Option<Box<dyn ImageBuffer>>) -> ThreadDownloadImageData
+    pub fn new(url: &str, processor: Option<Box<dyn ImageBuffer>>) -> Self
     {
         let downloaded: Arc<Mutex<Option<BufferedImage>>> = Arc::new(Mutex::new(None));
         let target: Arc<Mutex<Option<BufferedImage>>> = Arc::clone(&downloaded);
         let url: String = url.to_owned();
         let started: std::io::Result<std::thread::JoinHandle<()>> =
-            jvm::thread::start(jvm::thread::nextName(), move || {
+            jvm::thread::start(jvm::thread::nextName(), move ||
+            {
                 let result: Result<Result<Option<BufferedImage>, Throwable>, Throwable> =
                     throwable::catchThrowable(&throwable::EXCEPTION, || download(&url, processor));
+
                 match result.and_then(|inner| inner)
                 {
                     Ok(image) => *target.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = image,
                     Err(error) => error.printStackTrace(),
                 }
             });
+
         if let Err(error) = started
         {
             jvm::io::fromStd(&error).printStackTrace();
         }
-        ThreadDownloadImageData {
+
+        Self
+        {
             m_downloaded: downloaded,
             m_image: Field::new(None),
             m_referenceCount: Cell::new(1),
@@ -65,11 +71,13 @@ impl ThreadDownloadImageData
         {
             let finished: Option<BufferedImage> =
                 self.m_downloaded.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take();
+
             if let Some(image) = finished
             {
                 self.m_image.set(Some(Rc::new(image)));
             }
         }
+
         self.m_image.get()
     }
 }

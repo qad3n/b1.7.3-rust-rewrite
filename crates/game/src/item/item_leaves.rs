@@ -3,12 +3,14 @@ use crate::item::{Item, ItemClass, item_block};
 use crate::worldgen::ColorizerFoliage;
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemLeaves",
     m_parent: Some(&item_block::CLASS),
     getPlacedBlockMetadata: |_, metadata| metadata | 8,
     getIconFromDamage: |_, metadata| Block::leaves().getBlockTextureFromSideAndMetadata(0, metadata),
-    getColorFromDamage: |_, metadata| {
+    getColorFromDamage: |_, metadata|
+    {
         if (metadata & 1) == 1
         {
             return ColorizerFoliage::getFoliageColorPine();
@@ -17,6 +19,7 @@ pub const CLASS: ItemClass = ItemClass {
         {
             return ColorizerFoliage::getFoliageColorBirch();
         }
+
         ColorizerFoliage::getDefaultColor()
     },
     ..item_block::CLASS

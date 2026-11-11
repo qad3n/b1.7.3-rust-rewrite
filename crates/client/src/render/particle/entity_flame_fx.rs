@@ -19,24 +19,30 @@ fn onUpdate(this: &Rc<Entity>)
     entity_fx::groundFriction(this);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityFlameFX",
     m_parent: Some(&entity_fx::CLASS),
-    renderParticle: |this, tessellator, tickDelta, dx, dy, dz, forwards, sideways| {
+    renderParticle: |this, tessellator, tickDelta, dx, dy, dz, forwards, sideways|
+    {
         let f: f32 = entity_fx::lifeFraction(this, tickDelta);
         fx(this).m_particleScale.set(extra::<FlameFields>(this).m_initialSize.get() * (1.0 - f * f * 0.5));
         entity_fx::renderParticle(this, tessellator, tickDelta, dx, dy, dz, forwards, sideways);
     },
-    getEntityBrightness: |this, tickDelta| {
+
+    getEntityBrightness: |this, tickDelta|
+    {
         let mut f: f32 = entity_fx::lifeFraction(this, tickDelta);
         if f < 0.0
         {
             f = 0.0;
         }
+
         if f > 1.0
         {
             f = 1.0;
         }
+
         let f1: f32 = (ENTITY.getEntityBrightness)(this, tickDelta);
         f1 * f + (1.0 - f)
     },
@@ -52,10 +58,12 @@ pub fn new(world: &Rc<World>, x: f64, y: f64, z: f64, velocityX: f64, velocityY:
     this.m_motionX.set(this.m_motionX.get() * 0.01f32 as f64 + velocityX);
     this.m_motionY.set(this.m_motionY.get() * 0.01f32 as f64 + velocityY);
     this.m_motionZ.set(this.m_motionZ.get() * 0.01f32 as f64 + velocityZ);
+
     for _ in 0..3
     {
         let _offset: f32 = (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.05;
     }
+
     let fields: &FXFields = fx(&this);
     extra::<FlameFields>(&this).m_initialSize.set(fields.m_particleScale.get());
     fields.m_particleRed.set(1.0);

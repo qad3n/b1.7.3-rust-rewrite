@@ -22,6 +22,7 @@ impl WorldGenerator for WorldGenPumpkin
                 world.setBlockAndMetadata(j, k, l, Block::PUMPKIN, random.nextIntBounded(4));
             }
         }
+
         true
     }
 }

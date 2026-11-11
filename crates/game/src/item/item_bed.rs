@@ -3,35 +3,44 @@ use crate::item::{ITEM, Item, ItemClass};
 use crate::math::math_helper;
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemBed",
     m_parent: Some(&ITEM),
-    onItemUse: |_, stack, player, world, x, mut y, z, face| {
+    onItemUse: |_, stack, player, world, x, mut y, z, face|
+    {
         if face != 1
         {
             return false;
         }
+
         y += 1;
+
         let blockBed: Rc<Block> = Block::blockBed();
         let n: i32 = math_helper::floor_double((player.m_rotationYaw.get() * 4.0 / 360.0) as f64 + 0.5) & 3;
         let mut n2: i32 = 0;
         let mut n3: i32 = 0;
+
         if n == 0
         {
             n3 = 1;
         }
+
         if n == 1
         {
             n2 = -1;
         }
+
         if n == 2
         {
             n3 = -1;
         }
+
         if n == 3
         {
             n2 = 1;
         }
+
         if world.isAirBlock(x, y, z)
             && world.isAirBlock(x + n2, y, z + n3)
             && world.isBlockNormalCube(x, y - 1, z)
@@ -42,6 +51,7 @@ pub const CLASS: ItemClass = ItemClass {
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
             return true;
         }
+
         false
     },
     ..ITEM

@@ -4,7 +4,8 @@ use std::rc::Rc;
 
 pub fn init(this: &Rc<Entity>, world: Option<Rc<World>>) { entity_creature::init(this, world); }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityWaterMob",
     m_parent: Some(&entity_creature::CLASS),
     m_interfaces: &["IAnimals"],

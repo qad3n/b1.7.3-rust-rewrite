@@ -1,7 +1,9 @@
+use crate::state::ModRuntime;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{BiomeSpec, DimensionSpec, Handle};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct ModDimension
@@ -55,37 +57,48 @@ struct Tables
     m_seeds: BTreeMap<Identifier, i64>,
 }
 
-thread_local! {
+thread_local!
+{
     static TABLES: RefCell<Tables> = RefCell::new(Tables::default());
 }
 
 pub fn registerDimension(modIndex: usize, id: Identifier, spec: DimensionSpec) -> Result<(), String>
 {
     let owner: String = crate::state::modId(modIndex);
-    crate::registry::with(|registries| {
+
+    crate::registry::with(|registries|
+    {
         registries
             .m_dimensions
             .register(id.clone(), &owner, crate::registry::DimensionEntry)
             .map_err(|error| error.to_string())
     })?;
-    TABLES.with(|tables| {
+
+    TABLES.with(|tables|
+    {
         tables
             .borrow_mut()
             .m_dimensions
             .insert(id.clone(), ModDimension { m_id: id, m_mod: modIndex, m_spec: spec, m_numeric: 0 })
     });
+
     Ok(())
 }
 
 pub fn registerBiome(modIndex: usize, id: Identifier, spec: BiomeSpec) -> Result<(), String>
 {
     let owner: String = crate::state::modId(modIndex);
-    crate::registry::with(|registries| {
+
+    crate::registry::with(|registries|
+    {
         registries.m_biomes.register(id.clone(), &owner, crate::registry::BiomeEntry).map_err(|error| error.to_string())
     })?;
-    TABLES.with(|tables| {
+
+    TABLES.with(|tables|
+    {
         tables.borrow_mut().m_biomes.insert(id.clone(), ModBiome { m_id: id, m_mod: modIndex, m_spec: spec })
     });
+
     Ok(())
 }
 
@@ -99,10 +112,12 @@ fn owned(modIndex: usize, dimension: &Identifier) -> Result<(), String>
 {
     let owner: Option<usize> =
         TABLES.with(|tables| tables.borrow().m_dimensions.get(dimension).map(|registered| registered.m_mod));
+
     if owner != Some(modIndex)
     {
         return Err(format!("dimension {dimension} is not registered by this mod"));
     }
+
     Ok(())
 }
 
@@ -131,6 +146,7 @@ pub fn registerSpawns(modIndex: usize, dimension: Identifier, handler: Handle) -
     TABLES.with(|tables| tables.borrow_mut().m_spawnLists.insert(dimension, (modIndex, handler)));
     Ok(())
 }
+
 pub fn hasSpawnList(numeric: i32) -> bool
 {
     idOf(numeric).is_some_and(|id| TABLES.with(|tables| tables.borrow().m_spawnLists.contains_key(&id)))
@@ -144,9 +160,10 @@ pub fn spawnList(
 {
     let numeric: i32 = crate::host::context::dimension(world);
     let (modIndex, handler) = TABLES.with(|tables| tables.borrow().m_spawnLists.get(&idOf(numeric)?).copied())?;
-    let runtime = crate::state::modAt(modIndex)?;
+    let runtime: Rc<ModRuntime> = crate::state::modAt(modIndex)?;
     let call: mod_protocol::abi::GuestCall =
         mod_protocol::abi::GuestCall::Spawns { handler, world: numeric, kind, pos };
+
     match crate::host::context::withWorld(world, || runtime.call(&call))?
     {
         mod_protocol::abi::GuestReply::Spawns { entries } => entries,
@@ -168,6 +185,7 @@ pub fn biomeSource(dimension: &Identifier) -> Option<(usize, Handle, Vec<Identif
 pub fn registerHeight(modIndex: usize, dimension: Identifier, height: i32, buildLimit: i32) -> Result<(), String>
 {
     owned(modIndex, &dimension)?;
+
     if height % limits::SECTION != 0 || !(limits::SECTION..=limits::MAX_HEIGHT).contains(&height)
     {
         return Err(format!("dimension height {height} must be a multiple of 16 from 16 to {}", limits::MAX_HEIGHT));
@@ -176,9 +194,12 @@ pub fn registerHeight(modIndex: usize, dimension: Identifier, height: i32, build
     {
         return Err(format!("build limit {buildLimit} must lie in 1..={height}"));
     }
-    TABLES.with(|tables| {
+
+    TABLES.with(|tables|
+    {
         tables.borrow_mut().m_heights.insert(dimension, Height { m_world: height, m_build: buildLimit })
     });
+
     Ok(())
 }
 
@@ -214,7 +235,9 @@ pub fn finish()
     for id in ids
     {
         let numeric: Option<i32> = crate::registry::with(|registries| registries.m_dimensions.numeric(&id));
-        TABLES.with(|tables| {
+
+        TABLES.with(|tables|
+        {
             if let (Some(numeric), Some(dimension)) = (numeric, tables.borrow_mut().m_dimensions.get_mut(&id))
             {
                 dimension.m_numeric = numeric;
@@ -255,6 +278,7 @@ pub fn populate(world: &std::rc::Rc<game::world::World>, chunkX: i32, chunkZ: i3
 
     let chunk: mod_protocol::abi::ChunkInfo =
         mod_protocol::abi::ChunkInfo { world: numeric, x: chunkX, z: chunkZ, seed: world.getRandomSeed() };
+
     for (modIndex, handler) in generators(&id)
     {
         if let Some(runtime) = crate::state::modAt(modIndex)

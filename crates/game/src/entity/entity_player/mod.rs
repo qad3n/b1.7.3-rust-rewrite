@@ -16,7 +16,8 @@ use jvm::field::Field;
 use jvm::math;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
-pub use sleep::{
+pub use sleep::
+{
     getBedOrientationInDegrees, getSleepingTime, isPlayerFullyAsleep, loadSpawnPoint, sleepInBedAt, wakeUpPlayer,
 };
 use std::cell::Cell;
@@ -93,6 +94,7 @@ fn addStat(this: &Rc<Entity>, stat: Option<Rc<StatBase>>, amount: i32) { this.ad
 pub fn init(this: &Rc<Entity>, world: Rc<World>)
 {
     entity_living::init(this, Some(Rc::clone(&world)));
+
     let player: &PlayerFields = fields(this);
     player.m_inventory.set(Some(Rc::new(InventoryPlayer::new(&Rc::downgrade(this)))));
     player.m_userType.set(0);
@@ -103,10 +105,12 @@ pub fn init(this: &Rc<Entity>, world: Rc<World>)
     player.m_inPortal.set(false);
     player.m_damageRemainder.set(0);
     player.m_fishEntity.set(None);
+
     let slots: Rc<Container> = ContainerPlayer::new(&inventory(this), !world.m_multiplayerWorld.get());
     player.m_inventorySlots.set(Some(Rc::clone(&slots)));
     player.m_craftingInventory.set(Some(slots));
     this.m_yOffset.set(1.62);
+
     let chunkcoordinates: ChunkCoordinates = world.getSpawnPoint();
     this.setLocationAndAngles(
         chunkcoordinates.m_x as f64 + 0.5,
@@ -115,6 +119,7 @@ pub fn init(this: &Rc<Entity>, world: Rc<World>)
         0.0,
         0.0,
     );
+
     let living: &entity_living::LivingFields = entity_living::fields(this);
     living.m_health.set(20);
     living.m_modelName.set(Some(JString::from("humanoid")));
@@ -126,15 +131,19 @@ pub fn init(this: &Rc<Entity>, world: Rc<World>)
 fn onUpdate(this: &Rc<Entity>)
 {
     using::tick(this);
+
     let player: &PlayerFields = fields(this);
     let world: Rc<World> = this.world();
+
     if this.isPlayerSleeping()
     {
         player.m_sleepTimer.set(player.m_sleepTimer.get() + 1);
+
         if player.m_sleepTimer.get() > 100
         {
             player.m_sleepTimer.set(100);
         }
+
         if !world.m_multiplayerWorld.get()
         {
             if !sleep::isInBed(this)
@@ -150,12 +159,14 @@ fn onUpdate(this: &Rc<Entity>)
     else if player.m_sleepTimer.get() > 0
     {
         player.m_sleepTimer.set(player.m_sleepTimer.get() + 1);
+
         if player.m_sleepTimer.get() >= 110
         {
             player.m_sleepTimer.set(0);
         }
     }
     (entity_living::CLASS.onUpdate)(this);
+
     if !world.m_multiplayerWorld.get()
         && let Some(crafting) = player.m_craftingInventory.get()
         && !crafting.isUsableByPlayer(this)
@@ -163,53 +174,69 @@ fn onUpdate(this: &Rc<Entity>)
         this.closeScreen();
         player.m_craftingInventory.set(player.m_inventorySlots.get());
     }
+
     player.m_lastCapeX.set(player.m_capeX.get());
     player.m_lastCapeY.set(player.m_capeY.get());
     player.m_lastCapeZ.set(player.m_capeZ.get());
+
     let d0: f64 = this.posX() - player.m_capeX.get();
     let d1: f64 = this.posY() - player.m_capeY.get();
     let d2: f64 = this.posZ() - player.m_capeZ.get();
     let d3: f64 = 10.0;
-    let snapX = || {
+
+    let snapX = ||
+    {
         player.m_capeX.set(this.posX());
         player.m_lastCapeX.set(this.posX());
     };
-    let snapY = || {
+
+    let snapY = ||
+    {
         player.m_capeY.set(this.posY());
         player.m_lastCapeY.set(this.posY());
     };
-    let snapZ = || {
+
+    let snapZ = ||
+    {
         player.m_capeZ.set(this.posZ());
         player.m_lastCapeZ.set(this.posZ());
     };
+
     if d0 > d3
     {
         snapX();
     }
+
     if d2 > d3
     {
         snapZ();
     }
+
     if d1 > d3
     {
         snapY();
     }
+
     if d0 < -d3
     {
         snapX();
     }
+
     if d2 < -d3
     {
         snapZ();
     }
+
     if d1 < -d3
     {
         snapY();
     }
+
     player.m_capeX.set(player.m_capeX.get() + d0 * 0.25);
     player.m_capeZ.set(player.m_capeZ.get() + d2 * 0.25);
     player.m_capeY.set(player.m_capeY.get() + d1 * 0.25);
     addStat(this, StatList::minutesPlayedStat(), 1);
+
     if this.m_ridingEntity.with(Option::is_none)
     {
         player.m_startMinecartRidingCoordinate.set(None);
@@ -228,27 +255,35 @@ fn onLivingUpdate(this: &Rc<Entity>)
     {
         this.heal(1);
     }
+
     inventory(this).decrementAnimations();
     player.m_lastBob.set(player.m_bob.get());
     (entity_living::CLASS.onLivingUpdate)(this);
+
     let mut f: f32 = math_helper::sqrt_double(
         this.m_motionX.get() * this.m_motionX.get() + this.m_motionZ.get() * this.m_motionZ.get(),
     );
+
     let mut f1: f32 = math::atan(-this.m_motionY.get() * 0.2f32 as f64) as f32 * 15.0;
+
     if f > 0.1
     {
         f = 0.1;
     }
+
     if !this.m_onGround.get() || living.m_health.get() <= 0
     {
         f = 0.0;
     }
+
     if this.m_onGround.get() || living.m_health.get() <= 0
     {
         f1 = 0.0;
     }
+
     player.m_bob.set(player.m_bob.get() + (f - player.m_bob.get()) * 0.4);
     living.m_tilt.set(living.m_tilt.get() + (f1 - living.m_tilt.get()) * 0.8);
+
     if living.m_health.get() > 0
     {
         let list: Rc<jvm::array_list::JArrayList<Rc<Entity>>> =
@@ -261,6 +296,7 @@ fn onLivingUpdate(this: &Rc<Entity>)
             {
                 entity.onCollideWithPlayer(this);
             }
+
             i += 1;
         }
     }
@@ -288,11 +324,13 @@ pub fn dropPlayerItemWithRandomChoice(this: &Rc<Entity>, item: Option<Rc<ItemSta
     {
         return;
     };
+
     // mods may keep an item from being tossed
     if crate::hooks::fire(crate::hooks::GameEvent::ItemToss { player: this, stack: &item })
     {
         return;
     }
+
     let entityitem: Rc<Entity> = entity_item::create(
         &this.world(),
         this.posX(),
@@ -301,7 +339,9 @@ pub fn dropPlayerItemWithRandomChoice(this: &Rc<Entity>, item: Option<Rc<ItemSta
         item,
     );
     entity_item::fields(&entityitem).m_delayBeforeCanPickup.set(40);
+
     let mut f: f32 = 0.1;
+
     if dead
     {
         let f1: f32 = this.m_rand.nextFloat() * 0.5;
@@ -313,13 +353,16 @@ pub fn dropPlayerItemWithRandomChoice(this: &Rc<Entity>, item: Option<Rc<ItemSta
     else
     {
         f = 0.3;
+
         let yaw: f32 = this.m_rotationYaw.get() / 180.0 * PI_F;
         let pitch: f32 = this.m_rotationPitch.get() / 180.0 * PI_F;
         entityitem.m_motionX.set((-math_helper::sin(yaw) * math_helper::cos(pitch) * f) as f64);
         entityitem.m_motionZ.set((math_helper::cos(yaw) * math_helper::cos(pitch) * f) as f64);
         entityitem.m_motionY.set((-math_helper::sin(pitch) * f + 0.1) as f64);
         f = 0.02;
+
         let f3: f32 = this.m_rand.nextFloat() * PI_F * 2.0;
+
         f *= this.m_rand.nextFloat();
         entityitem.m_motionX.set(entityitem.m_motionX.get() + math::cos(f3 as f64) * f as f64);
         entityitem
@@ -336,14 +379,17 @@ pub fn getCurrentPlayerStrVsBlock(this: &Rc<Entity>, block: &Rc<Block>) -> f32
     let mut f: f32 = inventory(this).getStrVsBlock(block);
     // mods may change the mining speed
     crate::hooks::fire(crate::hooks::GameEvent::PlayerBreakSpeed { player: this, block, speed: &mut f });
+
     if this.isInsideOfMaterial(&crate::block::Material::water())
     {
         f /= 5.0;
     }
+
     if !this.m_onGround.get()
     {
         f /= 5.0;
     }
+
     f
 }
 
@@ -377,17 +423,20 @@ pub fn setPlayerSpawnCoordinate(this: &Entity, pos: Option<ChunkCoordinates>)
 
 pub fn triggerAchievement(this: &Rc<Entity>, stat: Option<Rc<StatBase>>) { this.addStat(stat.as_ref(), 1); }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityPlayer",
     m_parent: Some(&entity_living::CLASS),
-    entityInit: |this| {
+    entityInit: |this|
+    {
         (entity_living::CLASS.entityInit)(this);
         this.m_dataWatcher.addObject(16, crate::entity::WatchedValue::Byte(0));
     },
     onUpdate,
     isMovementBlocked: |this| entity_living::fields(this).m_health.get() <= 0 || this.isPlayerSleeping(),
     closeScreen: |this| fields(this).m_craftingInventory.set(fields(this).m_inventorySlots.get()),
-    updateCloak: |this| {
+    updateCloak: |this|
+    {
         let player: &PlayerFields = fields(this);
         let url: JString = JString::from(
             format!(
@@ -399,17 +448,23 @@ pub const CLASS: EntityClass = EntityClass {
         player.m_playerCloakUrl.set(Some(url));
         this.m_cloakUrl.set(player.m_playerCloakUrl.get());
     },
-    updateRidden: |this| {
+
+    updateRidden: |this|
+    {
         let d0: f64 = this.posX();
         let d1: f64 = this.posY();
         let d2: f64 = this.posZ();
+
         (entity_living::CLASS.updateRidden)(this);
+
         let player: &PlayerFields = fields(this);
         player.m_lastBob.set(player.m_bob.get());
         player.m_bob.set(0.0);
         stats::addMountedMovementStat(this, this.posX() - d0, this.posY() - d1, this.posZ() - d2);
     },
-    preparePlayerToSpawn: |this| {
+
+    preparePlayerToSpawn: |this|
+    {
         this.m_yOffset.set(1.62);
         this.setSize(0.6, 1.8);
         (entity_living::CLASS.preparePlayerToSpawn)(this);
@@ -417,11 +472,14 @@ pub const CLASS: EntityClass = EntityClass {
         entity_living::fields(this).m_health.set(crate::hooks::maxHealth(this));
         entity_living::fields(this).m_deathTime.set(0);
     },
-    updatePlayerActionState: |this| {
+
+    updatePlayerActionState: |this|
+    {
         let player: &PlayerFields = fields(this);
         if player.m_isSwinging.get()
         {
             player.m_swingProgressInt.set(player.m_swingProgressInt.get() + 1);
+
             if player.m_swingProgressInt.get() >= 8
             {
                 player.m_swingProgressInt.set(0);
@@ -440,9 +498,11 @@ pub const CLASS: EntityClass = EntityClass {
     pvpEnabled: combat::pvpEnabled,
     sleepInBedAt: sleep::sleepInBedAt,
     wakeUpPlayer: sleep::wakeUpPlayer,
-    addToPlayerScore: |this, victim, score| {
+    addToPlayerScore: |this, victim, score|
+    {
         let player: &PlayerFields = fields(this);
         player.m_score.set(player.m_score.get() + score);
+
         if victim.is_some_and(|victim| victim.instanceOf("EntityPlayer"))
         {
             addStat(this, StatList::playerKillsStat(), 1);
@@ -453,7 +513,8 @@ pub const CLASS: EntityClass = EntityClass {
         }
     },
     dropCurrentItem,
-    joinEntityItemWithWorld: |this, item| {
+    joinEntityItemWithWorld: |this, item|
+    {
         this.world().entityJoinedWorld(item);
     },
     readEntityFromNBT: stats::readEntityFromNBT,
@@ -469,52 +530,70 @@ pub const CLASS: EntityClass = EntityClass {
     displayGUIDispenser: |_, _| {},
     displayGUIEditSign: |_, _| {},
     getYOffset: |this| (this.m_yOffset.get() - 0.5) as f64,
-    swingItem: |this| {
+    swingItem: |this|
+    {
         fields(this).m_swingProgressInt.set(-1);
         fields(this).m_isSwinging.set(true);
     },
     respawnPlayer: |_| {},
-    setEntityDead: |this| {
+    setEntityDead: |this|
+    {
         (entity_living::CLASS.setEntityDead)(this);
+
         let player: &PlayerFields = fields(this);
         player.m_inventorySlots.get().orNpe().onCraftGuiClosed(this);
+
         if let Some(crafting) = player.m_craftingInventory.get()
         {
             crafting.onCraftGuiClosed(this);
         }
     },
-    isEntityInsideOpaqueBlock: |this| {
+
+    isEntityInsideOpaqueBlock: |this|
+    {
         !fields(this).m_sleeping.get() && (entity_living::CLASS.isEntityInsideOpaqueBlock)(this)
     },
     isPlayerSleeping: |this| fields(this).m_sleeping.get(),
     addChatMessage: |_, _| {},
     addStat: |_, _, _| {},
-    jump: |this| {
+    jump: |this|
+    {
         (entity_living::CLASS.jump)(this);
         addStat(this, StatList::jumpStat(), 1);
     },
-    moveEntityWithHeading: |this, sideways, forwards| {
+
+    moveEntityWithHeading: |this, sideways, forwards|
+    {
         let d0: f64 = this.posX();
         let d1: f64 = this.posY();
         let d2: f64 = this.posZ();
+
         (entity_living::CLASS.moveEntityWithHeading)(this, sideways, forwards);
         stats::addMovementStat(this, this.posX() - d0, this.posY() - d1, this.posZ() - d2);
     },
-    fall: |this, distance| {
+
+    fall: |this, distance|
+    {
         if distance >= 2.0
         {
             addStat(this, StatList::distanceFallenStat(), math::roundDouble(distance as f64 * 100.0) as i32);
         }
+
         (entity_living::CLASS.fall)(this, distance);
     },
-    onKillEntity: |this, victim| {
+
+    onKillEntity: |this, victim|
+    {
         if victim.instanceOf("EntityMob")
         {
             triggerAchievement(this, crate::stats::AchievementList::killEnemy());
         }
     },
-    getItemIcon: |this, item| {
+
+    getItemIcon: |this, item|
+    {
         let mut i: i32 = (entity_living::CLASS.getItemIcon)(this, item);
+
         if item.m_itemID.get() == Item::fishingRod().m_shiftedIndex && fields(this).m_fishEntity.with(Option::is_some)
         {
             i = item.getIconIndex() + 16;
@@ -522,6 +601,7 @@ pub const CLASS: EntityClass = EntityClass {
         // rewrite: an item held in use may show another icon as the use goes on, as 1.7's bow pulling
         let inUse: bool =
             fields(this).m_itemInUse.with(|using| using.as_ref().is_some_and(|using| Rc::ptr_eq(using, item)));
+
         if inUse
         {
             let icon: i32 = item.getItem().getUseIcon(item, using::itemInUseDuration(this));
@@ -530,9 +610,12 @@ pub const CLASS: EntityClass = EntityClass {
                 i = icon;
             }
         }
+
         i
     },
-    setInPortal: |this| {
+
+    setInPortal: |this|
+    {
         let player: &PlayerFields = fields(this);
         if player.m_timeUntilPortal.get() > 0
         {

@@ -9,23 +9,24 @@ pub struct PathPoint
     pub m_yCoord: i32,
     pub m_zCoord: i32,
     m_hash: i32,
-    pub(super) m_index: Cell<i32>,
-    pub(super) m_totalPathDistance: Cell<f32>,
-    pub(super) m_distanceToNext: Cell<f32>,
-    pub(super) m_distanceToTarget: Cell<f32>,
-    pub(super) m_previous: Field<Option<Rc<PathPoint>>>,
+    pub(crate) m_index: Cell<i32>,
+    pub(crate) m_totalPathDistance: Cell<f32>,
+    pub(crate) m_distanceToNext: Cell<f32>,
+    pub(crate) m_distanceToTarget: Cell<f32>,
+    pub(crate) m_previous: Field<Option<Rc<Self>>>,
     pub m_isFirst: Cell<bool>,
 }
 
 impl PathPoint
 {
-    pub fn new(x: i32, y: i32, z: i32) -> Rc<PathPoint>
+    pub fn new(x: i32, y: i32, z: i32) -> Rc<Self>
     {
-        Rc::new(PathPoint {
+        Rc::new(Self
+        {
             m_xCoord: x,
             m_yCoord: y,
             m_zCoord: z,
-            m_hash: PathPoint::hash(x, y, z),
+            m_hash: Self::hash(x, y, z),
             m_index: Cell::new(-1),
             m_totalPathDistance: Cell::new(0.0),
             m_distanceToNext: Cell::new(0.0),
@@ -44,7 +45,7 @@ impl PathPoint
             | if z < 0 { 32768 } else { 0 }
     }
 
-    pub fn distanceTo(&self, other: &PathPoint) -> f32
+    pub fn distanceTo(&self, other: &Self) -> f32
     {
         let f: f32 = other.m_xCoord.wrapping_sub(self.m_xCoord) as f32;
         let f2: f32 = other.m_yCoord.wrapping_sub(self.m_yCoord) as f32;
@@ -52,7 +53,7 @@ impl PathPoint
         sqrt_float(f * f + f2 * f2 + f3 * f3)
     }
 
-    pub fn equals(&self, other: &PathPoint) -> bool
+    pub fn equals(&self, other: &Self) -> bool
     {
         self.m_hash == other.m_hash
             && self.m_xCoord == other.m_xCoord

@@ -7,8 +7,10 @@ use jvm::array_list::JArrayList;
 use jvm::random::Random;
 use std::rc::Rc;
 
-crate::vtable! {
-    ChunkClass for Chunk {
+crate::vtable!
+{
+    ChunkClass for Chunk
+    {
         fn addEntity(entity: &Rc<Entity>);
         fn addTileEntity(blockEntity: &Rc<TileEntity>);
         fn canBlockSeeTheSky(localX: i32, y: i32, localZ: i32) -> bool;
@@ -44,7 +46,8 @@ crate::vtable! {
     }
 }
 
-pub const CHUNK: ChunkClass = ChunkClass {
+pub const CHUNK: ChunkClass = ChunkClass
+{
     m_name: "Chunk",
     m_parent: None,
     m_interfaces: &[],
@@ -74,7 +77,8 @@ pub const CHUNK: ChunkClass = ChunkClass {
     removeEntityAtIndex: entities::removeEntityAtIndex,
     setBlockID: light::setBlockID,
     setBlockIDWithMetadata: light::setBlockIDWithMetadata,
-    setBlockMetadata: |this, x, y, z, metadata| {
+    setBlockMetadata: |this, x, y, z, metadata|
+    {
         this.m_isModified.set(true);
         this.data().setNibble(x, y, z, metadata);
     },

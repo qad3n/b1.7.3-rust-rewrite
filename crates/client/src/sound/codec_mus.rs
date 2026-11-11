@@ -22,12 +22,12 @@ pub struct MusInputStream<S: InputStream>
 
 impl<S: InputStream> MusInputStream<S>
 {
-    pub fn new(fileUrl: &str, inputStream: S) -> MusInputStream<S>
+    pub fn new(fileUrl: &str, inputStream: S) -> Self
     {
         let path: &str = fileUrl.split(['?', '#']).next().unwrap_or(fileUrl);
         let path: &str = path.strip_prefix("file:").unwrap_or(path);
         let name: &str = &path[path.rfind('/').map_or(0, |index| index + 1)..];
-        MusInputStream { m_hash: JString::from(name).hashCode(), m_inputStream: inputStream, m_buffer: [0] }
+        Self { m_hash: JString::from(name).hashCode(), m_inputStream: inputStream, m_buffer: [0] }
     }
 }
 
@@ -37,11 +37,14 @@ impl<S: InputStream> InputStream for MusInputStream<S>
     {
         let mut buffer: [u8; 1] = self.m_buffer;
         let n: i32 = self.readInto(&mut buffer, 0, 1)?;
+
         self.m_buffer = buffer;
+
         if n < 0
         {
             return Ok(n);
         }
+
         Ok(self.m_buffer[0] as i8 as i32)
     }
 
@@ -55,6 +58,7 @@ impl<S: InputStream> InputStream for MusInputStream<S>
             buf[n3] = by as u8;
             self.m_hash = self.m_hash.wrapping_mul(498729871).wrapping_add(85731 * by as i32);
         }
+
         Ok(n2)
     }
 }

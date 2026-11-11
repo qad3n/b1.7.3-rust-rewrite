@@ -19,7 +19,8 @@ use std::rc::Rc;
 // block columns in a chunk
 pub const COLUMNS: i32 = 256;
 
-thread_local! {
+thread_local!
+{
     pub static IS_LIT: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -56,7 +57,8 @@ impl Chunk
 {
     fn alloc(class: &'static ChunkClass, world: &Rc<World>, chunkX: i32, chunkZ: i32) -> Self
     {
-        Self {
+        Self
+        {
             m_class: class,
             m_blocks: Field::new(Vec::new()),
             m_addBlocks: Field::new(None),
@@ -96,6 +98,7 @@ impl Chunk
     {
         let chunk: Self = Self::alloc(class, world, chunkX, chunkZ);
         let len: i32 = blocks.len() as i32;
+
         chunk.m_blocks.set(blocks);
         chunk.m_data.set(Some(Rc::new(NibbleArray::new(len))));
         chunk.m_skylightMap.set(Some(Rc::new(NibbleArray::new(len))));
@@ -163,8 +166,11 @@ impl Chunk
         {
             return;
         }
+
         let size: usize = self.m_blocks.with(Vec::len) / 2;
-        self.m_addBlocks.update(|add| {
+
+        self.m_addBlocks.update(|add|
+        {
             let add: &mut Vec<u8> = add.get_or_insert_with(|| vec![0; size]);
             let slot: &mut u8 = &mut add[(index >> 1) as usize];
             let shift: i32 = (index & 1) * 4;

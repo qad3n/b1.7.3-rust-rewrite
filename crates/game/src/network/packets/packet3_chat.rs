@@ -21,6 +21,7 @@ impl Packet3Chat
         {
             message = message.substring(0, 119);
         }
+
         Self { m_message: Some(message), ..Self::default() }
     }
 }

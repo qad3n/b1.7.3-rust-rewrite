@@ -33,33 +33,43 @@ pub fn fields(this: &Entity) -> &ChickenExt { this.ext::<ChickenExt>() }
 fn onLivingUpdate(this: &Rc<Entity>)
 {
     (entity_animal::CLASS.onLivingUpdate)(this);
+
     let chicken: &ChickenExt = fields(this);
     chicken.m_lastFlapProgress.set(chicken.m_flapProgress.get());
     chicken.m_lastFlapSpeed.set(chicken.m_destPos.get());
+
     let step: f64 = if this.m_onGround.get() { -1.0 } else { 4.0 };
     chicken.m_destPos.set((chicken.m_destPos.get() as f64 + step * 0.3) as f32);
+
     if chicken.m_destPos.get() < 0.0
     {
         chicken.m_destPos.set(0.0);
     }
+
     if chicken.m_destPos.get() > 1.0
     {
         chicken.m_destPos.set(1.0);
     }
+
     if !this.m_onGround.get() && chicken.m_flapping.get() < 1.0
     {
         chicken.m_flapping.set(1.0);
     }
+
     chicken.m_flapping.set((chicken.m_flapping.get() as f64 * 0.9) as f32);
+
     if !this.m_onGround.get() && this.m_motionY.get() < 0.0
     {
         this.m_motionY.set(this.m_motionY.get() * 0.6);
     }
+
     chicken.m_flapProgress.set(chicken.m_flapProgress.get() + chicken.m_flapping.get() * 2.0);
+
     let world: Rc<World> = this.world();
     if !world.m_multiplayerWorld.get()
     {
         chicken.m_timeUntilNextEgg.set(chicken.m_timeUntilNextEgg.get() - 1);
+
         if chicken.m_timeUntilNextEgg.get() <= 0
         {
             let pitch: f32 = (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0;
@@ -70,7 +80,8 @@ fn onLivingUpdate(this: &Rc<Entity>)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityChicken",
     m_parent: Some(&entity_animal::CLASS),
     onLivingUpdate,
@@ -88,6 +99,7 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
 {
     let entity: Rc<Entity> = Entity::alloc(&CLASS, Box::new(ChickenExt::default()));
     entity_animal::init(&entity, world);
+
     let chicken: &ChickenExt = fields(&entity);
     chicken.m_sheared.set(false);
     chicken.m_flapProgress.set(0.0);

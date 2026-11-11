@@ -19,34 +19,33 @@ fn arrayIndex(index: i32, length: usize) -> usize
     {
         jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &index.to_string());
     }
+
     index as usize
 }
 
 impl ChunkCache
 {
-    pub fn new(world: &Rc<World>, minX: i32, _minY: i32, minZ: i32, maxX: i32, _maxY: i32, maxZ: i32)
-    -> Rc<ChunkCache>
+    pub fn new(world: &Rc<World>, minX: i32, _minY: i32, minZ: i32, maxX: i32, _maxY: i32, maxZ: i32) -> Rc<Self>
     {
         let chunkX: i32 = minX >> 4;
         let chunkZ: i32 = minZ >> 4;
         let n: i32 = maxX >> 4;
         let n2: i32 = maxZ >> 4;
         let mut chunkArray: Vec<Vec<Rc<Chunk>>> = Vec::with_capacity((n - chunkX + 1) as usize);
+
         for i in chunkX..=n
         {
             let mut column: Vec<Rc<Chunk>> = Vec::with_capacity((n2 - chunkZ + 1) as usize);
+
             for j in chunkZ..=n2
             {
                 column.push(world.getChunkFromChunkCoords(i, j));
             }
+
             chunkArray.push(column);
         }
-        Rc::new(ChunkCache {
-            m_chunkX: chunkX,
-            m_chunkZ: chunkZ,
-            m_chunkArray: chunkArray,
-            m_worldObj: Rc::clone(world),
-        })
+
+        Rc::new(Self { m_chunkX: chunkX, m_chunkZ: chunkZ, m_chunkArray: chunkArray, m_worldObj: Rc::clone(world) })
     }
 
     fn chunkAt(&self, x: i32, z: i32) -> &Rc<Chunk>
@@ -57,7 +56,8 @@ impl ChunkCache
 
     fn brightness(&self, light: i32) -> f32
     {
-        self.m_worldObj.m_worldProvider.with(|provider| {
+        self.m_worldObj.m_worldProvider.with(|provider|
+        {
             provider.as_ref().orNpe().m_lightBrightnessTable.with(|table| table[arrayIndex(light, table.len())])
         })
     }
@@ -70,6 +70,7 @@ impl ChunkCache
         {
             return 15;
         }
+
         if useNeighborLight
         {
             let n: i32 = self.getBlockId(x, y, z);
@@ -83,25 +84,31 @@ impl ChunkCache
                 let n4: i32 = self.getLightValueExt(x - 1, y, z, false);
                 let n5: i32 = self.getLightValueExt(x, y, z + 1, false);
                 let n6: i32 = self.getLightValueExt(x, y, z - 1, false);
+
                 if n3 > n2
                 {
                     n2 = n3;
                 }
+
                 if n4 > n2
                 {
                     n2 = n4;
                 }
+
                 if n5 > n2
                 {
                     n2 = n5;
                 }
+
                 if n6 > n2
                 {
                     n2 = n6;
                 }
+
                 return n2;
             }
         }
+
         if y < 0
         {
             return 0;
@@ -110,6 +117,7 @@ impl ChunkCache
         {
             return (15 - self.m_worldObj.m_skylightSubtracted.get()).max(0);
         }
+
         self.chunkAt(x, z).getBlockLightValue(x & 0xF, y, z & 0xF, self.m_worldObj.m_skylightSubtracted.get())
     }
 }
@@ -128,6 +136,7 @@ impl IBlockAccess for ChunkCache
         {
             return 0;
         }
+
         self.m_chunkArray[n as usize][n2 as usize].getBlockID(x & 0xF, y, z & 0xF)
     }
 
@@ -143,6 +152,7 @@ impl IBlockAccess for ChunkCache
         {
             n = blockLight;
         }
+
         self.brightness(n)
     }
 
@@ -154,6 +164,7 @@ impl IBlockAccess for ChunkCache
         {
             return 0;
         }
+
         self.chunkAt(x, z).getBlockMetadata(x & 0xF, y, z & 0xF)
     }
 
@@ -164,6 +175,7 @@ impl IBlockAccess for ChunkCache
         {
             return Material::air();
         }
+
         Rc::clone(&Block::byId(n).orNpe().m_blockMaterial)
     }
 

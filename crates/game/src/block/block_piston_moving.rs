@@ -33,6 +33,7 @@ fn dropBlockAsItemWithChance(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i3
     {
         return;
     };
+
     Block::byId(tile_entity_piston::getStoredBlockID(&tileEntityPiston)).orNpe().dropBlockAsItem(
         world,
         x,
@@ -52,10 +53,12 @@ fn getCollisionBoundingBoxFromPool(
 {
     let tileEntityPiston: Rc<TileEntity> = getMovingBlockEntity(&**world, x, y, z)?;
     let mut f: f32 = tile_entity_piston::getProgress(&tileEntityPiston, 0.0);
+
     if tile_entity_piston::isExtending(&tileEntityPiston)
     {
         f = 1.0 - f;
     }
+
     getCollisionShape(
         this,
         world,
@@ -84,12 +87,16 @@ fn setBlockBoundsBasedOnState(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32
     {
         return;
     }
+
     block.setBlockBoundsBasedOnState(world, x, y, z);
+
     let mut f: f32 = tile_entity_piston::getProgress(&tileEntityPiston, 0.0);
+
     if tile_entity_piston::isExtending(&tileEntityPiston)
     {
         f = 1.0 - f;
     }
+
     let n: usize = tile_entity_piston::getFacing(&tileEntityPiston) as usize;
     this.m_minX.set(block.m_minX.get() - (X_OFFSET[n] as f32 * f) as f64);
     this.m_minY.set(block.m_minY.get() - (Y_OFFSET[n] as f32 * f) as f64);
@@ -114,6 +121,7 @@ pub fn getCollisionShape(
     {
         return None;
     }
+
     let axisAlignedBB: Rc<AxisAlignedBB> =
         Block::byId(movedBlock).orNpe().getCollisionBoundingBoxFromPool(world, x, y, z)?;
     let n: usize = facing as usize;
@@ -126,7 +134,8 @@ pub fn getCollisionShape(
     Some(axisAlignedBB)
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockPistonMoving",
     m_parent: Some(&block_container::CLASS),
     getBlockEntity: |_| jvm::throwable::npe(),
@@ -143,17 +152,20 @@ pub const CLASS: BlockClass = BlockClass {
     getRenderType: |_| -1,
     isOpaqueCube: |_| false,
     renderAsNormalBlock: |_| false,
-    blockActivated: |_, world, x, y, z, _| {
+    blockActivated: |_, world, x, y, z, _|
+    {
         if !world.m_multiplayerWorld.get() && world.getBlockTileEntity(x, y, z).is_none()
         {
             world.setBlockWithNotify(x, y, z, 0);
             return true;
         }
+
         false
     },
     idDropped: |_, _, _| 0,
     dropBlockAsItemWithChance,
-    onNeighborBlockChange: |_, world, x, y, z, _| {
+    onNeighborBlockChange: |_, world, x, y, z, _|
+    {
         if world.m_multiplayerWorld.get() || world.getBlockTileEntity(x, y, z).is_none()
         {}
     },

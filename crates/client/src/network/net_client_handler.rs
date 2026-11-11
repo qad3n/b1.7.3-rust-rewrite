@@ -10,7 +10,8 @@ use crate::world::world_client;
 use game::block::Block;
 use game::container::Container;
 use game::entity::remote::Pose;
-use game::entity::{
+use game::entity::
+{
     Entity, EntityList, entity_arrow, entity_boat, entity_egg, entity_falling_sand, entity_fireball, entity_fish,
     entity_item, entity_lightning_bolt, entity_living, entity_minecart, entity_painting, entity_player,
     entity_snowball, entity_tnt_primed,
@@ -44,7 +45,7 @@ pub static CONNECT: ThrowableClass = ThrowableClass { m_name: "java.net.ConnectE
 
 pub struct NetClientHandler
 {
-    m_self: Weak<NetClientHandler>,
+    m_self: Weak<Self>,
     m_disconnected: Cell<bool>,
     m_netManager: Field<Option<Rc<NetworkManager>>>,
     pub m_message: Field<Option<JString>>,
@@ -61,7 +62,7 @@ pub struct NetClientHandler
 
 impl NetClientHandler
 {
-    pub fn new(minecraft: &Rc<Minecraft>, address: &str, port: i32) -> IoResult<Rc<NetClientHandler>>
+    pub fn new(minecraft: &Rc<Minecraft>, address: &str, port: i32) -> IoResult<Rc<Self>>
     {
         Self::fromSocket(minecraft, Self::connect(address, port)?)
     }
@@ -73,6 +74,7 @@ impl NetClientHandler
             .ok()
             .and_then(|mut addresses| addresses.next())
             .ok_or_else(|| ioError(&UNKNOWN_HOST, address))?;
+
         TcpStream::connect(host).map_err(|error| match error.kind()
         {
             std::io::ErrorKind::ConnectionRefused => ioError(&CONNECT, "Connection refused: connect"),
@@ -80,9 +82,10 @@ impl NetClientHandler
         })
     }
 
-    pub fn fromSocket(minecraft: &Rc<Minecraft>, socket: TcpStream) -> IoResult<Rc<NetClientHandler>>
+    pub fn fromSocket(minecraft: &Rc<Minecraft>, socket: TcpStream) -> IoResult<Rc<Self>>
     {
-        let this: Rc<NetClientHandler> = Rc::new_cyclic(|this| NetClientHandler {
+        let this: Rc<Self> = Rc::new_cyclic(|this| Self
+        {
             m_self: Weak::clone(this),
             m_disconnected: Cell::new(false),
             m_netManager: Field::new(None),
@@ -99,13 +102,16 @@ impl NetClientHandler
         let handler: Weak<dyn NetHandler> = Rc::downgrade(&this) as Weak<dyn NetHandler>;
         this.m_netManager.set(Some(NetworkManager::new(socket, "Client", handler, false)?));
         // mod traffic to the server goes out through this connection
-        let weak: Weak<NetClientHandler> = Rc::downgrade(&this);
-        modloader::netsync::clientConnected(Rc::new(move |channel: u32, body: Vec<u8>| {
+        let weak: Weak<Self> = Rc::downgrade(&this);
+
+        modloader::netsync::clientConnected(Rc::new(move |channel: u32, body: Vec<u8>|
+        {
             if let Some(handler) = weak.upgrade()
             {
                 handler.addToSendQueue(Box::new(Packet250ModPayload::new(channel, body)));
             }
         }));
+
         Ok(this)
     }
 
@@ -135,6 +141,7 @@ impl NetClientHandler
         let message: auth::Message = match auth::Message::decode(data)
         {
             Ok(message) => message,
+
             Err(error) =>
             {
                 warning!("Bad auth message from the server: {error}");
@@ -166,7 +173,9 @@ impl NetClientHandler
             auth::Mode::Login => AuthScreen::Login,
             auth::Mode::Register => AuthScreen::Register { invite },
         };
+
         let fingerprint: String = server_keys::fingerprint(&key);
+
         self.m_serverKey.set(key);
         self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), screen, &fingerprint)));
     }
@@ -181,6 +190,7 @@ impl NetClientHandler
         }
 
         let value = |i: usize| values.get(i).map_or("", String::as_str);
+
         let (state, first): (auth::ClientAuth, auth::Message) = match screen
         {
             AuthScreen::Login => auth::ClientAuth::login(&name, &key, value(0))?,
@@ -196,9 +206,11 @@ impl NetClientHandler
     {
         let step: Option<auth::AuthResult<auth::ClientStep>> =
             self.m_auth.borrow_mut().as_mut().map(|state| state.receive(message));
+
         match step
         {
             None => self.authFailed("Protocol error"),
+
             Some(Ok(auth::ClientStep::Send(messages))) =>
             {
                 for message in &messages
@@ -206,12 +218,14 @@ impl NetClientHandler
                     self.sendAuth(message);
                 }
             }
+
             Some(Ok(auth::ClientStep::Secure(keys, ke3))) =>
             {
                 *self.m_auth.borrow_mut() = None;
                 self.netManager().armSecure(keys);
                 self.sendAuth(&ke3);
             }
+
             Some(Err(reason)) =>
             {
                 *self.m_auth.borrow_mut() = None;
@@ -223,10 +237,12 @@ impl NetClientHandler
     fn authResult(&self, text: &str)
     {
         *self.m_auth.borrow_mut() = None;
+
         if self.m_mc.m_currentScreen.get().is_some_and(|screen| GuiAuth::showing(&screen))
         {
             self.m_mc.displayGuiScreen(None);
         }
+
         self.chat(&format!("\u{a7}e{text}"));
     }
 
@@ -267,7 +283,7 @@ impl NetClientHandler
 
     fn theWorld(&self) -> Rc<World> { self.m_mc.m_theWorld.get().orNpe() }
 
-    fn rc(&self) -> Rc<NetClientHandler> { self.m_self.upgrade().expect("a live net client handler is owned by an Rc") }
+    fn rc(&self) -> Rc<Self> { self.m_self.upgrade().expect("a live net client handler is owned by an Rc") }
 
     pub fn processReadPackets(&self)
     {
@@ -275,6 +291,7 @@ impl NetClientHandler
         {
             self.netManager().processReadPackets();
         }
+
         self.netManager().wakeThreads();
     }
 
@@ -284,6 +301,7 @@ impl NetClientHandler
         {
             return;
         }
+
         self.netManager().addToSendQueue(packet);
         self.netManager().close();
     }
@@ -294,6 +312,7 @@ impl NetClientHandler
         {
             return;
         }
+
         self.netManager().addToSendQueue(packet);
     }
 
@@ -313,6 +332,7 @@ impl NetClientHandler
         {
             return Some(thePlayer);
         }
+
         world_client::getEntity(&self.worldClient(), networkId)
     }
 
@@ -362,8 +382,10 @@ impl NetHandler for NetClientHandler
             self.m_disconnected.set(true);
             return;
         }
+
         info!("Logged in as entity {} in dimension {}", packet.m_protocolVersion, packet.m_dimension);
-        let this: Rc<NetClientHandler> = self.rc();
+
+        let this: Rc<Self> = self.rc();
         let mc: &Rc<Minecraft> = &self.m_mc;
         mc.m_playerController.set(Some(player_controller_mp::new(mc, &this)));
         mc.m_statFileWriter.get().orNpe().readStat(&StatList::joinMultiplayerStat().orNpe(), 1);
@@ -403,6 +425,7 @@ impl NetHandler for NetClientHandler
         let velocityZ: f64 = packet.m_velocityZ as f64 / 8000.0;
         let mut data: i32 = packet.m_data;
         let mut entity: Option<Rc<Entity>> = None;
+
         match packet.m_type
         {
             10 => entity = Some(entity_minecart::createAt(&world, d0, d1, d2, 0)),
@@ -411,11 +434,13 @@ impl NetHandler for NetClientHandler
             90 => entity = Some(entity_fish::create(&world, d0, d1, d2)),
             60 => entity = Some(entity_arrow::create(&world, d0, d1, d2)),
             61 => entity = Some(entity_snowball::create(&world, d0, d1, d2)),
+
             63 =>
             {
                 entity = Some(entity_fireball::createAt(&world, d0, d1, d2, velocityX, velocityY, velocityZ));
                 data = 0;
             }
+
             62 => entity = Some(entity_egg::create(&world, d0, d1, d2)),
             1 => entity = Some(entity_boat::createAt(&world, d0, d1, d2)),
             50 => entity = Some(entity_tnt_primed::create(&world, d0, d1, d2)),
@@ -424,11 +449,13 @@ impl NetHandler for NetClientHandler
             _ =>
             {}
         }
+
         let Some(entity) = entity
         else
         {
             return;
         };
+
         entity.m_serverPosX.set(packet.m_xPosition);
         entity.m_serverPosY.set(packet.m_yPosition);
         entity.m_serverPosZ.set(packet.m_zPosition);
@@ -436,6 +463,7 @@ impl NetHandler for NetClientHandler
         entity.m_rotationPitch.set(0.0);
         entity.m_entityId.set(packet.m_entityId);
         world_client::forceEntity(&world, packet.m_entityId, &entity);
+
         if data > 0
         {
             if packet.m_type == 60
@@ -444,6 +472,7 @@ impl NetHandler for NetClientHandler
             {
                 entity_arrow::fields(&entity).m_owner.set(Some(entity1));
             }
+
             entity.setVelocity(velocityX, velocityY, velocityZ);
         }
     }
@@ -453,10 +482,12 @@ impl NetHandler for NetClientHandler
         let x: f64 = packet.m_x as f64 / 32.0;
         let y: f64 = packet.m_y as f64 / 32.0;
         let z: f64 = packet.m_z as f64 / 32.0;
+
         if packet.m_type != 1
         {
             return;
         }
+
         let entity: Rc<Entity> = entity_lightning_bolt::create(&self.worldClient(), x, y, z);
         entity.m_serverPosX.set(packet.m_x);
         entity.m_serverPosY.set(packet.m_y);
@@ -487,6 +518,7 @@ impl NetHandler for NetClientHandler
         {
             return;
         };
+
         entity.setVelocity(
             packet.m_motionX as f64 / 8000.0,
             packet.m_motionY as f64 / 8000.0,
@@ -521,6 +553,7 @@ impl NetHandler for NetClientHandler
         entityotherplayermp.m_serverPosZ.set(packet.m_zPosition);
         entityotherplayermp.m_lastTickPosZ.set(d2);
         entityotherplayermp.m_prevPosZ.set(d2);
+
         let i: i32 = packet.m_currentItem;
         let inventory: Rc<InventoryPlayer> = entity_player::inventory(&entityotherplayermp);
         let currentItem: usize = inventory.m_currentItem.get() as usize;
@@ -543,9 +576,11 @@ impl NetHandler for NetClientHandler
         {
             return;
         };
+
         entity.m_serverPosX.set(packet.m_xPosition);
         entity.m_serverPosY.set(packet.m_yPosition);
         entity.m_serverPosZ.set(packet.m_zPosition);
+
         let d: f64 = entity.m_serverPosX.get() as f64 / 32.0;
         let d2: f64 = entity.m_serverPosY.get() as f64 / 32.0;
         let d3: f64 = entity.m_serverPosZ.get() as f64 / 32.0;
@@ -566,12 +601,15 @@ impl NetHandler for NetClientHandler
         {
             return;
         };
+
         entity.m_serverPosX.set(entity.m_serverPosX.get() + packet.m_xPosition as i32);
         entity.m_serverPosY.set(entity.m_serverPosY.get() + packet.m_yPosition as i32);
         entity.m_serverPosZ.set(entity.m_serverPosZ.get() + packet.m_zPosition as i32);
+
         let d: f64 = entity.m_serverPosX.get() as f64 / 32.0;
         let d2: f64 = entity.m_serverPosY.get() as f64 / 32.0;
         let d3: f64 = entity.m_serverPosZ.get() as f64 / 32.0;
+
         // a move without rotation keeps the last received rotation not the one shown mid playback
         let (yaw, pitch): (f32, f32) = if packet.m_rotating
         {
@@ -598,28 +636,33 @@ impl NetHandler for NetClientHandler
         let mut d3: f64 = entityPlayerSP.posZ();
         let mut f: f32 = entityPlayerSP.m_rotationYaw.get();
         let mut f2: f32 = entityPlayerSP.m_rotationPitch.get();
+
         if packet.m_moving
         {
             d = packet.m_xPosition;
             d2 = packet.m_yPosition;
             d3 = packet.m_zPosition;
         }
+
         if packet.m_rotating
         {
             f = packet.m_yaw;
             f2 = packet.m_pitch;
         }
+
         entityPlayerSP.m_ySize.set(0.0);
         entityPlayerSP.m_motionZ.set(0.0);
         entityPlayerSP.m_motionY.set(0.0);
         entityPlayerSP.m_motionX.set(0.0);
         entityPlayerSP.setPositionAndRotation(d, d2, d3, f, f2);
+
         let mut reply: Packet10Flying = packet.clone();
         reply.m_xPosition = entityPlayerSP.posX();
         reply.m_yPosition = entityPlayerSP.m_boundingBox.minY();
         reply.m_zPosition = entityPlayerSP.posZ();
         reply.m_stance = entityPlayerSP.posY();
         self.netManager().addToSendQueue(reply.intoPacket());
+
         if !self.m_started.get()
         {
             let thePlayer: Rc<Entity> = self.thePlayer();
@@ -639,12 +682,13 @@ impl NetHandler for NetClientHandler
     fn handleMultiBlockChange(&self, packet: &Packet52MultiBlockChange)
     {
         let world: Rc<World> = self.worldClient();
-        let chunk = world.getChunkFromChunkCoords(packet.m_xPosition, packet.m_zPosition);
+        let chunk: Rc<game::world::Chunk> = world.getChunkFromChunkCoords(packet.m_xPosition, packet.m_zPosition);
         let n: i32 = packet.m_xPosition * 16;
         let n2: i32 = packet.m_zPosition * 16;
         let coordinateArray: &Vec<i16> = packet.m_coordinateArray.as_ref().orNpe();
         let typeArray: &Vec<u8> = packet.m_typeArray.as_ref().orNpe();
         let metadataArray: &Vec<u8> = packet.m_metadataArray.as_ref().orNpe();
+
         for i in 0..packet.m_size as usize
         {
             let s: i16 = coordinateArray[i];
@@ -671,6 +715,7 @@ impl NetHandler for NetClientHandler
             packet.m_yPosition + packet.m_ySize - 1,
             packet.m_zPosition + packet.m_zSize - 1,
         );
+
         let chunk: Vec<i8> = packet.m_chunk.as_ref().orNpe().iter().map(|value| *value as i8).collect();
         world.setChunkData(
             packet.m_xPosition,
@@ -712,11 +757,14 @@ impl NetHandler for NetClientHandler
     fn handleErrorMessage(&self, reason: &JString, args: &[JString])
     {
         modloader::netsync::clientDisconnected();
+
         if self.m_disconnected.get()
         {
             return;
         }
+
         self.m_disconnected.set(true);
+
         let detail: Vec<String> = args.iter().map(JString::to_string).collect();
         warning!("Lost connection: {reason} {}", detail.join(", "));
         self.m_mc.changeWorld1(None);
@@ -738,11 +786,14 @@ impl NetHandler for NetClientHandler
                 ),
             );
         }
+
         let entityLiving: Rc<Entity> = collector.unwrap_or_else(|| self.thePlayer());
+
         if let Some(entity) = entity
         {
             let pitch: f32 = ((self.m_rand.nextFloat() - self.m_rand.nextFloat()) * 0.7 + 1.0) * 2.0;
             self.worldClient().playSoundAtEntity(&entity, "random.pop", 0.2, pitch);
+
             let fx: Rc<Entity> = entity_pickup_fx::new(&self.theWorld(), &entity, &entityLiving, -0.5);
             self.m_mc.m_effectRenderer.get().orNpe().addEffect(fx);
             world_client::removeEntityFromWorld(&self.worldClient(), packet.m_collectedEntityId);
@@ -761,6 +812,7 @@ impl NetHandler for NetClientHandler
         {
             return;
         };
+
         match packet.m_animate
         {
             1 =>
@@ -768,17 +820,21 @@ impl NetHandler for NetClientHandler
                 castToPlayer(&entity);
                 entity.swingItem();
             }
+
             2 => entity.performHurtAnimation(),
+
             3 =>
             {
                 castToPlayer(&entity);
                 entity.wakeUpPlayer(false, false, false);
             }
+
             4 =>
             {
                 castToPlayer(&entity);
                 entity.addRespawnParticles();
             }
+
             _ =>
             {}
         }
@@ -791,6 +847,7 @@ impl NetHandler for NetClientHandler
         {
             return;
         };
+
         if packet.m_action == 0
         {
             castToPlayer(&entity);
@@ -817,6 +874,7 @@ impl NetHandler for NetClientHandler
         entityLiving.setPositionAndRotation(d, d2, d3, f, f2);
         entity_living::fields(&entityLiving).m_isMultiplayerEntity.set(true);
         world_client::forceEntity(&self.worldClient(), packet.m_entityId, &entityLiving);
+
         if let Some(list) = packet.getMetadata()
         {
             entityLiving.getDataWatcher().updateWatchedObjectsFromList(&list);
@@ -838,15 +896,18 @@ impl NetHandler for NetClientHandler
     {
         let mut entity: Option<Rc<Entity>> = self.getEntityByID(packet.m_entityId);
         let entity2: Option<Rc<Entity>> = self.getEntityByID(packet.m_vehicleEntityId);
+
         if packet.m_entityId == self.thePlayer().m_entityId.get()
         {
             entity = Some(self.thePlayer());
         }
+
         let Some(entity) = entity
         else
         {
             return;
         };
+
         entity.mountEntity(entity2.as_ref());
     }
 
@@ -863,12 +924,15 @@ impl NetHandler for NetClientHandler
     fn handlePlayerRespawn(&self, packet: &Packet9Respawn)
     {
         debug!("Respawning in dimension {}", packet.m_dimension);
+
         if packet.m_dimension as i32 != entity_player::fields(&self.thePlayer()).m_dimension.get()
         {
             self.m_started.set(false);
+
             let seed: i64 = self.worldClient().worldInfo().getRandomSeed();
             self.rc().changeToWorldClient(seed, packet.m_dimension);
         }
+
         self.m_mc.respawn(true, packet.m_dimension as i32);
     }
 
@@ -889,6 +953,7 @@ impl NetHandler for NetClientHandler
     fn handleOpenInventoryMenu(&self, packet: &Packet100OpenWindow)
     {
         let thePlayer: Rc<Entity> = self.thePlayer();
+
         match packet.m_inventoryType
         {
             0 =>
@@ -898,18 +963,21 @@ impl NetHandler for NetClientHandler
                 thePlayer.displayGUIChest(Some(&inventoryBasic));
                 self.openWindow(packet.m_windowId);
             }
+
             2 =>
             {
                 let tileEntityFurnace: Rc<TileEntity> = tile_entity_furnace::create();
                 thePlayer.displayGUIFurnace(Some(&tileEntityFurnace));
                 self.openWindow(packet.m_windowId);
             }
+
             3 =>
             {
                 let tileEntityDispenser: Rc<TileEntity> = tile_entity_dispenser::create();
                 thePlayer.displayGUIDispenser(Some(&tileEntityDispenser));
                 self.openWindow(packet.m_windowId);
             }
+
             1 =>
             {
                 thePlayer.displayWorkbenchGUI(
@@ -919,6 +987,7 @@ impl NetHandler for NetClientHandler
                 );
                 self.openWindow(packet.m_windowId);
             }
+
             _ =>
             {}
         }
@@ -929,6 +998,7 @@ impl NetHandler for NetClientHandler
         let thePlayer: Rc<Entity> = self.thePlayer();
         let player: &entity_player::PlayerFields = entity_player::fields(&thePlayer);
         let myItemStack: Option<Rc<ItemStack>> = PacketItemStack::toItemStackOption(packet.m_myItemStack);
+
         if packet.m_windowId == -1
         {
             entity_player::inventory(&thePlayer).setItemStack(myItemStack);
@@ -942,6 +1012,7 @@ impl NetHandler for NetClientHandler
             {
                 myItemStack.m_animationsToGo.set(5);
             }
+
             inventorySlots.putStackInSlot(packet.m_itemSlot, myItemStack);
         }
         else
@@ -959,6 +1030,7 @@ impl NetHandler for NetClientHandler
         let thePlayer: Rc<Entity> = self.thePlayer();
         let player: &entity_player::PlayerFields = entity_player::fields(&thePlayer);
         let mut container: Option<Rc<Container>> = None;
+
         if packet.m_windowId == 0
         {
             container = player.m_inventorySlots.get();
@@ -967,6 +1039,7 @@ impl NetHandler for NetClientHandler
         {
             container = player.m_craftingInventory.get();
         }
+
         if let Some(container) = container
         {
             if packet.m_accepted
@@ -991,6 +1064,7 @@ impl NetHandler for NetClientHandler
         let player: &entity_player::PlayerFields = entity_player::fields(&thePlayer);
         let items: Vec<Option<Rc<ItemStack>>> =
             packet.m_itemStack.as_ref().orNpe().iter().map(|item| PacketItemStack::toItemStackOption(*item)).collect();
+
         if packet.m_windowId == 0
         {
             player.m_inventorySlots.get().orNpe().putStacksInSlots(&items);
@@ -1012,6 +1086,7 @@ impl NetHandler for NetClientHandler
         {
             return;
         }
+
         if let Some(tileentity) = world.getBlockTileEntity(packet.m_xPosition, packet.m_yPosition, packet.m_zPosition)
             && tileentity.instanceOf("TileEntitySign")
         {
@@ -1026,6 +1101,7 @@ impl NetHandler for NetClientHandler
     fn handleInventoryMenuData(&self, packet: &Packet105UpdateProgressbar)
     {
         self.registerPacket(packet);
+
         if let Some(craftingInventory) = entity_player::fields(&self.thePlayer()).m_craftingInventory.get()
             && craftingInventory.m_windowId.get() == packet.m_windowId
         {
@@ -1063,6 +1139,7 @@ impl NetHandler for NetClientHandler
         {
             self.thePlayer().addChatMessage(message);
         }
+
         match n
         {
             1 =>
@@ -1070,11 +1147,13 @@ impl NetHandler for NetClientHandler
                 self.worldClient().worldInfo().setRaining(true);
                 self.worldClient().setRain(1.0);
             }
+
             2 =>
             {
                 self.worldClient().worldInfo().setRaining(false);
                 self.worldClient().setRain(0.0);
             }
+
             _ =>
             {}
         }

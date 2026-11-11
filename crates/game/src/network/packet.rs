@@ -23,15 +23,12 @@ pub struct PacketBase
 
 impl PacketBase
 {
-    pub fn chunkData() -> PacketBase { PacketBase { m_isChunkDataPacket: true, ..PacketBase::default() } }
+    pub fn chunkData() -> Self { Self { m_isChunkDataPacket: true, ..Self::default() } }
 }
 
 impl Default for PacketBase
 {
-    fn default() -> Self
-    {
-        PacketBase { m_creationTimeMillis: jvm::system::currentTimeMillis(), m_isChunkDataPacket: false }
-    }
+    fn default() -> Self { Self { m_creationTimeMillis: jvm::system::currentTimeMillis(), m_isChunkDataPacket: false } }
 }
 
 pub trait PacketClone
@@ -78,7 +75,8 @@ fn newInstance<T: Packet + Default>() -> Box<dyn Packet> { Box::new(T::default()
 
 const fn mapping<T: Packet + Default>(id: i32, clientbound: bool, serverbound: bool) -> PacketRow
 {
-    PacketRow {
+    PacketRow
+    {
         m_id: id,
         m_clientbound: clientbound,
         m_serverbound: serverbound,
@@ -181,7 +179,8 @@ pub fn read(input: &mut PacketInput) -> IoResult<i32> { input.m_in.read() }
 pub fn readPacket(input: &mut PacketInput, server: bool) -> IoResult<Option<Box<dyn Packet>>>
 {
     let mut i: i32 = 0;
-    let mut body = |i: &mut i32| -> IoResult<Option<Box<dyn Packet>>> {
+    let mut body = |i: &mut i32| -> IoResult<Option<Box<dyn Packet>>>
+    {
         *i = read(input)?;
         if *i == -1
         {
@@ -197,6 +196,7 @@ pub fn readPacket(input: &mut PacketInput, server: bool) -> IoResult<Option<Box<
         {
             return Err(ioError(&IO, &format!("Bad packet id {i}")));
         };
+
         packet.readPacketData(input)?;
         Ok(Some(packet))
     };
@@ -204,11 +204,13 @@ pub fn readPacket(input: &mut PacketInput, server: bool) -> IoResult<Option<Box<
     {
         Ok(Some(packet)) => packet,
         Ok(None) => return Ok(None),
+
         Err(throwable) if throwable.instanceOf(&EOF) =>
         {
             debug!("Reached end of stream");
             return Ok(None);
         }
+
         Err(throwable) => return Err(throwable),
     };
     lock(&PACKET_STATS)
@@ -231,6 +233,7 @@ pub fn writeString<S: OutputStream>(s: &JString, output: &mut DataOutputStream<S
     {
         return Err(ioError(&IO, "String too big"));
     }
+
     output.writeShort(s.length())?;
     output.writeChars(s)
 }
@@ -246,11 +249,14 @@ pub fn readString<S: InputStream>(input: &mut DataInputStream<S>, maxLength: i32
     {
         return Err(ioError(&IO, "Received string length is less than zero! Weird string!"));
     }
+
     let mut chars: Vec<u16> = Vec::with_capacity(n as usize);
+
     for _ in 0..n
     {
         chars.push(input.readChar()?);
     }
+
     Ok(JString::fromUtf16(chars))
 }
 
@@ -260,10 +266,12 @@ pub fn className(packet: &dyn Packet) -> String
     match name
     {
         "Packet11PlayerPosition" | "Packet12PlayerLook" | "Packet13PlayerLookMove" => format!("Packet10Flying${name}"),
+
         "Packet31RelEntityMove" | "Packet32EntityLook" | "Packet33RelEntityMoveLook" =>
         {
             format!("Packet30Entity${name}")
         }
+
         _ => name.to_string(),
     }
 }

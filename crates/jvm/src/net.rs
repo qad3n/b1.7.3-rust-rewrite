@@ -28,7 +28,8 @@ impl Response
 {
     fn header(&self, name: &str) -> Option<String>
     {
-        self.m_head.lines().find_map(|line| {
+        self.m_head.lines().find_map(|line|
+        {
             let (key, value): (&str, &str) = line.split_once(':')?;
             key.eq_ignore_ascii_case(name).then(|| value.trim().to_owned())
         })
@@ -45,6 +46,7 @@ fn splitUrl(url: &str) -> Result<(String, u16, String), Throwable>
     {
         return Err(ioException(&IO, format!("unknown protocol: {url}")));
     };
+
     let (authority, path): (&str, &str) = match rest.find('/')
     {
         Some(index) => (&rest[..index], &rest[index..]),
@@ -72,9 +74,11 @@ fn decodeChunked(body: &[u8]) -> Vec<u8>
         {
             break;
         }
+
         out.extend_from_slice(&rest[..size]);
         rest = rest.get(size + LINE_END.len()..).unwrap_or(&[]);
     }
+
     out
 }
 
@@ -85,18 +89,23 @@ fn get(url: &str) -> Result<Response, Throwable>
     let mut stream: std::net::TcpStream = match std::net::TcpStream::connect((host.as_str(), port))
     {
         Ok(stream) => stream,
+
         Err(error) if error.kind() == std::io::ErrorKind::Other || error.to_string().contains("lookup") =>
         {
             return Err(ioException(&UNKNOWN_HOST, host));
         }
+
         Err(error) => return Err(crate::io::fromStd(&error)),
     };
+
     let request: String = format!(
         "GET {path} HTTP/1.1\r\nUser-Agent: Java/1.6.0_26\r\nHost: {host}\r\nAccept: text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2\r\nConnection: close\r\n\r\n"
     );
     stream.write_all(request.as_bytes()).map_err(|error| crate::io::fromStd(&error))?;
+
     let mut response: Vec<u8> = Vec::new();
     stream.read_to_end(&mut response).map_err(|error| crate::io::fromStd(&error))?;
+
     let headerEnd: usize =
         response.windows(HEAD_END.len()).position(|window| window == HEAD_END).unwrap_or(response.len());
     let head: String = String::from_utf8_lossy(&response[..headerEnd]).into_owned();
@@ -116,18 +125,22 @@ pub fn openStream(url: &str) -> Result<Vec<u8>, Throwable>
     {
         return openStream(&location);
     }
+
     if status >= http_status::CLIENT_ERROR
     {
         if status == http_status::NOT_FOUND || status == http_status::GONE
         {
             return Err(ioException(&crate::io::FILE_NOT_FOUND, url.to_owned()));
         }
+
         return Err(ioException(&IO, format!("Server returned HTTP response code: {status} for URL: {url}")));
     }
+
     if response.header("Transfer-Encoding").is_some_and(|encoding| encoding.eq_ignore_ascii_case("chunked"))
     {
         return Ok(decodeChunked(&response.m_body));
     }
+
     Ok(response.m_body)
 }
 
@@ -139,6 +152,7 @@ pub fn socketAddressToString(address: &std::net::SocketAddr) -> String
     let host: String = match address.ip().to_canonical()
     {
         std::net::IpAddr::V4(ip) => ip.to_string(),
+
         std::net::IpAddr::V6(ip) =>
         {
             ip.segments().iter().map(|segment| format!("{segment:x}")).collect::<Vec<String>>().join(":")
@@ -150,6 +164,7 @@ pub fn socketAddressToString(address: &std::net::SocketAddr) -> String
 pub fn urlEncode(text: &str) -> String
 {
     let mut out: String = String::new();
+
     for byte in text.bytes()
     {
         match byte
@@ -159,5 +174,6 @@ pub fn urlEncode(text: &str) -> String
             _ => out.push_str(&format!("%{byte:02X}")),
         }
     }
+
     out
 }

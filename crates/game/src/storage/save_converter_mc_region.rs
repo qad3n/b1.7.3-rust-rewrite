@@ -27,7 +27,7 @@ fn isChunkCoordinate(text: &str) -> bool
     !digits.is_empty() && digits.chars().all(isChunkNameChar)
 }
 
-pub fn chunkFilePattern(name: &str) -> Option<(String, String)>
+pub(crate) fn chunkFilePattern(name: &str) -> Option<(String, String)>
 {
     let middle: &str = name.strip_prefix("c.")?.strip_suffix(".dat")?;
     let (x, z): (&str, &str) = middle.split_once('.')?;
@@ -47,6 +47,7 @@ fn chunkFolderPattern(path: &Path) -> bool
     {
         return false;
     }
+
     let name: String = file::getName(path);
     (1..=2).contains(&name.chars().count()) && name.chars().all(isChunkNameChar)
 }
@@ -65,17 +66,19 @@ pub struct SaveConverterMcRegion
 
 impl SaveConverterMcRegion
 {
-    pub fn new(dir: &Path) -> SaveConverterMcRegion { SaveConverterMcRegion { m_base: SaveFormatOld::new(dir) } }
+    pub fn new(dir: &Path) -> Self { Self { m_base: SaveFormatOld::new(dir) } }
 
     fn collectAlphaChunkFiles(&self, dir: &Path, chunkFiles: &mut Vec<ChunkFile>, chunkDirectories: &mut Vec<PathBuf>)
     {
         for file1 in listMatching(dir, chunkFolderPattern)
         {
             chunkDirectories.push(file1.clone());
+
             for file2 in listMatching(&file1, chunkFolderPattern)
             {
                 let afile2: Vec<PathBuf> =
                     listMatching(&file2, |path| chunkFilePattern(&file::getName(path)).is_some());
+
                 for file3 in afile2
                 {
                     chunkFiles.push(ChunkFile::new(&file3));
@@ -90,6 +93,7 @@ impl SaveConverterMcRegion
             DataInputStream::new(GZIPInputStream::new(FileInputStream::open(chunkfile.getFile())?)?);
         let mut dataoutputstream: ChunkOutputStream =
             regionfile.getChunkDataOutputStream(i & REGION_MASK, j & REGION_MASK).orNpe();
+
         loop
         {
             let k: i32 = datainputstream.read(abyte)?;
@@ -97,8 +101,10 @@ impl SaveConverterMcRegion
             {
                 break;
             }
+
             dataoutputstream.writeFrom(abyte, 0, k)?;
         }
+
         dataoutputstream.close()?;
         datainputstream.m_in.close()
     }
@@ -113,7 +119,9 @@ impl SaveConverterMcRegion
     )
     {
         jvm::sort::sort(chunkFiles, &mut |a: &ChunkFile, b: &ChunkFile| a.compareTo(b));
+
         let mut abyte: Vec<u8> = vec![0; COPY_BUFFER_SIZE];
+
         for chunkfile in chunkFiles.iter()
         {
             let i: i32 = chunkfile.getChunkX();
@@ -121,7 +129,8 @@ impl SaveConverterMcRegion
             let regionfile: Rc<RegionFile> = RegionFileCache::getRegionFile(dir, i, j);
             if !regionfile.hasChunkData(i & REGION_MASK, j & REGION_MASK)
             {
-                let result: Result<IoResult<()>, Throwable> = throwable::catchThrowable(&throwable::IO, || {
+                let result: Result<IoResult<()>, Throwable> = throwable::catchThrowable(&throwable::IO, ||
+                {
                     Self::copyChunk(&regionfile, chunkfile, i, j, &mut abyte)
                 });
                 if let Err(error) = result.and_then(|inner| inner)
@@ -130,12 +139,15 @@ impl SaveConverterMcRegion
                     {
                         throwable::rethrow(error);
                     }
+
                     error.printStackTrace();
                 }
             }
+
             index += 1;
             listener.setLoadingProgress(progress(index, total));
         }
+
         RegionFileCache::flush();
     }
 
@@ -169,12 +181,14 @@ impl ISaveFormat for SaveConverterMcRegion
     fn getAll(&self) -> Vec<SaveFormatComparator>
     {
         let mut arraylist: Vec<SaveFormatComparator> = Vec::new();
+
         for file1 in file::listFiles(&self.m_base.m_dir).orNpe()
         {
             if !file::isDirectory(&file1)
             {
                 continue;
             }
+
             let s: String = file::getName(&file1);
             if let Some(worldinfo) = self.getData(&s)
             {
@@ -197,6 +211,7 @@ impl ISaveFormat for SaveConverterMcRegion
                 ));
             }
         }
+
         arraylist
     }
 
@@ -216,34 +231,44 @@ impl ISaveFormat for SaveConverterMcRegion
     fn convertMapFormat(&self, saveName: &str, listener: &dyn IProgressUpdate) -> bool
     {
         listener.setLoadingProgress(0);
+
         let mut arraylist: Vec<ChunkFile> = Vec::new();
         let mut arraylist1: Vec<PathBuf> = Vec::new();
         let mut arraylist2: Vec<ChunkFile> = Vec::new();
         let mut arraylist3: Vec<PathBuf> = Vec::new();
         let file1: PathBuf = self.m_base.m_dir.join(saveName);
         let file2: PathBuf = file1.join("DIM-1");
+
         info!("Scanning folders...");
         self.collectAlphaChunkFiles(&file1, &mut arraylist, &mut arraylist1);
+
         if file::exists(&file2)
         {
             self.collectAlphaChunkFiles(&file2, &mut arraylist2, &mut arraylist3);
         }
+
         let i: i32 = (arraylist.len() + arraylist2.len() + arraylist1.len() + arraylist3.len()) as i32;
         info!("Total conversion count is {i}");
+
         let size: i32 = arraylist.len() as i32;
         let size2: i32 = arraylist2.len() as i32;
         let size1: i32 = arraylist1.len() as i32;
+
         self.convertAlphaChunksToRegions(&file1, &mut arraylist, 0, i, listener);
         self.convertAlphaChunksToRegions(&file2, &mut arraylist2, size, i, listener);
+
         let worldinfo: Rc<WorldInfo> = self.getData(saveName).orNpe();
         worldinfo.setSaveVersion(MC_REGION_VERSION);
+
         let isavehandler: Rc<dyn ISaveHandler> = self.getSaveLoader(saveName, false);
         isavehandler.saveWorldInfo(&worldinfo);
         self.deleteAlphaChunkFiles(&arraylist1, size + size2, i, listener);
+
         if file::exists(&file2)
         {
             self.deleteAlphaChunkFiles(&arraylist3, size + size2 + size1, i, listener);
         }
+
         true
     }
 }

@@ -1,7 +1,10 @@
 use crate::state;
+use crate::state::ModRuntime;
 use mod_protocol::abi::{GuestCall, GuestReply, Handle, Permission, Sender};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::BTreeMap;
+use std::rc::Rc;
+use std::str::SplitWhitespace;
 
 #[derive(Clone)]
 pub struct Command
@@ -12,7 +15,8 @@ pub struct Command
     pub m_usage: String,
 }
 
-thread_local! {
+thread_local!
+{
     static COMMANDS: RefCell<BTreeMap<String, Command>> = const { RefCell::new(BTreeMap::new()) };
 }
 
@@ -48,14 +52,18 @@ pub fn register(
 {
     let owner: String = state::modId(modIndex);
     let command: Command = Command { m_mod: modIndex, m_handler: handler, m_permission: permission, m_usage: usage };
-    COMMANDS.with(|commands| {
-        let mut commands = commands.borrow_mut();
+
+    COMMANDS.with(|commands|
+    {
+        let mut commands: RefMut<BTreeMap<String, crate::commands::Command>> = commands.borrow_mut();
         let qualified: String = format!("{owner}:{name}");
         if commands.contains_key(&qualified)
         {
             return Err(format!("/{qualified} is registered twice"));
         }
+
         commands.insert(qualified.clone(), command.clone());
+
         // only a server has vanilla commands, single player runs mod commands on the client
         if VANILLA.contains(&name) && !crate::side::isClient()
         {
@@ -75,7 +83,8 @@ pub fn register(
 
 pub fn names() -> Vec<(String, String)>
 {
-    COMMANDS.with(|commands| {
+    COMMANDS.with(|commands|
+    {
         commands.borrow().iter().map(|(name, command)| (name.clone(), command.m_usage.clone())).collect()
     })
 }
@@ -93,26 +102,29 @@ fn allowed(command: &Command, sender: &Sender) -> bool
 // the line without its slash, Some(reply) when a mod command handled it
 pub fn execute(line: &str, sender: Sender) -> Option<String>
 {
-    let mut parts = line.split_whitespace();
+    let mut parts: SplitWhitespace = line.split_whitespace();
     let name: &str = parts.next()?;
     if name == crate::devtools::COMMAND
     {
         let args: Vec<String> = parts.map(str::to_owned).collect();
         return Some(crate::devtools::execute(&args, &sender));
     }
+
     let command: Command = COMMANDS.with(|commands| commands.borrow().get(name).cloned())?;
     if !allowed(&command, &sender)
     {
         return Some(format!("\u{a7}cYou do not have permission to use /{name}"));
     }
+
     let args: Vec<String> = parts.map(str::to_owned).collect();
-    let runtime = state::modAt(command.m_mod)?;
+    let runtime: Rc<ModRuntime> = state::modAt(command.m_mod)?;
     match runtime.call(&GuestCall::Command { handler: command.m_handler, sender, args })
     {
         Some(GuestReply::Bytes(text)) =>
         {
             Some(String::from_utf8_lossy(&text).into_owned()).filter(|text| !text.is_empty())
         }
+
         Some(_) => Some(String::new()),
         None => Some(format!("\u{a7}cUsage: /{name} {}", command.m_usage)),
     }

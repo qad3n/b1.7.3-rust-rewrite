@@ -4,7 +4,8 @@ use crate::network::packets::Packet250ModPayload;
 // java monitors and null stream errors come from port
 use crate::port::network::{lock, npeError};
 use jvm::debug;
-use jvm::io::{
+use jvm::io::
+{
     BufferedOutputStream, DataInputStream, DataOutputStream, InputStream, IoResult, OutputStream, fromStd, ioError,
 };
 use jvm::string::JString;
@@ -67,6 +68,7 @@ impl SocketInputStream
                 Err(error) => return Err(socketError(&error)),
             }
         }
+
         Ok(true)
     }
 
@@ -170,6 +172,7 @@ impl OutputStream for SocketOutputStream
             let frame: Vec<u8> = sealer.seal(chunk).map_err(cipherError)?;
             self.m_socket.write_all(&frame).map_err(|error| socketError(&error))?;
         }
+
         Ok(())
     }
 
@@ -189,10 +192,10 @@ struct ThreadCount(&'static AtomicI32);
 
 impl ThreadCount
 {
-    fn enter(counter: &'static AtomicI32) -> ThreadCount
+    fn enter(counter: &'static AtomicI32) -> Self
     {
         counter.fetch_add(1, Ordering::Relaxed);
-        ThreadCount(counter)
+        Self(counter)
     }
 }
 
@@ -237,6 +240,7 @@ impl Shared
     fn readLoop(&self)
     {
         let _count: ThreadCount = ThreadCount::enter(&NUM_READ_THREADS);
+
         while self.m_isRunning.load(Ordering::Relaxed) && !self.m_isServerTerminating.load(Ordering::Relaxed)
         {
             while self.readPacket()
@@ -248,11 +252,13 @@ impl Shared
     fn writeLoop(&self)
     {
         let _count: ThreadCount = ThreadCount::enter(&NUM_WRITE_THREADS);
+
         while self.m_isRunning.load(Ordering::Relaxed)
         {
             while self.sendPacket()
             {}
             std::thread::park_timeout(Duration::from_millis(100));
+
             let flushed: IoResult<()> = match lock(&self.m_socketOutputStream).as_mut()
             {
                 None => continue,
@@ -264,6 +270,7 @@ impl Shared
                 {
                     self.onNetworkError(&ex2);
                 }
+
                 ex2.printStackTrace();
             }
         }
@@ -291,10 +298,12 @@ impl Shared
             let mut guard: std::sync::MutexGuard<'_, Option<PacketOutput>> = lock(&self.m_socketOutputStream);
             let output: &mut PacketOutput = guard.as_mut().ok_or_else(npeError)?;
             packet::writePacket(packet, output)?;
+
             if Packet250ModPayload::secureMarker(packet)
             {
                 // the marker leaves in plain text and every byte after it is sealed
                 output.flush()?;
+
                 let sealer: auth::Sealer =
                     lock(&self.m_armedSeal).take().ok_or_else(|| ioError(&IO, "secure marker sent without keys"))?;
                 *lock(&self.m_seal) = Some(sealer);
@@ -308,12 +317,14 @@ impl Shared
     fn sendQueuedPackets(&self) -> IoResult<bool>
     {
         let mut b: bool = false;
+
         if self.isDue(&self.m_dataPackets)
         {
             let packet: Box<dyn Packet> = self.dequeue(&self.m_dataPackets);
             self.writeQueued(packet.as_ref())?;
             b = true;
         }
+
         if self.m_delay.fetch_sub(1, Ordering::Relaxed) <= 0 && self.isDue(&self.m_chunkDataPackets)
         {
             let packet: Box<dyn Packet> = self.dequeue(&self.m_chunkDataPackets);
@@ -321,6 +332,7 @@ impl Shared
             self.m_delay.store(0, Ordering::Relaxed);
             b = true;
         }
+
         Ok(b)
     }
 
@@ -329,12 +341,14 @@ impl Shared
         match catchThrowable(&EXCEPTION, || self.sendQueuedPackets()).and_then(|result| result)
         {
             Ok(b) => b,
+
             Err(exception) =>
             {
                 if !self.m_isTerminating.load(Ordering::Relaxed)
                 {
                     self.onNetworkError(&exception);
                 }
+
                 false
             }
         }
@@ -342,7 +356,8 @@ impl Shared
 
     fn readOnePacket(&self) -> IoResult<bool>
     {
-        let packet: Option<Box<dyn Packet>> = {
+        let packet: Option<Box<dyn Packet>> =
+        {
             let mut guard: std::sync::MutexGuard<'_, Option<PacketInput>> = lock(&self.m_socketInputStream);
             let input: &mut PacketInput = guard.as_mut().ok_or_else(npeError)?;
             packet::readPacket(input, self.m_isServerHandler)?
@@ -359,10 +374,12 @@ impl Shared
                     *lock(&self.m_open) = Some(opener);
                     self.m_readSecure.store(true, Ordering::Release);
                 }
+
                 TOTAL_READ_SIZE[packet.getPacketId() as usize].fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
                 lock(&self.m_readPackets).push(packet);
                 Ok(true)
             }
+
             None =>
             {
                 self.networkShutdown("disconnect.endOfStream", Vec::new());
@@ -376,12 +393,14 @@ impl Shared
         match catchThrowable(&EXCEPTION, || self.readOnePacket()).and_then(|result| result)
         {
             Ok(b) => b,
+
             Err(exception) =>
             {
                 if !self.m_isTerminating.load(Ordering::Relaxed)
                 {
                     self.onNetworkError(&exception);
                 }
+
                 false
             }
         }
@@ -402,6 +421,7 @@ impl Shared
         {
             thread.thread().unpark();
         }
+
         if let Some(thread) = self.m_writeThread.get()
         {
             thread.thread().unpark();
@@ -414,24 +434,29 @@ impl Shared
         {
             return;
         }
+
         self.m_isTerminating.store(true, Ordering::Relaxed);
         *lock(&self.m_terminationReason) = JString::from(reason);
         *lock(&self.m_disconnectReasonArgs) = args;
         // rust has no Thread.stop so the killer thread only consumes its name
         jvm::thread::nextName();
         self.m_isRunning.store(false, Ordering::Relaxed);
+
         let detail: Vec<String> = lock(&self.m_disconnectReasonArgs).iter().map(JString::to_string).collect();
         debug!("Connection with {} closed: {reason} {}", self.remoteAddress(), detail.join(", "));
+
         if let Some(socket) = lock(&self.m_networkSocket).as_ref()
             && socket.shutdown(Shutdown::Both).is_ok()
         {
             lock(&self.m_socketInputStream).take();
         }
+
         let mut output: std::sync::MutexGuard<'_, Option<PacketOutput>> = lock(&self.m_socketOutputStream);
         if output.as_mut().is_some_and(|stream| stream.close().is_ok())
         {
             output.take();
         }
+
         drop(output);
         lock(&self.m_networkSocket).take();
     }
@@ -460,29 +485,36 @@ impl NetworkManager
         name: &str,
         listener: Weak<dyn NetHandler>,
         isServerHandler: bool,
-    ) -> IoResult<Rc<NetworkManager>>
+    ) -> IoResult<Rc<Self>>
     {
         if let Err(ex) = socket.set_read_timeout(Some(Duration::from_millis(30000)))
         {
             jvm::system::errPrintln(&ex.to_string());
         }
+
         let remoteSocketAddress: Option<std::net::SocketAddr> = socket.peer_addr().ok();
         let open: Slot<auth::Opener> = Arc::new(Mutex::new(None));
         let seal: Slot<auth::Sealer> = Arc::new(Mutex::new(None));
-        let input: Box<dyn InputStream + Send> = Box::new(SocketInputStream {
+
+        let input: Box<dyn InputStream + Send> = Box::new(SocketInputStream
+        {
             m_socket: socket.try_clone().map_err(|error| fromStd(&error))?,
             m_open: Arc::clone(&open),
             m_plain: Vec::new(),
             m_pos: 0,
         });
+
         let output: Box<dyn OutputStream + Send> = Box::new(BufferedOutputStream::new(
-            SocketOutputStream {
+            SocketOutputStream
+            {
                 m_socket: socket.try_clone().map_err(|error| fromStd(&error))?,
                 m_seal: Arc::clone(&seal),
             },
             5120,
         ));
-        let shared: Arc<Shared> = Arc::new(Shared {
+
+        let shared: Arc<Shared> = Arc::new(Shared
+        {
             m_sendQueueLock: Mutex::new(()),
             m_networkSocket: Mutex::new(Some(socket)),
             m_socketInputStream: Mutex::new(Some(DataInputStream::new(input))),
@@ -517,15 +549,13 @@ impl NetworkManager
         let writeThread: JoinHandle<()> =
             jvm::thread::start(JString::from(format!("{name} write thread").as_str()), move || writer.writeLoop())
                 .map_err(|error| fromStd(&error))?;
+
         if shared.m_readThread.set(readThread).is_err() || shared.m_writeThread.set(writeThread).is_err()
         {
             unreachable!("the threads are stored once");
         }
-        Ok(Rc::new(NetworkManager {
-            m_shared: shared,
-            m_netHandler: RefCell::new(listener),
-            m_timeSinceLastRead: Cell::new(0),
-        }))
+
+        Ok(Rc::new(Self { m_shared: shared, m_netHandler: RefCell::new(listener), m_timeSinceLastRead: Cell::new(0) }))
     }
 
     fn netHandler(&self) -> Rc<dyn NetHandler>
@@ -547,8 +577,11 @@ impl NetworkManager
         {
             return;
         }
+
         let _guard: std::sync::MutexGuard<'_, ()> = lock(&shared.m_sendQueueLock);
+
         shared.m_sendQueueByteLength.fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
+
         if packet.base().m_isChunkDataPacket
         {
             lock(&shared.m_chunkDataPackets).push(packet);
@@ -570,10 +603,12 @@ impl NetworkManager
         {
             self.networkShutdown("disconnect.overflow", Vec::new());
         }
+
         if lock(&shared.m_readPackets).is_empty()
         {
             let timeSinceLastRead: i32 = self.m_timeSinceLastRead.get();
             self.m_timeSinceLastRead.set(timeSinceLastRead + 1);
+
             if timeSinceLastRead == 1200
             {
                 self.networkShutdown("disconnect.timeout", Vec::new());
@@ -584,6 +619,7 @@ impl NetworkManager
             self.m_timeSinceLastRead.set(0);
         }
         let mut n: i32 = 100;
+
         loop
         {
             if lock(&shared.m_readPackets).is_empty()
@@ -591,21 +627,27 @@ impl NetworkManager
                 break;
             }
             let current: i32 = n;
+
             n -= 1;
+
             if current < 0
             {
                 break;
             }
+
             // rewrite: packets queued behind a shutdown are dropped, a refused login would run world packets with no world
             if shared.m_isTerminating.load(Ordering::Relaxed)
             {
                 lock(&shared.m_readPackets).clear();
                 break;
             }
+
             let packet: Box<dyn Packet> = lock(&shared.m_readPackets).remove(0);
             packet.processPacket(self.netHandler().as_ref());
         }
+
         self.wakeThreads();
+
         if shared.m_isTerminating.load(Ordering::Relaxed) && lock(&shared.m_readPackets).is_empty()
         {
             let reason: JString = lock(&shared.m_terminationReason).clone();
@@ -636,21 +678,28 @@ impl NetworkManager
     pub fn close(&self)
     {
         self.wakeThreads();
+
         let shared: &Arc<Shared> = &self.m_shared;
         shared.m_isServerTerminating.store(true, Ordering::Relaxed);
+
         if let Some(thread) = shared.m_readThread.get()
         {
             thread.thread().unpark();
         }
+
         let closer: Arc<Shared> = Arc::clone(shared);
-        let started: std::io::Result<JoinHandle<()>> = jvm::thread::start(jvm::thread::nextName(), move || {
+
+        let started: std::io::Result<JoinHandle<()>> = jvm::thread::start(jvm::thread::nextName(), move ||
+        {
             std::thread::sleep(Duration::from_millis(2000));
+
             if closer.m_isRunning.load(Ordering::Relaxed)
             {
                 if let Some(thread) = closer.m_writeThread.get()
                 {
                     thread.thread().unpark();
                 }
+
                 closer.networkShutdown("disconnect.closed", Vec::new());
             }
         });

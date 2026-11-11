@@ -1,7 +1,7 @@
 use crate::entity::Entity;
 use common::nbt::{NBTBase, NBTTagCompound, NBTTagList};
 use jvm::string::JString;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 
 const NBT_KEY: &str = "Attributes";
@@ -57,10 +57,7 @@ impl Attribute
 {
     pub fn name(self) -> &'static str { ROWS.iter().find(|row| row.m_attribute == self).map_or("", |row| row.m_name) }
 
-    pub fn byName(name: &str) -> Option<Attribute>
-    {
-        ROWS.iter().find(|row| row.m_name == name).map(|row| row.m_attribute)
-    }
+    pub fn byName(name: &str) -> Option<Self> { ROWS.iter().find(|row| row.m_name == name).map(|row| row.m_attribute) }
 }
 
 impl Operation
@@ -70,7 +67,7 @@ impl Operation
         OPERATIONS.iter().find(|row| row.m_operation == self).map_or("", |row| row.m_name)
     }
 
-    pub fn byName(name: &str) -> Option<Operation>
+    pub fn byName(name: &str) -> Option<Self>
     {
         OPERATIONS.iter().find(|row| row.m_name == name).map(|row| row.m_operation)
     }
@@ -114,13 +111,14 @@ impl Attributes
     // adds, below, base multipliers, then total multipliers, as later versions apply them
     pub fn apply(&self, attribute: Attribute, base: f64) -> f64
     {
-        let modifiers = self.m_modifiers.borrow();
+        let modifiers: Ref<Vec<Modifier>> = self.m_modifiers.borrow();
         if !modifiers.iter().any(|modifier| modifier.m_attribute == attribute)
         {
             return base;
         }
 
-        let of = |operation: Operation| {
+        let of = |operation: Operation|
+        {
             modifiers
                 .iter()
                 .filter(move |modifier| modifier.m_attribute == attribute && modifier.m_operation == operation)
@@ -134,7 +132,7 @@ impl Attributes
     // a modifier with the same attribute and id replaces the old one
     pub fn set(&self, modifier: Modifier)
     {
-        let mut modifiers = self.m_modifiers.borrow_mut();
+        let mut modifiers: RefMut<Vec<Modifier>> = self.m_modifiers.borrow_mut();
         modifiers.retain(|old| !(old.m_attribute == modifier.m_attribute && old.m_id == modifier.m_id));
         modifiers.push(modifier);
     }
@@ -155,6 +153,7 @@ impl Attributes
         }
 
         let list: Rc<NBTBase> = NBTTagList::create();
+
         for modifier in self.m_modifiers.borrow().iter()
         {
             let entry: Rc<NBTBase> = NBTTagCompound::create();
@@ -164,6 +163,7 @@ impl Attributes
             entry.compound().setString("Operation", Some(JString::from(modifier.m_operation.name())));
             list.list().setTag(entry);
         }
+
         nbt.setTag(NBT_KEY, &list);
     }
 
@@ -178,6 +178,7 @@ impl Attributes
         let text =
             |entry: &NBTTagCompound, key: &str| entry.getString(key).map(|value| value.to_string()).unwrap_or_default();
         let mut modifiers: Vec<Modifier> = Vec::new();
+
         for i in 0..list.list().tagCount()
         {
             let tag: Rc<NBTBase> = list.list().tagAt(i);
@@ -188,13 +189,16 @@ impl Attributes
             {
                 continue;
             };
-            modifiers.push(Modifier {
+
+            modifiers.push(Modifier
+            {
                 m_attribute: attribute,
                 m_id: text(entry, "Id"),
                 m_amount: entry.getDouble("Amount"),
                 m_operation: operation,
             });
         }
+
         self.replace(modifiers);
     }
 }

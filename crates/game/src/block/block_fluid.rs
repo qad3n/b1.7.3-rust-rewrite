@@ -22,6 +22,7 @@ pub fn getFlowDecay(this: &Block, world: &World, x: i32, y: i32, z: i32) -> i32
     {
         return -1;
     }
+
     world.getBlockMetadata(x, y, z)
 }
 
@@ -31,6 +32,7 @@ pub fn getEffectiveFlowDecay(this: &Block, world: &dyn IBlockAccess, x: i32, y: 
     {
         return -1;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     if n >= 8 { 0 } else { n }
 }
@@ -46,6 +48,7 @@ fn getIsBlockSolid(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z
     {
         return true;
     }
+
     (BLOCK.getIsBlockSolid)(this, world, x, y, z, face)
 }
 
@@ -60,6 +63,7 @@ fn shouldSideBeRendered(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i
     {
         return true;
     }
+
     (BLOCK.shouldSideBeRendered)(this, world, x, y, z, face)
 }
 
@@ -67,23 +71,28 @@ fn getFlowVector(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: 
 {
     let mut vec3D: Rc<Vec3D> = Vec3D::createVector(0.0, 0.0, 0.0);
     let n2: i32 = getEffectiveFlowDecay(this, world, x, y, z);
+
     for n in 0..4
     {
         let mut n5: i32 = x;
         let n6: i32 = y;
         let mut n7: i32 = z;
+
         if n == 0
         {
             n5 -= 1;
         }
+
         if n == 1
         {
             n7 -= 1;
         }
+
         if n == 2
         {
             n5 += 1;
         }
+
         if n == 3
         {
             n7 += 1;
@@ -96,11 +105,13 @@ fn getFlowVector(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: 
             {
                 continue;
             }
+
             n4 = getEffectiveFlowDecay(this, world, n5, n6 - 1, n7);
             if n4 < 0
             {
                 continue;
             }
+
             let n3: i32 = n4 - (n2 - 8);
             vec3D = vec3D.addVector(((n5 - x) * n3) as f64, ((n6 - y) * n3) as f64, ((n7 - z) * n3) as f64);
             continue;
@@ -122,7 +133,9 @@ fn getFlowVector(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: 
             (x - 1, y + 1, z, 4),
             (x + 1, y + 1, z, 5),
         ];
+
         let mut n: bool = false;
+
         for (cx, cy, cz, face) in checks
         {
             if n || this.getIsBlockSolid(world, cx, cy, cz, face)
@@ -130,11 +143,13 @@ fn getFlowVector(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: 
                 n = true;
             }
         }
+
         if n
         {
             vec3D = vec3D.normalize().addVector(0.0, -6.0, 0.0);
         }
     }
+
     vec3D.normalize()
 }
 
@@ -207,6 +222,7 @@ pub fn getFlowAngle(world: &dyn IBlockAccess, x: i32, y: i32, z: i32, material: 
     {
         return -1000.0;
     }
+
     jvm::math::atan2(vec3D.z(), vec3D.x()) - 1.5707963267948966
 }
 
@@ -216,8 +232,10 @@ fn checkForHarden(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return;
     }
+
     let water: Rc<Material> = Material::water();
     let mut bl: bool = false;
+
     for (cx, cy, cz) in [(x, y, z - 1), (x, y, z + 1), (x - 1, y, z), (x + 1, y, z), (x, y + 1, z)]
     {
         if bl || is(&world.getBlockMaterial(cx, cy, cz), &water)
@@ -225,6 +243,7 @@ fn checkForHarden(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
             bl = true;
         }
     }
+
     if bl
     {
         let n: i32 = world.getBlockMetadata(x, y, z);
@@ -251,6 +270,7 @@ pub fn triggerLavaMixEffects(world: &Rc<World>, x: i32, y: i32, z: i32)
         0.5,
         pitch,
     );
+
     for _ in 0..8
     {
         let dx: f64 = x as f64 + jvm::math::random();
@@ -259,11 +279,13 @@ pub fn triggerLavaMixEffects(world: &Rc<World>, x: i32, y: i32, z: i32)
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockFluid",
     m_parent: Some(&BLOCK),
     colorMultiplier: |_, _, _, _, _| 0xFFFFFF,
-    getBlockTextureFromSide: |this, face| {
+    getBlockTextureFromSide: |this, face|
+    {
         if face == 0 || face == 1
         {
             this.m_blockIndexInTexture.get()
@@ -286,7 +308,8 @@ pub const CLASS: BlockClass = BlockClass {
     tickRate,
     getBlockBrightness,
     updateTick: |this, world, x, y, z, random| (BLOCK.updateTick)(this, world, x, y, z, random),
-    getRenderBlockPass: |this| {
+    getRenderBlockPass: |this|
+    {
         if fluidOf(this).m_style == FluidStyle::Water
         {
             1

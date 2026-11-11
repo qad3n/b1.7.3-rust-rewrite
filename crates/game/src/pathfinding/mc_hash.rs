@@ -29,11 +29,13 @@ impl<V: Clone> MCHash<V>
     {
         let entries: &mut Entries<V> = self.m_slots.get_mut(&key)?;
         let value: V = entries.m_value.clone();
+
         entries.m_count -= 1;
         if entries.m_count == 0
         {
             self.m_slots.remove(&key);
         }
+
         Some(value)
     }
 

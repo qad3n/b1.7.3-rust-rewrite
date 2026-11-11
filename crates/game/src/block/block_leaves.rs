@@ -7,6 +7,7 @@ use crate::tags::{self, Tag};
 use crate::world::{IBlockAccess, World};
 use crate::worldgen::ColorizerFoliage;
 use jvm::random::Random;
+use std::cell::RefMut;
 use std::rc::Rc;
 
 fn ext(this: &Block) -> &LeavesExt { this.ext::<LeavesExt>() }
@@ -21,6 +22,7 @@ fn getRenderColor(_this: &Rc<Block>, metadata: i32) -> i32
     {
         return ColorizerFoliage::getFoliageColorBirch();
     }
+
     ColorizerFoliage::getDefaultColor()
 }
 
@@ -35,7 +37,9 @@ fn colorMultiplier(_this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, 
     {
         return ColorizerFoliage::getFoliageColorBirch();
     }
+
     world.getWorldChunkManager().getBiomes(x, z, 1, 1);
+
     let d: f64 = world.getWorldChunkManager().temperature(0);
     let d2: f64 = world.getWorldChunkManager().humidity(0);
     ColorizerFoliage::getFoliageColor(d, d2)
@@ -49,6 +53,7 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return;
     }
+
     for j in -b0..=b0
     {
         for k in -b0..=b0
@@ -84,9 +89,10 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     let n5: i32 = 32;
     let n6: i32 = n5 * n5;
     let n7: i32 = n5 / 2;
-    let mut cells = ext(this).m_adjacentTreeBlocks.borrow_mut();
+    let mut cells: RefMut<Option<Vec<i32>>> = ext(this).m_adjacentTreeBlocks.borrow_mut();
     let blocks: &mut Vec<i32> = cells.get_or_insert_with(|| vec![0; (n5 * n5 * n5) as usize]);
     let at = |a: i32, b: i32, c: i32| -> usize { ((a + n7) * n6 + (b + n7) * n5 + (c + n7)) as usize };
+
     if world.checkChunksExist(x - n4, y - n4, z - n4, x + n4, y + n4, z + n4)
     {
         for n2 in -n3..=n3
@@ -112,6 +118,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
                 }
             }
         }
+
         for n2 in 1..=4
         {
             for n10 in -n3..=n3
@@ -124,6 +131,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
                         {
                             continue;
                         }
+
                         for (a, b, c) in [
                             (n10 - 1, n9, n8),
                             (n10 + 1, n9, n8),
@@ -145,7 +153,9 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     }
 
     let n2: i32 = blocks[(n7 * n6 + n7 * n5 + n7) as usize];
+
     drop(cells);
+
     if n2 >= 0
     {
         world.setBlockMetadata(x, y, z, n & 0xFFFFFFF7u32 as i32);
@@ -161,6 +171,7 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
 {
     let shears: bool = crate::entity::entity_player::getCurrentEquippedItem(player)
         .is_some_and(|stack| stack.m_itemID.get() == Item::shears().m_shiftedIndex);
+
     if !world.m_multiplayerWorld.get() && shears
     {
         crate::stats::named::count(player, ContentStat::Mined, this.m_blockID, 1);
@@ -178,7 +189,8 @@ pub fn setGraphicsLevel(this: &Block, culling: bool)
     this.m_blockIndexInTexture.set(ext(this).m_baseIndexInPNG.get() + if culling { 0 } else { 1 });
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockLeaves",
     m_parent: Some(&block_leaves_base::CLASS),
     getRenderColor,
@@ -190,7 +202,8 @@ pub const CLASS: BlockClass = BlockClass {
     harvestBlock,
     damageDropped: |_, metadata| metadata & 3,
     isOpaqueCube: |this| !ext(this).m_graphicsLevel.get(),
-    getBlockTextureFromSideAndMetadata: |this, _, metadata| {
+    getBlockTextureFromSideAndMetadata: |this, _, metadata|
+    {
         if (metadata & 3) == 1
         {
             this.m_blockIndexInTexture.get() + 80
@@ -200,7 +213,9 @@ pub const CLASS: BlockClass = BlockClass {
             this.m_blockIndexInTexture.get()
         }
     },
-    onEntityWalking: |this, world, x, y, z, entity| {
+
+    onEntityWalking: |this, world, x, y, z, entity|
+    {
         (block_leaves_base::CLASS.onEntityWalking)(this, world, x, y, z, entity)
     },
     ..block_leaves_base::CLASS

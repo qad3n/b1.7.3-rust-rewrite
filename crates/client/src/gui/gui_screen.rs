@@ -11,8 +11,10 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
-game::vtable! {
-    GuiScreenClass for GuiScreen {
+game::vtable!
+{
+    GuiScreenClass for GuiScreen
+    {
         fn actionPerformed(button: &Rc<GuiButton>);
         fn deleteWorld(result: bool, id: i32);
         fn doesGuiPauseGame() -> bool;
@@ -38,7 +40,7 @@ pub struct GuiScreen
 {
     pub m_class: &'static GuiScreenClass,
     m_ext: Box<dyn Any>,
-    m_this: Weak<GuiScreen>,
+    m_this: Weak<Self>,
     pub m_gui: Gui,
     pub m_mc: Field<Option<Rc<Minecraft>>>,
     pub m_width: Cell<i32>,
@@ -50,7 +52,8 @@ pub struct GuiScreen
     m_selectedButton: Field<Option<Rc<GuiButton>>>,
 }
 
-pub const GUI_SCREEN: GuiScreenClass = GuiScreenClass {
+pub const GUI_SCREEN: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiScreen",
     m_parent: None,
     m_interfaces: &[],
@@ -59,15 +62,18 @@ pub const GUI_SCREEN: GuiScreenClass = GuiScreenClass {
     doesGuiPauseGame: |_| true,
     drawGuiContainerBackgroundLayer: |_, _| abstractMethod("drawGuiContainerBackgroundLayer"),
     drawGuiContainerForegroundLayer: |_| abstractMethod("drawGuiContainerForegroundLayer"),
-    drawScreen: |this, mouseX, mouseY, _| {
+    drawScreen: |this, mouseX, mouseY, _|
+    {
         let mc: Rc<Minecraft> = this.mc();
+
         for i in 0..this.m_controlList.size()
         {
             this.m_controlList.get(i).drawButton(&mc, mouseX, mouseY);
         }
     },
     initGui: |_| {},
-    keyTyped: |this, _, key| {
+    keyTyped: |this, _, key|
+    {
         if key == 1
         {
             let mc: Rc<Minecraft> = this.mc();
@@ -75,11 +81,14 @@ pub const GUI_SCREEN: GuiScreenClass = GuiScreenClass {
             mc.setIngameFocus();
         }
     },
-    mouseClicked: |this, mouseX, mouseY, button| {
+
+    mouseClicked: |this, mouseX, mouseY, button|
+    {
         if button != 0
         {
             return;
         }
+
         let mc: Rc<Minecraft> = this.mc();
         let mut i: i32 = 0;
         while i < this.m_controlList.size()
@@ -97,10 +106,13 @@ pub const GUI_SCREEN: GuiScreenClass = GuiScreenClass {
                 mc.m_sndManager.get().orNpe().playSoundFX("random.click", 1.0, 1.0);
                 this.actionPerformed(&guibutton);
             }
+
             i += 1;
         }
     },
-    mouseMovedOrUp: |this, mouseX, mouseY, button| {
+
+    mouseMovedOrUp: |this, mouseX, mouseY, button|
+    {
         if let Some(selected) = this.m_selectedButton.get()
             && button == 0
         {
@@ -115,9 +127,10 @@ pub const GUI_SCREEN: GuiScreenClass = GuiScreenClass {
 
 impl GuiScreen
 {
-    pub fn construct(class: &'static GuiScreenClass, ext: Box<dyn Any>) -> Rc<GuiScreen>
+    pub fn construct(class: &'static GuiScreenClass, ext: Box<dyn Any>) -> Rc<Self>
     {
-        Rc::new_cyclic(|this: &Weak<GuiScreen>| GuiScreen {
+        Rc::new_cyclic(|this: &Weak<Self>| Self
+        {
             m_class: class,
             m_ext: ext,
             m_this: this.clone(),
@@ -133,11 +146,11 @@ impl GuiScreen
         })
     }
 
-    pub fn new() -> Rc<GuiScreen> { GuiScreen::construct(&GUI_SCREEN, Box::new(())) }
+    pub fn new() -> Rc<Self> { Self::construct(&GUI_SCREEN, Box::new(())) }
 
     pub fn ext<T: 'static>(&self) -> &T { self.m_ext.downcast_ref::<T>().expect("screen ext matches its class") }
 
-    pub fn rc(&self) -> Rc<GuiScreen> { self.m_this.upgrade().orNpe() }
+    pub fn rc(&self) -> Rc<Self> { self.m_this.upgrade().orNpe() }
 
     pub fn mc(&self) -> Rc<Minecraft> { self.m_mc.get().orNpe() }
 
@@ -162,6 +175,7 @@ impl GuiScreen
         {
             self.handleMouseInput();
         }
+
         while Keyboard::next()
         {
             self.handleKeyboardInput();
@@ -173,6 +187,7 @@ impl GuiScreen
         let mc: Rc<Minecraft> = self.mc();
         let n: i32 = Mouse::getEventX() * self.m_width.get() / mc.m_displayWidth.get();
         let n2: i32 = self.m_height.get() - Mouse::getEventY() * self.m_height.get() / mc.m_displayHeight.get() - 1;
+
         if Mouse::getEventButtonState()
         {
             self.mouseClicked(n, n2, Mouse::getEventButton());
@@ -192,6 +207,7 @@ impl GuiScreen
                 self.mc().toggleFullscreen();
                 return;
             }
+
             self.keyTyped(Keyboard::getEventCharacter(), Keyboard::getEventKey());
         }
     }
@@ -214,12 +230,16 @@ impl GuiScreen
     {
         GL11::glDisable(2896);
         GL11::glDisable(2912);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glBindTexture(3553, self.mc().m_renderEngine.get().orNpe().getTexture("/gui/background.png"));
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
         let f: f32 = 32.0;
         let (width, height): (i32, i32) = (self.m_width.get(), self.m_height.get());
         let bottom: f64 = (height as f32 / f + offset as f32) as f64;
+
         tessellator.startDrawingQuads();
         tessellator.setColorOpaque_I(0x404040);
         tessellator.addVertexWithUV(0.0, height as f64, 0.0, 0.0, bottom);

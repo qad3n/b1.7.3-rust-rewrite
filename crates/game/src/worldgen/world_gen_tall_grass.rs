@@ -13,10 +13,7 @@ pub struct WorldGenTallGrass
 
 impl WorldGenTallGrass
 {
-    pub fn new(plant: i32, variant: i32) -> WorldGenTallGrass
-    {
-        WorldGenTallGrass { m_plant: plant, m_variant: variant }
-    }
+    pub fn new(plant: i32, variant: i32) -> Self { Self { m_plant: plant, m_variant: variant } }
 }
 
 impl WorldGenerator for WorldGenTallGrass
@@ -30,8 +27,10 @@ impl WorldGenerator for WorldGenTallGrass
             {
                 break;
             }
+
             y -= 1;
         }
+
         for _ in 0..128
         {
             let k: i32 = x + random.nextIntBounded(8) - random.nextIntBounded(8);
@@ -42,6 +41,7 @@ impl WorldGenerator for WorldGenTallGrass
                 world.setBlockAndMetadata(k, l, i1, self.m_plant, self.m_variant);
             }
         }
+
         true
     }
 }

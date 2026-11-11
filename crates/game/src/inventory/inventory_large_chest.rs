@@ -13,13 +13,9 @@ pub struct InventoryLargeChest
 
 impl InventoryLargeChest
 {
-    pub fn new(
-        name: &str,
-        inventory1: Option<Rc<dyn IInventory>>,
-        inventory2: Option<Rc<dyn IInventory>>,
-    ) -> Rc<InventoryLargeChest>
+    pub fn new(name: &str, inventory1: Option<Rc<dyn IInventory>>, inventory2: Option<Rc<dyn IInventory>>) -> Rc<Self>
     {
-        Rc::new(InventoryLargeChest { m_name: name.to_string(), m_upperChest: inventory1, m_lowerChest: inventory2 })
+        Rc::new(Self { m_name: name.to_string(), m_upperChest: inventory1, m_lowerChest: inventory2 })
     }
 
     fn upper(&self) -> &Rc<dyn IInventory> { self.m_upperChest.as_ref().orNpe() }
@@ -39,6 +35,7 @@ impl IInventory for InventoryLargeChest
         {
             return self.lower().getStackInSlot(slot - self.upper().getSizeInventory());
         }
+
         self.upper().getStackInSlot(slot)
     }
 
@@ -48,6 +45,7 @@ impl IInventory for InventoryLargeChest
         {
             return self.lower().decrStackSize(slot - self.upper().getSizeInventory(), amount);
         }
+
         self.upper().decrStackSize(slot, amount)
     }
 

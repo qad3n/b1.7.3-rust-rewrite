@@ -7,7 +7,7 @@ fn dye(size: i32, metadata: i32) -> Ingredient
     Ingredient::Stack(ItemStack::withItemDamage(&Item::dyePowder(), size, metadata))
 }
 
-pub(super) fn addRecipes(manager: &CraftingManager)
+pub(crate) fn addRecipes(manager: &CraftingManager)
 {
     for i in 0..16
     {

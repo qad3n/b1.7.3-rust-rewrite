@@ -23,12 +23,13 @@ pub struct ChunkLoader
     m_createIfNecessary: bool,
 }
 
-pub(super) fn catchException<R>(body: impl FnOnce() -> IoResult<R>) -> Option<R>
+pub(crate) fn catchException<R>(body: impl FnOnce() -> IoResult<R>) -> Option<R>
 {
     let result: Result<IoResult<R>, Throwable> = throwable::catchThrowable(&throwable::EXCEPTION, body);
     match result.and_then(|inner| inner)
     {
         Ok(value) => Some(value),
+
         Err(error) =>
         {
             error.printStackTrace();
@@ -41,10 +42,12 @@ pub(super) fn catchException<R>(body: impl FnOnce() -> IoResult<R>) -> Option<R>
 fn heightBytes(chunk: &Chunk) -> Vec<i8>
 {
     let heights: Vec<i16> = chunk.m_heightMap.get();
+
     if chunk.height() <= crate::world::HEIGHT
     {
         return heights.iter().map(|height| *height as i8).collect();
     }
+
     heights.iter().flat_map(|height| height.to_be_bytes()).map(|byte| byte as i8).collect()
 }
 
@@ -53,10 +56,12 @@ fn readHeights(bytes: &[i8]) -> Option<Vec<i16>>
     match bytes.len()
     {
         HEIGHT_MAP_SIZE => Some(bytes.iter().map(|byte| (*byte as i32 & BYTE_MASK) as i16).collect()),
+
         WIDE_HEIGHT_MAP_SIZE =>
         {
             Some(bytes.chunks(2).map(|pair| i16::from_be_bytes([pair[0] as u8, pair[1] as u8])).collect())
         }
+
         _ => None,
     }
 }
@@ -75,6 +80,7 @@ fn refit(chunk: &Chunk, data: Vec<i8>, cellsPerByte: usize) -> Vec<i8>
     {
         return data;
     }
+
     warning!(
         "Chunk {},{} was saved {} high, refitting to {}",
         chunk.m_xPosition,
@@ -82,22 +88,22 @@ fn refit(chunk: &Chunk, data: Vec<i8>, cellsPerByte: usize) -> Vec<i8>
         data.len() * cellsPerByte / columns,
         chunk.height()
     );
+
     let (from, to): (usize, usize) = (data.len() / columns, wanted / columns);
     let mut fitted: Vec<i8> = vec![0; wanted];
+
     for column in 0..columns
     {
         let len: usize = from.min(to);
         fitted[column * to..column * to + len].copy_from_slice(&data[column * from..column * from + len]);
     }
+
     fitted
 }
 
 impl ChunkLoader
 {
-    pub fn new(dir: &Path, make: bool) -> ChunkLoader
-    {
-        ChunkLoader { m_saveDir: dir.to_path_buf(), m_createIfNecessary: make }
-    }
+    pub fn new(dir: &Path, make: bool) -> Self { Self { m_saveDir: dir.to_path_buf(), m_createIfNecessary: make } }
 
     fn chunkFileForXZ(&self, chunkX: i32, chunkZ: i32) -> Option<PathBuf>
     {
@@ -111,8 +117,10 @@ impl ChunkLoader
             {
                 return None;
             }
+
             file::mkdir(&file1);
         }
+
         file1 = file1.join(s2);
         if !file::exists(&file1)
         {
@@ -120,8 +128,10 @@ impl ChunkLoader
             {
                 return None;
             }
+
             file::mkdir(&file1);
         }
+
         file1 = file1.join(s);
         if !file::exists(&file1) && !self.m_createIfNecessary
         {
@@ -139,6 +149,7 @@ impl ChunkLoader
         nbt.setInteger("xPos", chunk.m_xPosition);
         nbt.setInteger("zPos", chunk.m_zPosition);
         nbt.setLong("LastUpdate", world.getWorldTime());
+
         // rewrite: with mods loaded blocks save by name in palette sections, see block_palette
         if crate::hooks::savesBlockNames()
         {
@@ -147,11 +158,13 @@ impl ChunkLoader
         else
         {
             nbt.setByteArray("Blocks", Rc::new(chunk.m_blocks.get()));
+
             // 12-bit block ids store their high nibbles under Add, which vanilla readers ignore
             if let Some(add) = chunk.m_addBlocks.get()
             {
                 nbt.setByteArray("Add", Rc::new(add.iter().map(|byte| *byte as i8).collect()));
             }
+
             nbt.setByteArray("Data", Rc::new(chunk.data().m_data.get()));
         }
         nbt.setByteArray("SkyLight", Rc::new(chunk.skylight().m_data.get()));
@@ -159,12 +172,15 @@ impl ChunkLoader
         nbt.setByteArray("HeightMap", Rc::new(heightBytes(chunk)));
         nbt.setBoolean("TerrainPopulated", chunk.m_isTerrainPopulated.get());
         chunk.m_hasEntities.set(false);
+
         let nbttaglist: Rc<NBTBase> = NBTTagList::create();
+
         for slice in &chunk.m_entities
         {
             for entity in slice.toVec()
             {
                 chunk.m_hasEntities.set(true);
+
                 let nbttagcompound: Rc<NBTBase> = NBTTagCompound::create();
                 if entity.addEntityID(nbttagcompound.compound())
                 {
@@ -172,7 +188,9 @@ impl ChunkLoader
                 }
             }
         }
+
         nbt.setTag("Entities", &nbttaglist);
+
         let nbttaglist1: Rc<NBTBase> = NBTTagList::create();
         let tileEntities: Vec<Rc<TileEntity>> = chunk.m_chunkTileEntityMap.with(|map| map.values());
         for tileentity in tileEntities
@@ -181,6 +199,7 @@ impl ChunkLoader
             tileentity.writeToNBT(nbttagcompound1.compound());
             nbttaglist1.list().setTag(nbttagcompound1);
         }
+
         nbt.setTag("TileEntities", &nbttaglist1);
         // rewrite: per mod chunk data, absent unless a mod stored some
         common::nbt::attachments::write(&chunk.m_attachments.borrow(), nbt);
@@ -199,6 +218,7 @@ impl ChunkLoader
         let i: i32 = nbt.getInteger("xPos");
         let j: i32 = nbt.getInteger("zPos");
         let chunk: Rc<Chunk> = Chunk::new(world, i, j);
+
         // rewrite: palette sections from a modded save, read even with no mods by their saved ids
         if super::block_palette::present(nbt)
         {
@@ -207,6 +227,7 @@ impl ChunkLoader
         else
         {
             chunk.m_blocks.set(refit(&chunk, (*nbt.getByteArray("Blocks").orNpe()).clone(), 1));
+
             if nbt.hasKey("Add")
             {
                 chunk.m_addBlocks.set(
@@ -214,45 +235,57 @@ impl ChunkLoader
                         .map(|add| refit(&chunk, (*add).clone(), 2).iter().map(|byte| *byte as u8).collect()),
                 );
             }
+
             chunk.m_data.set(Some(Rc::new(NibbleArray::withData(nibbles(&chunk, nbt, "Data")))));
         }
         chunk.m_skylightMap.set(Some(Rc::new(NibbleArray::withData(nibbles(&chunk, nbt, "SkyLight")))));
         chunk.m_blocklightMap.set(Some(Rc::new(NibbleArray::withData(nibbles(&chunk, nbt, "BlockLight")))));
+
         let fits: bool = nbt.getByteArray("SkyLight").is_some_and(|light| light.len() * 2 == chunk.volume() as usize);
         let heightMap: Option<Vec<i16>> =
             nbt.getByteArray("HeightMap").and_then(|bytes| readHeights(&bytes)).filter(|_| fits);
+
         if let Some(heightMap) = &heightMap
         {
             chunk.m_heightMap.set(heightMap.clone());
         }
+
         chunk.m_isTerrainPopulated.set(nbt.getBoolean("TerrainPopulated"));
+
         let blockCount: i32 = chunk.m_blocks.with(Vec::len) as i32;
+
         if !chunk.data().isValid()
         {
             chunk.m_data.set(Some(Rc::new(NibbleArray::new(blockCount))));
         }
+
         if heightMap.is_none() || !chunk.skylight().isValid()
         {
             chunk.m_heightMap.set(vec![0; HEIGHT_MAP_SIZE]);
             chunk.m_skylightMap.set(Some(Rc::new(NibbleArray::new(blockCount))));
             chunk.populateHeightMap();
         }
+
         if !chunk.blocklight().isValid()
         {
             chunk.m_blocklightMap.set(Some(Rc::new(NibbleArray::new(blockCount))));
             chunk.populateLight();
         }
+
         let nbttaglist: Rc<NBTBase> = nbt.getTagList("Entities");
         for k in 0..nbttaglist.list().tagCount()
         {
             let nbttagcompound: Rc<NBTBase> = nbttaglist.list().tagAt(k);
             let entity: Option<Rc<Entity>> = EntityList::createEntityFromNBT(nbttagcompound.compound(), world);
+
             chunk.m_hasEntities.set(true);
+
             if let Some(entity) = entity
             {
                 chunk.addEntity(&entity);
             }
         }
+
         let nbttaglist1: Rc<NBTBase> = nbt.getTagList("TileEntities");
         for l in 0..nbttaglist1.list().tagCount()
         {
@@ -274,7 +307,7 @@ impl ChunkLoader
         chunk
     }
 
-    pub(super) fn checkChunk(world: &Rc<World>, nbt: &Rc<NBTBase>, chunkX: i32, chunkZ: i32) -> Option<Rc<Chunk>>
+    pub(crate) fn checkChunk(world: &Rc<World>, nbt: &Rc<NBTBase>, chunkX: i32, chunkZ: i32) -> Option<Rc<Chunk>>
     {
         let compound: &NBTTagCompound = nbt.compound();
         if !compound.hasKey("Level")
@@ -282,14 +315,17 @@ impl ChunkLoader
             warning!("Chunk file at {chunkX},{chunkZ} is missing level data, skipping");
             return None;
         }
+
         let level: Rc<NBTBase> = compound.getCompoundTag("Level");
         if !level.compound().hasKey("Blocks") && !super::block_palette::present(level.compound())
         {
             warning!("Chunk file at {chunkX},{chunkZ} is missing block data, skipping");
             return None;
         }
+
         let mut chunk: Rc<Chunk> =
             Self::loadChunkIntoWorldFromCompound(world, compound.getCompoundTag("Level").compound());
+
         if !chunk.isAtLocation(chunkX, chunkZ)
         {
             warning!(
@@ -301,6 +337,7 @@ impl ChunkLoader
             compound.setInteger("zPos", chunkZ);
             chunk = Self::loadChunkIntoWorldFromCompound(world, compound.getCompoundTag("Level").compound());
         }
+
         chunk.fill();
         Some(chunk)
     }
@@ -319,7 +356,9 @@ impl IChunkLoader for ChunkLoader
         {
             return Ok(None);
         }
-        let chunk: Option<Option<Rc<Chunk>>> = catchException(|| {
+
+        let chunk: Option<Option<Rc<Chunk>>> = catchException(||
+        {
             let nbttagcompound: Rc<NBTBase> = CompressedStreamTools::readCompressed(FileInputStream::open(&file1)?)?;
             Ok(Self::checkChunk(world, &nbttagcompound, chunkX, chunkZ))
         });
@@ -329,13 +368,16 @@ impl IChunkLoader for ChunkLoader
     fn saveChunk(&self, world: &Rc<World>, chunk: &Rc<Chunk>) -> IoResult<()>
     {
         world.checkSessionLock();
+
         let file1: PathBuf = self.chunkFileForXZ(chunk.m_xPosition, chunk.m_zPosition).orNpe();
         if file::exists(&file1)
         {
             let worldinfo: Rc<WorldInfo> = world.getWorldInfo();
             worldinfo.setSizeOnDisk(worldinfo.getSizeOnDisk() - file::length(&file1));
         }
-        catchException(|| {
+
+        catchException(||
+        {
             let file2: PathBuf = self.m_saveDir.join("tmp_chunk.dat");
             let fileoutputstream: FileOutputStream = FileOutputStream::create(&file2, false)?;
             let nbttagcompound: Rc<NBTBase> = NBTTagCompound::create();
@@ -343,15 +385,19 @@ impl IChunkLoader for ChunkLoader
             nbttagcompound.compound().setTag("Level", &nbttagcompound1);
             Self::storeChunkInCompound(chunk, world, nbttagcompound1.compound());
             CompressedStreamTools::writeGzippedCompoundToOutputStream(&nbttagcompound, fileoutputstream)?;
+
             if file::exists(&file1)
             {
                 file::delete(&file1);
             }
+
             file::renameTo(&file2, &file1);
+
             let worldinfo1: Rc<WorldInfo> = world.getWorldInfo();
             worldinfo1.setSizeOnDisk(worldinfo1.getSizeOnDisk() + file::length(&file1));
             Ok(())
         });
+
         Ok(())
     }
 

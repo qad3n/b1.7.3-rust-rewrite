@@ -28,6 +28,7 @@ fn getStackInSlot(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
     {
         let itemStack2: Rc<ItemStack> = slot2.getStack().orNpe();
         itemStack = Some(itemStack2.copy());
+
         if slot < rows * 9
         {
             this.moveItem(&itemStack2, rows * 9, this.m_slots.size(), true);
@@ -36,6 +37,7 @@ fn getStackInSlot(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
         {
             this.moveItem(&itemStack2, 0, rows * 9, false);
         }
+
         if itemStack2.m_stackSize.get() == 0
         {
             slot2.putStack(None);
@@ -45,10 +47,12 @@ fn getStackInSlot(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
             slot2.onSlotChanged();
         }
     }
+
     itemStack
 }
 
-pub const CLASS: ContainerClass = ContainerClass {
+pub const CLASS: ContainerClass = ContainerClass
+{
     m_name: "ContainerChest",
     m_parent: Some(&CONTAINER),
     m_interfaces: &[],
@@ -63,6 +67,7 @@ pub fn create(playerInventory: Rc<dyn IInventory>, inventory: Rc<dyn IInventory>
     let this: Rc<Container> =
         Container::construct(&CLASS, |_| Box::new(ChestExt { m_inventory: Rc::clone(&inventory), m_rows: rows }));
     let n3: i32 = (rows - 4) * 18;
+
     for n2 in 0..rows
     {
         for n in 0..9
@@ -70,6 +75,7 @@ pub fn create(playerInventory: Rc<dyn IInventory>, inventory: Rc<dyn IInventory>
             this.addSlot(Slot::new(Rc::clone(&inventory), n + n2 * 9, 8 + n * 18, 18 + n2 * 18));
         }
     }
+
     for n2 in 0..3
     {
         for n in 0..9
@@ -77,9 +83,11 @@ pub fn create(playerInventory: Rc<dyn IInventory>, inventory: Rc<dyn IInventory>
             this.addSlot(Slot::new(Rc::clone(&playerInventory), n + n2 * 9 + 9, 8 + n * 18, 103 + n2 * 18 + n3));
         }
     }
+
     for n2 in 0..9
     {
         this.addSlot(Slot::new(Rc::clone(&playerInventory), n2, 8 + n2 * 18, 161 + n3));
     }
+
     this
 }

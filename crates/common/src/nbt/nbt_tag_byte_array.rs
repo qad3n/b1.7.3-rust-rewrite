@@ -31,6 +31,7 @@ impl NBTTagByteArray
     {
         let bytes: Rc<Vec<i8>> = self.bytes();
         output.writeInt(bytes.len() as i32)?;
+
         let raw: Vec<u8> = bytes.iter().map(|&value| value as u8).collect();
         output.writeBuf(&raw)
     }
@@ -42,6 +43,7 @@ impl NBTTagByteArray
         {
             throwable::throwBare(&throwable::NEGATIVE_ARRAY_SIZE);
         }
+
         let mut raw: Vec<u8> = vec![0; n as usize];
         input.readFully(&mut raw)?;
         self.m_byteArray.set(Some(Rc::new(raw.into_iter().map(|value| value as i8).collect())));

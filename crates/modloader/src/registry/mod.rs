@@ -6,7 +6,8 @@ use mod_protocol::Identifier;
 pub use report::report;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-pub use tables::{
+pub use tables::
+{
     BiomeEntry, BlockEntry, DimensionEntry, EntityEntry, FuelEntry, ItemEntry, PacketEntry, RecipeEntry, Registries,
     SYNCED_ORDER, TileEntityEntry,
 };
@@ -49,15 +50,9 @@ pub struct Registry<T>
 
 impl<T> Registry<T>
 {
-    pub fn new(name: &'static str) -> Registry<T>
+    pub fn new(name: &'static str) -> Self
     {
-        Registry {
-            m_name: name,
-            m_rows: Vec::new(),
-            m_byId: HashMap::new(),
-            m_byNumeric: HashMap::new(),
-            m_frozen: false,
-        }
+        Self { m_name: name, m_rows: Vec::new(), m_byId: HashMap::new(), m_byNumeric: HashMap::new(), m_frozen: false }
     }
 
     pub fn name(&self) -> &'static str { self.m_name }
@@ -72,10 +67,12 @@ impl<T> Registry<T>
     {
         let index: usize = self.m_rows.len();
         self.m_byId.insert(row.m_id.clone(), index);
+
         if row.m_numeric != UNASSIGNED
         {
             self.m_byNumeric.insert(row.m_numeric, index);
         }
+
         self.m_rows.push(row);
     }
 
@@ -89,13 +86,16 @@ impl<T> Registry<T>
         {
             return Err(RegistryError::Duplicate(id, self.m_name, existing.m_owner.clone()));
         }
-        self.insert(Row {
+
+        self.insert(Row
+        {
             m_id: id,
             m_numeric: UNASSIGNED,
             m_owner: owner.to_owned(),
             m_replacedBy: None,
             m_value: value,
         });
+
         Ok(())
     }
 
@@ -112,6 +112,7 @@ impl<T> Registry<T>
         {
             return Err(RegistryError::DoubleReplace(id.clone(), name, previous.clone(), owner.to_owned()));
         }
+
         row.m_replacedBy = Some(owner.to_owned());
         row.m_value = value;
         Ok(())
@@ -151,6 +152,7 @@ impl<T> Registry<T>
         let mut pending: Vec<usize> =
             (0..self.m_rows.len()).filter(|index| self.m_rows[*index].m_numeric == UNASSIGNED).collect();
         pending.sort_by(|left, right| self.m_rows[*left].m_id.cmp(&self.m_rows[*right].m_id));
+
         for index in pending
         {
             let taken: &HashMap<i32, usize> = &self.m_byNumeric;
@@ -159,6 +161,7 @@ impl<T> Registry<T>
             self.m_rows[index].m_numeric = numeric;
             self.m_byNumeric.insert(numeric, index);
         }
+
         self.m_frozen = true;
         Ok(())
     }
@@ -176,6 +179,7 @@ impl<T> Registry<T>
     pub fn remap(&mut self, map: &BTreeMap<Identifier, i32>) -> Vec<(Identifier, i32, i32)>
     {
         let mut changes: Vec<(Identifier, i32, i32)> = Vec::new();
+
         for row in self.m_rows.iter_mut().filter(|row| !row.m_id.isVanilla())
         {
             if let Some(numeric) = map.get(&row.m_id)
@@ -185,6 +189,7 @@ impl<T> Registry<T>
                 row.m_numeric = *numeric;
             }
         }
+
         self.m_byNumeric = self
             .m_rows
             .iter()
@@ -210,7 +215,7 @@ impl<T> SyncedRegistry for Registry<T>
 {
     fn name(&self) -> &'static str { self.m_name }
 
-    fn snapshot(&self) -> BTreeMap<Identifier, i32> { Registry::snapshot(self) }
+    fn snapshot(&self) -> BTreeMap<Identifier, i32> { Self::snapshot(self) }
 
     fn contains(&self, id: &Identifier) -> bool { self.get(id).is_some() }
 
@@ -233,27 +238,32 @@ impl<T> SyncedRegistry for Registry<T>
             .chain(reserved.iter().copied())
             .collect();
         let mut next: i32 = free.iter().map(|(_, numeric)| *numeric).min().unwrap_or(0);
+
         for (id, _) in free
         {
             while used.contains(&next)
             {
                 next += 1;
             }
+
             map.insert(id, next);
             next += 1;
         }
+
         self.remap(&map);
     }
 }
 
-thread_local! {
+thread_local!
+{
     static REGISTRIES: RefCell<Option<Registries>> = const { RefCell::new(None) };
 }
 
 // vanilla rows are seeded on first use so a game without mods touches nothing early
 pub fn with<R>(body: impl FnOnce(&mut Registries) -> R) -> R
 {
-    REGISTRIES.with(|cell| {
+    REGISTRIES.with(|cell|
+    {
         let mut slot: std::cell::RefMut<'_, Option<Registries>> = cell.borrow_mut();
         let registries: &mut Registries = slot.get_or_insert_with(Registries::seeded);
         body(registries)

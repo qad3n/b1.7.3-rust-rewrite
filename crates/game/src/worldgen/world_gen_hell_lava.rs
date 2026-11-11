@@ -12,7 +12,7 @@ pub struct WorldGenHellLava
 
 impl WorldGenHellLava
 {
-    pub fn new(liquid: i32) -> WorldGenHellLava { WorldGenHellLava { m_liquid: liquid } }
+    pub fn new(liquid: i32) -> Self { Self { m_liquid: liquid } }
 }
 
 impl WorldGenerator for WorldGenHellLava
@@ -28,48 +28,61 @@ impl WorldGenerator for WorldGenHellLava
         {
             return false;
         }
+
         let mut n: i32 = 0;
+
         if world.getBlockId(x - 1, y, z) == netherrack
         {
             n += 1;
         }
+
         if world.getBlockId(x + 1, y, z) == netherrack
         {
             n += 1;
         }
+
         if world.getBlockId(x, y, z - 1) == netherrack
         {
             n += 1;
         }
+
         if world.getBlockId(x, y, z + 1) == netherrack
         {
             n += 1;
         }
+
         if world.getBlockId(x, y - 1, z) == netherrack
         {
             n += 1;
         }
+
         let mut n2: i32 = 0;
+
         if world.isAirBlock(x - 1, y, z)
         {
             n2 += 1;
         }
+
         if world.isAirBlock(x + 1, y, z)
         {
             n2 += 1;
         }
+
         if world.isAirBlock(x, y, z - 1)
         {
             n2 += 1;
         }
+
         if world.isAirBlock(x, y, z + 1)
         {
             n2 += 1;
         }
+
         if world.isAirBlock(x, y - 1, z)
         {
             n2 += 1;
         }
+
         if n == 4 && n2 == 1
         {
             world.setBlockWithNotify(x, y, z, self.m_liquid);
@@ -77,6 +90,7 @@ impl WorldGenerator for WorldGenHellLava
             Block::byId(self.m_liquid).orNpe().updateTick(world, x, y, z, random);
             world.m_scheduledUpdatesAreImmediate.set(false);
         }
+
         true
     }
 }

@@ -19,12 +19,14 @@ fn getBlockTexture(_this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, 
     {
         return 68;
     }
+
     3
 }
 
 fn colorMultiplier(_this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, _y: i32, z: i32) -> i32
 {
     world.getWorldChunkManager().getBiomes(x, z, 1, 1);
+
     let d: f64 = world.getWorldChunkManager().temperature(0);
     let d2: f64 = world.getWorldChunkManager().humidity(0);
     ColorizerGrass::getGrassColor(d, d2)
@@ -36,12 +38,14 @@ fn updateTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rand
     {
         return;
     }
+
     if world.getBlockLightValue(x, y + 1, z) < 4 && Block::lightOpacity(world.getBlockId(x, y + 1, z)) > 2
     {
         if random.nextIntBounded(4) != 0
         {
             return;
         }
+
         world.setBlockWithNotify(x, y, z, Block::DIRT);
     }
     else if world.getBlockLightValue(x, y + 1, z) >= 9
@@ -59,7 +63,8 @@ fn updateTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rand
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockGrass",
     m_parent: Some(&BLOCK),
     getBlockTexture,

@@ -13,7 +13,7 @@ pub struct WorldGenClay
 
 impl WorldGenClay
 {
-    pub fn new(size: i32) -> WorldGenClay { WorldGenClay { m_clayBlockId: Block::BLOCK_CLAY, m_numberOfBlocks: size } }
+    pub fn new(size: i32) -> Self { Self { m_clayBlockId: Block::BLOCK_CLAY, m_numberOfBlocks: size } }
 }
 
 impl WorldGenerator for WorldGenClay
@@ -24,6 +24,7 @@ impl WorldGenerator for WorldGenClay
         {
             return false;
         }
+
         let size: i32 = self.m_numberOfBlocks;
         let f: f32 = random.nextFloat() * jvm::math::PI as f32;
         let d0: f64 = ((x + 8) as f32 + math_helper::sin(f) * size as f32 / 8.0f32) as f64;
@@ -32,6 +33,7 @@ impl WorldGenerator for WorldGenClay
         let d3: f64 = ((z + 8) as f32 - math_helper::cos(f) * size as f32 / 8.0f32) as f64;
         let d4: f64 = (y + random.nextIntBounded(3) + 2) as f64;
         let d5: f64 = (y + random.nextIntBounded(3) + 2) as f64;
+
         for i in 0..=size
         {
             let d6: f64 = d0 + (d1 - d0) * i as f64 / size as f64;
@@ -46,6 +48,7 @@ impl WorldGenerator for WorldGenClay
             let i1: i32 = math_helper::floor_double(d7 + d11 / 2.0);
             let j1: i32 = math_helper::floor_double(d8 - d10 / 2.0);
             let k1: i32 = math_helper::floor_double(d8 + d10 / 2.0);
+
             for l1 in j..=k
             {
                 for i2 in l..=i1
@@ -67,6 +70,7 @@ impl WorldGenerator for WorldGenClay
                 }
             }
         }
+
         true
     }
 }

@@ -44,6 +44,7 @@ pub use teleporter::Teleporter;
 pub(crate) use world::LightReader;
 pub use world::{WORLD, World, WorldClass};
 pub use world_info::WorldInfo;
-pub use world_provider::{
+pub use world_provider::
+{
     WORLD_PROVIDER, WORLD_PROVIDER_HELL, WORLD_PROVIDER_SKY, WORLD_PROVIDER_SURFACE, WorldProvider, WorldProviderClass,
 };

@@ -15,8 +15,10 @@ mod row
     pub const INSET: i32 = 2;
 }
 
-game::vtable! {
-    GuiSlotClass for GuiSlot {
+game::vtable!
+{
+    GuiSlotClass for GuiSlot
+    {
         fn drawBackground();
         fn drawSlot(index: i32, x: i32, y: i32, height: i32, tessellator: &Rc<Tessellator>);
         fn elementClicked(index: i32, doubleClick: bool);
@@ -39,7 +41,7 @@ pub struct GuiSlot
 {
     pub m_class: &'static GuiSlotClass,
     m_ext: Box<dyn Any>,
-    m_this: Weak<GuiSlot>,
+    m_this: Weak<Self>,
     m_mc: Rc<Minecraft>,
     m_width: i32,
     m_height: i32,
@@ -61,7 +63,8 @@ pub struct GuiSlot
     m_halfWidth: Cell<i32>,
 }
 
-pub const GUI_SLOT: GuiSlotClass = GuiSlotClass {
+pub const GUI_SLOT: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiSlot",
     m_parent: None,
     m_interfaces: &[],
@@ -89,9 +92,10 @@ impl GuiSlot
         minY: i32,
         maxY: i32,
         entryHeight: i32,
-    ) -> Rc<GuiSlot>
+    ) -> Rc<Self>
     {
-        Rc::new_cyclic(|this: &Weak<GuiSlot>| GuiSlot {
+        Rc::new_cyclic(|this: &Weak<Self>| Self
+        {
             m_class: class,
             m_ext: ext,
             m_this: this.clone(),
@@ -119,7 +123,7 @@ impl GuiSlot
 
     pub fn ext<T: 'static>(&self) -> &T { self.m_ext.downcast_ref::<T>().expect("slot ext matches its class") }
 
-    pub fn rc(&self) -> Rc<GuiSlot> { self.m_this.upgrade().orNpe() }
+    pub fn rc(&self) -> Rc<Self> { self.m_this.upgrade().orNpe() }
 
     pub fn setRenderSelectionHighlight(&self, renderSelectionHighlight: bool)
     {
@@ -144,6 +148,7 @@ impl GuiSlot
         {
             return n4;
         }
+
         -1
     }
 
@@ -165,10 +170,12 @@ impl GuiSlot
         {
             n /= 2;
         }
+
         if self.m_amountScrolled.get() < 0.0
         {
             self.m_amountScrolled.set(0.0);
         }
+
         if self.m_amountScrolled.get() > n as f32
         {
             self.m_amountScrolled.set(n as f32);
@@ -181,7 +188,9 @@ impl GuiSlot
         {
             return;
         }
+
         let step: f32 = (self.m_posZ * 2 / 3) as f32;
+
         if button.m_id.get() == self.m_scrollUpButtonID.get()
         {
             self.m_amountScrolled.set(self.m_amountScrolled.get() - step);
@@ -203,6 +212,7 @@ impl GuiSlot
             self.m_initialClickY.set(-1.0);
             return;
         }
+
         if self.m_initialClickY.get() >= 0.0
         {
             let amount: f32 = self.m_amountScrolled.get()
@@ -211,15 +221,18 @@ impl GuiSlot
             self.m_initialClickY.set(mouseY as f32);
             return;
         }
+
         if self.m_initialClickY.get() != -1.0
         {
             return;
         }
+
         if mouseY < self.m_top || mouseY > self.m_bottom
         {
             self.m_initialClickY.set(-2.0);
             return;
         }
+
         let mut bl: bool = true;
         let n10: i32 = self.m_width / 2 - self.m_halfWidth.get();
         let n6: i32 = self.m_width / 2 + self.m_halfWidth.get();
@@ -238,9 +251,11 @@ impl GuiSlot
             self.headerClicked(mouseX - n10, mouseY - self.m_top + self.m_amountScrolled.get() as i32 - 4);
             bl = false;
         }
+
         if mouseX >= n8 && mouseX <= n9
         {
             self.m_scrollMultiplier.set(-1.0);
+
             let n3: i32 = (self.getContentHeight() - (self.m_bottom - self.m_top - 4)).max(1);
             let range: i32 = self.m_bottom - self.m_top;
             let n2: i32 = (((range * range) as f32 / self.getContentHeight() as f32) as i32).max(32).min(range - 8);
@@ -256,6 +271,7 @@ impl GuiSlot
     pub fn drawScreen(self: &Rc<Self>, mouseX: i32, mouseY: i32, _tickDelta: f32)
     {
         self.drawBackground();
+
         let n7: i32 = self.getSize();
         let n8: i32 = self.m_width / 2 + self.m_halfWidth.get() + row::SCROLLBAR_GAP;
         let n9: i32 = n8 + 6;
@@ -263,13 +279,17 @@ impl GuiSlot
         self.bindAmountScrolled();
         GL11::glDisable(2896);
         GL11::glDisable(2912);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glBindTexture(3553, self.m_mc.m_renderEngine.get().orNpe().getTexture("/gui/background.png"));
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
         let f: f32 = 32.0;
         let scrolled: i32 = self.m_amountScrolled.get() as i32;
         let (left, right, top, bottom): (i32, i32, i32, i32) = (self.m_left, self.m_right, self.m_top, self.m_bottom);
         let uv = |value: i32| (value as f32 / f) as f64;
+
         tessellator.startDrawingQuads();
         tessellator.setColorOpaque_I(0x202020);
         tessellator.addVertexWithUV(left as f64, bottom as f64, 0.0, uv(left), uv(bottom + scrolled));
@@ -277,18 +297,23 @@ impl GuiSlot
         tessellator.addVertexWithUV(right as f64, top as f64, 0.0, uv(right), uv(top + scrolled));
         tessellator.addVertexWithUV(left as f64, top as f64, 0.0, uv(left), uv(top + scrolled));
         tessellator.draw();
+
         let n6: i32 = self.m_width / 2 - self.m_halfWidth.get() + row::INSET;
         let n5: i32 = top + 4 - scrolled;
+
         if self.m_renderHeader.get()
         {
             self.renderHeader(n6, n5, &tessellator);
         }
-        let quad = |x1: i32, y1: i32, x2: i32, y2: i32| {
+
+        let quad = |x1: i32, y1: i32, x2: i32, y2: i32|
+        {
             tessellator.addVertexWithUV(x1 as f64, y2 as f64, 0.0, 0.0, 1.0);
             tessellator.addVertexWithUV(x2 as f64, y2 as f64, 0.0, 1.0, 1.0);
             tessellator.addVertexWithUV(x2 as f64, y1 as f64, 0.0, 1.0, 0.0);
             tessellator.addVertexWithUV(x1 as f64, y1 as f64, 0.0, 0.0, 0.0);
         };
+
         for n4 in 0..n7
         {
             let n3: i32 = n5 + n4 * self.m_posZ + self.m_headerHeight.get();
@@ -297,10 +322,12 @@ impl GuiSlot
             {
                 continue;
             }
+
             if self.m_renderSelectionHighlight.get() && self.isSelected(n4)
             {
                 let n: i32 = self.m_width / 2 - self.m_halfWidth.get();
                 let n11: i32 = self.m_width / 2 + self.m_halfWidth.get();
+
                 GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
                 GL11::glDisable(3553);
                 tessellator.startDrawingQuads();
@@ -311,10 +338,14 @@ impl GuiSlot
                 tessellator.draw();
                 GL11::glEnable(3553);
             }
+
             self.drawSlot(n4, n6, n3, n2, &tessellator);
         }
+
         GL11::glDisable(2929);
+
         let n4: i32 = 4;
+
         self.overlayBackground(0, top, 255, 255);
         self.overlayBackground(bottom, self.m_height, 255, 255);
         GL11::glEnable(3042);
@@ -338,12 +369,15 @@ impl GuiSlot
         tessellator.addVertexWithUV(right as f64, (bottom - n4) as f64, 0.0, 1.0, 0.0);
         tessellator.addVertexWithUV(left as f64, (bottom - n4) as f64, 0.0, 0.0, 0.0);
         tessellator.draw();
+
         let n3: i32 = self.getContentHeight() - (bottom - top - 4);
         if n3 > 0
         {
             let n2: i32 = ((bottom - top) * (bottom - top) / self.getContentHeight()).max(32).min(bottom - top - 8);
             let n: i32 = (scrolled * (bottom - top - n2) / n3 + top).max(top);
-            let bar = |color: i32, x2: i32, y2: i32| {
+
+            let bar = |color: i32, x2: i32, y2: i32|
+            {
                 tessellator.startDrawingQuads();
                 tessellator.setColorRGBA_I(color, 255);
                 tessellator.addVertexWithUV(n8 as f64, y2 as f64, 0.0, 0.0, 1.0);
@@ -352,6 +386,7 @@ impl GuiSlot
                 tessellator.addVertexWithUV(n8 as f64, n as f64, 0.0, 0.0, 0.0);
                 tessellator.draw();
             };
+
             tessellator.startDrawingQuads();
             tessellator.setColorRGBA_I(0, 255);
             tessellator.addVertexWithUV(n8 as f64, bottom as f64, 0.0, 0.0, 1.0);
@@ -362,6 +397,7 @@ impl GuiSlot
             bar(0x808080, n9, n + n2);
             bar(0xC0C0C0, n9 - 1, n + n2 - 1);
         }
+
         self.renderDecorations(mouseX, mouseY);
         GL11::glEnable(3553);
         GL11::glShadeModel(7424);
@@ -372,9 +408,12 @@ impl GuiSlot
     fn overlayBackground(&self, top: i32, bottom: i32, topAlpha: i32, bottomAlpha: i32)
     {
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glBindTexture(3553, self.m_mc.m_renderEngine.get().orNpe().getTexture("/gui/background.png"));
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
         let f: f32 = 32.0;
+
         tessellator.startDrawingQuads();
         tessellator.setColorRGBA_I(0x404040, bottomAlpha);
         tessellator.addVertexWithUV(0.0, bottom as f64, 0.0, 0.0, (bottom as f32 / f) as f64);

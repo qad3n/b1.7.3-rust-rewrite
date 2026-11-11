@@ -1,6 +1,7 @@
 use crate::attribute::{self, Attribute};
 use crate::damage::{DamageKind, DamageSource};
-use crate::entity::{
+use crate::entity::
+{
     Entity, EntityClass, EntityExt, WatchedValue, entity_animal, entity_arrow, entity_creature, entity_living,
     entity_player,
 };
@@ -130,14 +131,17 @@ pub fn setTailRotation(this: &Rc<Entity>) -> f32
     {
         return (0.55 - (20 - this.m_dataWatcher.getWatchableObjectInt(18)) as f32 * 0.02) * PI_F;
     }
+
     0.62831855
 }
 
 fn updatePlayerActionState(this: &Rc<Entity>)
 {
     (entity_animal::CLASS.updatePlayerActionState)(this);
+
     let creature: &entity_creature::CreatureFields = entity_creature::fields(this);
     let world: Rc<World> = this.world();
+
     if !creature.m_hasAttacked.get()
         && !entity_creature::hasPathTo(this)
         && isWolfTamed(this)
@@ -171,6 +175,7 @@ fn updatePlayerActionState(this: &Rc<Entity>)
             this.posZ() + 1.0,
         )
         .expand(16.0, 4.0, 16.0);
+
         let list: Vec<Rc<Entity>> = world.getEntitiesWithinAABB("EntitySheep", &bounds);
         if !list.is_empty()
         {
@@ -180,10 +185,12 @@ fn updatePlayerActionState(this: &Rc<Entity>)
             );
         }
     }
+
     if this.isInWater()
     {
         setWolfSitting(this, false);
     }
+
     if !world.m_multiplayerWorld.get()
     {
         this.m_dataWatcher.updateObject(18, WatchedValue::Int(entity_living::fields(this).m_health.get()));
@@ -193,8 +200,10 @@ fn updatePlayerActionState(this: &Rc<Entity>)
 fn onLivingUpdate(this: &Rc<Entity>)
 {
     (entity_animal::CLASS.onLivingUpdate)(this);
+
     let wolf: &WolfExt = fields(this);
     wolf.m_looksWithInterest.set(false);
+
     if entity_living::hasCurrentTarget(this)
         && !entity_creature::hasPathTo(this)
         && !isWolfAngry(this)
@@ -203,6 +212,7 @@ fn onLivingUpdate(this: &Rc<Entity>)
         && let Some(itemstack) = entity_player::inventory(&entity).getCurrentItem()
     {
         let item: Option<Rc<Item>> = Item::byId(itemstack.m_itemID.get());
+
         if !isWolfTamed(this) && itemstack.m_itemID.get() == Item::bone().m_shiftedIndex
         {
             wolf.m_looksWithInterest.set(true);
@@ -213,6 +223,7 @@ fn onLivingUpdate(this: &Rc<Entity>)
             wolf.m_looksWithInterest.set(tags::has(Tag::WolfFood, item.m_shiftedIndex));
         }
     }
+
     if !entity_living::fields(this).m_isMultiplayerEntity.get()
         && wolf.m_isWolfShaking.get()
         && !wolf.m_shaking.get()
@@ -229,8 +240,10 @@ fn onLivingUpdate(this: &Rc<Entity>)
 fn onUpdate(this: &Rc<Entity>)
 {
     (entity_animal::CLASS.onUpdate)(this);
+
     let wolf: &WolfExt = fields(this);
     wolf.m_lastHeadRollAngle.set(wolf.m_headRollAngle.get());
+
     let goal: f32 = if wolf.m_looksWithInterest.get()
     {
         1.0
@@ -240,10 +253,12 @@ fn onUpdate(this: &Rc<Entity>)
         0.0
     };
     wolf.m_headRollAngle.set(wolf.m_headRollAngle.get() + (goal - wolf.m_headRollAngle.get()) * 0.4);
+
     if wolf.m_looksWithInterest.get()
     {
         entity_living::fields(this).m_numTicksToChaseTarget.set(10);
     }
+
     if this.isWet()
     {
         wolf.m_isWolfShaking.set(true);
@@ -254,13 +269,16 @@ fn onUpdate(this: &Rc<Entity>)
     else if (wolf.m_isWolfShaking.get() || wolf.m_shaking.get()) && wolf.m_shaking.get()
     {
         let world: Rc<World> = this.world();
+
         if wolf.m_timeWolfIsShaking.get() == 0.0
         {
             let pitch: f32 = (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0;
             world.playSoundAtEntity(this, "mob.wolf.shake", this.getSoundVolume(), pitch);
         }
+
         wolf.m_prevTimeWolfIsShaking.set(wolf.m_timeWolfIsShaking.get());
         wolf.m_timeWolfIsShaking.set(wolf.m_timeWolfIsShaking.get() + 0.05);
+
         if wolf.m_prevTimeWolfIsShaking.get() >= 2.0
         {
             wolf.m_isWolfShaking.set(false);
@@ -268,6 +286,7 @@ fn onUpdate(this: &Rc<Entity>)
             wolf.m_prevTimeWolfIsShaking.set(0.0);
             wolf.m_timeWolfIsShaking.set(0.0);
         }
+
         if wolf.m_timeWolfIsShaking.get() > 0.4
         {
             let f: f32 = this.m_boundingBox.minY() as f32;
@@ -299,6 +318,7 @@ fn getPathOrWalkableBlock(this: &Rc<Entity>, owner: &Rc<Entity>, distance: f32)
         let n: i32 = math_helper::floor_double(owner.posX()) - 2;
         let n2: i32 = math_helper::floor_double(owner.posZ()) - 2;
         let n3: i32 = math_helper::floor_double(owner.m_boundingBox.minY());
+
         for i in 0..=4
         {
             for j in 0..=4
@@ -310,6 +330,7 @@ fn getPathOrWalkableBlock(this: &Rc<Entity>, owner: &Rc<Entity>, distance: f32)
                 {
                     continue;
                 }
+
                 this.setLocationAndAngles(
                     ((n + i) as f32 + 0.5) as f64,
                     n3 as f64,
@@ -330,18 +351,23 @@ fn getPathOrWalkableBlock(this: &Rc<Entity>, owner: &Rc<Entity>, distance: f32)
 fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -> bool
 {
     let source: Option<&Rc<Entity>> = damage.m_attacker;
+
     setWolfSitting(this, false);
+
     if let Some(source) = source
         && !source.instanceOf("EntityPlayer")
         && !source.instanceOf("EntityArrow")
     {
         amount = (amount + 1) / 2;
     }
+
     if !(entity_animal::CLASS.attackEntityFrom)(this, damage, amount)
     {
         return false;
     }
+
     let creature: &entity_creature::CreatureFields = entity_creature::fields(this);
+
     if !isWolfTamed(this) && !isWolfAngry(this)
     {
         let mut source: Option<Rc<Entity>> = source.cloned();
@@ -350,11 +376,13 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -
             setWolfAngry(this, true);
             creature.m_playerToAttack.set(Some(Rc::clone(player)));
         }
+
         if let Some(arrow) = source.as_ref().filter(|source| source.instanceOf("EntityArrow"))
             && let Some(owner) = entity_arrow::fields(arrow).m_owner.get()
         {
             source = Some(owner);
         }
+
         if let Some(attacker) = source.filter(|source| source.instanceOf("EntityLiving"))
         {
             let bounds: Rc<AxisAlignedBB> = AxisAlignedBB::getBoundingBoxFromPool(
@@ -366,6 +394,7 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -
                 this.posZ() + 1.0,
             )
             .expand(16.0, 4.0, 16.0);
+
             for entityWolf in this.world().getEntitiesWithinAABB("EntityWolf", &bounds)
             {
                 let wolfCreature: &entity_creature::CreatureFields = entity_creature::fields(&entityWolf);
@@ -373,11 +402,14 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -
                 {
                     continue;
                 }
+
                 wolfCreature.m_playerToAttack.set(Some(Rc::clone(&attacker)));
+
                 if !attacker.instanceOf("EntityPlayer")
                 {
                     continue;
                 }
+
                 setWolfAngry(&entityWolf, true);
             }
         }
@@ -391,6 +423,7 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -
         {
             return true;
         }
+
         creature.m_playerToAttack.set(Some(Rc::clone(source)));
     }
     true
@@ -415,6 +448,7 @@ fn attackEntity(this: &Rc<Entity>, target: &Rc<Entity>, distance: f32)
         && target.m_boundingBox.minY() < this.m_boundingBox.maxY()
     {
         entity_living::fields(this).m_attackTime.set(20);
+
         let n: i32 = if isWolfTamed(this) { 4 } else { 2 };
         target.attackEntityFrom(
             &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
@@ -426,6 +460,7 @@ fn attackEntity(this: &Rc<Entity>, target: &Rc<Entity>, distance: f32)
 fn consumeHeldItem(inventory: &InventoryPlayer, itemstack: &ItemStack)
 {
     itemstack.m_stackSize.set(itemstack.m_stackSize.get() - 1);
+
     if itemstack.m_stackSize.get() <= 0
     {
         inventory.setInventorySlotContents(inventory.m_currentItem.get(), None);
@@ -437,6 +472,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
     let inventory: Rc<InventoryPlayer> = entity_player::inventory(player);
     let itemstack: Option<Rc<ItemStack>> = inventory.getCurrentItem();
     let world: Rc<World> = this.world();
+
     if !isWolfTamed(this)
     {
         if let Some(itemstack) = itemstack
@@ -444,6 +480,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
             && !isWolfAngry(this)
         {
             consumeHeldItem(&inventory, &itemstack);
+
             if !world.m_multiplayerWorld.get()
             {
                 if this.m_rand.nextIntBounded(3) == 0
@@ -462,6 +499,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
                     world.doEntityEvent(this, event::TAME_FAILED);
                 }
             }
+
             return true;
         }
     }
@@ -476,6 +514,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
             this.heal(item_food::getHealAmount(&Item::porkRaw()));
             return true;
         }
+
         if entity_player::fields(player).m_username.get().orNpe().equalsIgnoreCase(getWolfOwner(this).as_ref())
         {
             if !world.m_multiplayerWorld.get()
@@ -484,6 +523,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
                 entity_living::fields(this).m_isJumping.set(false);
                 entity_creature::setPathToEntity(this, None);
             }
+
             return true;
         }
     }
@@ -494,6 +534,7 @@ fn showHeartsOrSmokeFX(this: &Rc<Entity>, breeding: bool)
 {
     let particle: &str = if breeding { "heart" } else { "smoke" };
     let world: Rc<World> = this.world();
+
     for _ in 0..7
     {
         let d: f64 = this.m_rand.nextGaussian() * 0.02;
@@ -513,6 +554,7 @@ fn handleHealthUpdate(this: &Rc<Entity>, kind: i8)
     {
         event::TAMED => showHeartsOrSmokeFX(this, true),
         event::TAME_FAILED => showHeartsOrSmokeFX(this, false),
+
         event::SHAKE =>
         {
             let wolf: &WolfExt = fields(this);
@@ -520,21 +562,25 @@ fn handleHealthUpdate(this: &Rc<Entity>, kind: i8)
             wolf.m_timeWolfIsShaking.set(0.0);
             wolf.m_prevTimeWolfIsShaking.set(0.0);
         }
+
         _ => (entity_animal::CLASS.handleHealthUpdate)(this, kind),
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityWolf",
     m_parent: Some(&entity_animal::CLASS),
-    entityInit: |this| {
+    entityInit: |this|
+    {
         (entity_animal::CLASS.entityInit)(this);
         this.m_dataWatcher.addObject(16, WatchedValue::Byte(0));
         this.m_dataWatcher.addObject(17, WatchedValue::String(JString::from("")));
         this.m_dataWatcher.addObject(18, WatchedValue::Int(entity_living::fields(this).m_health.get()));
     },
     canTriggerWalking: |_| false,
-    getEntityTexture: |this| {
+    getEntityTexture: |this|
+    {
         if isWolfTamed(this)
         {
             return Some(JString::from("/mob/wolf_tame.png"));
@@ -543,18 +589,24 @@ pub const CLASS: EntityClass = EntityClass {
         {
             return Some(JString::from("/mob/wolf_angry.png"));
         }
+
         (entity_animal::CLASS.getEntityTexture)(this)
     },
-    writeEntityToNBT: |this, nbt| {
+
+    writeEntityToNBT: |this, nbt|
+    {
         (entity_animal::CLASS.writeEntityToNBT)(this, nbt);
         nbt.setBoolean("Angry", isWolfAngry(this));
         nbt.setBoolean("Sitting", isWolfSitting(this));
         nbt.setString("Owner", Some(getWolfOwner(this).unwrap_or_default()));
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         (entity_animal::CLASS.readEntityFromNBT)(this, nbt);
         setWolfAngry(this, nbt.getBoolean("Angry"));
         setWolfSitting(this, nbt.getBoolean("Sitting"));
+
         let owner: JString = nbt.getString("Owner").orNpe();
         if owner.length() > 0
         {
@@ -563,19 +615,23 @@ pub const CLASS: EntityClass = EntityClass {
         }
     },
     canDespawn: |this| !isWolfTamed(this),
-    getLivingSound: |this| {
+    getLivingSound: |this|
+    {
         if isWolfAngry(this)
         {
             return Some("mob.wolf.growl".to_string());
         }
+
         if this.m_rand.nextIntBounded(3) == 0
         {
             if isWolfTamed(this) && this.m_dataWatcher.getWatchableObjectInt(18) < 10
             {
                 return Some("mob.wolf.whine".to_string());
             }
+
             return Some("mob.wolf.panting".to_string());
         }
+
         Some("mob.wolf.bark".to_string())
     },
     getHurtSound: |_| Some("mob.wolf.hurt".to_string()),
@@ -586,20 +642,24 @@ pub const CLASS: EntityClass = EntityClass {
     onLivingUpdate,
     onUpdate,
     getEyeHeight: |this| this.m_height.get() * 0.8,
-    verticleLookSpeed: |this| {
+    verticleLookSpeed: |this|
+    {
         if isWolfSitting(this)
         {
             return 20;
         }
+
         (entity_animal::CLASS.verticleLookSpeed)(this)
     },
     isMovementCeased: |this| isWolfSitting(this) || fields(this).m_shaking.get(),
     attackEntityFrom,
-    findPlayerToAttack: |this| {
+    findPlayerToAttack: |this|
+    {
         if isWolfAngry(this)
         {
             return this.world().getClosestPlayerToEntity(this, 16.0);
         }
+
         None
     },
     attackEntity,
@@ -614,6 +674,7 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
     let entity: Rc<Entity> = Entity::alloc(&CLASS, Box::new(WolfExt::default()));
     entity_animal::init(&entity, world);
     fields(&entity).m_looksWithInterest.set(false);
+
     let living: &entity_living::LivingFields = entity_living::fields(&entity);
     living.m_texture.set(Some(JString::from("/mob/wolf.png")));
     entity.setSize(0.8, 0.8);

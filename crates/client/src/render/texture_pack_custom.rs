@@ -11,6 +11,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::vec::IntoIter;
 use zip::ZipArchive;
 
 const DESCRIPTION_LIMIT: usize = 34;
@@ -34,7 +35,7 @@ fn openZip(path: &Path) -> Result<ZipFile, Throwable>
 
 fn readEntry(zip: &mut ZipFile, name: &str) -> Option<Vec<u8>>
 {
-    let mut entry = zip.by_name(name).ok()?;
+    let mut entry: zip::read::ZipFile<File> = zip.by_name(name).ok()?;
     let mut bytes: Vec<u8> = Vec::new();
     entry.read_to_end(&mut bytes).ok()?;
     Some(bytes)
@@ -42,7 +43,8 @@ fn readEntry(zip: &mut ZipFile, name: &str) -> Option<Vec<u8>>
 
 fn truncateString(line: Option<String>) -> Option<String>
 {
-    line.map(|line| {
+    line.map(|line|
+    {
         let units: Vec<u16> = line.encode_utf16().collect();
         if units.len() > DESCRIPTION_LIMIT
         {
@@ -59,20 +61,24 @@ fn readLines(text: &str) -> Vec<String>
 {
     let text: String = text.replace("\r\n", "\n");
     let mut lines: Vec<String> = text.split(['\n', '\r']).map(str::to_owned).collect();
+
     if text.is_empty() || text.ends_with(['\n', '\r'])
     {
         lines.pop();
     }
+
     lines
 }
 
 impl TexturePackCustom
 {
-    pub fn new(file: &Path) -> TexturePackCustom
+    pub fn new(file: &Path) -> Self
     {
         let pack: TexturePackFields = TexturePackFields::default();
         pack.m_texturePackFileName.set(file.file_name().map(|name| name.to_string_lossy().into_owned()));
-        TexturePackCustom {
+
+        Self
+        {
             m_pack: pack,
             m_texturePackZipFile: RefCell::new(None),
             m_texturePackName: Cell::new(-1),
@@ -91,6 +97,7 @@ impl TexturePackBase for TexturePackCustom
         let mut zipFile: ZipFile = match openZip(&self.m_texturePackFile)
         {
             Ok(zipFile) => zipFile,
+
             Err(exception) =>
             {
                 exception.printStackTrace();
@@ -99,10 +106,11 @@ impl TexturePackBase for TexturePackCustom
         };
         if let Some(text) = readEntry(&mut zipFile, "pack.txt")
         {
-            let mut lines = readLines(&String::from_utf8_lossy(&text)).into_iter();
+            let mut lines: IntoIter<String> = readLines(&String::from_utf8_lossy(&text)).into_iter();
             self.m_pack.m_firstDescriptionLine.set(truncateString(lines.next()));
             self.m_pack.m_secondDescriptionLine.set(truncateString(lines.next()));
         }
+
         if let Some(bytes) = readEntry(&mut zipFile, "pack.png")
         {
             let mut input: ByteArrayInputStream = ByteArrayInputStream::new(bytes);
@@ -111,6 +119,7 @@ impl TexturePackBase for TexturePackCustom
                 self.m_texturePackThumbnail.set(image.map(Rc::new));
             }
         }
+
         Ok(())
     }
 
@@ -120,6 +129,7 @@ impl TexturePackBase for TexturePackCustom
         {
             minecraft.m_renderEngine.get().orNpe().deleteTexture(self.m_texturePackName.get());
         }
+
         self.closeTexturePackFile();
     }
 
@@ -142,6 +152,7 @@ impl TexturePackBase for TexturePackCustom
     {
         let bytes: Option<Vec<u8>> =
             self.m_texturePackZipFile.borrow_mut().as_mut().and_then(|zip| readEntry(zip, path.get(1..)?));
+
         match bytes
         {
             Some(bytes) => Some(Box::new(ByteArrayInputStream::new(bytes))),

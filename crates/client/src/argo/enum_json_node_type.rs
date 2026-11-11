@@ -16,13 +16,13 @@ impl EnumJsonNodeType
     {
         match self
         {
-            EnumJsonNodeType::Object => "OBJECT",
-            EnumJsonNodeType::Array => "ARRAY",
-            EnumJsonNodeType::String => "STRING",
-            EnumJsonNodeType::Number => "NUMBER",
-            EnumJsonNodeType::True => "TRUE",
-            EnumJsonNodeType::False => "FALSE",
-            EnumJsonNodeType::Null => "NULL",
+            Self::Object => "OBJECT",
+            Self::Array => "ARRAY",
+            Self::String => "STRING",
+            Self::Number => "NUMBER",
+            Self::True => "TRUE",
+            Self::False => "FALSE",
+            Self::Null => "NULL",
         }
     }
 }

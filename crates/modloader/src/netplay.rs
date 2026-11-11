@@ -1,4 +1,4 @@
-use crate::screens::OpenRequest;
+use crate::screens::{OpenRequest, ScreenType};
 use game::entity::Entity;
 use mod_protocol::Identifier;
 use mod_protocol::abi::BlockPos;
@@ -30,7 +30,8 @@ pub trait Platform
     }
 }
 
-thread_local! {
+thread_local!
+{
     static PLATFORM: RefCell<Option<Rc<dyn Platform>>> = const { RefCell::new(None) };
     static TELEPORTS: RefCell<Vec<(i32, i32, [f64; 3])>> = const { RefCell::new(Vec::new()) };
 }
@@ -49,7 +50,8 @@ pub fn canSend(player: i32, channel: &Identifier) -> bool
 
 pub fn openScreen(player: i32, screen: &Identifier, pos: Option<BlockPos>, data: Vec<u8>) -> Result<(), String>
 {
-    let screenType = crate::screens::byId(screen).ok_or_else(|| format!("screen {screen} is not registered"))?;
+    let screenType: Rc<ScreenType> =
+        crate::screens::byId(screen).ok_or_else(|| format!("screen {screen} is not registered"))?;
     let player: Rc<Entity> = crate::host::worldPlayer(player)?;
     platform()?.openScreen(&player, OpenRequest { m_screen: screenType, m_pos: pos, m_data: data, m_window: 0 })
 }
@@ -70,6 +72,7 @@ pub fn flushTeleports()
     {
         let moved: Result<(), String> = crate::host::worldPlayer(id)
             .and_then(|player| platform().and_then(|platform| platform.teleport(&player, dimension, pos)));
+
         if let Err(reason) = moved
         {
             crate::log::warn(crate::log::LOADER, &format!("teleport of player {id} failed: {reason}"));

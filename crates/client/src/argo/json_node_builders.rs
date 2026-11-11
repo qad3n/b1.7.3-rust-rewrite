@@ -1,4 +1,5 @@
-use crate::argo::{
+use crate::argo::
+{
     JsonArrayNodeBuilder, JsonNode, JsonNodeBuilder, JsonNodeFactories, JsonNumberNodeBuilder, JsonObjectNodeBuilder,
     JsonStringNodeBuilder,
 };

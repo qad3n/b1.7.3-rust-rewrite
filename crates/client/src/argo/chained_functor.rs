@@ -9,9 +9,9 @@ pub struct ChainedFunctor<T, U, V>
 
 impl<T, U, V> ChainedFunctor<T, U, V>
 {
-    pub fn new(parent: Rc<JsonNodeSelector<T, U>>, child: Rc<JsonNodeSelector<U, V>>) -> ChainedFunctor<T, U, V>
+    pub fn new(parent: Rc<JsonNodeSelector<T, U>>, child: Rc<JsonNodeSelector<U, V>>) -> Self
     {
-        ChainedFunctor { m_parentJsonNodeSelector: parent, m_childJsonNodeSelector: child }
+        Self { m_parentJsonNodeSelector: parent, m_childJsonNodeSelector: child }
     }
 }
 
@@ -40,10 +40,13 @@ impl<T: 'static, U: 'static, V: 'static> Functor<T, V> for ChainedFunctor<T, U, 
     fn applyTo(&self, node: &T) -> Result<V, ChainedMismatch>
     {
         let parent: Rc<dyn Described> = Rc::clone(&self.m_parentJsonNodeSelector) as Rc<dyn Described>;
-        let u: U = self.m_parentJsonNodeSelector.getValue(node).map_err(|mismatch| {
+
+        let u: U = self.m_parentJsonNodeSelector.getValue(node).map_err(|mismatch|
+        {
             ChainedMismatch::createUnchainedJsonNodeDoesNotMatchJsonNodeSelectorException(&mismatch, Rc::clone(&parent))
         })?;
-        self.m_childJsonNodeSelector.getValue(&u).map_err(|mismatch| {
+        self.m_childJsonNodeSelector.getValue(&u).map_err(|mismatch|
+        {
             ChainedMismatch::createChainedJsonNodeDoesNotMatchJsonNodeSelectorException(&mismatch, parent)
         })
     }

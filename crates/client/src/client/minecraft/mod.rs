@@ -10,7 +10,8 @@ use crate::client::{Canvas, Frame, MinecraftApplet, Session, ThreadDownloadResou
 use crate::controller::PlayerController;
 use crate::gui::{FontRenderer, GuiAchievement, GuiIngame, GuiScreen, LoadingScreenRenderer};
 use crate::model::ModelBiped;
-use crate::render::{
+use crate::render::
+{
     EffectRenderer, EntityRenderer, OpenGlCapsChecker, RenderEngine, RenderGlobal, TextureLavaFX, TexturePackList,
     TextureWaterFX,
 };
@@ -29,7 +30,8 @@ use std::path::PathBuf;
 use std::rc::{Rc, Weak};
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 
-thread_local! {
+thread_local!
+{
     static THE_MINECRAFT: Field<Option<Rc<Minecraft>>> = Field::new(None);
     static FRAME_TIMES: RefCell<Vec<i64>> = RefCell::new(vec![0; 512]);
     static TICK_TIMES: RefCell<Vec<i64>> = RefCell::new(vec![0; 512]);
@@ -44,6 +46,7 @@ fn atLeastOne(size: i32) -> i32
     {
         return 1;
     }
+
     size
 }
 
@@ -103,14 +106,14 @@ pub struct Minecraft
     pub m_systemTime: Cell<i64>,
     pub m_joinPlayerCounter: Cell<i32>,
     pub m_frame: Field<Option<Rc<Frame>>>,
-    m_this: Weak<Minecraft>,
+    m_this: Weak<Self>,
 }
 
 impl Minecraft
 {
-    pub fn theMinecraft() -> Option<Rc<Minecraft>> { THE_MINECRAFT.with(Field::get) }
+    pub fn theMinecraft() -> Option<Rc<Self>> { THE_MINECRAFT.with(Field::get) }
 
-    pub fn setTheMinecraft(minecraft: Option<Rc<Minecraft>>) { THE_MINECRAFT.with(|instance| instance.set(minecraft)); }
+    pub fn setTheMinecraft(minecraft: Option<Rc<Self>>) { THE_MINECRAFT.with(|instance| instance.set(minecraft)); }
 
     pub fn hasPaidCheckTime() -> i64 { HAS_PAID_CHECK_TIME.load(Ordering::Relaxed) }
 
@@ -142,9 +145,10 @@ impl Minecraft
         width: i32,
         height: i32,
         fullscreen: bool,
-    ) -> Rc<Minecraft>
+    ) -> Rc<Self>
     {
-        let minecraft: Rc<Minecraft> = Rc::new_cyclic(|this| Minecraft {
+        let minecraft: Rc<Self> = Rc::new_cyclic(|this| Self
+        {
             m_playerController: Field::new(None),
             m_fullscreen: Cell::new(false),
             m_hasCrashed: Cell::new(false),
@@ -209,15 +213,17 @@ impl Minecraft
         minecraft.m_displayWidth.set(width);
         minecraft.m_displayHeight.set(height);
         minecraft.m_fullscreen.set(fullscreen);
+
         if applet.is_none_or(|applet| applet.getParameter("stand-alone").as_deref() == Some("true"))
         {
             minecraft.m_hideQuitButton.set(false);
         }
-        Minecraft::setTheMinecraft(Some(Rc::clone(&minecraft)));
+
+        Self::setTheMinecraft(Some(Rc::clone(&minecraft)));
         minecraft
     }
 
-    pub fn rc(&self) -> Rc<Minecraft> { self.m_this.upgrade().orNpe() }
+    pub fn rc(&self) -> Rc<Self> { self.m_this.upgrade().orNpe() }
 
     fn gameSettings(&self) -> Rc<GameSettings> { self.m_gameSettings.get().orNpe() }
 

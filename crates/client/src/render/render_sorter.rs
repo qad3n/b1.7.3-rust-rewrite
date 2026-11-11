@@ -9,7 +9,7 @@ pub struct RenderSorter
 
 impl RenderSorter
 {
-    pub fn new(camera: &Rc<Entity>) -> RenderSorter { RenderSorter { m_baseEntity: Rc::clone(camera) } }
+    pub fn new(camera: &Rc<Entity>) -> Self { Self { m_baseEntity: Rc::clone(camera) } }
 
     pub fn compare(&self, var1: &WorldRenderer, var2: &WorldRenderer) -> i32
     {
@@ -33,6 +33,7 @@ impl RenderSorter
         {
             return -1;
         }
+
         if var1.m_chunkIndex.get() < var2.m_chunkIndex.get()
         {
             1

@@ -23,7 +23,9 @@ impl Packet25EntityPainting
     pub fn new(painting: &Entity) -> Self
     {
         let fields: &entity_painting::PaintingFields = entity_painting::fields(painting);
-        Self {
+
+        Self
+        {
             m_entityId: painting.m_entityId.get(),
             m_xPosition: fields.m_xPosition.get(),
             m_yPosition: fields.m_yPosition.get(),

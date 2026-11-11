@@ -20,9 +20,10 @@ pub struct LoadingScreenRenderer
 
 impl LoadingScreenRenderer
 {
-    pub fn new(minecraft: Rc<Minecraft>) -> LoadingScreenRenderer
+    pub fn new(minecraft: Rc<Minecraft>) -> Self
     {
-        LoadingScreenRenderer {
+        Self
+        {
             m_stage: Field::new(String::new()),
             m_mc: minecraft,
             m_title: Field::new(String::new()),
@@ -41,6 +42,7 @@ impl LoadingScreenRenderer
         {
             return false;
         }
+
         jvm::throwable::throwBare(&MINECRAFT_ERROR)
     }
 
@@ -71,6 +73,7 @@ impl LoadingScreenRenderer
         {
             return;
         }
+
         self.m_title.set(title.to_owned());
         self.setupOrtho();
     }
@@ -86,15 +89,21 @@ impl LoadingScreenRenderer
         {
             return;
         }
+
         self.m_lastTime.set(l);
+
         let scaledResolution: ScaledResolution = self.setupOrtho();
         let n: i32 = scaledResolution.getScaledWidth();
         let n2: i32 = scaledResolution.getScaledHeight();
+
         GL11::glClear(16640);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let n3: i32 = self.m_mc.m_renderEngine.get().orNpe().getTexture("/gui/background.png");
         GL11::glBindTexture(3553, n3);
+
         let f: f32 = 32.0;
+
         tessellator.startDrawingQuads();
         tessellator.setColorOpaque_I(0x404040);
         tessellator.addVertexWithUV(0.0, n2 as f64, 0.0, 0.0, (n2 as f32 / f) as f64);
@@ -102,14 +111,17 @@ impl LoadingScreenRenderer
         tessellator.addVertexWithUV(n as f64, 0.0, 0.0, (n as f32 / f) as f64, 0.0);
         tessellator.addVertexWithUV(0.0, 0.0, 0.0, 0.0, 0.0);
         tessellator.draw();
+
         if percentage >= 0
         {
             let n4: i32 = 100;
             let n5: i32 = 2;
             let n6: i32 = n / 2 - n4 / 2;
             let n7: i32 = n2 / 2 + 16;
+
             GL11::glDisable(3553);
             tessellator.startDrawingQuads();
+
             for (color, length) in [(0x808080, n4), (0x80FF80, percentage)]
             {
                 tessellator.setColorOpaque_I(color);
@@ -118,12 +130,15 @@ impl LoadingScreenRenderer
                 tessellator.addVertex((n6 + length) as f64, (n7 + n5) as f64, 0.0);
                 tessellator.addVertex((n6 + length) as f64, n7 as f64, 0.0);
             }
+
             tessellator.draw();
             GL11::glEnable(3553);
         }
+
         let fontRenderer: Rc<FontRenderer> = self.m_mc.m_fontRenderer.get().orNpe();
         let title: String = self.m_title.get();
         let stage: String = self.m_stage.get();
+
         fontRenderer.drawStringWithShadow(
             &title,
             (n - fontRenderer.getStringWidth(&title)) / 2,
@@ -155,6 +170,7 @@ impl IProgressUpdate for LoadingScreenRenderer
         {
             return;
         }
+
         self.m_lastTime.set(0);
         self.m_stage.set(stage.to_owned());
         self.setLoadingProgress(-1);

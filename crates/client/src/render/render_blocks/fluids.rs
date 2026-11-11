@@ -23,10 +23,12 @@ impl RenderBlocks
             block.shouldSideBeRendered(&*world, x - 1, y, z, 4),
             block.shouldSideBeRendered(&*world, x + 1, y, z, 5),
         ];
+
         if !(bl || bl2 || blArray[0] || blArray[1] || blArray[2] || blArray[3])
         {
             return false;
         }
+
         let mut bl3: bool = false;
         let f7: f32 = 0.5;
         let f8: f32 = 1.0;
@@ -40,18 +42,22 @@ impl RenderBlocks
         let f12: f32 = self.getLiquidHeight(x, y, z + 1, &material);
         let f13: f32 = self.getLiquidHeight(x + 1, y, z + 1, &material);
         let f14: f32 = self.getLiquidHeight(x + 1, y, z, &material);
+
         if self.m_renderAllFaces || bl
         {
             bl3 = true;
+
             let mut n5: i32 = block.getBlockTextureFromSideAndMetadata(1, n4);
             let mut f15: f32 = block_fluid::getFlowAngle(&*world, x, y, z, &material) as f32;
             if f15 > -999.0
             {
                 n5 = block.getBlockTextureFromSideAndMetadata(2, n4);
             }
+
             let (n2, n): (i32, i32) = spriteOrigin(n5);
             let mut d3: f64 = (n2 as f64 + 8.0) / 256.0;
             let mut d4: f64 = (n as f64 + 8.0) / 256.0;
+
             if f15 < -999.0
             {
                 f15 = 0.0;
@@ -65,12 +71,14 @@ impl RenderBlocks
             let f2: f64 = (cos(f15) * 8.0 / 256.0) as f64;
             let f: f32 = block.getBlockBrightness(&*world, x, y, z);
             tessellator.setColorOpaque_F(f8 * f * f4, f8 * f * f5, f8 * f * f6);
+
             let top = |height: f32| (y as f32 + height) as f64;
             tessellator.addVertexWithUV(x as f64, top(f11), z as f64, d3 - f2 - f3, d4 - f2 + f3);
             tessellator.addVertexWithUV(x as f64, top(f12), (z + 1) as f64, d3 - f2 + f3, d4 + f2 + f3);
             tessellator.addVertexWithUV((x + 1) as f64, top(f13), (z + 1) as f64, d3 + f2 + f3, d4 + f2 - f3);
             tessellator.addVertexWithUV((x + 1) as f64, top(f14), z as f64, d3 + f2 - f3, d4 - f2 - f3);
         }
+
         if self.m_renderAllFaces || bl2
         {
             let f16: f32 = block.getBlockBrightness(&*world, x, y - 1, z);
@@ -78,11 +86,13 @@ impl RenderBlocks
             self.renderBottomFace(block, x as f64, y as f64, z as f64, block.getBlockTextureFromSide(0));
             bl3 = true;
         }
+
         for i in 0..4
         {
             let mut n6: i32 = x;
             let n2: i32 = y;
             let mut n: i32 = z;
+
             match i
             {
                 0 => n -= 1,
@@ -90,12 +100,15 @@ impl RenderBlocks
                 2 => n6 -= 1,
                 _ => n6 += 1,
             }
+
             let n7: i32 = block.getBlockTextureFromSideAndMetadata(i + 2, n4);
             let (n8, n9): (i32, i32) = spriteOrigin(n7);
+
             if !self.m_renderAllFaces && !blArray[i as usize]
             {
                 continue;
             }
+
             let (f19, f3, f2, f18, f, f17): (f32, f32, i32, i32, i32, i32) = match i
             {
                 0 => (f11, f14, x, x + 1, z, z),
@@ -103,7 +116,9 @@ impl RenderBlocks
                 2 => (f12, f11, x, x, z + 1, z),
                 _ => (f14, f13, x + 1, x + 1, z, z + 1),
             };
+
             bl3 = true;
+
             let d5: f64 = (n8 as f32 / 256.0) as f64;
             let d6: f64 = ((n8 + 16) as f64 - 0.01) / 256.0;
             let d7: f64 = ((n9 as f32 + (1.0 - f19) * 16.0) / 256.0) as f64;
@@ -117,6 +132,7 @@ impl RenderBlocks
             tessellator.addVertexWithUV(f18 as f32 as f64, y as f64, f17 as f32 as f64, d6, d9);
             tessellator.addVertexWithUV(f2 as f32 as f64, y as f64, f as f32 as f64, d5, d9);
         }
+
         block.m_minY.set(d);
         block.m_maxY.set(d2);
         bl3
@@ -127,6 +143,7 @@ impl RenderBlocks
         let world: Rc<dyn IBlockAccess> = self.world();
         let mut i: i32 = 0;
         let mut f: f32 = 0.0;
+
         for j in 0..4
         {
             let k: i32 = x - (j & 1);
@@ -136,6 +153,7 @@ impl RenderBlocks
             {
                 return 1.0;
             }
+
             let material: Rc<Material> = world.getBlockMaterial(k, l, i1);
             if Rc::ptr_eq(&material, liquid)
             {
@@ -145,6 +163,7 @@ impl RenderBlocks
                     f += block_fluid::getPercentAir(j1) * 10.0;
                     i += 10;
                 }
+
                 f += block_fluid::getPercentAir(j1);
                 i += 1;
             }
@@ -154,6 +173,7 @@ impl RenderBlocks
                 i += 1;
             }
         }
+
         1.0 - f / i as f32
     }
 
@@ -166,12 +186,14 @@ impl RenderBlocks
             self.renderFallingFaces(block, world, x, y, z, meta);
             return;
         }
+
         for ([x0, y0, z0, x1, y1, z1], sprite) in shapes
         {
             block.setBlockBounds(x0, y0, z0, x1, y1, z1);
             self.m_overrideBlockTexture = sprite;
             self.renderFallingFaces(block, world, x, y, z, meta);
         }
+
         self.m_overrideBlockTexture = -1;
         block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
     }
@@ -184,12 +206,16 @@ impl RenderBlocks
         let f4: f32 = 0.6;
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         tessellator.startDrawingQuads();
+
         let world: &dyn IBlockAccess = &**world;
         let f5: f32 = block.getBlockBrightness(world, x, y, z);
-        let lit = |x: i32, y: i32, z: i32| {
+
+        let lit = |x: i32, y: i32, z: i32|
+        {
             let f6: f32 = block.getBlockBrightness(world, x, y, z);
             if f6 < f5 { f5 } else { f6 }
         };
+
         let face = |side: i32| block.getBlockTextureFromSideAndMetadata(side, meta);
         let mut f6: f32 = lit(x, y - 1, z);
         tessellator.setColorOpaque_F(f * f6, f * f6, f * f6);

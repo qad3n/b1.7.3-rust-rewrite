@@ -10,9 +10,10 @@ pub struct SignModel
 
 impl SignModel
 {
-    pub fn new() -> SignModel
+    pub fn new() -> Self
     {
-        SignModel {
+        Self
+        {
             m_signBoard: ModelRenderer::new(0, 0).withBox(-12.0, -14.0, -1.0, 24, 12, 2, 0.0),
             m_signStick: ModelRenderer::new(0, 14).withBox(-1.0, -2.0, -1.0, 2, 14, 2, 0.0),
         }

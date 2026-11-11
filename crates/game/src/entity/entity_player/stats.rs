@@ -8,15 +8,17 @@ use common::nbt::{NBTBase, NBTTagCompound, NBTTagList};
 use jvm::math;
 use std::rc::Rc;
 
-pub fn readEntityFromNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
+pub(crate) fn readEntityFromNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
 {
     (entity_living::CLASS.readEntityFromNBT)(this, nbt);
+
     let player: &PlayerFields = fields(this);
     let nbttaglist: Rc<NBTBase> = nbt.getTagList("Inventory");
     inventory(this).readFromNBT(&nbttaglist);
     player.m_dimension.set(nbt.getInteger("Dimension"));
     player.m_sleeping.set(nbt.getBoolean("Sleeping"));
     player.m_sleepTimer.set(nbt.getShort("SleepTimer") as i32);
+
     if player.m_sleeping.get()
     {
         player.m_bedChunkCoordinates.set(Some(ChunkCoordinates::new(
@@ -26,6 +28,7 @@ pub fn readEntityFromNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
         )));
         this.wakeUpPlayer(true, true, false);
     }
+
     if nbt.hasKey("SpawnX") && nbt.hasKey("SpawnY") && nbt.hasKey("SpawnZ")
     {
         player.m_playerSpawnCoordinate.set(Some(ChunkCoordinates::new(
@@ -34,32 +37,38 @@ pub fn readEntityFromNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
             nbt.getInteger("SpawnZ"),
         )));
     }
+
     fields(this).m_progress.read(nbt);
 }
 
-pub fn writeEntityToNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
+pub(crate) fn writeEntityToNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
 {
     (entity_living::CLASS.writeEntityToNBT)(this, nbt);
+
     let player: &PlayerFields = fields(this);
+
     nbt.setTag("Inventory", &inventory(this).writeToNBT(&NBTTagList::create()));
     nbt.setInteger("Dimension", player.m_dimension.get());
     nbt.setBoolean("Sleeping", player.m_sleeping.get());
     nbt.setShort("SleepTimer", player.m_sleepTimer.get() as i16);
+
     if let Some(spawn) = player.m_playerSpawnCoordinate.get()
     {
         nbt.setInteger("SpawnX", spawn.m_x);
         nbt.setInteger("SpawnY", spawn.m_y);
         nbt.setInteger("SpawnZ", spawn.m_z);
     }
+
     player.m_progress.write(nbt);
 }
 
-pub fn addMovementStat(this: &Rc<Entity>, x: f64, y: f64, z: f64)
+pub(crate) fn addMovementStat(this: &Rc<Entity>, x: f64, y: f64, z: f64)
 {
     if this.m_ridingEntity.with(Option::is_some)
     {
         return;
     }
+
     if this.isInsideOfMaterial(&Material::water())
     {
         let i: i32 = math::roundFloat(math_helper::sqrt_double(x * x + y * y + z * z) * 100.0);
@@ -101,7 +110,7 @@ pub fn addMovementStat(this: &Rc<Entity>, x: f64, y: f64, z: f64)
     }
 }
 
-pub fn addMountedMovementStat(this: &Rc<Entity>, x: f64, y: f64, z: f64)
+pub(crate) fn addMountedMovementStat(this: &Rc<Entity>, x: f64, y: f64, z: f64)
 {
     let Some(riding) = this.m_ridingEntity.get()
     else
@@ -114,17 +123,21 @@ pub fn addMountedMovementStat(this: &Rc<Entity>, x: f64, y: f64, z: f64)
     {
         return;
     }
+
     if riding.instanceOf("EntityMinecart")
     {
         addStat(this, StatList::distanceByMinecartStat(), i);
+
         let here: (i32, i32, i32) = (
             math_helper::floor_double(this.posX()),
             math_helper::floor_double(this.posY()),
             math_helper::floor_double(this.posZ()),
         );
+
         match player.m_startMinecartRidingCoordinate.get()
         {
             None => player.m_startMinecartRidingCoordinate.set(Some(ChunkCoordinates::new(here.0, here.1, here.2))),
+
             Some(start) =>
             {
                 if start.getSqDistanceTo(here.0, here.1, here.2) >= 1000.0

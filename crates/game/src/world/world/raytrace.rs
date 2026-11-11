@@ -49,6 +49,7 @@ impl World
         {
             return None;
         }
+
         block.collisionRayTrace(self, x, y, z, from, to)
     }
 
@@ -81,10 +82,13 @@ impl World
         }
 
         let mut k1: i32 = 200;
+
         loop
         {
             let previous: i32 = k1;
+
             k1 -= 1;
+
             if previous < 0
             {
                 return None;
@@ -105,6 +109,7 @@ impl World
             let mut d0: f64 = 999.0;
             let mut d1: f64 = 999.0;
             let mut d2: f64 = 999.0;
+
             if i > l
             {
                 d0 = l as f64 + 1.0;
@@ -117,6 +122,7 @@ impl World
             {
                 flag = false;
             }
+
             if j > i1
             {
                 d1 = i1 as f64 + 1.0;
@@ -129,6 +135,7 @@ impl World
             {
                 flag1 = false;
             }
+
             if k > j1
             {
                 d2 = j1 as f64 + 1.0;
@@ -148,20 +155,24 @@ impl World
             let d6: f64 = to.x() - from.x();
             let d7: f64 = to.y() - from.y();
             let d8: f64 = to.z() - from.z();
+
             if flag
             {
                 d3 = (d0 - from.x()) / d6;
             }
+
             if flag1
             {
                 d4 = (d1 - from.y()) / d7;
             }
+
             if flag2
             {
                 d5 = (d2 - from.z()) / d8;
             }
 
             let b0: i8;
+
             if d3 < d4 && d3 < d5
             {
                 b0 = if i > l { 4 } else { 5 };
@@ -187,20 +198,25 @@ impl World
             let vec3d: Rc<Vec3D> = Vec3D::createVector(from.x(), from.y(), from.z());
             vec3d.m_xCoord.set(floor_double(from.x()) as f64);
             l = vec3d.x() as i32;
+
             if b0 == 5
             {
                 l -= 1;
                 vec3d.m_xCoord.set(vec3d.x() + 1.0);
             }
+
             vec3d.m_yCoord.set(floor_double(from.y()) as f64);
             i1 = vec3d.y() as i32;
+
             if b0 == 1
             {
                 i1 -= 1;
                 vec3d.m_yCoord.set(vec3d.y() + 1.0);
             }
+
             vec3d.m_zCoord.set(floor_double(from.z()) as f64);
             j1 = vec3d.z() as i32;
+
             if b0 == 3
             {
                 j1 -= 1;

@@ -7,7 +7,8 @@ use jvm::string::JString;
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static DEFAULT_HELD_ITEM: Rc<ItemStack> = ItemStack::withItemCount(&Item::swordGold(), 1);
 }
 
@@ -45,16 +46,19 @@ fn onUpdate(this: &Rc<Entity>)
 {
     let chasing: bool = entity_creature::fields(this).m_playerToAttack.with(Option::is_some);
     entity_living::fields(this).m_moveSpeed.set(if chasing { 0.95 } else { 0.5 });
+
     let pigZombie: &PigZombieExt = fields(this);
     if pigZombie.m_randomSoundDelay.get() > 0
     {
         pigZombie.m_randomSoundDelay.set(pigZombie.m_randomSoundDelay.get() - 1);
+
         if pigZombie.m_randomSoundDelay.get() == 0
         {
             let pitch: f32 = ((this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0) * 1.8;
             this.world().playSoundAtEntity(this, "mob.zombiepig.zpigangry", this.getSoundVolume() * 2.0, pitch);
         }
     }
+
     (entity_zombie::CLASS.onUpdate)(this);
 }
 
@@ -72,35 +76,46 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bo
                 becomeAngryAt(&entity, player);
             }
         }
+
         becomeAngryAt(this, player);
     }
+
     (entity_zombie::CLASS.attackEntityFrom)(this, damage, amount)
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityPigZombie",
     m_parent: Some(&entity_zombie::CLASS),
     onUpdate,
-    getCanSpawnHere: |this| {
+    getCanSpawnHere: |this|
+    {
         let world: Rc<World> = this.world();
         world.m_difficultySetting.get() > 0
             && world.checkIfAABBIsClear(&this.m_boundingBox)
             && world.getCollidingBoundingBoxes(this, &this.m_boundingBox).size() == 0
             && !world.getIsAnyLiquid(&this.m_boundingBox)
     },
-    writeEntityToNBT: |this, nbt| {
+
+    writeEntityToNBT: |this, nbt|
+    {
         (entity_zombie::CLASS.writeEntityToNBT)(this, nbt);
         nbt.setShort("Anger", fields(this).m_angerLevel.get() as i16);
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         (entity_zombie::CLASS.readEntityFromNBT)(this, nbt);
         fields(this).m_angerLevel.set(nbt.getShort("Anger") as i32);
     },
-    findPlayerToAttack: |this| {
+
+    findPlayerToAttack: |this|
+    {
         if fields(this).m_angerLevel.get() == 0
         {
             return None;
         }
+
         (entity_zombie::CLASS.findPlayerToAttack)(this)
     },
     onLivingUpdate: |this| (entity_zombie::CLASS.onLivingUpdate)(this),
@@ -119,6 +134,7 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
     entity_zombie::init(&entity, world);
     fields(&entity).m_angerLevel.set(0);
     fields(&entity).m_randomSoundDelay.set(0);
+
     let living: &entity_living::LivingFields = entity_living::fields(&entity);
     living.m_texture.set(Some(JString::from("/mob/pigzombie.png")));
     living.m_moveSpeed.set(0.5);

@@ -29,6 +29,7 @@ fn transfer(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
     let target: Rc<Slot> = this.m_slots.get(slot);
     let stack: Rc<ItemStack> = target.getStack()?;
     let copy: Rc<ItemStack> = stack.copy();
+
     if slot < modSlots
     {
         this.moveItem(&stack, modSlots, this.m_slots.size(), true);
@@ -37,6 +38,7 @@ fn transfer(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
     {
         this.moveItem(&stack, 0, modSlots, false);
     }
+
     if stack.m_stackSize.get() == 0
     {
         target.putStack(None)
@@ -48,19 +50,23 @@ fn transfer(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
     Some(copy)
 }
 
-pub const MOD_CONTAINER: ContainerClass = ContainerClass {
+pub const MOD_CONTAINER: ContainerClass = ContainerClass
+{
     m_name: "ModContainer",
     m_parent: Some(&CONTAINER),
     m_interfaces: &[],
     getStackInSlot: transfer,
     isUsableByPlayer: |this, player| ext(this).m_inventory.canInteractWith(player),
-    onCraftGuiClosed: |this, player| {
+    onCraftGuiClosed: |this, player|
+    {
         (CONTAINER.onCraftGuiClosed)(this, player);
+
         let container: &ModContainer = ext(this);
         if !container.m_scratch || player.world().m_multiplayerWorld.get()
         {
             return;
         }
+
         for slot in 0..container.m_inventory.getSizeInventory()
         {
             if let Some(stack) = container.m_inventory.getStackInSlot(slot)
@@ -81,18 +87,23 @@ pub fn create(
 ) -> Rc<Container>
 {
     let modSlots: i32 = screen.m_spec.slots.len() as i32;
-    let this: Rc<Container> = Container::construct(&MOD_CONTAINER, |_| {
-        Box::new(ModContainer {
+
+    let this: Rc<Container> = Container::construct(&MOD_CONTAINER, |_|
+    {
+        Box::new(ModContainer
+        {
             m_inventory: Rc::clone(&inventory),
             m_screen: Rc::clone(screen),
             m_modSlots: modSlots,
             m_scratch: scratch,
         })
     });
+
     for slot in &screen.m_spec.slots
     {
         this.addSlot(Slot::new(Rc::clone(&inventory), slot.index, slot.x, slot.y));
     }
+
     if let Some([x, y]) = screen.m_spec.player_inventory
     {
         for row in 0..PLAYER_ROWS
@@ -108,11 +119,13 @@ pub fn create(
                 ));
             }
         }
+
         for column in 0..ROW_SLOTS
         {
             this.addSlot(Slot::new(Rc::clone(&playerInventory), column, x + column * SLOT_SIZE, y + HOTBAR_GAP));
         }
     }
+
     this
 }
 
@@ -133,8 +146,9 @@ pub fn scratchInventory(screen: &ScreenType) -> Rc<dyn IInventory>
 
 pub fn tileInventory(world: &game::world::World, pos: mod_protocol::abi::BlockPos) -> Option<Rc<dyn IInventory>>
 {
-    let tile = world.getBlockTileEntity(pos.x, pos.y, pos.z)?;
+    let tile: Rc<game::tileentity::TileEntity> = world.getBlockTileEntity(pos.x, pos.y, pos.z)?;
     tile.tryExt::<crate::tiles::ModTileExt>()?;
+
     let inventory: Rc<dyn IInventory> = tile;
     Some(inventory)
 }

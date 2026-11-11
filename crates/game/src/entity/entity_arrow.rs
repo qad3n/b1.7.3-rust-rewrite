@@ -38,7 +38,8 @@ fn alloc() -> Rc<Entity>
 {
     Entity::alloc(
         &CLASS,
-        Box::new(ArrowFields {
+        Box::new(ArrowFields
+        {
             m_xTile: Cell::new(0),
             m_yTile: Cell::new(0),
             m_zTile: Cell::new(0),
@@ -57,6 +58,7 @@ fn alloc() -> Rc<Entity>
 fn init(this: &Rc<Entity>, world: Option<Rc<World>>)
 {
     Entity::init(this, world);
+
     let arrow: &ArrowFields = fields(this);
     arrow.m_xTile.set(-1);
     arrow.m_yTile.set(-1);
@@ -85,6 +87,7 @@ pub fn createFromShooter(world: &Rc<World>, shooter: &Rc<Entity>) -> Rc<Entity>
 {
     let entity: Rc<Entity> = alloc();
     init(&entity, Some(Rc::clone(world)));
+
     let arrow: &ArrowFields = fields(&entity);
     arrow.m_owner.set(Some(Rc::clone(shooter)));
     arrow.m_doesArrowBelongToPlayer.set(shooter.instanceOf("EntityPlayer"));
@@ -103,12 +106,14 @@ pub(crate) fn launchFrom(this: &Rc<Entity>, thrower: &Rc<Entity>, y: f64, speed:
         thrower.m_rotationYaw.get(),
         thrower.m_rotationPitch.get(),
     );
+
     let yaw: f32 = this.m_rotationYaw.get() / 180.0 * PI;
     this.m_posX.set(this.m_posX.get() - (cos(yaw) * 0.16) as f64);
     this.m_posY.set(this.m_posY.get() - 0.1f32 as f64);
     this.m_posZ.set(this.m_posZ.get() - (sin(yaw) * 0.16) as f64);
     this.setPosition(this.m_posX.get(), this.m_posY.get(), this.m_posZ.get());
     this.m_yOffset.set(0.0);
+
     let pitch: f32 = this.m_rotationPitch.get() / 180.0 * PI;
     this.m_motionX.set((-sin(yaw) * cos(pitch) * speed) as f64);
     this.m_motionZ.set((cos(yaw) * cos(pitch) * speed) as f64);
@@ -130,7 +135,9 @@ pub(crate) fn applyHeading(this: &Entity, mut x: f64, mut y: f64, mut z: f64, sp
     this.m_motionX.set(x);
     this.m_motionY.set(y);
     this.m_motionZ.set(z);
+
     let f1: f32 = sqrt_double(x * x + z * z);
+
     this.m_rotationYaw.set((jvm::math::atan2(x, z) * 180.0 / PI as f64) as f32);
     this.m_prevRotationYaw.set(this.m_rotationYaw.get());
     this.m_rotationPitch.set((jvm::math::atan2(y, f1 as f64) * 180.0 / PI as f64) as f32);
@@ -148,11 +155,14 @@ pub(crate) fn faceVelocity(this: &Entity, x: f64, y: f64, z: f64) -> bool
     this.m_motionX.set(x);
     this.m_motionY.set(y);
     this.m_motionZ.set(z);
+
     if this.m_prevRotationPitch.get() != 0.0 || this.m_prevRotationYaw.get() != 0.0
     {
         return false;
     }
+
     let f: f32 = sqrt_double(x * x + z * z);
+
     this.m_rotationYaw.set((jvm::math::atan2(x, z) * 180.0 / PI as f64) as f32);
     this.m_prevRotationYaw.set(this.m_rotationYaw.get());
     this.m_rotationPitch.set((jvm::math::atan2(y, f as f64) * 180.0 / PI as f64) as f32);
@@ -176,12 +186,15 @@ pub(crate) fn findEntityHit(
             .addCoord(this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get())
             .expand(1.0, 1.0, 1.0),
     );
+
     let mut d: f64 = 0.0;
     let mut i: i32 = 0;
     while i < list.size()
     {
         let entity2: Rc<Entity> = list.get(i);
+
         i += 1;
+
         if !entity2.canBeCollidedWith() || ignoreThrower && thrower.is_some_and(|thrower| Rc::ptr_eq(thrower, &entity2))
         {
             continue;
@@ -193,6 +206,7 @@ pub(crate) fn findEntityHit(
         {
             continue;
         };
+
         let d2: f64 = from.distanceTo(&hit.m_hitVec);
         if d2 < d || d == 0.0
         {
@@ -200,6 +214,7 @@ pub(crate) fn findEntityHit(
             d = d2;
         }
     }
+
     entity
 }
 
@@ -212,22 +227,27 @@ pub(crate) fn rotateTowardsMotion(this: &Entity)
     let mut rotationPitch: f32 = (jvm::math::atan2(this.m_motionY.get(), f as f64) * 180.0 / PI as f64) as f32;
     let mut prevRotationPitch: f32 = this.m_prevRotationPitch.get();
     let mut prevRotationYaw: f32 = this.m_prevRotationYaw.get();
+
     while rotationPitch - prevRotationPitch < -180.0
     {
         prevRotationPitch -= 360.0;
     }
+
     while rotationPitch - prevRotationPitch >= 180.0
     {
         prevRotationPitch += 360.0;
     }
+
     while rotationYaw - prevRotationYaw < -180.0
     {
         prevRotationYaw -= 360.0;
     }
+
     while rotationYaw - prevRotationYaw >= 180.0
     {
         prevRotationYaw += 360.0;
     }
+
     rotationPitch = prevRotationPitch + (rotationPitch - prevRotationPitch) * 0.2;
     rotationYaw = prevRotationYaw + (rotationYaw - prevRotationYaw) * 0.2;
     this.m_prevRotationPitch.set(prevRotationPitch);
@@ -246,6 +266,7 @@ pub(crate) fn movePosition(this: &Entity)
 pub(crate) fn spawnBubbles(this: &Entity)
 {
     let world: Rc<World> = this.world();
+
     for _ in 0..4
     {
         let f6: f32 = 0.25;
@@ -278,8 +299,10 @@ pub(crate) fn shakeLoose(this: &Entity)
 fn onUpdate(this: &Rc<Entity>)
 {
     (ENTITY.onUpdate)(this);
+
     let arrow: &ArrowFields = fields(this);
     let world: Rc<World> = this.world();
+
     if this.m_prevRotationPitch.get() == 0.0 && this.m_prevRotationYaw.get() == 0.0
     {
         let f2: f32 =
@@ -297,6 +320,7 @@ fn onUpdate(this: &Rc<Entity>)
     {
         let block: Rc<Block> = Block::byId(n).orNpe();
         block.setBlockBoundsBasedOnState(&*world, xTile, yTile, zTile);
+
         let object: Option<Rc<AxisAlignedBB>> = block.getCollisionBoundingBoxFromPool(&world, xTile, yTile, zTile);
         if object.is_some_and(|bounds| bounds.isVecInside(&Vec3D::createVector(this.posX(), this.posY(), this.posZ())))
         {
@@ -321,28 +345,35 @@ fn onUpdate(this: &Rc<Entity>)
             arrow.m_ticksInAir.set(0);
             return;
         }
+
         arrow.m_ticksInGround.set(arrow.m_ticksInGround.get() + 1);
+
         if arrow.m_ticksInGround.get() == 1200
         {
             this.setEntityDead();
         }
+
         return;
     }
 
     arrow.m_ticksInAir.set(arrow.m_ticksInAir.get() + 1);
+
     let mut vec3D: Rc<Vec3D> = Vec3D::createVector(this.posX(), this.posY(), this.posZ());
     let mut object: Rc<Vec3D> = Vec3D::createVector(
         this.posX() + this.m_motionX.get(),
         this.posY() + this.m_motionY.get(),
         this.posZ() + this.m_motionZ.get(),
     );
+
     let mut movingObjectPosition: Option<MovingObjectPosition> = world.rayTrace(&vec3D, &object, false, true);
+
     vec3D = Vec3D::createVector(this.posX(), this.posY(), this.posZ());
     object = Vec3D::createVector(
         this.posX() + this.m_motionX.get(),
         this.posY() + this.m_motionY.get(),
         this.posZ() + this.m_motionZ.get(),
     );
+
     if let Some(hit) = &movingObjectPosition
     {
         object = Vec3D::createVector(hit.m_hitVec.x(), hit.m_hitVec.y(), hit.m_hitVec.z());
@@ -381,6 +412,7 @@ fn onUpdate(this: &Rc<Entity>)
             this.m_motionX.set((hit.m_hitVec.x() - this.posX()) as f32 as f64);
             this.m_motionY.set((hit.m_hitVec.y() - this.posY()) as f32 as f64);
             this.m_motionZ.set((hit.m_hitVec.z() - this.posZ()) as f32 as f64);
+
             let (motionX, motionY, motionZ): (f64, f64, f64) =
                 (this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get());
             let f3: f32 = sqrt_double(motionX * motionX + motionY * motionY + motionZ * motionZ);
@@ -395,24 +427,29 @@ fn onUpdate(this: &Rc<Entity>)
 
     movePosition(this);
     rotateTowardsMotion(this);
+
     let mut f5: f32 = 0.99;
     let f: f32 = 0.03;
+
     if this.isInWater()
     {
         spawnBubbles(this);
         f5 = 0.8;
     }
+
     scaleMotion(this, f5 as f64);
     this.m_motionY.set(this.m_motionY.get() - f as f64);
     this.setPosition(this.posX(), this.posY(), this.posZ());
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityArrow",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],
     entityInit: |_| {},
-    setVelocity: |this, x, y, z| {
+    setVelocity: |this, x, y, z|
+    {
         if faceVelocity(this, x, y, z)
         {
             this.m_prevRotationPitch.set(this.m_rotationPitch.get());
@@ -428,7 +465,8 @@ pub const CLASS: EntityClass = EntityClass {
         }
     },
     onUpdate,
-    writeEntityToNBT: |this, nbt: &NBTTagCompound| {
+    writeEntityToNBT: |this, nbt: &NBTTagCompound|
+    {
         let arrow: &ArrowFields = fields(this);
         nbt.setShort("xTile", arrow.m_xTile.get() as i16);
         nbt.setShort("yTile", arrow.m_yTile.get() as i16);
@@ -439,7 +477,9 @@ pub const CLASS: EntityClass = EntityClass {
         nbt.setByte("inGround", if arrow.m_inGround.get() { 1 } else { 0 });
         nbt.setBoolean("player", arrow.m_doesArrowBelongToPlayer.get());
     },
-    readEntityFromNBT: |this, nbt: &NBTTagCompound| {
+
+    readEntityFromNBT: |this, nbt: &NBTTagCompound|
+    {
         let arrow: &ArrowFields = fields(this);
         arrow.m_xTile.set(nbt.getShort("xTile") as i32);
         arrow.m_yTile.set(nbt.getShort("yTile") as i32);
@@ -450,12 +490,15 @@ pub const CLASS: EntityClass = EntityClass {
         arrow.m_inGround.set(nbt.getByte("inGround") == 1);
         arrow.m_doesArrowBelongToPlayer.set(nbt.getBoolean("player"));
     },
-    onCollideWithPlayer: |this, player| {
+
+    onCollideWithPlayer: |this, player|
+    {
         let world: Rc<World> = this.world();
         if world.m_multiplayerWorld.get()
         {
             return;
         }
+
         let arrow: &ArrowFields = fields(this);
         if arrow.m_inGround.get()
             && arrow.m_doesArrowBelongToPlayer.get()

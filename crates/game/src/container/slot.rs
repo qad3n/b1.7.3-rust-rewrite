@@ -4,15 +4,18 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
 
-crate::vtable! {
-    SlotClass for Slot {
+crate::vtable!
+{
+    SlotClass for Slot
+    {
         fn getSlotStackLimit() -> i32;
         fn isItemValid(item: &Rc<ItemStack>) -> bool;
         fn onPickupFromSlot(item: Option<Rc<ItemStack>>);
     }
 }
 
-pub const SLOT: SlotClass = SlotClass {
+pub const SLOT: SlotClass = SlotClass
+{
     m_name: "Slot",
     m_parent: None,
     m_interfaces: &[],
@@ -34,9 +37,9 @@ pub struct Slot
 
 impl Slot
 {
-    pub fn new(inventory: Rc<dyn IInventory>, id: i32, x: i32, y: i32) -> Rc<Slot>
+    pub fn new(inventory: Rc<dyn IInventory>, id: i32, x: i32, y: i32) -> Rc<Self>
     {
-        Slot::construct(&SLOT, Box::new(()), inventory, id, x, y)
+        Self::construct(&SLOT, Box::new(()), inventory, id, x, y)
     }
 
     pub fn construct(
@@ -46,9 +49,10 @@ impl Slot
         id: i32,
         x: i32,
         y: i32,
-    ) -> Rc<Slot>
+    ) -> Rc<Self>
     {
-        Rc::new(Slot {
+        Rc::new(Self
+        {
             m_class: class,
             m_ext: ext,
             m_slotIndex: id,

@@ -11,7 +11,8 @@ use std::rc::Rc;
 
 type StatArray = Option<Vec<Option<Rc<StatBase>>>>;
 
-thread_local! {
+thread_local!
+{
     static INIT: Cell<u8> = const { Cell::new(0) };
     static BY_ID: RefCell<JHashMap<i32, Rc<StatBase>>> = RefCell::new(JHashMap::new());
     static ALL: Rc<JArrayList<Rc<StatBase>>> = Rc::new(JArrayList::new());
@@ -35,8 +36,10 @@ struct NamedStat
     m_local: bool,
 }
 
-macro_rules! named_stats {
-    ($($name:ident = $index:literal ($id:expr, $key:expr, $formatter:expr, $local:expr),)*) => {
+macro_rules! named_stats
+{
+    ($($name:ident = $index:literal ($id:expr, $key:expr, $formatter:expr, $local:expr),)*) =>
+    {
         const NAMED_STATS: &[NamedStat] = &[$(NamedStat { m_id: $id, m_key: $key, m_formatter: $formatter, m_local: $local },)*];
 
         impl StatList
@@ -48,7 +51,8 @@ macro_rules! named_stats {
 
 pub struct StatList;
 
-named_stats! {
+named_stats!
+{
     startGameStat = 0 (1000, "stat.startGame", StatBase::NUMBER_FORMATTER, true),
     createWorldStat = 1 (1001, "stat.createWorld", StatBase::NUMBER_FORMATTER, true),
     loadWorldStat = 2 (1002, "stat.loadWorld", StatBase::NUMBER_FORMATTER, true),
@@ -80,6 +84,7 @@ fn ensureInit()
     {
         return;
     }
+
     INIT.with(|state| state.set(1));
     initStatList();
     INIT.with(|state| state.set(2));
@@ -91,13 +96,16 @@ fn initStatList()
     {
         let mut stat: Rc<StatBase> =
             StatBase::basic(row.m_id, StatCollector::translateToLocal(row.m_key), row.m_formatter);
+
         if row.m_local
         {
             stat = stat.setLocal();
         }
+
         let stat: Rc<StatBase> = stat.registerStat();
         NAMED.with(|named| named.borrow_mut()[index] = Some(stat));
     }
+
     let mineBlockStatArray: Vec<Option<Rc<StatBase>>> = initBlocksMinedStats("stat.mineBlock", 16777216);
     MINE_BLOCK_STAT_ARRAY.with(|array| *array.borrow_mut() = Some(mineBlockStatArray));
     AchievementList::init();
@@ -108,13 +116,16 @@ fn initStatList()
 fn element(array: &'static std::thread::LocalKey<RefCell<StatArray>>, index: i32) -> Option<Rc<StatBase>>
 {
     ensureInit();
-    array.with(|array| {
+
+    array.with(|array|
+    {
         let array: std::cell::Ref<StatArray> = array.borrow();
         let stats: &Vec<Option<Rc<StatBase>>> = array.as_ref().orNpe();
         if !(0..stats.len() as i32).contains(&index)
         {
             jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &index.to_string());
         }
+
         stats[index as usize].clone()
     })
 }
@@ -122,6 +133,7 @@ fn element(array: &'static std::thread::LocalKey<RefCell<StatArray>>, index: i32
 fn initBlocksMinedStats(name: &str, id: i32) -> Vec<Option<Rc<StatBase>>>
 {
     let mut stats: Vec<Option<Rc<StatBase>>> = vec![None; 256];
+
     for i in 0..256
     {
         let Some(block) = Block::byId(i)
@@ -129,6 +141,7 @@ fn initBlocksMinedStats(name: &str, id: i32) -> Vec<Option<Rc<StatBase>>>
         {
             continue;
         };
+
         if block.getEnableStats()
         {
             let s: String = StatCollector::translateToLocalFormatted(name, &[block.translateBlockName()]);
@@ -145,6 +158,7 @@ fn initBlocksMinedStats(name: &str, id: i32) -> Vec<Option<Rc<StatBase>>>
 fn initItemsUsedStats(stats: StatArray, name: &str, id: i32, minId: i32, maxId: i32) -> StatArray
 {
     let mut stats: Vec<Option<Rc<StatBase>>> = stats.unwrap_or_else(|| vec![None; 32000]);
+
     for i in minId..maxId
     {
         let Some(item) = Item::byId(i)
@@ -152,12 +166,15 @@ fn initItemsUsedStats(stats: StatArray, name: &str, id: i32, minId: i32, maxId: 
         {
             continue;
         };
+
         let s: String = StatCollector::translateToLocalFormatted(name, &[item.getStatName()]);
         let stat: Rc<StatBase> = StatBase::crafting(id + i, s, i).registerStat();
+
         if i >= 256
         {
             USED.with(|used| used.add(Rc::clone(&stat)));
         }
+
         stats[i as usize] = Some(stat);
     }
 
@@ -168,6 +185,7 @@ fn initItemsUsedStats(stats: StatArray, name: &str, id: i32, minId: i32, maxId: 
 fn initItemsBrokenStats(stats: StatArray, name: &str, id: i32, minId: i32, maxId: i32) -> StatArray
 {
     let mut stats: Vec<Option<Rc<StatBase>>> = stats.unwrap_or_else(|| vec![None; 32000]);
+
     for i in minId..maxId
     {
         let Some(item) = Item::byId(i)
@@ -175,6 +193,7 @@ fn initItemsBrokenStats(stats: StatArray, name: &str, id: i32, minId: i32, maxId
         {
             continue;
         };
+
         if item.isDamagable()
         {
             let s: String = StatCollector::translateToLocalFormatted(name, &[item.getStatName()]);
@@ -194,16 +213,19 @@ fn initItemsCraftedStats()
     }
 
     let mut hashset: JHashSet<i32> = JHashSet::new();
+
     for irecipe in CraftingManager::getInstance().getRecipeList().toVec()
     {
         hashset.add(irecipe.getRecipeOutput().m_itemID.get());
     }
+
     for itemstack in FurnaceRecipes::smelting().getSmeltingList().borrow().values()
     {
         hashset.add(itemstack.m_itemID.get());
     }
 
     let mut stats: Vec<Option<Rc<StatBase>>> = vec![None; 32000];
+
     for integer in hashset.items()
     {
         let Some(item) = Item::byId(integer)
@@ -211,6 +233,7 @@ fn initItemsCraftedStats()
         {
             continue;
         };
+
         let s: String = StatCollector::translateToLocalFormatted("stat.craftItem", &[item.getStatName()]);
         stats[integer as usize] = Some(StatBase::crafting(16842752 + integer, s, integer).registerStat());
     }
@@ -250,6 +273,7 @@ fn replaceSimilarBlocks(stats: &mut [Option<Rc<StatBase>>], block1: i32, block2:
         MINED.with(|mined| mined.removeIdentity(stat));
         GENERAL.with(|general| general.removeIdentity(stat));
     }
+
     stats[block1] = stats[block2].clone();
 }
 
@@ -285,7 +309,7 @@ impl StatList
         MINED.with(Rc::clone)
     }
 
-    pub(super) fn putById(stat: &Rc<StatBase>)
+    pub(crate) fn putById(stat: &Rc<StatBase>)
     {
         ensureInit();
         BY_ID.with(|byId| byId.borrow_mut().put(stat.m_statId, Rc::clone(stat)));
@@ -296,9 +320,11 @@ impl StatList
     pub fn initBlockStats()
     {
         ensureInit();
+
         let used: StatArray = ITEMS_USED.with(RefCell::take);
         let used: StatArray = initItemsUsedStats(used, "stat.useItem", 16908288, 0, 256);
         ITEMS_USED.with(|array| *array.borrow_mut() = used);
+
         let broken: StatArray = ITEMS_BROKEN.with(RefCell::take);
         let broken: StatArray = initItemsBrokenStats(broken, "stat.breakItem", 16973824, 0, 256);
         ITEMS_BROKEN.with(|array| *array.borrow_mut() = broken);
@@ -309,9 +335,11 @@ impl StatList
     pub fn initItemStats()
     {
         ensureInit();
+
         let used: StatArray = ITEMS_USED.with(RefCell::take);
         let used: StatArray = initItemsUsedStats(used, "stat.useItem", 16908288, 256, 32000);
         ITEMS_USED.with(|array| *array.borrow_mut() = used);
+
         let broken: StatArray = ITEMS_BROKEN.with(RefCell::take);
         let broken: StatArray = initItemsBrokenStats(broken, "stat.breakItem", 16973824, 256, 32000);
         ITEMS_BROKEN.with(|array| *array.borrow_mut() = broken);

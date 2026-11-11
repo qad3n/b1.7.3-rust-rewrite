@@ -3,7 +3,7 @@ use crate::{LWJGLException, platform};
 use jvm::warning;
 use sdl2::event::{Event, EventType};
 use sdl2::mouse::{MouseButton, MouseUtil};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::VecDeque;
 
 // lwjgl numbers buttons left 0, right 1, middle 2
@@ -50,7 +50,8 @@ struct MouseState
     m_current: MouseEvent,
 }
 
-thread_local! {
+thread_local!
+{
     static STATE: RefCell<MouseState> = RefCell::new(MouseState::default());
 }
 
@@ -61,7 +62,8 @@ fn lwjglButton(button: MouseButton) -> i32
 
 fn queue(state: &mut MouseState, button: i32, buttonState: bool, dx: i32, dy: i32, dwheel: i32)
 {
-    let event: MouseEvent = MouseEvent {
+    let event: MouseEvent = MouseEvent
+    {
         m_button: button,
         m_state: buttonState,
         m_dx: dx,
@@ -83,7 +85,9 @@ fn warp(x: i32, y: i32)
     let surface: Surface = Display::surface();
     let pointX: i32 = (x as f64 / surface.m_scale) as i32;
     let pointY: i32 = ((surface.m_height - 1 - y) as f64 / surface.m_scale) as i32;
-    let warped: Result<Option<()>, LWJGLException> = platform::with(|platform| {
+
+    let warped: Result<Option<()>, LWJGLException> = platform::with(|platform|
+    {
         Display::withWindow(|window| platform.m_sdl.mouse().warp_mouse_in_window(window, pointX, pointY))
     });
     if let Err(error) = warped
@@ -95,12 +99,14 @@ fn warp(x: i32, y: i32)
 // positions are drawable pixels with their origin at the bottom left like gl, deltas grow upwards
 pub(crate) fn handleEvent(event: &Event, surface: Surface)
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::input::mouse::MouseState> = state.borrow_mut();
         if !state.m_created
         {
             return;
         }
+
         match *event
         {
             Event::MouseMotion { x, y, xrel, yrel, .. } =>
@@ -119,6 +125,7 @@ pub(crate) fn handleEvent(event: &Event, surface: Surface)
                 state.m_dy -= yrel;
                 queue(&mut state, -1, false, xrel, -yrel, 0);
             }
+
             Event::MouseButtonDown { mouse_btn, .. } | Event::MouseButtonUp { mouse_btn, .. } =>
             {
                 let button: i32 = lwjglButton(mouse_btn);
@@ -126,10 +133,12 @@ pub(crate) fn handleEvent(event: &Event, surface: Surface)
                 {
                     return;
                 }
+
                 let pressed: bool = matches!(event, Event::MouseButtonDown { .. });
                 state.m_buttons[button as usize] = pressed;
                 queue(&mut state, button, pressed, 0, 0, 0);
             }
+
             Event::MouseWheel { precise_y, .. } =>
             {
                 state.m_notches += precise_y;
@@ -140,10 +149,12 @@ pub(crate) fn handleEvent(event: &Event, surface: Surface)
                 }
 
                 state.m_notches -= notches;
+
                 let dwheel: i32 = notches as i32 * WHEEL_DELTA;
                 state.m_dwheel += dwheel;
                 queue(&mut state, -1, false, 0, 0, dwheel);
             }
+
             _ =>
             {}
         }
@@ -152,8 +163,10 @@ pub(crate) fn handleEvent(event: &Event, surface: Surface)
 
 pub(crate) fn release()
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::input::mouse::MouseState> = state.borrow_mut();
+
         for (_, button) in BUTTONS
         {
             if !state.m_buttons[button as usize]
@@ -173,11 +186,13 @@ impl Mouse
 {
     pub fn create() -> Result<(), LWJGLException>
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<crate::input::mouse::MouseState> = state.borrow_mut();
             *state = MouseState::default();
             state.m_created = true;
         });
+
         Ok(())
     }
 
@@ -191,8 +206,9 @@ impl Mouse
 
     pub fn next() -> bool
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<crate::input::mouse::MouseState> = state.borrow_mut();
             match state.m_queue.pop_front()
             {
                 Some(event) =>
@@ -200,6 +216,7 @@ impl Mouse
                     state.m_current = event;
                     true
                 }
+
                 None => false,
             }
         })
@@ -243,20 +260,24 @@ impl Mouse
 
     pub fn setGrabbed(grab: bool)
     {
-        let switched: Result<bool, LWJGLException> = platform::with(|platform| {
+        let switched: Result<bool, LWJGLException> = platform::with(|platform|
+        {
             let mouse: MouseUtil = platform.m_sdl.mouse();
             mouse.set_relative_mouse_mode(grab);
+
             // motion queued in the old mode would jolt the camera or the cursor
             match platform.m_sdl.event()
             {
                 Ok(events) => events.flush_event(EventType::MouseMotion),
                 Err(error) => warning!("could not drop queued mouse motion: {error}"),
             }
+
             mouse.relative_mouse_mode()
         });
         let grabbed: bool = match switched
         {
             Ok(grabbed) => grabbed,
+
             Err(error) =>
             {
                 warning!("could not switch the mouse grab: {error}");
@@ -269,14 +290,16 @@ impl Mouse
         }
 
         // lwjgl drops the deltas gathered in the old mode
-        let (x, y): (i32, i32) = STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        let (x, y): (i32, i32) = STATE.with(|state|
+        {
+            let mut state: RefMut<crate::input::mouse::MouseState> = state.borrow_mut();
             state.m_grabbed = grabbed;
             state.m_dx = 0;
             state.m_dy = 0;
             state.m_dwheel = 0;
             (state.m_x, state.m_y)
         });
+
         if grabbed
         {
             return;
@@ -288,11 +311,13 @@ impl Mouse
 
     pub fn setCursorPosition(x: i32, y: i32)
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<crate::input::mouse::MouseState> = state.borrow_mut();
             state.m_x = x;
             state.m_y = y;
         });
+
         warp(x, y);
     }
 }

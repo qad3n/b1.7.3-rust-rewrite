@@ -16,24 +16,19 @@ pub struct TexturedQuad
 
 impl TexturedQuad
 {
-    pub fn new(vertices: Vec<PositionTextureVertex>) -> TexturedQuad
+    pub fn new(vertices: Vec<PositionTextureVertex>) -> Self
     {
         let count: i32 = vertices.len() as i32;
-        TexturedQuad { m_vertexPositions: vertices, m_nVertices: count }
+        Self { m_vertexPositions: vertices, m_nVertices: count }
     }
 
-    pub fn withTexture(vertices: Vec<PositionTextureVertex>, u1: i32, v1: i32, u2: i32, v2: i32) -> TexturedQuad
+    pub fn withTexture(vertices: Vec<PositionTextureVertex>, u1: i32, v1: i32, u2: i32, v2: i32) -> Self
     {
         Self::withTextureSized(vertices, [u1, v1, u2, v2], TEXTURE_WIDTH, TEXTURE_HEIGHT)
     }
 
     // rewrite: mod models name their sheet size, vanilla models keep 64 by 32
-    pub fn withTextureSized(
-        mut vertices: Vec<PositionTextureVertex>,
-        uv: [i32; 4],
-        width: f32,
-        height: f32,
-    ) -> TexturedQuad
+    pub fn withTextureSized(mut vertices: Vec<PositionTextureVertex>, uv: [i32; 4], width: f32, height: f32) -> Self
     {
         let [u1, v1, u2, v2] = uv;
         let f: f32 = U_INSET;
@@ -53,8 +48,10 @@ impl TexturedQuad
         let vec3D: Rc<Vec3D> = vertices[1].m_vector3D.subtract(&vertices[0].m_vector3D);
         let vec3D2: Rc<Vec3D> = vertices[1].m_vector3D.subtract(&vertices[2].m_vector3D);
         let vec3D3: Rc<Vec3D> = vec3D2.crossProduct(&vec3D).normalize();
+
         tesselator.startDrawingQuads();
         tesselator.setNormal(vec3D3.x() as f32, vec3D3.y() as f32, vec3D3.z() as f32);
+
         for vertex in &vertices[..4]
         {
             let position: &Vec3D = &vertex.m_vector3D;
@@ -66,6 +63,7 @@ impl TexturedQuad
                 vertex.m_texturePositionY as f64,
             );
         }
+
         tesselator.draw();
     }
 }

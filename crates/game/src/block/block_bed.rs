@@ -15,6 +15,7 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, mut x: i32, y: i32, mut z
     {
         return true;
     }
+
     let mut n: i32 = world.getBlockMetadata(x, y, z);
     if !isBlockFootOfBed(n)
     {
@@ -25,14 +26,18 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, mut x: i32, y: i32, mut z
         {
             return true;
         }
+
         n = world.getBlockMetadata(x, y, z);
     }
+
     if !world.worldProvider().canRespawnHere()
     {
         let mut d: f64 = x as f64 + 0.5;
         let mut d2: f64 = y as f64 + 0.5;
         let mut d3: f64 = z as f64 + 0.5;
+
         world.setBlockWithNotify(x, y, z, 0);
+
         let n3: usize = getDirectionFromMetadata(n) as usize;
         x += HEAD_BLOCK_TO_FOOT_BLOCK_MAP[n3][0];
         z += HEAD_BLOCK_TO_FOOT_BLOCK_MAP[n3][1];
@@ -43,9 +48,11 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, mut x: i32, y: i32, mut z
             d2 = (d2 + y as f64 + 0.5) / 2.0;
             d3 = (d3 + z as f64 + 0.5) / 2.0;
         }
+
         world.newExplosion(None, (x as f32 + 0.5) as f64, (y as f32 + 0.5) as f64, (z as f32 + 0.5) as f64, 5.0, true);
         return true;
     }
+
     if isBedOccupied(n)
     {
         let mut entityPlayer: Option<Rc<Entity>> = None;
@@ -59,12 +66,15 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, mut x: i32, y: i32, mut z
             }
             let chunkCoordinates: ChunkCoordinates =
                 entity_player::fields(&entityPlayer2).m_bedChunkCoordinates.get().orNpe();
+
             if chunkCoordinates.m_x != x || chunkCoordinates.m_y != y || chunkCoordinates.m_z != z
             {
                 continue;
             }
+
             entityPlayer = Some(entityPlayer2);
         }
+
         if entityPlayer.is_none()
         {
             setBedOccupied(world, x, y, z, false);
@@ -75,16 +85,19 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, mut x: i32, y: i32, mut z
             return true;
         }
     }
+
     let enumStatus: EnumStatus = player.sleepInBedAt(x, y, z);
     if enumStatus == EnumStatus::Ok
     {
         setBedOccupied(world, x, y, z, true);
         return true;
     }
+
     if enumStatus == EnumStatus::NotPossibleNow
     {
         player.addChatMessage("tile.bed.noSleep");
     }
+
     true
 }
 
@@ -94,9 +107,11 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, face: i32, metadata: i32
     {
         return Block::planks().m_blockIndexInTexture.get();
     }
+
     let n: usize = getDirectionFromMetadata(metadata) as usize;
     let n2: i32 = model_bed::BED_DIRECTION[n][face as usize];
     let index: i32 = this.m_blockIndexInTexture.get();
+
     if isBlockFootOfBed(metadata)
     {
         if n2 == 2
@@ -107,8 +122,10 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, face: i32, metadata: i32
         {
             return index + 1 + 16;
         }
+
         return index + 1;
     }
+
     if n2 == 3
     {
         return index - 1 + 16;
@@ -117,6 +134,7 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, face: i32, metadata: i32
     {
         return index + 16;
     }
+
     index
 }
 
@@ -124,6 +142,7 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
 {
     let n: i32 = world.getBlockMetadata(x, y, z);
     let n2: usize = getDirectionFromMetadata(n) as usize;
+
     if isBlockFootOfBed(n)
     {
         if world.getBlockId(x - HEAD_BLOCK_TO_FOOT_BLOCK_MAP[n2][0], y, z - HEAD_BLOCK_TO_FOOT_BLOCK_MAP[n2][1])
@@ -136,6 +155,7 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
         != this.m_blockID
     {
         world.setBlockWithNotify(x, y, z, 0);
+
         if !world.m_multiplayerWorld.get()
         {
             this.dropBlockAsItem(world, x, y, z, n);
@@ -154,6 +174,7 @@ pub fn isBedOccupied(metadata: i32) -> bool { (metadata & 4) != 0 }
 pub fn setBedOccupied(world: &Rc<World>, x: i32, y: i32, z: i32, occupied: bool)
 {
     let mut i: i32 = world.getBlockMetadata(x, y, z);
+
     if occupied
     {
         i |= 4;
@@ -175,12 +196,14 @@ pub fn getNearestEmptyChunkCoordinates(
 {
     let n: i32 = world.getBlockMetadata(x, y, z);
     let n2: usize = getDirectionFromMetadata(n) as usize;
+
     for i in 0..=1
     {
         let n3: i32 = x - HEAD_BLOCK_TO_FOOT_BLOCK_MAP[n2][0] * i - 1;
         let n4: i32 = z - HEAD_BLOCK_TO_FOOT_BLOCK_MAP[n2][1] * i - 1;
         let n5: i32 = n3 + 2;
         let n6: i32 = n4 + 2;
+
         for j in n3..=n5
         {
             for k in n4..=n6
@@ -189,19 +212,23 @@ pub fn getNearestEmptyChunkCoordinates(
                 {
                     continue;
                 }
+
                 if skip > 0
                 {
                     skip -= 1;
                     continue;
                 }
+
                 return Some(ChunkCoordinates::new(j, y, k));
             }
         }
     }
+
     None
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockBed",
     m_parent: Some(&BLOCK),
     blockActivated,
@@ -211,14 +238,18 @@ pub const CLASS: BlockClass = BlockClass {
     isOpaqueCube: |_| false,
     setBlockBoundsBasedOnState: |this, _, _, _, _| setBounds(this),
     onNeighborBlockChange,
-    idDropped: |_, metadata, _| {
+    idDropped: |_, metadata, _|
+    {
         if isBlockFootOfBed(metadata)
         {
             return 0;
         }
+
         Item::bed().m_shiftedIndex
     },
-    dropBlockAsItemWithChance: |this, world, x, y, z, metadata, luck| {
+
+    dropBlockAsItemWithChance: |this, world, x, y, z, metadata, luck|
+    {
         if !isBlockFootOfBed(metadata)
         {
             (BLOCK.dropBlockAsItemWithChance)(this, world, x, y, z, metadata, luck);

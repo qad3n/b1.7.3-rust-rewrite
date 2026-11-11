@@ -1,13 +1,14 @@
 use crate::render::{GLAllocation, RenderEngine, TextureFX, TextureFXFields};
 use jvm::image::BufferedImage;
-use lwjgl::buffers::ByteBuffer;
+use lwjgl::buffers::{Buffer, ByteBuffer};
 use lwjgl::opengl::GL11;
 use modloader::atlas::{self, AnimatedTile, Atlas};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
-thread_local! {
+thread_local!
+{
     static PIXELS: RefCell<Option<ByteBuffer>> = const { RefCell::new(None) };
     static REGISTERED: Cell<bool> = const { Cell::new(false) };
     // a dynamic texture's GL name and the version last uploaded to it
@@ -29,13 +30,16 @@ pub fn bind(engine: &RenderEngine, texture: &str)
         return;
     };
     let (width, height): (i32, i32) = (dynamic.m_width as i32, dynamic.m_height as i32);
-    let id: i32 = UPLOADED.with(|uploaded| {
-        let mut uploaded = uploaded.borrow_mut();
+
+    let id: i32 = UPLOADED.with(|uploaded|
+    {
+        let mut uploaded: RefMut<HashMap<String, (i32, u32)>> = uploaded.borrow_mut();
         if !uploaded.contains_key(texture)
         {
             let image: Rc<BufferedImage> = Rc::new(BufferedImage::new(width, height, ARGB_IMAGE));
             uploaded.insert(texture.to_owned(), (engine.allocateAndSetupTexture(image), 0));
         }
+
         let entry: &mut (i32, u32) = uploaded.get_mut(texture).expect("texture was just inserted");
         if entry.1 != dynamic.m_version
         {
@@ -43,6 +47,7 @@ pub fn bind(engine: &RenderEngine, texture: &str)
             engine.bind(&pixels, width, height, entry.0);
             entry.1 = dynamic.m_version;
         }
+
         entry.0
     });
     GL11::glBindTexture(GL11::GL_TEXTURE_2D, id);
@@ -51,11 +56,13 @@ pub fn bind(engine: &RenderEngine, texture: &str)
 // binds a mod texture's file through the engine's own cache
 pub fn bindFile(engine: &RenderEngine, texture: &str)
 {
-    let path: Rc<str> = PATHS.with(|paths| {
+    let path: Rc<str> = PATHS.with(|paths|
+    {
         if let Some(path) = paths.borrow().get(texture)
         {
             return Rc::clone(path);
         }
+
         let path: Rc<str> = modloader::entities::modTexturePath(texture).map_or_else(|| texture.into(), Into::into);
         paths.borrow_mut().insert(texture.to_owned(), Rc::clone(&path));
         path
@@ -68,11 +75,13 @@ const MAX_TILE_BYTES: i32 = 256 * 256 * 4;
 
 fn upload(tile: &AnimatedTile)
 {
-    PIXELS.with(|pixels| {
-        let mut pixels = pixels.borrow_mut();
+    PIXELS.with(|pixels|
+    {
+        let mut pixels: RefMut<Option<Buffer<i8>>> = pixels.borrow_mut();
         let buffer: &mut ByteBuffer =
             pixels.get_or_insert_with(|| GLAllocation::createDirectByteBuffer(MAX_TILE_BYTES));
         let bytes: Vec<i8> = tile.m_rgba.iter().map(|byte| *byte as i8).collect();
+
         buffer.clear();
         buffer.putSlice(&bytes);
         buffer.setPosition(0).setLimit(bytes.len() as i32);
@@ -119,7 +128,9 @@ pub fn register(engine: &Rc<RenderEngine>)
     {
         return;
     }
+
     REGISTERED.set(true);
+
     let fx: TextureFXFields = TextureFXFields::new(0);
     // a tile size of zero keeps vanilla from copying this effect's own pixels anywhere
     fx.m_tileSize.set(0);
@@ -136,7 +147,9 @@ fn animate(engine: &RenderEngine)
         {
             continue;
         }
+
         GL11::glBindTexture(GL11::GL_TEXTURE_2D, engine.getTexture(path));
+
         for tile in &due
         {
             upload(tile);

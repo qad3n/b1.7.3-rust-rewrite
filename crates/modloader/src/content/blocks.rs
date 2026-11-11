@@ -25,11 +25,13 @@ fn faceTexture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
 {
     let data: Rc<BlockData> = data(this);
     let side: usize = face.clamp(0, 5) as usize;
+
     if let Some(states) = &data.m_stateFaces
     {
         let state: usize = data.m_page * crate::states::pages::STATES_PER_ID + (metadata as usize & 15);
         return states.get(state).map_or(data.m_faces[side], |faces| faces[side]);
     }
+
     match data.m_bed
     {
         Some(bed) => bedTexture(&bed, face, metadata),
@@ -41,10 +43,12 @@ fn faceTexture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
 fn bedTexture(bed: &[i32; 7], face: i32, metadata: i32) -> i32
 {
     let [topHead, topFoot, sideHead, sideFoot, endHead, endFoot, bottom] = *bed;
+
     if face == 0
     {
         return bottom;
     }
+
     let direction: usize = game::block::block_bed::getDirectionFromMetadata(metadata) as usize;
     let along: i32 = game::block::model_bed::BED_DIRECTION[direction][face.clamp(0, 5) as usize];
     let head: bool = game::block::block_bed::isBlockFootOfBed(metadata);
@@ -69,7 +73,8 @@ fn connects(spec: &BlockSpec, world: &dyn IBlockAccess, own: i32, x: i32, y: i32
     {
         return true;
     }
-    let listed = spec.model.as_ref().map(|model| model.connects_to.as_slice()).unwrap_or_default();
+
+    let listed: &[Identifier] = spec.model.as_ref().map(|model| model.connects_to.as_slice()).unwrap_or_default();
     listed.iter().any(|id| crate::registry::with(|registries| registries.blockId(id)) == Some(neighbor))
 }
 
@@ -86,6 +91,7 @@ pub fn metaCuboids(blockId: i32, meta: i32) -> Vec<Cuboid>
     {
         return Vec::new();
     };
+
     model
         .cuboids
         .iter()
@@ -107,13 +113,16 @@ pub fn activeCuboids(blockId: i32, world: &dyn IBlockAccess, x: i32, y: i32, z: 
     {
         return Vec::new();
     };
+
     let meta: i32 = world.getBlockMetadata(x, y, z);
     model
         .cuboids
         .iter()
         .filter(|cuboid| cuboid.metas.is_empty() || cuboid.metas.contains(&meta))
-        .filter(|cuboid| {
-            cuboid.connect.is_none_or(|face| {
+        .filter(|cuboid|
+        {
+            cuboid.connect.is_none_or(|face|
+            {
                 let [dx, dz] = SIDE_OFFSETS[face.clamp(0, 5) as usize];
                 connects(&data.m_spec, world, blockId, x + dx, y, z + dz)
             })
@@ -144,7 +153,8 @@ fn boxesAt(cuboids: &[Cuboid], x: i32, y: i32, z: i32) -> Vec<Rc<AxisAlignedBB>>
 {
     cuboids
         .iter()
-        .map(|cuboid| {
+        .map(|cuboid|
+        {
             AxisAlignedBB::getBoundingBoxFromPool(
                 x as f64 + cuboid.from[0] as f64 / MODEL_UNITS,
                 y as f64 + cuboid.from[1] as f64 / MODEL_UNITS,
@@ -200,12 +210,15 @@ fn specCollisions(
 fn modelSelection(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> Rc<AxisAlignedBB>
 {
     let boxes: Vec<Rc<AxisAlignedBB>> = cuboidBoxes(this, world, x, y, z);
-    let fold = |pick: fn(&AxisAlignedBB) -> f64, min: bool| -> f64 {
+
+    let fold = |pick: fn(&AxisAlignedBB) -> f64, min: bool| -> f64
+    {
         boxes
             .iter()
             .map(|bounds| pick(bounds))
             .fold(if min { f64::MAX } else { f64::MIN }, |a, b| if min { a.min(b) } else { a.max(b) })
     };
+
     if boxes.is_empty()
     {
         return AxisAlignedBB::getBoundingBoxFromPool(
@@ -217,6 +230,7 @@ fn modelSelection(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -
             z as f64 + 1.0,
         );
     }
+
     AxisAlignedBB::getBoundingBoxFromPool(
         fold(AxisAlignedBB::minX, true),
         fold(AxisAlignedBB::minY, true),
@@ -239,6 +253,7 @@ fn dropItems(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _metad
     {
         return;
     }
+
     let data: Rc<BlockData> = data(this);
     for drop in &data.m_drops
     {
@@ -246,6 +261,7 @@ fn dropItems(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _metad
         {
             continue;
         }
+
         let count: i32 = drop.m_min + world.m_rand.nextIntBounded(drop.m_max - drop.m_min + 1);
         if count > 0
         {
@@ -289,6 +305,7 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
         let known: Vec<&str> = templates::BLOCK_TEMPLATES.iter().map(|row| row.m_name).collect();
         return Err(format!("unknown block template minecraft:{name}, known: {}", known.join(", ")));
     }
+
     if let Some(kind) = spec.model.as_ref().and_then(|model| model.render_type)
         && !game::block::render_type::RENDER_TYPES.iter().any(|row| row.m_id == kind)
     {
@@ -296,6 +313,7 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
             game::block::render_type::RENDER_TYPES.iter().map(|row| format!("{} {}", row.m_id, row.m_name)).collect();
         return Err(format!("unknown render type {kind}, known: {}", known.join(", ")));
     }
+
     if let Some(material) = &spec.material
         && templates::material(material).is_none()
         && Identifier::parse(material).is_err()
@@ -307,13 +325,16 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
     {
         return Err(format!("unknown sound {sound}"));
     }
+
     Ok(())
 }
 
 pub fn requestTextures(spec: &BlockSpec)
 {
     let faces: Option<&FaceTextures> = spec.textures.as_ref();
-    let bed = spec.bed.iter().flat_map(|bed| {
+
+    let bed = spec.bed.iter().flat_map(|bed|
+    {
         [&bed.top_head, &bed.top_foot, &bed.side_head, &bed.side_foot, &bed.end_head, &bed.end_foot, &bed.bottom]
     });
     let all = spec
@@ -325,6 +346,7 @@ pub fn requestTextures(spec: &BlockSpec)
                 .flat_map(|faces| [&faces.top, &faces.bottom, &faces.side, &faces.front].into_iter().flatten()),
         )
         .chain(bed);
+
     for texture in all
     {
         crate::atlas::request(Atlas::Terrain, texture);
@@ -360,9 +382,11 @@ fn resolveDrops(drops: &[DropSpec]) -> Result<Vec<ResolvedDrop>, String>
 {
     drops
         .iter()
-        .map(|drop| {
+        .map(|drop|
+        {
             let item: i32 = registry::with(|registries| registries.itemId(&drop.item))
                 .ok_or_else(|| format!("drop {} is not a registered item", drop.item))?;
+
             let (min, max): (i32, i32) = match drop.count.as_slice()
             {
                 [count] => (*count, *count),
@@ -382,15 +406,19 @@ fn stateFaces(table: &crate::states::StateTable, base: [i32; FACES]) -> Option<V
     {
         return None;
     }
+
     let faces: Vec<[i32; FACES]> = (0..table.count())
-        .map(|index| {
+        .map(|index|
+        {
             let values: std::collections::BTreeMap<String, String> = table.properties(index);
             let faces: [i32; FACES] = table
                 .variants()
                 .iter()
                 .filter(|variant| variant.when.iter().all(|(key, value)| values.get(key) == Some(value)))
-                .fold(base, |faces, variant| {
+                .fold(base, |faces, variant|
+                {
                     let sprite: i32 = slot(variant.texture.as_ref(), faces[0]);
+
                     match (&variant.texture, &variant.textures)
                     {
                         (_, Some(textures)) => faceSlots(Some(textures), sprite),
@@ -412,17 +440,21 @@ const SIDE_NAMES: [&str; FACES] = ["down", "up", "north", "south", "west", "east
 fn turn(faces: [i32; FACES], values: &std::collections::BTreeMap<String, String>) -> [i32; FACES]
 {
     let [bottom, top, side, front, ..] = faces;
+
     if let Some(face) = values.get(FACING).and_then(|facing| SIDE_NAMES.iter().position(|name| name == facing))
     {
         let mut turned: [i32; FACES] = [side; FACES];
+
         if face >= 2
         {
             turned[0] = bottom;
             turned[1] = top;
         }
+
         turned[face] = front;
         return turned;
     }
+
     match values.get(AXIS).map(String::as_str)
     {
         Some("x") => [side, side, side, side, bottom, top],
@@ -441,6 +473,7 @@ fn pageIdDropped(this: &Rc<Block>, metadata: i32, random: &jvm::random::Random) 
     {
         return dropped;
     }
+
     crate::states::locate(&data(this).m_id, 0).map_or(dropped, |(base, _)| base)
 }
 
@@ -450,19 +483,23 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize)
     {
         class.idDropped = pageIdDropped;
     }
+
     if spec.textures.is_some() || spec.bed.is_some() || stated
     {
         class.getBlockTextureFromSideAndMetadata = faceTexture;
     }
+
     if spec.drops.is_some()
     {
         class.dropBlockAsItemWithChance = dropItems;
     }
+
     if spec.color.is_some()
     {
         class.getRenderColor = color;
         class.colorMultiplier = colorAt;
     }
+
     if let Some(model) = &spec.model
     {
         if model.render_type.is_some_and(|kind| kind != 0)
@@ -471,6 +508,7 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize)
             class.isOpaqueCube = notOpaque;
             class.renderAsNormalBlock = notOpaque;
         }
+
         if !model.cuboids.is_empty()
         {
             class.getRenderType = modelRenderType;
@@ -479,20 +517,24 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize)
             class.getCollidingBoundingBoxes = modelCollisions;
             class.getSelectedBoundingBoxFromPool = modelSelection;
         }
+
         if model.translucent
         {
             class.getRenderBlockPass = translucentPass;
             class.isOpaqueCube = notOpaque;
         }
     }
+
     if spec.collision.is_some()
     {
         class.getCollidingBoundingBoxes = specCollisions;
     }
+
     if let Some(behavior) = &spec.behavior
     {
         crate::behavior::patchBlock(class, behavior);
     }
+
     if spec.tile_entity.is_some()
     {
         crate::behavior::patchTileBlock(class);
@@ -509,6 +551,7 @@ fn flagTags(spec: &BlockSpec, id: &Identifier)
         (spec.leaves.unwrap_or(leavesTemplate), "leaves"),
         (spec.sustains_leaves == Some(true), "logs"),
     ];
+
     for (_, tag) in flags.iter().filter(|(flagged, _)| *flagged)
     {
         super::tags::flag(RegistryKind::Block, tag, id);
@@ -537,19 +580,23 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     {
         crate::states::bindPage(numeric, &id, page);
     }
+
     let stateFaces: Option<Vec<[i32; FACES]>> =
         table.as_ref().and_then(|table| stateFaces(table, faces(&spec, sprite)));
     let stated: bool = stateFaces.is_some();
+
     flagTags(&spec, &id);
     super::putBlock(
         numeric,
-        BlockData {
+        BlockData
+        {
             m_stateFaces: stateFaces,
             m_page: page,
             m_id: id.clone(),
             m_owner: owner,
             m_faces: faces(&spec, sprite),
-            m_bed: spec.bed.as_ref().map(|bed| {
+            m_bed: spec.bed.as_ref().map(|bed|
+            {
                 [
                     &bed.top_head,
                     &bed.top_foot,
@@ -566,36 +613,45 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
             m_spec: spec.clone(),
         },
     );
+
     let class: &'static BlockClass =
-        crate::classes::deriveBlockClass(templates::templateClass(template), &row.m_id.to_string(), |class| {
+        crate::classes::deriveBlockClass(templates::templateClass(template), &row.m_id.to_string(), |class|
+        {
             patch(class, &spec, stated, page)
         });
     let mut block: Rc<Block> = game::hooks::withBlockClass(class, || (template.m_create)(numeric, sprite, material));
     block.m_blockIndexInTexture.set(sprite);
+
     if let Some(hardness) = spec.hardness
     {
         block = block.setHardness(hardness);
     }
+
     if let Some(resistance) = spec.resistance
     {
         block = block.setResistance(resistance);
     }
+
     if let Some(light) = spec.light
     {
         block = block.setLightValue(light);
     }
+
     if let Some(slipperiness) = spec.slipperiness
     {
         block.m_slipperiness.set(slipperiness);
     }
+
     if let Some(opacity) = spec.opacity
     {
         block = block.setLightOpacity(opacity);
     }
+
     if let Some(sound) = spec.sound.as_deref().and_then(soundFor)
     {
         block = block.setStepSound(sound);
     }
+
     if spec.tick_randomly == Some(true)
         || spec
             .behavior
@@ -604,28 +660,35 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
     {
         block = block.setTickOnLoad(true);
     }
+
     let key: String = format!("{}.{}", id.namespace(), id.path().replace('/', "."));
     block = block.setBlockName(&key);
+
     if let Some(name) = &spec.name
     {
         super::lang::addDefault(&format!("tile.{key}.name"), name);
     }
+
     if spec.tile_entity.is_some()
     {
         Block::setIsBlockContainerEntry(numeric, true);
     }
+
     if let Some(flammability) = spec.flammability
     {
         game::block::block_fire::setFlammable(numeric, flammability.encouragement, flammability.flammability);
     }
+
     if let Some(ticks) = spec.fuel
     {
         super::putFuel(numeric, ticks);
     }
+
     if page == 0
     {
         super::items::buildBlockItem(&block, spec.item.as_ref(), owner, &row.m_id)?;
     }
+
     block.initializeBlock();
     Ok(())
 }

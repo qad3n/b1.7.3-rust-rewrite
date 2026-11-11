@@ -35,6 +35,7 @@ impl CompressedStreamTools
         {
             return Ok(nbtbase);
         }
+
         Err(jvm::io::ioError(&throwable::IO, "Root tag must be a named compound tag"))
     }
 

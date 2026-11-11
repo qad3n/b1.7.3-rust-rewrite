@@ -26,24 +26,29 @@ static ENGINE: OnceLock<Engine> = OnceLock::new();
 // the epoch thread only starts when the first mod with code loads
 pub fn engine() -> &'static Engine
 {
-    ENGINE.get_or_init(|| {
+    ENGINE.get_or_init(||
+    {
         let mut config: Config = Config::new();
         config.epoch_interruption(true);
         config.cranelift_opt_level(wasmtime::OptLevel::Speed);
+
         let engine: Engine = Engine::new(&config).expect("the wasmtime config is valid on supported hosts");
         let ticker: Engine = engine.clone();
         let spawned: std::io::Result<std::thread::JoinHandle<()>> =
-            std::thread::Builder::new().name("Mod watchdog".to_owned()).spawn(move || {
+            std::thread::Builder::new().name("Mod watchdog".to_owned()).spawn(move ||
+            {
                 loop
                 {
                     std::thread::sleep(budget::EPOCH_PERIOD);
                     ticker.increment_epoch();
                 }
             });
+
         if let Err(error) = spawned
         {
             crate::log::error(crate::log::LOADER, &format!("mod watchdog thread did not start: {error}"));
         }
+
         engine
     })
 }
@@ -53,9 +58,11 @@ fn compile(wasm: &[u8], cacheDir: &Path) -> Result<Module, String>
     let engine: &Engine = engine();
     let mut hasher: Sha256 = Sha256::new();
     hasher.update(wasm);
+
     let mut compatibility: std::collections::hash_map::DefaultHasher = std::collections::hash_map::DefaultHasher::new();
     std::hash::Hash::hash(&engine.precompile_compatibility_hash(), &mut compatibility);
     hasher.update(std::hash::Hasher::finish(&compatibility).to_le_bytes());
+
     let cached: std::path::PathBuf = cacheDir.join(format!("{}.cwasm", crate::discovery::hex(&hasher.finalize())));
     if cached.is_file()
     {
@@ -69,13 +76,17 @@ fn compile(wasm: &[u8], cacheDir: &Path) -> Result<Module, String>
             ),
         }
     }
+
     let compiling: Instant = Instant::now();
     let module: Module = Module::new(engine, wasm).map_err(|error| format!("mod.wasm does not compile: {error:#}"))?;
+
     crate::log::debug(crate::log::LOADER, &format!("compiled mod.wasm in {}", jvm::logging::took(compiling)));
+
     if let Ok(bytes) = module.serialize()
     {
         let written: std::io::Result<()> =
             std::fs::create_dir_all(cacheDir).and_then(|()| std::fs::write(&cached, bytes));
+
         if let Err(error) = written
         {
             crate::log::warn(
@@ -84,10 +95,12 @@ fn compile(wasm: &[u8], cacheDir: &Path) -> Result<Module, String>
             );
         }
     }
+
     Ok(module)
 }
 
-thread_local! {
+thread_local!
+{
     // the caller of an active host call per mod, so game code reached from it can call that mod again
     static REENTRY: RefCell<Vec<(usize, *mut Caller<'static, HostState>)>> = const { RefCell::new(Vec::new()) };
 }
@@ -133,12 +146,14 @@ impl Drop for HostFrame<'_>
     fn drop(&mut self)
     {
         REENTRY.with(|stack| stack.borrow_mut().pop());
+
         if !std::thread::panicking()
         {
             return;
         }
 
-        jvm::throwable::noteUnwind(|| {
+        jvm::throwable::noteUnwind(||
+        {
             let call: String = wire::decode::<HostCall>(self.m_call)
                 .map_or_else(|error| error.to_string(), |call| format!("{call:?}"));
             format!("host call from mod {}: {}", crate::state::modId(self.m_mod), clip(&call))
@@ -162,7 +177,8 @@ impl Drop for GuestFrame<'_>
             return;
         }
 
-        jvm::throwable::noteUnwind(|| {
+        jvm::throwable::noteUnwind(||
+        {
             format!("call into mod {}: {}", crate::state::modId(self.m_mod), clip(&format!("{:?}", self.m_call)))
         });
     }
@@ -178,6 +194,7 @@ fn hostCall(mut caller: Caller<'_, HostState>, pointer: u32, length: u32) -> was
         .ok_or_else(|| wasmtime::Error::msg("guest exports no memory"))?;
     let bytes: Vec<u8> = readGuest(&memory, &caller, pointer, length).map_err(wasmtime::Error::msg)?;
     let modIndex: usize = caller.data().m_mod;
+
     let reply: HostReply = match wire::decode::<HostCall>(&bytes)
     {
         Ok(call) =>
@@ -185,9 +202,12 @@ fn hostCall(mut caller: Caller<'_, HostState>, pointer: u32, length: u32) -> was
             let pointer: *mut Caller<'_, HostState> = &mut caller;
             // SAFETY: the frame pops the pointer before this function touches caller again, so it never outlives the borrow
             REENTRY.with(|stack| stack.borrow_mut().push((modIndex, pointer.cast())));
+
             let _frame: HostFrame<'_> = HostFrame { m_mod: modIndex, m_call: &bytes };
+
             crate::host::handle(modIndex, call)
         }
+
         Err(error) => HostReply::Error(format!("bad host call: {error}")),
     };
     let out: Vec<u8> = wire::encode(&reply);
@@ -208,12 +228,15 @@ fn hostLog(mut caller: Caller<'_, HostState>, level: u32, pointer: u32, length: 
     {
         return;
     };
+
     let text: String = match readGuest(&memory, &mut caller, pointer, length)
     {
         Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
         Err(error) => error,
     };
+
     let modId: String = crate::state::modId(caller.data().m_mod);
+
     match level
     {
         0 => crate::log::info(&modId, &text),
@@ -240,13 +263,17 @@ fn invoke(
 {
     let pointer: u32 = exports.m_alloc.call(&mut *context, request.len() as u32)?;
     exports.m_memory.write(&mut *context, pointer as usize, request)?;
+
     let packed: u64 = exports.m_dispatch.call(&mut *context, (pointer, request.len() as u32))?;
+
     exports.m_free.call(&mut *context, (pointer, request.len() as u32))?;
+
     let (outPointer, outLength): (u32, u32) = abi::unpackBuffer(packed);
     if outLength == 0
     {
         return Ok(Vec::new());
     }
+
     let reply: Vec<u8> =
         readGuest(&exports.m_memory, &mut *context, outPointer, outLength).map_err(wasmtime::Error::msg)?;
     exports.m_free.call(&mut *context, (outPointer, outLength))?;
@@ -255,13 +282,14 @@ fn invoke(
 
 impl ModInstance
 {
-    pub fn load(modIndex: usize, wasm: &[u8], cacheDir: &Path) -> Result<ModInstance, String>
+    pub fn load(modIndex: usize, wasm: &[u8], cacheDir: &Path) -> Result<Self, String>
     {
         let module: Module = compile(wasm, cacheDir)?;
         let engine: &Engine = engine();
         let mut linker: Linker<HostState> = Linker::new(engine);
         linker.func_wrap(abi::IMPORT_MODULE, imports::CALL, hostCall).map_err(|error| error.to_string())?;
         linker.func_wrap(abi::IMPORT_MODULE, imports::LOG, hostLog).map_err(|error| error.to_string())?;
+
         let mut store: Store<HostState> = Store::new(engine, HostState { m_mod: modIndex });
         store.set_epoch_deadline(budget::CALL_EPOCHS);
         // only b173 imports exist, so a mod has no file system, clock or socket access
@@ -279,8 +307,11 @@ impl ModInstance
                 abi::ABI_VERSION
             ));
         }
+
         let missing = |name: &str| format!("mod.wasm exports no {name}");
-        let exports: Exports = Exports {
+
+        let exports: Exports = Exports
+        {
             m_memory: instance.get_memory(&mut store, exports::MEMORY).ok_or_else(|| missing(exports::MEMORY))?,
             m_alloc: instance.get_typed_func(&mut store, exports::ALLOC).map_err(|_| missing(exports::ALLOC))?,
             m_free: instance.get_typed_func(&mut store, exports::FREE).map_err(|_| missing(exports::FREE))?,
@@ -288,7 +319,9 @@ impl ModInstance
                 .get_typed_func(&mut store, exports::DISPATCH)
                 .map_err(|_| missing(exports::DISPATCH))?,
         };
-        Ok(ModInstance {
+
+        Ok(Self
+        {
             m_modIndex: modIndex,
             m_store: RefCell::new(store),
             m_exports: exports,
@@ -299,7 +332,8 @@ impl ModInstance
 
     fn reentrantCaller(&self) -> Option<*mut Caller<'static, HostState>>
     {
-        REENTRY.with(|stack| {
+        REENTRY.with(|stack|
+        {
             stack.borrow().iter().rev().find(|(index, _)| *index == self.m_modIndex).map(|(_, caller)| *caller)
         })
     }
@@ -309,6 +343,7 @@ impl ModInstance
         let _frame: GuestFrame<'_> = GuestFrame { m_mod: self.m_modIndex, m_call: call };
         let request: Vec<u8> = wire::encode(call);
         let started: Instant = Instant::now();
+
         let result: wasmtime::Result<Vec<u8>> = match self.m_store.try_borrow_mut()
         {
             Ok(mut store) =>
@@ -316,6 +351,7 @@ impl ModInstance
                 store.set_epoch_deadline(budget::CALL_EPOCHS);
                 invoke(&mut *store, &self.m_exports, &request)
             }
+
             Err(_) => match self.reentrantCaller()
             {
                 // SAFETY: the pointer belongs to a host call of this mod that is still on the stack below us
@@ -323,13 +359,16 @@ impl ModInstance
                 None => Err(wasmtime::Error::msg("mod store is busy and no host call of this mod is active")),
             },
         };
+
         self.m_nanos.set(self.m_nanos.get() + started.elapsed().as_nanos() as u64);
         self.m_calls.set(self.m_calls.get() + 1);
+
         let bytes: Vec<u8> = result.map_err(|error| format!("{error:#}"))?;
         if bytes.is_empty()
         {
             return Ok(GuestReply::Unit);
         }
+
         wire::decode(&bytes).map_err(|error| format!("bad guest reply: {error}"))
     }
 

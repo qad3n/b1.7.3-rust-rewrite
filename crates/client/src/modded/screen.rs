@@ -1,7 +1,7 @@
 use super::draw::{self, ButtonRect};
 use crate::client::Minecraft;
 use crate::gui::gui_container::{self, ContainerScreen, GUI_CONTAINER};
-use crate::gui::{GUI_SCREEN, GuiScreen, GuiScreenClass};
+use crate::gui::{GUI_SCREEN, GuiContainer, GuiScreen, GuiScreenClass};
 use crate::render::RenderEngine;
 use game::container::Container;
 use jvm::throwable::OrNpe;
@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 // the guest owns what a mod screen shows, the host only replays its draw list and forwards input
-pub struct ModScreen
+pub(crate) struct ModScreen
 {
     m_screen: Rc<ScreenType>,
     m_pos: Option<BlockPos>,
@@ -63,6 +63,7 @@ fn click(screen: &ModScreen, x: i32, y: i32, button: i32, origin: (i32, i32)) ->
             send(screen, ScreenOp::Button { id });
             true
         }
+
         _ =>
         {
             send(screen, ScreenOp::Mouse { x: x - origin.0, y: y - origin.1, button });
@@ -71,104 +72,137 @@ fn click(screen: &ModScreen, x: i32, y: i32, button: i32, origin: (i32, i32)) ->
     }
 }
 
-const PLAIN: GuiScreenClass = GuiScreenClass {
+const PLAIN: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiModScreen",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
     initGui: |this| init(plainState(this), this.m_width.get(), this.m_height.get()),
-    drawScreen: |this, mouseX, mouseY, partial| {
+    drawScreen: |this, mouseX, mouseY, partial|
+    {
         let screen: &ModScreen = plainState(this);
         if !screen.m_screen.m_spec.transparent
         {
             this.drawDefaultBackground();
         }
+
         let spec = &screen.m_screen.m_spec;
         let origin: (i32, i32) = ((this.m_width.get() - spec.width) / 2, (this.m_height.get() - spec.height) / 2);
         paint(&this.mc(), screen, origin, [mouseX, mouseY], partial);
     },
-    mouseClicked: |this, mouseX, mouseY, button| {
+
+    mouseClicked: |this, mouseX, mouseY, button|
+    {
         let screen: &ModScreen = plainState(this);
         let spec = &screen.m_screen.m_spec;
         let origin: (i32, i32) = ((this.m_width.get() - spec.width) / 2, (this.m_height.get() - spec.height) / 2);
         click(screen, mouseX, mouseY, button, origin);
     },
+
     // GuiScreen.mouseMovedOrUp passes button -1 for moves so only releases reach the guest
-    mouseMovedOrUp: |this, mouseX, mouseY, button| {
+    mouseMovedOrUp: |this, mouseX, mouseY, button|
+    {
         let screen: &ModScreen = plainState(this);
         let spec = &screen.m_screen.m_spec;
         let origin: (i32, i32) = ((this.m_width.get() - spec.width) / 2, (this.m_height.get() - spec.height) / 2);
+
         if button >= 0
         {
             send(screen, ScreenOp::Release { x: mouseX - origin.0, y: mouseY - origin.1, button });
         }
     },
-    keyTyped: |this, chr, key| {
+
+    keyTyped: |this, chr, key|
+    {
         send(plainState(this), ScreenOp::Key { character: chr as u32, key });
         (GUI_SCREEN.keyTyped)(this, chr, key);
     },
-    updateScreen: |this| {
+
+    updateScreen: |this|
+    {
         send(plainState(this), ScreenOp::Tick);
     },
-    onGuiClosed: |this| {
+
+    onGuiClosed: |this|
+    {
         send(plainState(this), ScreenOp::Close);
     },
     doesGuiPauseGame: |_| false,
     ..GUI_SCREEN
 };
 
-const CONTAINER: GuiScreenClass = GuiScreenClass {
+const CONTAINER: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiModContainer",
     m_parent: Some(&GUI_CONTAINER),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         (GUI_CONTAINER.initGui)(this);
         init(&state(this), this.m_width.get(), this.m_height.get());
     },
-    drawGuiContainerBackgroundLayer: |this, partial| {
+
+    drawGuiContainerBackgroundLayer: |this, partial|
+    {
         let screen: Rc<ModScreen> = state(this);
         let mc: Rc<Minecraft> = this.mc();
         let origin: (i32, i32) = gui_container::origin(this);
+
         if let Some(background) =
             screen.m_screen.m_spec.background.as_deref().and_then(modloader::entities::modTexturePath)
         {
             let engine: Rc<RenderEngine> = mc.m_renderEngine.get().orNpe();
+
             GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
             engine.bindTexture(engine.getTexture(&background));
-            let fields = gui_container::fields(this);
+
+            let fields: &GuiContainer = gui_container::fields(this);
             this.m_gui.drawTexturedModalRect(origin.0, origin.1, 0, 0, fields.m_xSize.get(), fields.m_ySize.get());
         }
+
         paint(&mc, &screen, origin, screen.m_mouse.get(), partial);
     },
-    drawScreen: |this, mouseX, mouseY, partial| {
+
+    drawScreen: |this, mouseX, mouseY, partial|
+    {
         state(this).m_mouse.set([mouseX, mouseY]);
         (GUI_CONTAINER.drawScreen)(this, mouseX, mouseY, partial);
     },
-    drawGuiContainerForegroundLayer: |this| {
+
+    drawGuiContainerForegroundLayer: |this|
+    {
         let screen: Rc<ModScreen> = state(this);
         this.fontRenderer().drawString(&screen.m_screen.m_spec.title, 8, 6, 0x404040);
     },
-    mouseClicked: |this, mouseX, mouseY, button| {
+
+    mouseClicked: |this, mouseX, mouseY, button|
+    {
         if !click(&state(this), mouseX, mouseY, button, gui_container::origin(this))
         {
             (GUI_CONTAINER.mouseClicked)(this, mouseX, mouseY, button);
         }
     },
-    updateScreen: |this| {
+
+    updateScreen: |this|
+    {
         (GUI_CONTAINER.updateScreen)(this);
         send(&state(this), ScreenOp::Tick);
     },
-    onGuiClosed: |this| {
+
+    onGuiClosed: |this|
+    {
         send(&state(this), ScreenOp::Close);
         (GUI_CONTAINER.onGuiClosed)(this);
     },
     ..GUI_CONTAINER
 };
 
-pub fn plain(screen: Rc<ScreenType>, pos: Option<BlockPos>, data: Vec<u8>) -> Rc<GuiScreen>
+pub(crate) fn plain(screen: Rc<ScreenType>, pos: Option<BlockPos>, data: Vec<u8>) -> Rc<GuiScreen>
 {
     GuiScreen::construct(
         &PLAIN,
-        Box::new(ModScreen {
+        Box::new(ModScreen
+        {
             m_screen: screen,
             m_pos: pos,
             m_data: data,
@@ -178,10 +212,17 @@ pub fn plain(screen: Rc<ScreenType>, pos: Option<BlockPos>, data: Vec<u8>) -> Rc
     )
 }
 
-pub fn container(screen: Rc<ScreenType>, menu: Rc<Container>, pos: Option<BlockPos>, data: Vec<u8>) -> Rc<GuiScreen>
+pub(crate) fn container(
+    screen: Rc<ScreenType>,
+    menu: Rc<Container>,
+    pos: Option<BlockPos>,
+    data: Vec<u8>,
+) -> Rc<GuiScreen>
 {
     let (width, height): (i32, i32) = (screen.m_spec.width, screen.m_spec.height);
-    let state: Rc<dyn std::any::Any> = Rc::new(ModScreen {
+
+    let state: Rc<dyn std::any::Any> = Rc::new(ModScreen
+    {
         m_screen: screen,
         m_pos: pos,
         m_data: data,

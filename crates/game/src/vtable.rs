@@ -1,7 +1,9 @@
 // declares a java vtable as a table of fn pointers plus forwarding methods, a subclass const overrides fields with ..PARENT
 #[macro_export]
-macro_rules! vtable {
-    ($class:ident for $object:ident { $( fn $name:ident ( $( $arg:ident : $ty:ty ),* ) $( -> $ret:ty )?; )* }) => {
+macro_rules! vtable
+{
+    ($class:ident for $object:ident { $( fn $name:ident ( $( $arg:ident : $ty:ty ),* ) $( -> $ret:ty )?; )* }) =>
+    {
         #[derive(Clone, Copy)]
         pub struct $class
         {
@@ -22,8 +24,10 @@ macro_rules! vtable {
                     {
                         return true;
                     }
+
                     current = class.m_parent;
                 }
+
                 false
             }
         }

@@ -19,7 +19,7 @@ pub struct TileEntitySignRenderer
 
 impl TileEntitySignRenderer
 {
-    pub fn new() -> TileEntitySignRenderer { TileEntitySignRenderer { m_signModel: SignModel::new() } }
+    pub fn new() -> Self { Self { m_signModel: SignModel::new() } }
 }
 
 impl TileEntitySpecialRenderer for TileEntitySignRenderer
@@ -27,9 +27,12 @@ impl TileEntitySpecialRenderer for TileEntitySignRenderer
     fn renderTileEntityAt(&self, tileEntity: &Rc<TileEntity>, d: f64, d2: f64, d3: f64, _f: f32)
     {
         let block: Option<Rc<Block>> = tileEntity.getBlockType();
+
         GL11::glPushMatrix();
+
         let f3: f32 = SIGN_SCALE;
         GL11::glTranslatef(d as f32 + 0.5, d2 as f32 + 0.75 * f3, d3 as f32 + 0.5);
+
         if block.is_some_and(|block| Rc::ptr_eq(&block, &Block::signPost()))
         {
             let f4: f32 = (tileEntity.getBlockMetadata() * 360) as f32 / 16.0;
@@ -54,24 +57,30 @@ impl TileEntitySpecialRenderer for TileEntitySignRenderer
         GL11::glScalef(f3, -f3, -f3);
         self.m_signModel.render();
         GL11::glPopMatrix();
+
         let fontRenderer: Rc<FontRenderer> = self.getFontRenderer().orNpe();
         let f2: f32 = TEXT_SCALE * f3;
+
         GL11::glTranslatef(0.0, 0.5 * f3, 0.07 * f3);
         GL11::glScalef(f2, -f2, f2);
         GL11::glNormal3f(0.0, 0.0, -f2);
         GL11::glDepthMask(false);
+
         let n: i32 = 0;
         let sign: &tile_entity_sign::SignExt = tile_entity_sign::fields(tileEntity);
         let lines: [Option<JString>; 4] = sign.m_signText.get();
         let count: i32 = lines.len() as i32;
+
         for (i, line) in lines.iter().enumerate()
         {
             let i: i32 = i as i32;
             let mut string: String = JString::display(line.as_ref());
+
             if i == sign.m_lineBeingEdited.get()
             {
                 string = format!("> {string} <");
             }
+
             fontRenderer.drawString(
                 &string,
                 -fontRenderer.getStringWidth(&string) / 2,
@@ -79,6 +88,7 @@ impl TileEntitySpecialRenderer for TileEntitySignRenderer
                 n,
             );
         }
+
         GL11::glDepthMask(true);
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         GL11::glPopMatrix();

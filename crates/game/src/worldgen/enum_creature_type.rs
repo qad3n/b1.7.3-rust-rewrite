@@ -18,19 +18,22 @@ struct CreatureTypeRow
 }
 
 static ROWS: [CreatureTypeRow; 3] = [
-    CreatureTypeRow {
+    CreatureTypeRow
+    {
         m_creatureClass: "IMob",
         m_maxNumberOfCreature: 70,
         m_creatureMaterial: Material::air,
         m_isPeacefulCreature: false,
     },
-    CreatureTypeRow {
+    CreatureTypeRow
+    {
         m_creatureClass: "EntityAnimal",
         m_maxNumberOfCreature: 15,
         m_creatureMaterial: Material::air,
         m_isPeacefulCreature: true,
     },
-    CreatureTypeRow {
+    CreatureTypeRow
+    {
         m_creatureClass: "EntityWaterMob",
         m_maxNumberOfCreature: 5,
         m_creatureMaterial: Material::water,
@@ -40,7 +43,7 @@ static ROWS: [CreatureTypeRow; 3] = [
 
 impl EnumCreatureType
 {
-    pub const VALUES: [EnumCreatureType; 3] = [Self::Monster, Self::Creature, Self::WaterCreature];
+    pub const VALUES: [Self; 3] = [Self::Monster, Self::Creature, Self::WaterCreature];
 
     fn row(self) -> &'static CreatureTypeRow { &ROWS[self as usize] }
 

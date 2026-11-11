@@ -13,9 +13,10 @@ pub struct Frustrum
 
 impl Frustrum
 {
-    pub fn new() -> Frustrum
+    pub fn new() -> Self
     {
-        Frustrum {
+        Self
+        {
             m_clippingHelper: ClippingHelperImpl::getInstance(),
             m_xPosition: Cell::new(0.0),
             m_yPosition: Cell::new(0.0),

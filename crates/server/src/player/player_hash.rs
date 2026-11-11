@@ -9,10 +9,7 @@ pub struct PlayerHashEntry<V>
 
 impl<V: Clone> PlayerHashEntry<V>
 {
-    fn new(hash: i32, key: i64, value: V) -> PlayerHashEntry<V>
-    {
-        PlayerHashEntry { m_value: RefCell::new(value), m_key: key, m_hash: hash }
-    }
+    fn new(hash: i32, key: i64, value: V) -> Self { Self { m_value: RefCell::new(value), m_key: key, m_hash: hash } }
 
     pub fn getKey(&self) -> i64 { self.m_key }
 
@@ -32,9 +29,10 @@ pub struct PlayerHash<V>
 
 impl<V: Clone> PlayerHash<V>
 {
-    pub fn new() -> PlayerHash<V>
+    pub fn new() -> Self
     {
-        PlayerHash {
+        Self
+        {
             m_percentUsable: 0.75,
             m_capacity: Cell::new(12),
             m_hashArray: RefCell::new((0..16).map(|_| Vec::new()).collect()),
@@ -72,6 +70,7 @@ impl<V: Clone> PlayerHash<V>
                 *entry.m_value.borrow_mut() = value.clone();
             }
         }
+
         self.m_modCount.set(self.m_modCount.get() + 1);
         self.createKey(i, key, value, j);
     }
@@ -114,6 +113,7 @@ impl<V: Clone> PlayerHash<V>
         let mut table: std::cell::RefMut<'_, Vec<Vec<PlayerHashEntry<V>>>> = self.m_hashArray.borrow_mut();
         let j: usize = Self::getHashIndex(i, table.len() as i32);
         let position: usize = table[j].iter().position(|entry| entry.m_key == key)?;
+
         self.m_modCount.set(self.m_modCount.get() + 1);
         self.m_numHashElements.set(self.m_numHashElements.get() - 1);
         Some(table[j].remove(position))
@@ -122,8 +122,10 @@ impl<V: Clone> PlayerHash<V>
     fn createKey(&self, hash: i32, key: i64, value: V, index: usize)
     {
         self.m_hashArray.borrow_mut()[index].insert(0, PlayerHashEntry::new(hash, key, value));
+
         let numHashElements: i32 = self.m_numHashElements.get();
         self.m_numHashElements.set(numHashElements + 1);
+
         if numHashElements >= self.m_capacity.get()
         {
             let length: i32 = self.m_hashArray.borrow().len() as i32;

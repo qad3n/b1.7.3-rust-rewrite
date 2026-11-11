@@ -1,8 +1,9 @@
 use crate::discovery::Source;
-use crate::registry::{BlockEntry, ItemEntry, RecipeEntry};
+use crate::registry::{BlockEntry, ItemEntry, RecipeEntry, Registry};
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
-use mod_protocol::spec::{
+use mod_protocol::spec::
+{
     AchievementSpec, BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FluidSpec, ItemSpec, LootSpec,
     ParticleSpec, RecipeSpec, SpawnModifySpec, TagEntry, TagSpec, TagValue, WorldgenSpec,
 };
@@ -12,7 +13,8 @@ use std::cell::RefCell;
 const DATA: &str = "data/";
 const TOML: &str = ".toml";
 
-thread_local! {
+thread_local!
+{
     // worldgen applies after freeze, when block ids exist
     static PENDING_WORLDGEN: RefCell<Vec<(String, Identifier, WorldgenSpec)>> = const { RefCell::new(Vec::new()) };
 }
@@ -36,16 +38,21 @@ fn split(name: &str) -> Option<(&str, &str, &str)>
 pub fn registerBlock(id: Identifier, owner: &str, spec: BlockSpec) -> Result<(), String>
 {
     super::blocks::validate(&spec)?;
+
     if let Some(item) = &spec.item
     {
         super::items::requestTextures(item);
     }
+
     super::blocks::requestTextures(&spec);
+
     for tag in &spec.tags
     {
         super::tags::add(RegistryKind::Block, tag.clone(), vec![id.clone()], false);
     }
-    crate::registry::with(|registries| -> Result<(), String> {
+
+    crate::registry::with(|registries| -> Result<(), String>
+    {
         registries
             .m_blocks
             .register(id.clone(), owner, BlockEntry { m_spec: Some(spec), m_page: None })
@@ -61,11 +68,14 @@ pub fn registerItem(id: Identifier, owner: &str, spec: ItemSpec) -> Result<(), S
 {
     super::items::validate(&spec)?;
     super::items::requestTextures(&spec);
+
     for tag in &spec.tags
     {
         super::tags::add(RegistryKind::Item, tag.clone(), vec![id.clone()], false);
     }
-    crate::registry::with(|registries| {
+
+    crate::registry::with(|registries|
+    {
         registries
             .m_items
             .register(id, owner, ItemEntry { m_spec: Some(spec), m_block: None })
@@ -76,8 +86,10 @@ pub fn registerItem(id: Identifier, owner: &str, spec: ItemSpec) -> Result<(), S
 pub fn registerRecipe(id: Identifier, owner: &str, spec: RecipeSpec) -> Result<(), String>
 {
     super::recipes::validate(&spec)?;
-    crate::registry::with(|registries| {
-        let registry = match spec
+
+    crate::registry::with(|registries|
+    {
+        let registry: &mut Registry<RecipeEntry> = match spec
         {
             RecipeSpec::Smelting(_) => &mut registries.m_smelting,
             _ => &mut registries.m_recipes,
@@ -101,6 +113,7 @@ pub fn takeWorldgen() -> Vec<(String, Identifier, WorldgenSpec)>
 pub fn load(modId: &str, source: &mut Source) -> Vec<String>
 {
     let mut problems: Vec<String> = Vec::new();
+
     for name in source.list(DATA).into_iter().filter(|name| name.ends_with(TOML))
     {
         let Some((namespace, kind, path)) = split(&name)
@@ -114,6 +127,7 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             problems.push(format!("{name} registers into namespace {namespace}, a mod only owns {modId}"));
             continue;
         }
+
         let id: Result<Identifier, String> = Identifier::new(namespace, path).map_err(|error| error.to_string());
         let result: Result<(), String> = id.and_then(|id| match kind
         {
@@ -125,12 +139,14 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             "particles" => parse::<ParticleSpec>(source, &name).map(|spec| super::particles::register(id, spec)),
             "effects" => parse::<EffectSpec>(source, &name).and_then(|spec| super::effects::register(id, spec)),
             "fluids" => parse::<FluidSpec>(source, &name).and_then(|spec| super::fluids::register(id, spec)),
+
             "loot" =>
             {
                 let (registry, target) = lootTarget(path)
                     .ok_or_else(|| format!("{name} needs loot/<blocks|entities>/<namespace>/<path>.toml"))?;
                 parse::<LootSpec>(source, &name).and_then(|spec| super::loot::add(registry, target, spec))
             }
+
             "worldgen" => parse::<WorldgenSpec>(source, &name).map(|spec| registerWorldgen(modId, id, spec)),
             "modify" => match path.split_once('/')
             {
@@ -138,20 +154,25 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
                 {
                     parse::<BlockModifySpec>(source, &name).map(|spec| crate::modify::queueBlock(modId, spec))
                 }
+
                 Some(("spawns", _)) =>
                 {
                     parse::<SpawnModifySpec>(source, &name).map(|spec| crate::modify::queueSpawn(modId, spec))
                 }
+
                 _ => Err(format!("{name} needs modify/blocks/<name>.toml or modify/spawns/<name>.toml")),
             },
+
             "tags" =>
             {
                 let (folder, tagPath) =
                     path.split_once('/').ok_or_else(|| format!("{name} needs tags/<registry>/<tag>.toml"))?;
-                let registry = super::tags::registryKind(folder)
+                let registry: RegistryKind = super::tags::registryKind(folder)
                     .ok_or_else(|| format!("{name}: unknown tag registry {folder}"))?;
                 let tag: Identifier = Identifier::new(namespace, tagPath).map_err(|error| error.to_string())?;
-                parse::<TagSpec>(source, &name).and_then(|spec| {
+
+                parse::<TagSpec>(source, &name).and_then(|spec|
+                {
                     let entries: Vec<TagEntry> = spec
                         .values
                         .iter()
@@ -162,6 +183,7 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
                     Ok(())
                 })
             }
+
             other => Err(format!("{name}: unknown data kind {other}")),
         });
         if let Err(reason) = result
@@ -169,6 +191,7 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             problems.push(reason);
         }
     }
+
     for name in source.list("assets/").into_iter().filter(|name| name.ends_with(super::lang::LANG_FILE))
     {
         match source.read(&name).map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
@@ -177,6 +200,7 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             None => problems.push(format!("{name} could not be read")),
         }
     }
+
     problems
 }
 
@@ -190,6 +214,7 @@ fn lootTarget(path: &str) -> Option<(RegistryKind, Identifier)>
         "entities" => RegistryKind::Entity,
         _ => return None,
     };
+
     let (namespace, targetPath) = rest.split_once('/')?;
     Some((registry, Identifier::new(namespace, targetPath).ok()?))
 }

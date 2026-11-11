@@ -1,5 +1,6 @@
 use crate::entity::entity_cow::AnimalExt;
-use crate::entity::{
+use crate::entity::
+{
     Entity, EntityClass, WatchedValue, entity_animal, entity_living, entity_pig_zombie, entity_player,
 };
 use crate::item::Item;
@@ -25,6 +26,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
         player.mountEntity(Some(this));
         return true;
     }
+
     false
 }
 
@@ -35,6 +37,7 @@ fn onStruckByLightning(this: &Rc<Entity>, _lightning: &Rc<Entity>)
     {
         return;
     }
+
     let entityPigZombie: Rc<Entity> = entity_pig_zombie::new(Some(Rc::clone(&world)));
     entityPigZombie.setLocationAndAngles(
         this.posX(),
@@ -50,6 +53,7 @@ fn onStruckByLightning(this: &Rc<Entity>, _lightning: &Rc<Entity>)
 fn fall(this: &Rc<Entity>, distance: f32)
 {
     (entity_animal::CLASS.fall)(this, distance);
+
     if distance > 5.0
         && let Some(rider) = this.m_riddenByEntity.get()
         && rider.instanceOf("EntityPlayer")
@@ -58,15 +62,19 @@ fn fall(this: &Rc<Entity>, distance: f32)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityPig",
     m_parent: Some(&entity_animal::CLASS),
     entityInit: |this| this.m_dataWatcher.addObject(16, WatchedValue::Byte(0)),
-    writeEntityToNBT: |this, nbt| {
+    writeEntityToNBT: |this, nbt|
+    {
         (entity_animal::CLASS.writeEntityToNBT)(this, nbt);
         nbt.setBoolean("Saddle", getSaddled(this));
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         (entity_animal::CLASS.readEntityFromNBT)(this, nbt);
         setSaddled(this, nbt.getBoolean("Saddle"));
     },
@@ -74,11 +82,13 @@ pub const CLASS: EntityClass = EntityClass {
     getHurtSound: |_| Some("mob.pig".to_string()),
     getDeathSound: |_| Some("mob.pigdeath".to_string()),
     interact,
-    getDropItemId: |this| {
+    getDropItemId: |this|
+    {
         if this.m_fire.get() > 0
         {
             return Item::porkCooked().m_shiftedIndex;
         }
+
         Item::porkRaw().m_shiftedIndex
     },
     onStruckByLightning,

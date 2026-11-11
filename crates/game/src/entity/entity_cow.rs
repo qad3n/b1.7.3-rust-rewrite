@@ -21,7 +21,8 @@ impl EntityExt for AnimalExt
     fn creature(&self) -> Option<&entity_creature::CreatureFields> { Some(&self.m_creature) }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityCow",
     m_parent: Some(&entity_animal::CLASS),
     writeEntityToNBT: |this, nbt| (entity_animal::CLASS.writeEntityToNBT)(this, nbt),
@@ -31,7 +32,8 @@ pub const CLASS: EntityClass = EntityClass {
     getDeathSound: |_| Some("mob.cowhurt".to_string()),
     getSoundVolume: |_| 0.4,
     getDropItemId: |_| Item::leather().m_shiftedIndex,
-    interact: |_, player| {
+    interact: |_, player|
+    {
         let inventory: Rc<InventoryPlayer> = entity_player::inventory(player);
         let itemStack: Option<Rc<ItemStack>> = inventory.getCurrentItem();
         if itemStack.is_some_and(|stack| stack.m_itemID.get() == Item::bucketEmpty().m_shiftedIndex)
@@ -42,6 +44,7 @@ pub const CLASS: EntityClass = EntityClass {
             );
             return true;
         }
+
         false
     },
     ..entity_animal::CLASS

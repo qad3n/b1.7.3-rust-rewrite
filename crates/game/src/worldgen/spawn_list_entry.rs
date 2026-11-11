@@ -7,8 +7,8 @@ pub struct SpawnListEntry
 
 impl SpawnListEntry
 {
-    pub fn new(entityClass: &'static str, weight: i32) -> SpawnListEntry
+    pub fn new(entityClass: &'static str, weight: i32) -> Self
     {
-        SpawnListEntry { m_entityClass: entityClass, m_spawnRarityRate: weight }
+        Self { m_entityClass: entityClass, m_spawnRarityRate: weight }
     }
 }

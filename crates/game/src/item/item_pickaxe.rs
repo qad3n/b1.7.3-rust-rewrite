@@ -32,6 +32,7 @@ fn canHarvestBlock(this: &Rc<Item>, block: &Rc<Block>) -> bool
     {
         return true;
     }
+
     Rc::ptr_eq(&block.m_blockMaterial, &Material::iron())
 }
 

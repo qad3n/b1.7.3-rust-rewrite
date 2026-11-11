@@ -5,7 +5,8 @@ use game::item::Item;
 use game::world::World;
 use std::rc::Rc;
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntitySlimeFX",
     m_parent: Some(&entity_fx::CLASS),
     getFXLayer: |_| 2,

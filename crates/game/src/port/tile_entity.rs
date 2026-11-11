@@ -17,5 +17,6 @@ pub fn castNullable(tileEntity: Option<Rc<TileEntity>>, className: &str) -> Opti
             &format!("net.minecraft.src.{} cannot be cast to net.minecraft.src.{}", entity.className(), className),
         );
     }
+
     tileEntity
 }

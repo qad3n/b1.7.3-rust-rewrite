@@ -17,6 +17,7 @@ pub enum Message
         invite: bool,
         key: Vec<u8>,
     },
+
     RegisterRequest
     {
         invite: String,
@@ -50,33 +51,38 @@ impl Message
     pub fn encode(&self) -> Vec<u8>
     {
         let mut writer: Writer = Writer::new();
+
         match self
         {
-            Message::Start { mode, invite, key } =>
+            Self::Start { mode, invite, key } =>
             {
                 writer.byte(tag::START);
                 writer.byte(matches!(mode, Mode::Register) as u8);
                 writer.byte(*invite as u8);
                 writer.bytes(key);
             }
-            Message::RegisterRequest { invite, request } =>
+
+            Self::RegisterRequest { invite, request } =>
             {
                 writer.byte(tag::REGISTER_REQUEST);
                 writer.text(invite);
                 writer.bytes(request);
             }
-            Message::RegisterResponse(body) => Self::tagged(&mut writer, tag::REGISTER_RESPONSE, body),
-            Message::RegisterUpload(body) => Self::tagged(&mut writer, tag::REGISTER_UPLOAD, body),
-            Message::Ke1(body) => Self::tagged(&mut writer, tag::KE1, body),
-            Message::Ke2(body) => Self::tagged(&mut writer, tag::KE2, body),
-            Message::Ke3(body) => Self::tagged(&mut writer, tag::KE3, body),
-            Message::Secure => writer.byte(tag::SECURE),
-            Message::Result(text) =>
+
+            Self::RegisterResponse(body) => Self::tagged(&mut writer, tag::REGISTER_RESPONSE, body),
+            Self::RegisterUpload(body) => Self::tagged(&mut writer, tag::REGISTER_UPLOAD, body),
+            Self::Ke1(body) => Self::tagged(&mut writer, tag::KE1, body),
+            Self::Ke2(body) => Self::tagged(&mut writer, tag::KE2, body),
+            Self::Ke3(body) => Self::tagged(&mut writer, tag::KE3, body),
+            Self::Secure => writer.byte(tag::SECURE),
+
+            Self::Result(text) =>
             {
                 writer.byte(tag::RESULT);
                 writer.text(text);
             }
         }
+
         writer.finish()
     }
 
@@ -86,10 +92,10 @@ impl Message
         writer.bytes(body);
     }
 
-    pub fn decode(data: &[u8]) -> AuthResult<Message>
+    pub fn decode(data: &[u8]) -> AuthResult<Self>
     {
         let mut reader: Reader<'_> = Reader::new(data);
-        let message: Message = match reader.byte()?
+        let message: Self = match reader.byte()?
         {
             tag::START =>
             {
@@ -102,22 +108,25 @@ impl Message
                     Mode::Login
                 };
                 let invite: bool = reader.byte()? != 0;
-                Message::Start { mode, invite, key: reader.bytes()? }
+                Self::Start { mode, invite, key: reader.bytes()? }
             }
+
             tag::REGISTER_REQUEST =>
             {
                 let invite: String = reader.text()?;
-                Message::RegisterRequest { invite, request: reader.bytes()? }
+                Self::RegisterRequest { invite, request: reader.bytes()? }
             }
-            tag::REGISTER_RESPONSE => Message::RegisterResponse(reader.bytes()?),
-            tag::REGISTER_UPLOAD => Message::RegisterUpload(reader.bytes()?),
-            tag::KE1 => Message::Ke1(reader.bytes()?),
-            tag::KE2 => Message::Ke2(reader.bytes()?),
-            tag::KE3 => Message::Ke3(reader.bytes()?),
-            tag::SECURE => Message::Secure,
-            tag::RESULT => Message::Result(reader.text()?),
+
+            tag::REGISTER_RESPONSE => Self::RegisterResponse(reader.bytes()?),
+            tag::REGISTER_UPLOAD => Self::RegisterUpload(reader.bytes()?),
+            tag::KE1 => Self::Ke1(reader.bytes()?),
+            tag::KE2 => Self::Ke2(reader.bytes()?),
+            tag::KE3 => Self::Ke3(reader.bytes()?),
+            tag::SECURE => Self::Secure,
+            tag::RESULT => Self::Result(reader.text()?),
             tag => return Err(format!("unknown auth message {tag}")),
         };
+
         reader.end()?;
         Ok(message)
     }

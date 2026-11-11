@@ -22,15 +22,16 @@ pub struct Item
     pub m_iconIndex: Cell<i32>,
     pub m_bFull3D: Cell<bool>,
     pub m_hasSubtypes: Cell<bool>,
-    m_containerItem: Field<Option<Rc<Item>>>,
+    m_containerItem: Field<Option<Rc<Self>>>,
     m_itemName: Field<Option<String>>,
 }
 
 impl Item
 {
-    pub fn construct(class: &'static ItemClass, ext: Box<dyn Any>, id: i32) -> Rc<Item>
+    pub fn construct(class: &'static ItemClass, ext: Box<dyn Any>, id: i32) -> Rc<Self>
     {
-        let item: Rc<Item> = Rc::new(Item {
+        let item: Rc<Self> = Rc::new(Self
+        {
             // mod items reuse a vanilla constructor with a class derived from it
             m_class: crate::hooks::itemClass(class),
             m_ext: ext,
@@ -43,10 +44,12 @@ impl Item
             m_containerItem: Field::new(None),
             m_itemName: Field::new(None),
         });
-        if Item::byId(256 + id).is_some()
+
+        if Self::byId(256 + id).is_some()
         {
             severe!("CONFLICT @ {id}");
         }
+
         registry::register(256 + id, &item);
         item
     }
@@ -107,7 +110,7 @@ impl Item
         self
     }
 
-    pub fn setContainerItem(self: Rc<Self>, item: Option<Rc<Item>>) -> Rc<Self>
+    pub fn setContainerItem(self: Rc<Self>, item: Option<Rc<Self>>) -> Rc<Self>
     {
         if self.m_maxStackSize.get() > 1
         {
@@ -116,11 +119,12 @@ impl Item
                 "Max stack size must be 1 for items with crafting results",
             );
         }
+
         self.m_containerItem.set(item);
         self
     }
 
-    pub fn getContainerItem(&self) -> Option<Rc<Item>> { self.m_containerItem.get() }
+    pub fn getContainerItem(&self) -> Option<Rc<Self>> { self.m_containerItem.get() }
 
     pub fn hasContainerItem(&self) -> bool { self.m_containerItem.with(Option::is_some) }
 

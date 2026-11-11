@@ -3,7 +3,7 @@ use crate::crafting::{CraftingManager, Ingredient};
 use crate::item::{Item, ItemStack};
 use std::rc::Rc;
 
-pub(super) fn addRecipes(manager: &CraftingManager)
+pub(crate) fn addRecipes(manager: &CraftingManager)
 {
     let recipePatterns: [&[&str]; 1] = [&["X", "X", "#"]];
     let materials: [Ingredient; 5] = [
@@ -13,8 +13,10 @@ pub(super) fn addRecipes(manager: &CraftingManager)
         Ingredient::Item(Item::diamond()),
         Ingredient::Item(Item::ingotGold()),
     ];
+
     let weapons: [[Rc<Item>; 5]; 1] =
         [[Item::swordWood(), Item::swordStone(), Item::swordSteel(), Item::swordDiamond(), Item::swordGold()]];
+
     for (i, object) in materials.iter().enumerate()
     {
         for (j, row) in weapons.iter().enumerate()

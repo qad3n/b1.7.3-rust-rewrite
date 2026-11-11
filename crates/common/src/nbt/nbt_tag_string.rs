@@ -18,10 +18,12 @@ impl NBTTagString
     {
         let present: bool = value.is_some();
         let tag: Rc<NBTBase> = NBTBase::wrap(NBTTag::String(Self { m_stringValue: Field::new(value) }));
+
         if !present
         {
             throwable::throw(&throwable::ILLEGAL_ARGUMENT, "Empty string not allowed");
         }
+
         tag
     }
 

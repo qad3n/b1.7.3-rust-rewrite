@@ -10,9 +10,9 @@ pub struct EntitySorter
 
 impl EntitySorter
 {
-    pub fn new(camera: &Entity) -> EntitySorter
+    pub fn new(camera: &Entity) -> Self
     {
-        EntitySorter { m_cameraX: -camera.posX(), m_cameraY: -camera.posY(), m_cameraZ: -camera.posZ() }
+        Self { m_cameraX: -camera.posX(), m_cameraY: -camera.posY(), m_cameraZ: -camera.posZ() }
     }
 
     pub fn compare(&self, worldRenderer: &WorldRenderer, worldRenderer2: &WorldRenderer) -> i32

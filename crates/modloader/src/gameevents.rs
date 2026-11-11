@@ -19,7 +19,8 @@ fn post(world: Option<&Rc<World>>, kind: EventKind, data: EventData) -> EventEnv
 
 fn block(world: &Rc<World>, x: i32, y: i32, z: i32, block: i32, meta: i32, player: Option<&Rc<Entity>>) -> EventData
 {
-    EventData::Block {
+    EventData::Block
+    {
         world: dimension(world),
         pos: BlockPos::new(x, y, z),
         block,
@@ -87,12 +88,15 @@ pub fn fire(event: GameEvent<'_>) -> bool
             crate::persist::saveWorld(world);
         }
     }
+
     let line: Option<String> = gamelog::describe(&event);
     let canceled: bool = dispatch(event);
+
     if let Some(line) = line
     {
         gamelog::write(&line, canceled);
     }
+
     canceled
 }
 
@@ -104,41 +108,49 @@ fn dispatch(event: GameEvent<'_>) -> bool
     {
         return false;
     }
+
     match event
     {
         GameEvent::WorldSave { world } =>
         {
             post(Some(world), kind, EventData::World { world: dimension(world) }).canceled
         }
+
         GameEvent::ChunkLoad { world, x, z }
         | GameEvent::ChunkUnload { world, x, z }
         | GameEvent::ChunkGenerate { world, x, z } =>
         {
             post(Some(world), kind, EventData::Chunk { world: dimension(world), x, z }).canceled
         }
+
         GameEvent::BlockPlace { world, x, y, z, block: id, meta, player }
         | GameEvent::BlockBreak { world, x, y, z, block: id, meta, player } =>
         {
             post(Some(world), kind, block(world, x, y, z, id, meta, player)).canceled
         }
+
         GameEvent::BlockActivate { world, x, y, z, block: id, player } =>
         {
             let meta: i32 = world.getBlockMetadata(x, y, z);
             post(Some(world), kind, block(world, x, y, z, id, meta, Some(player))).canceled
         }
+
         GameEvent::NeighborChange { world, x, y, z, block: id, neighbor } =>
         {
             let data: EventData =
                 EventData::Neighbor { world: dimension(world), pos: BlockPos::new(x, y, z), block: id, neighbor };
             post(Some(world), kind, data).canceled
         }
+
         GameEvent::ExplosionAffect { world, x, y, z, block: id } =>
         {
             post(Some(world), kind, block(world, x, y, z, id, world.getBlockMetadata(x, y, z), None)).canceled
         }
+
         GameEvent::HarvestDrops { world, x, y, z, block: id, meta } =>
         {
-            let data: EventData = EventData::Drops {
+            let data: EventData = EventData::Drops
+            {
                 world: dimension(world),
                 pos: BlockPos::new(x, y, z),
                 block: id,
@@ -150,11 +162,14 @@ fn dispatch(event: GameEvent<'_>) -> bool
             {
                 spawnDrops(world, x, y, z, drops);
             }
+
             envelope.canceled
         }
+
         GameEvent::ItemUse { world, player, stack } =>
         {
-            let data: EventData = EventData::ItemUse {
+            let data: EventData = EventData::ItemUse
+            {
                 world: dimension(world),
                 player: id(player),
                 stack: Some(stackData(stack)),
@@ -163,9 +178,11 @@ fn dispatch(event: GameEvent<'_>) -> bool
             };
             post(Some(world), kind, data).canceled
         }
+
         GameEvent::ItemUseOnBlock { world, player, stack, x, y, z, face } =>
         {
-            let data: EventData = EventData::ItemUse {
+            let data: EventData = EventData::ItemUse
+            {
                 world: dimension(world),
                 player: id(player),
                 stack: Some(stackData(stack)),
@@ -174,32 +191,40 @@ fn dispatch(event: GameEvent<'_>) -> bool
             };
             post(Some(world), kind, data).canceled
         }
+
         GameEvent::ItemDestroyed { player, stack } =>
         {
             let world: Option<Rc<World>> = player.m_worldObj.get();
-            let data: EventData = EventData::Item {
+
+            let data: EventData = EventData::Item
+            {
                 world: world.as_ref().map_or(0, |world| dimension(world)),
                 player: id(player),
                 stack: stackData(stack),
             };
             post(world.as_ref(), kind, data).canceled
         }
+
         GameEvent::ItemPickup { player, stack, .. }
         | GameEvent::ItemToss { player, stack }
         | GameEvent::ItemCrafted { player, stack }
         | GameEvent::ItemSmelted { player, stack } =>
         {
             let world: Option<Rc<World>> = player.m_worldObj.get();
-            let data: EventData = EventData::Item {
+
+            let data: EventData = EventData::Item
+            {
                 world: world.as_ref().map_or(0, |world| dimension(world)),
                 player: id(player),
                 stack: stackData(stack),
             };
             post(world.as_ref(), kind, data).canceled
         }
+
         GameEvent::BucketFill { world, player, stack } =>
         {
-            let data: EventData = EventData::ItemUse {
+            let data: EventData = EventData::ItemUse
+            {
                 world: dimension(world),
                 player: id(player),
                 stack: Some(stackData(stack)),
@@ -208,18 +233,24 @@ fn dispatch(event: GameEvent<'_>) -> bool
             };
             post(Some(world), kind, data).canceled
         }
+
         GameEvent::EntityJoinWorld { world, entity } =>
         {
             post(Some(world), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
         }
+
         GameEvent::EntityTick { entity } =>
         {
             post(entity.m_worldObj.get().as_ref(), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
         }
-        GameEvent::LivingAttack { entity, damage, amount } => crate::damage::with(damage.m_kind, || {
+
+        GameEvent::LivingAttack { entity, damage, amount } => crate::damage::with(damage.m_kind, ||
+        {
             let source: Option<&Rc<Entity>> = damage.m_attacker;
             let world: Option<Rc<World>> = entity.m_worldObj.get();
-            let data: EventData = EventData::Attack {
+
+            let data: EventData = EventData::Attack
+            {
                 entity: entityInfo(entity),
                 source: source.map(|source| id(source)),
                 amount: *amount,
@@ -229,27 +260,34 @@ fn dispatch(event: GameEvent<'_>) -> bool
             {
                 return true;
             }
+
             // hurt runs after attack and may change the damage that lands
             let hurt: EventEnvelope = post(world.as_ref(), EventKind::LivingHurt, data);
             if let EventData::Attack { amount: changed, .. } = hurt.data
             {
                 *amount = changed;
             }
+
             hurt.canceled
         }),
+
         GameEvent::LivingDeath { entity, source } =>
         {
-            let data: EventData = EventData::Death {
+            let data: EventData = EventData::Death
+            {
                 entity: entityInfo(entity),
                 source: source.map(|source| id(source)),
                 drops: Vec::new(),
             };
             post(entity.m_worldObj.get().as_ref(), kind, data).canceled
         }
+
         GameEvent::LivingDrops { entity, source } =>
         {
             let world: Option<Rc<World>> = entity.m_worldObj.get();
-            let data: EventData = EventData::Death {
+
+            let data: EventData = EventData::Death
+            {
                 entity: entityInfo(entity),
                 source: source.map(|source| id(source)),
                 drops: Vec::new(),
@@ -265,25 +303,32 @@ fn dispatch(event: GameEvent<'_>) -> bool
                     drops,
                 );
             }
+
             envelope.canceled
         }
+
         GameEvent::LivingSpawnCheck { entity, allowed } =>
         {
             let pos: BlockPos =
                 BlockPos::new(entity.m_posX.get() as i32, entity.m_posY.get() as i32, entity.m_posZ.get() as i32);
             let envelope: EventEnvelope =
                 post(entity.m_worldObj.get().as_ref(), kind, EventData::Spawn { entity: entityInfo(entity), pos });
+
             if let Some(result) = envelope.result
             {
                 *allowed = result != 0;
             }
+
             envelope.canceled
         }
+
         GameEvent::PlayerSleep { player, x, y, z } =>
         {
             let world: Option<Rc<World>> = player.m_worldObj.get();
             let dimensionId: i32 = world.as_ref().map_or(0, |world| dimension(world));
-            let data: EventData = EventData::Block {
+
+            let data: EventData = EventData::Block
+            {
                 world: dimensionId,
                 pos: BlockPos::new(x, y, z),
                 block: 0,
@@ -293,10 +338,13 @@ fn dispatch(event: GameEvent<'_>) -> bool
             let envelope: EventEnvelope = post(world.as_ref(), kind, data);
             envelope.canceled || envelope.result == Some(0)
         }
+
         GameEvent::PlayerBreakSpeed { player, block: target, speed } =>
         {
             let world: Option<Rc<World>> = player.m_worldObj.get();
-            let data: EventData = EventData::BreakSpeed {
+
+            let data: EventData = EventData::BreakSpeed
+            {
                 player: id(player),
                 world: world.as_ref().map_or(0, |world| dimension(world)),
                 pos: BlockPos::default(),
@@ -307,8 +355,10 @@ fn dispatch(event: GameEvent<'_>) -> bool
             {
                 *speed = changed;
             }
+
             false
         }
+
         GameEvent::PlayerCanHarvest { player, block: target, allowed } =>
         {
             let data: EventData = EventData::Harvest { player: id(player), block: target.m_blockID, meta: 0 };
@@ -316,6 +366,7 @@ fn dispatch(event: GameEvent<'_>) -> bool
             {
                 *allowed = result != 0;
             }
+
             false
         }
     }

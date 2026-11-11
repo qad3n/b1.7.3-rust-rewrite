@@ -17,13 +17,15 @@ pub struct InventoryBasic
 
 impl InventoryBasic
 {
-    pub fn new(name: JString, size: i32) -> InventoryBasic
+    pub fn new(name: JString, size: i32) -> Self
     {
         if size < 0
         {
             jvm::throwable::throwBare(&jvm::throwable::NEGATIVE_ARRAY_SIZE);
         }
-        InventoryBasic {
+
+        Self
+        {
             m_inventoryTitle: name,
             m_slotsCount: size,
             m_inventoryContents: RefCell::new(vec![None; size as usize]),
@@ -47,11 +49,14 @@ impl IInventory for InventoryBasic
             self.onInventoryChanged();
             return Some(current);
         }
+
         let itemStack: Rc<ItemStack> = current.splitStack(amount);
+
         if current.m_stackSize.get() == 0
         {
             setSlot(&self.m_inventoryContents, index, None);
         }
+
         self.onInventoryChanged();
         Some(itemStack)
     }
@@ -59,11 +64,13 @@ impl IInventory for InventoryBasic
     fn setInventorySlotContents(&self, index: i32, item: Option<Rc<ItemStack>>)
     {
         setSlot(&self.m_inventoryContents, index, item.clone());
+
         if let Some(item) = item
             && item.m_stackSize.get() > self.getInventoryStackLimit()
         {
             item.m_stackSize.set(self.getInventoryStackLimit());
         }
+
         self.onInventoryChanged();
     }
 

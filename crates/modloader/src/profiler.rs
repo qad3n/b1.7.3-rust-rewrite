@@ -1,7 +1,9 @@
 use crate::state;
+use crate::state::ModRuntime;
 use serde::Deserialize;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 use std::time::Duration;
 
 const WINDOW_TICKS: usize = 20;
@@ -28,7 +30,7 @@ pub struct Watchdog
 
 impl Default for Watchdog
 {
-    fn default() -> Self { Watchdog { action: WatchdogAction::Warn, tick_budget_ms: 20.0, strikes: 40 } }
+    fn default() -> Self { Self { action: WatchdogAction::Warn, tick_budget_ms: 20.0, strikes: 40 } }
 }
 
 #[derive(Deserialize, Default)]
@@ -53,7 +55,8 @@ struct Profiler
     m_watchdog: Option<Watchdog>,
 }
 
-thread_local! {
+thread_local!
+{
     static PROFILER: RefCell<Profiler> = RefCell::new(Profiler::default());
 }
 
@@ -64,6 +67,7 @@ fn watchdog() -> Watchdog
     {
         return watchdog;
     }
+
     let loaded: Watchdog = crate::paths()
         .and_then(|paths| std::fs::read_to_string(paths.m_config.join(CONFIG_FILE)).ok())
         .and_then(|text| toml::from_str::<LoaderConfig>(&text).ok())
@@ -80,9 +84,11 @@ fn act(modIndex: usize, milliseconds: f64, rule: &Watchdog) -> bool
         "used {milliseconds:.1} ms of guest time per tick for {} ticks, budget {} ms",
         rule.strikes, rule.tick_budget_ms
     );
+
     match rule.action
     {
         WatchdogAction::Warn => crate::log::warn(&modId, &message),
+
         WatchdogAction::Disable =>
         {
             if let Some(runtime) = state::modAt(modIndex)
@@ -91,12 +97,14 @@ fn act(modIndex: usize, milliseconds: f64, rule: &Watchdog) -> bool
                 crate::events::removeMod(modIndex);
             }
         }
+
         WatchdogAction::Stop =>
         {
             crate::log::error(&modId, &format!("watchdog stops the game: {message}"));
             return true;
         }
     }
+
     false
 }
 
@@ -105,6 +113,7 @@ pub fn tick() -> bool
 {
     let rule: Watchdog = watchdog();
     let mut stop: bool = false;
+
     for runtime in state::mods()
     {
         let Some(instance) = runtime.m_instance.as_ref()
@@ -112,16 +121,21 @@ pub fn tick() -> bool
         {
             continue;
         };
+
         let (time, calls): (Duration, u64) = instance.takeProfile();
-        let over: Option<f64> = PROFILER.with(|profiler| {
-            let mut profiler = profiler.borrow_mut();
+
+        let over: Option<f64> = PROFILER.with(|profiler|
+        {
+            let mut profiler: RefMut<Profiler> = profiler.borrow_mut();
             let profile: &mut Profile = profiler.m_mods.entry(runtime.m_index).or_default();
             profile.m_window.push_back(time);
             profile.m_calls = calls;
+
             if profile.m_window.len() > WINDOW_TICKS
             {
                 profile.m_window.pop_front();
             }
+
             let milliseconds: f64 = time.as_secs_f64() * 1000.0;
             profile.m_strikes = if milliseconds > rule.tick_budget_ms
             {
@@ -138,17 +152,21 @@ pub fn tick() -> bool
             stop |= act(runtime.m_index, milliseconds, &rule);
         }
     }
+
     stop
 }
 
 // lines for the F3 screen, the average guest milliseconds per tick of each mod with code
 pub fn lines() -> Vec<String>
 {
-    let mods = state::mods();
-    PROFILER.with(|profiler| {
-        let profiler = profiler.borrow();
+    let mods: Vec<Rc<ModRuntime>> = state::mods();
+
+    PROFILER.with(|profiler|
+    {
+        let profiler: std::cell::Ref<Profiler> = profiler.borrow();
         mods.iter()
-            .filter_map(|runtime| {
+            .filter_map(|runtime|
+            {
                 let profile: &Profile = profiler.m_mods.get(&runtime.m_index)?;
                 let total: Duration = profile.m_window.iter().sum();
                 let average: f64 = total.as_secs_f64() * 1000.0 / profile.m_window.len().max(1) as f64;

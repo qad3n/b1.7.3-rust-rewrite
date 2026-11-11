@@ -24,16 +24,9 @@ pub(crate) struct WorldBlockPositionType
 
 impl WorldBlockPositionType
 {
-    fn new(x: i32, y: i32, z: i32, block: i32, metadata: i32) -> Rc<WorldBlockPositionType>
+    fn new(x: i32, y: i32, z: i32, block: i32, metadata: i32) -> Rc<Self>
     {
-        Rc::new(WorldBlockPositionType {
-            m_x: x,
-            m_y: y,
-            m_z: z,
-            m_delay: Cell::new(80),
-            m_block: block,
-            m_metadata: metadata,
-        })
+        Rc::new(Self { m_x: x, m_y: y, m_z: z, m_delay: Cell::new(80), m_block: block, m_metadata: metadata })
     }
 }
 
@@ -55,7 +48,8 @@ fn chunkCache(this: &World) -> Rc<ChunkProviderClient> { jvm::throwable::OrNpe::
 
 pub fn new(networkHandler: &Rc<NetClientHandler>, seed: i64, dimension: i32) -> Rc<World>
 {
-    let ext: WorldClientExt = WorldClientExt {
+    let ext: WorldClientExt = WorldClientExt
+    {
         m_blockResets: JArrayList::new(),
         m_sendQueue: Rc::clone(networkHandler),
         m_chunkCache: Field::new(None),
@@ -78,7 +72,8 @@ pub fn new(networkHandler: &Rc<NetClientHandler>, seed: i64, dimension: i32) -> 
 
 fn firstPending(this: &World) -> Rc<Entity>
 {
-    fields(this).m_pendingEntities.with(|set| {
+    fields(this).m_pendingEntities.with(|set|
+    {
         let mut cursor: HashCursor = set.cursor();
         set.nextKey(&mut cursor)
     })
@@ -87,10 +82,12 @@ fn firstPending(this: &World) -> Rc<Entity>
 fn tick(this: &Rc<World>)
 {
     this.setWorldTime(this.getWorldTime() + 1);
+
     let i: i32 = this.calculateSkylightSubtracted(1.0);
     if i != this.m_skylightSubtracted.get()
     {
         this.m_skylightSubtracted.set(i);
+
         let mut j: i32 = 0;
         while j < this.m_worldAccesses.size()
         {
@@ -98,6 +95,7 @@ fn tick(this: &Rc<World>)
             j += 1;
         }
     }
+
     let ext: &WorldClientExt = fields(this);
     let mut k: i32 = 0;
     while k < 10 && !ext.m_pendingEntities.with(JHashSet::isEmpty)
@@ -107,15 +105,19 @@ fn tick(this: &Rc<World>)
         {
             this.entityJoinedWorld(&entity);
         }
+
         k += 1;
     }
+
     game::entity::remote::tick();
     sendQueue(this).processReadPackets();
+
     let mut l: i32 = 0;
     while l < ext.m_blockResets.size()
     {
         let worldblockpositiontype: Rc<WorldBlockPositionType> = ext.m_blockResets.get(l);
         worldblockpositiontype.m_delay.set(worldblockpositiontype.m_delay.get() - 1);
+
         if worldblockpositiontype.m_delay.get() == 0
         {
             (WORLD.setBlockAndMetadata)(
@@ -134,6 +136,7 @@ fn tick(this: &Rc<World>)
             ext.m_blockResets.removeAt(l);
             l -= 1;
         }
+
         l += 1;
     }
 }
@@ -155,6 +158,7 @@ pub fn clearBlockResets(this: &World, minX: i32, minY: i32, minZ: i32, maxX: i32
             blockResets.removeAt(i);
             i -= 1;
         }
+
         i += 1;
     }
 }
@@ -176,6 +180,7 @@ pub fn doPreChunk(this: &World, chunkX: i32, chunkZ: i32, load: bool)
     {
         chunkCache(this).unloadChunk(chunkX, chunkZ);
     }
+
     if !load
     {
         this.markBlocksDirty(chunkX * 16, 0, chunkZ * 16, chunkX * 16 + 15, this.height(), chunkZ * 16 + 15);
@@ -187,10 +192,12 @@ fn entityJoinedWorld(this: &Rc<World>, entity: &Rc<Entity>) -> bool
     let flag: bool = (WORLD.entityJoinedWorld)(this, entity);
     let ext: &WorldClientExt = fields(this);
     ext.m_forcedEntities.update(|set| set.add(Rc::clone(entity)));
+
     if !flag
     {
         ext.m_pendingEntities.update(|set| set.add(Rc::clone(entity)));
     }
+
     flag
 }
 
@@ -203,6 +210,7 @@ fn setEntityDead(this: &Rc<World>, entity: &Rc<Entity>)
 fn obtainEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
 {
     (WORLD.obtainEntitySkin)(this, entity);
+
     let pendingEntities: &Field<JHashSet<Rc<Entity>>> = &fields(this).m_pendingEntities;
     if pendingEntities.with(|set| set.contains(entity))
     {
@@ -213,6 +221,7 @@ fn obtainEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
 fn releaseEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
 {
     (WORLD.releaseEntitySkin)(this, entity);
+
     let ext: &WorldClientExt = fields(this);
     if ext.m_forcedEntities.with(|set| set.contains(entity))
     {
@@ -226,13 +235,16 @@ pub fn forceEntity(this: &Rc<World>, networkId: i32, entity: &Rc<Entity>)
     {
         this.setEntityDead(&entityx);
     }
+
     let ext: &WorldClientExt = fields(this);
     ext.m_forcedEntities.update(|set| set.add(Rc::clone(entity)));
     entity.m_entityId.set(networkId);
+
     if !this.entityJoinedWorld(entity)
     {
         ext.m_pendingEntities.update(|set| set.add(Rc::clone(entity)));
     }
+
     ext.m_entitiesByNetworkId.borrow_mut().addKey(networkId, Rc::clone(entity));
 }
 
@@ -250,6 +262,7 @@ pub fn removeEntityFromWorld(this: &Rc<World>, networkId: i32) -> Option<Rc<Enti
         ext.m_forcedEntities.update(|set| set.remove(entity));
         this.setEntityDead(entity);
     }
+
     entity
 }
 
@@ -262,11 +275,13 @@ fn setBlockMetadata(this: &Rc<World>, x: i32, y: i32, z: i32, metadata: i32) -> 
 {
     let i: i32 = this.getBlockId(x, y, z);
     let j: i32 = this.getBlockMetadata(x, y, z);
+
     if (WORLD.setBlockMetadata)(this, x, y, z, metadata)
     {
         addBlockReset(this, x, y, z, i, j);
         return true;
     }
+
     false
 }
 
@@ -274,11 +289,13 @@ fn setBlockAndMetadata(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32, met
 {
     let i: i32 = this.getBlockId(x, y, z);
     let j: i32 = this.getBlockMetadata(x, y, z);
+
     if (WORLD.setBlockAndMetadata)(this, x, y, z, block, metadata)
     {
         addBlockReset(this, x, y, z, i, j);
         return true;
     }
+
     false
 }
 
@@ -286,22 +303,26 @@ fn setBlock(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32) -> bool
 {
     let i: i32 = this.getBlockId(x, y, z);
     let j: i32 = this.getBlockMetadata(x, y, z);
+
     if (WORLD.setBlock)(this, x, y, z, block)
     {
         addBlockReset(this, x, y, z, i, j);
         return true;
     }
+
     false
 }
 
 pub fn setBlockWithMetadataFromPacket(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32, metadata: i32) -> bool
 {
     clearBlockResets(this, x, y, z, x, y, z);
+
     if (WORLD.setBlockAndMetadata)(this, x, y, z, block, metadata)
     {
         this.notifyBlockChange(x, y, z, block);
         return true;
     }
+
     false
 }
 
@@ -311,11 +332,14 @@ fn updateWeather(this: &Rc<World>)
     {
         return;
     }
+
     if this.m_thunderCooldown.get() > 0
     {
         this.m_thunderCooldown.set(this.m_thunderCooldown.get() - 1);
     }
+
     this.m_prevRainingStrength.set(this.m_rainingStrength.get());
+
     if this.worldInfo().getRaining()
     {
         this.m_rainingStrength.set((this.m_rainingStrength.get() as f64 + 0.01) as f32);
@@ -324,15 +348,19 @@ fn updateWeather(this: &Rc<World>)
     {
         this.m_rainingStrength.set((this.m_rainingStrength.get() as f64 - 0.01) as f32);
     }
+
     if this.m_rainingStrength.get() < 0.0
     {
         this.m_rainingStrength.set(0.0);
     }
+
     if this.m_rainingStrength.get() > 1.0
     {
         this.m_rainingStrength.set(1.0);
     }
+
     this.m_prevThunderingStrength.set(this.m_thunderingStrength.get());
+
     if this.worldInfo().getThundering()
     {
         this.m_thunderingStrength.set((this.m_thunderingStrength.get() as f64 + 0.01) as f32);
@@ -341,17 +369,20 @@ fn updateWeather(this: &Rc<World>)
     {
         this.m_thunderingStrength.set((this.m_thunderingStrength.get() as f64 - 0.01) as f32);
     }
+
     if this.m_thunderingStrength.get() < 0.0
     {
         this.m_thunderingStrength.set(0.0);
     }
+
     if this.m_thunderingStrength.get() > 1.0
     {
         this.m_thunderingStrength.set(1.0);
     }
 }
 
-pub const CLASS: WorldClass = WorldClass {
+pub const CLASS: WorldClass = WorldClass
+{
     m_name: "WorldClient",
     m_parent: Some(&WORLD),
     m_interfaces: &[],
@@ -368,7 +399,8 @@ pub const CLASS: WorldClass = WorldClass {
     setBlockMetadata,
     setBlockAndMetadata,
     setBlock,
-    sendQuittingDisconnectingPacket: |this| {
+    sendQuittingDisconnectingPacket: |this|
+    {
         sendQueue(this).sendPacketAndDisconnect(Box::new(Packet255KickDisconnect::new(JString::from("Quitting"))));
     },
     updateWeather,

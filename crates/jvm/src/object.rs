@@ -20,7 +20,7 @@ impl JavaObject for i64
 {
     fn javaEquals(&self, other: &Self) -> bool { self == other }
 
-    fn javaHash(&self) -> i32 { (*self ^ ((*self as u64) >> 32) as i64) as i32 }
+    fn javaHash(&self) -> i32 { (*self ^ ((*self as u64) >> 32) as Self) as i32 }
 }
 
 impl JavaObject for bool
@@ -51,7 +51,8 @@ fn nextIdentityHash() -> i32
 {
     const MODULUS: u64 = 2147483647;
     const MULTIPLIER: u64 = 16807;
-    let mut seed = IDENTITY_SEED.lock().expect("identity hash lock is never poisoned");
+
+    let mut seed: std::sync::MutexGuard<u64> = IDENTITY_SEED.lock().expect("identity hash lock is never poisoned");
     *seed = (*seed * MULTIPLIER) % MODULUS;
     *seed as i32
 }

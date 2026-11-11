@@ -25,7 +25,8 @@ pub struct MapColors
     pub m_woodColor: Rc<MapColor>,
 }
 
-thread_local! {
+thread_local!
+{
     static COLORS: Rc<MapColors> = Rc::new(MapColors::create());
 }
 
@@ -34,7 +35,9 @@ impl MapColors
     fn create() -> Self
     {
         let mut array: [Option<Rc<MapColor>>; 16] = Default::default();
-        let mut color = |id: i32, value: i32| -> Rc<MapColor> {
+
+        let mut color = |id: i32, value: i32| -> Rc<MapColor>
+        {
             let created: Rc<MapColor> = Rc::new(MapColor { m_colorIndex: id, m_colorValue: value });
             array[id as usize] = Some(Rc::clone(&created));
             created
@@ -53,7 +56,9 @@ impl MapColors
         let stoneColor: Rc<MapColor> = color(11, 0x707070);
         let waterColor: Rc<MapColor> = color(12, 0x4040FF);
         let woodColor: Rc<MapColor> = color(13, 6837042);
-        Self {
+
+        Self
+        {
             m_mapColorArray: array,
             m_airColor: airColor,
             m_grassColor: grassColor,

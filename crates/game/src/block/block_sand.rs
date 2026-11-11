@@ -5,7 +5,8 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     pub static FALL_INSTANTLY: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -24,10 +25,12 @@ fn tryToFall(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     if FALL_INSTANTLY.with(Cell::get) || !world.checkChunksExist(x - n4, y - n4, z - n4, x + n4, y + n4, z + n4)
     {
         world.setBlockWithNotify(x, y, z, 0);
+
         while canFallBelow(world, x, y - 1, z) && y > 0
         {
             y -= 1;
         }
+
         if y > 0
         {
             world.setBlockWithNotify(x, y, z, this.m_blockID);
@@ -58,14 +61,17 @@ pub fn canFallBelow(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
     {
         return true;
     }
+
     Rc::ptr_eq(&material, &Material::lava())
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockSand",
     m_parent: Some(&BLOCK),
     onBlockAdded: |this, world, x, y, z| world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate()),
-    onNeighborBlockChange: |this, world, x, y, z, _| {
+    onNeighborBlockChange: |this, world, x, y, z, _|
+    {
         world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate())
     },
     updateTick: |this, world, x, y, z, _: &Random| tryToFall(this, world, x, y, z),

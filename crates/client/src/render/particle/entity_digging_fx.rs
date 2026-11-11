@@ -10,7 +10,8 @@ pub struct DiggingFields
     pub m_face: i32,
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityDiggingFX",
     m_parent: Some(&entity_fx::CLASS),
     getFXLayer: |_| 1,
@@ -51,6 +52,7 @@ pub fn init(this: &Rc<Entity>, dx: i32, dy: i32, dz: i32) -> Rc<Entity>
     {
         return Rc::clone(this);
     }
+
     let i: i32 = block.colorMultiplier(&*this.world(), dx, dy, dz);
     let fields: &FXFields = fx(this);
     fields.m_particleRed.set(fields.m_particleRed.get() * ((i >> 16 & 0xFF) as f32 / 255.0));

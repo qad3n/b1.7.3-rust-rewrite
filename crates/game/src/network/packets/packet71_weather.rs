@@ -19,17 +19,20 @@ impl Packet71Weather
 {
     pub fn new(entity: &Entity) -> Self
     {
-        let mut packet: Self = Self {
+        let mut packet: Self = Self
+        {
             m_id: entity.m_entityId.get(),
             m_x: math_helper::encodePos(entity.m_posX.get()),
             m_y: math_helper::encodePos(entity.m_posY.get()),
             m_z: math_helper::encodePos(entity.m_posZ.get()),
             ..Self::default()
         };
+
         if entity.instanceOf("EntityLightningBolt")
         {
             packet.m_type = 1;
         }
+
         packet
     }
 }

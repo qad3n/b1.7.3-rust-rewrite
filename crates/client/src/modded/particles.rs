@@ -39,6 +39,7 @@ fn registered(
     let spec: ParticleKind = modloader::content::particles::kind(name)?;
     let particle: Rc<Entity> = vanillaParticle(global, &spec.m_base, world, pos, motion)?;
     let fields: &FXFields = entity_fx::fx(&particle);
+
     if let Some(color) = spec.m_color
     {
         let channel = |shift: u32| ((color >> shift) & 0xFF) as f32 / CHANNEL;
@@ -46,18 +47,22 @@ fn registered(
         fields.m_particleGreen.set(channel(8));
         fields.m_particleBlue.set(channel(0));
     }
+
     if let Some(scale) = spec.m_scale
     {
         fields.m_particleScale.set(fields.m_particleScale.get() * scale);
     }
+
     if let Some(lifetime) = spec.m_lifetime
     {
         fields.m_particleMaxAge.set(lifetime);
     }
+
     if let Some(gravity) = spec.m_gravity
     {
         fields.m_particleGravity.set(gravity);
     }
+
     Some(particle)
 }
 

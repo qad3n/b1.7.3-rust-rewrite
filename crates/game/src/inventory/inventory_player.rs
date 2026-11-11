@@ -31,9 +31,10 @@ impl InventoryPlayer
 {
     pub fn getHotbarSize() -> i32 { 9 }
 
-    pub fn new(player: &Weak<Entity>) -> InventoryPlayer
+    pub fn new(player: &Weak<Entity>) -> Self
     {
-        InventoryPlayer {
+        Self
+        {
             m_mainInventory: RefCell::new(vec![None; 36]),
             m_armorInventory: RefCell::new(vec![None; 4]),
             m_currentItem: Cell::new(0),
@@ -56,6 +57,7 @@ impl InventoryPlayer
         {
             return at(&self.m_mainInventory, current);
         }
+
         None
     }
 
@@ -116,15 +118,19 @@ impl InventoryPlayer
         {
             amount = 1;
         }
+
         if amount < 0
         {
             amount = -1;
         }
+
         self.m_currentItem.set(self.m_currentItem.get() - amount);
+
         while self.m_currentItem.get() < 0
         {
             self.m_currentItem.set(self.m_currentItem.get() + 9);
         }
+
         while self.m_currentItem.get() >= 9
         {
             self.m_currentItem.set(self.m_currentItem.get() - 9);
@@ -140,28 +146,34 @@ impl InventoryPlayer
         {
             k = self.getFirstEmptyStack();
         }
+
         if k < 0
         {
             return j;
         }
+
         if at(&self.m_mainInventory, k).is_none()
         {
             put(&self.m_mainInventory, k, Some(ItemStack::withDamage(i, 0, item.getItemDamage())));
         }
+
         let stack: Rc<ItemStack> = at(&self.m_mainInventory, k).expect("slot filled above");
         let mut l: i32 = j;
         if l > stack.getMaxStackSize() - stack.m_stackSize.get()
         {
             l = stack.getMaxStackSize() - stack.m_stackSize.get();
         }
+
         if l > self.getInventoryStackLimit() - stack.m_stackSize.get()
         {
             l = self.getInventoryStackLimit() - stack.m_stackSize.get();
         }
+
         if l == 0
         {
             return j;
         }
+
         j -= l;
         stack.m_stackSize.set(stack.m_stackSize.get() + l);
         stack.m_animationsToGo.set(5);
@@ -171,6 +183,7 @@ impl InventoryPlayer
     pub fn decrementAnimations(&self)
     {
         let player: Rc<Entity> = self.player();
+
         for i in 0..self.mainLength()
         {
             if let Some(stack) = at(&self.m_mainInventory, i)
@@ -187,12 +200,15 @@ impl InventoryPlayer
         {
             return false;
         }
+
         let stack: Rc<ItemStack> = at(&self.m_mainInventory, n).expect("slot holds the item");
         stack.m_stackSize.set(stack.m_stackSize.get() - 1);
+
         if stack.m_stackSize.get() <= 0
         {
             put(&self.m_mainInventory, n, None);
         }
+
         true
     }
 
@@ -201,29 +217,36 @@ impl InventoryPlayer
         if !item.isItemDamaged()
         {
             let mut stackSize: i32;
+
             loop
             {
                 stackSize = item.m_stackSize.get();
                 item.m_stackSize.set(self.storePartialItemStack(item));
+
                 if !(item.m_stackSize.get() > 0 && item.m_stackSize.get() < stackSize)
                 {
                     break;
                 }
             }
+
             return item.m_stackSize.get() < stackSize;
         }
+
         let firstEmptyStack: i32 = self.getFirstEmptyStack();
         if firstEmptyStack >= 0
         {
             let copy: Option<Rc<ItemStack>> = ItemStack::copyItemStack(Some(item));
             put(&self.m_mainInventory, firstEmptyStack, copy.clone());
+
             if let Some(copy) = copy
             {
                 copy.m_animationsToGo.set(5);
             }
+
             item.m_stackSize.set(0);
             return true;
         }
+
         false
     }
 
@@ -235,11 +258,14 @@ impl InventoryPlayer
         {
             return speed;
         }
+
         let mut n: f32 = 1.0;
+
         if let Some(stack) = at(&self.m_mainInventory, self.m_currentItem.get())
         {
             n *= stack.getStrVsBlock(block);
         }
+
         n
     }
 
@@ -255,6 +281,7 @@ impl InventoryPlayer
                 list.list().setTag(nbtTagCompound);
             }
         }
+
         for j in 0..self.armorLength()
         {
             if let Some(stack) = at(&self.m_armorInventory, j)
@@ -265,6 +292,7 @@ impl InventoryPlayer
                 list.list().setTag(nbtTagCompound2);
             }
         }
+
         Rc::clone(list)
     }
 
@@ -272,6 +300,7 @@ impl InventoryPlayer
     {
         *self.m_mainInventory.borrow_mut() = vec![None; 36];
         *self.m_armorInventory.borrow_mut() = vec![None; 4];
+
         for i in 0..list.list().tagCount()
         {
             let tag: Rc<NBTBase> = list.list().tagAt(i);
@@ -284,6 +313,7 @@ impl InventoryPlayer
                 {
                     put(&self.m_mainInventory, n, Some(Rc::clone(&itemStack)));
                 }
+
                 if n >= 100 && n < self.armorLength() + 100
                 {
                     put(&self.m_armorInventory, n - 100, Some(Rc::clone(&itemStack)));
@@ -313,6 +343,7 @@ impl InventoryPlayer
         {
             return true;
         }
+
         match self.getStackInSlot(self.m_currentItem.get())
         {
             Some(itemStack) => itemStack.canHarvestBlock(block),
@@ -327,6 +358,7 @@ impl InventoryPlayer
         let mut n: i32 = 0;
         let mut n2: i32 = 0;
         let mut n3: i32 = 0;
+
         for i in 0..self.armorLength()
         {
             if let Some(stack) = at(&self.m_armorInventory, i)
@@ -338,22 +370,26 @@ impl InventoryPlayer
                 n += item_armor::fields(&stack.getItem()).m_damageReduceAmount;
             }
         }
+
         if n3 == 0
         {
             return 0;
         }
+
         (n - 1) * n2 / n3 + 1
     }
 
     pub fn damageArmor(&self, damage: i32)
     {
         let player: Rc<Entity> = self.player();
+
         for i in 0..self.armorLength()
         {
             if let Some(stack) = at(&self.m_armorInventory, i)
                 && stack.getItem().instanceOf("ItemArmor")
             {
                 stack.damageItem(damage, &player);
+
                 if stack.m_stackSize.get() == 0
                 {
                     stack.onRemoved(&player);
@@ -366,6 +402,7 @@ impl InventoryPlayer
     pub fn dropAllItems(&self)
     {
         let player: Rc<Entity> = self.player();
+
         for i in 0..self.mainLength()
         {
             if let Some(stack) = at(&self.m_mainInventory, i)
@@ -374,6 +411,7 @@ impl InventoryPlayer
                 put(&self.m_mainInventory, i, None);
             }
         }
+
         for j in 0..self.armorLength()
         {
             if let Some(stack) = at(&self.m_armorInventory, j)
@@ -401,6 +439,7 @@ impl InventoryPlayer
                 return true;
             }
         }
+
         for j in 0..self.mainLength()
         {
             if at(&self.m_mainInventory, j).is_some_and(|stack| stack.isStackEqual(item))
@@ -408,6 +447,7 @@ impl InventoryPlayer
                 return true;
             }
         }
+
         false
     }
 
@@ -417,6 +457,7 @@ impl InventoryPlayer
         {
             return (&self.m_armorInventory, slot - self.mainLength());
         }
+
         (&self.m_mainInventory, slot)
     }
 }
@@ -440,11 +481,14 @@ impl IInventory for InventoryPlayer
             put(array, index, None);
             return Some(stack);
         }
+
         let itemStack: Rc<ItemStack> = stack.splitStack(amount);
+
         if stack.m_stackSize.get() == 0
         {
             put(array, index, None);
         }
+
         Some(itemStack)
     }
 
@@ -467,6 +511,7 @@ impl IInventory for InventoryPlayer
         {
             return false;
         }
+
         !(player.getDistanceSqToEntity(&owner) > 64.0)
     }
 }

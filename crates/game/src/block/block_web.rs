@@ -2,7 +2,8 @@ use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::item::Item;
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockWeb",
     m_parent: Some(&BLOCK),
     onEntityCollidedWithBlock: |_, _, _, _, _, entity| entity.m_isInWeb.set(true),

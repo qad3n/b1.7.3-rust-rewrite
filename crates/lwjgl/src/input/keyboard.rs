@@ -1,10 +1,12 @@
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::VecDeque;
 
-macro_rules! keys {
-    ($($name:ident = $code:expr,)*) => {
+macro_rules! keys
+{
+    ($($name:ident = $code:expr,)*) =>
+    {
         impl Keyboard
         {
             $(pub const $name: i32 = $code;)*
@@ -23,7 +25,8 @@ impl Keyboard
     pub const KEYBOARD_SIZE: i32 = 256;
 }
 
-keys! {
+keys!
+{
     KEY_NONE = 0x00,
     KEY_ESCAPE = 0x01,
     KEY_1 = 0x02,
@@ -298,7 +301,8 @@ struct KeyboardState
     m_droppedRepeat: bool,
 }
 
-thread_local! {
+thread_local!
+{
     static STATE: RefCell<KeyboardState> = RefCell::new(KeyboardState::default());
 }
 
@@ -327,7 +331,9 @@ fn attachText(state: &mut KeyboardState, text: &str, nanos: i64)
                 last.m_character = character;
                 last.m_hasText = true;
             }
-            None => state.m_queue.push_back(KeyEvent {
+
+            None => state.m_queue.push_back(KeyEvent
+            {
                 m_key: Keyboard::KEY_NONE,
                 m_state: true,
                 m_character: character,
@@ -341,7 +347,8 @@ fn attachText(state: &mut KeyboardState, text: &str, nanos: i64)
 
 fn released(key: i32, nanos: i64) -> KeyEvent
 {
-    KeyEvent {
+    KeyEvent
+    {
         m_key: key,
         m_state: false,
         m_character: Keyboard::CHAR_NONE,
@@ -353,10 +360,13 @@ fn released(key: i32, nanos: i64) -> KeyEvent
 
 pub(crate) fn release()
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::input::keyboard::KeyboardState> = state.borrow_mut();
         let nanos: i64 = jvm::system::nanoTime();
+
         state.m_droppedRepeat = false;
+
         for key in 0..state.m_keyDown.len()
         {
             if !state.m_keyDown[key]
@@ -372,26 +382,34 @@ pub(crate) fn release()
 
 pub(crate) fn handleEvent(event: &Event)
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::input::keyboard::KeyboardState> = state.borrow_mut();
         if !state.m_created
         {
             return;
         }
+
         let nanos: i64 = jvm::system::nanoTime();
+
         match event
         {
             Event::KeyDown { keycode: Some(keycode), repeat, .. } =>
             {
                 let key: i32 = lwjglKey(*keycode);
+
                 state.m_droppedRepeat = *repeat && !state.m_repeatEnabled;
                 if state.m_droppedRepeat
                 {
                     return;
                 }
+
                 state.m_keyDown[key as usize] = true;
+
                 let character: u16 = controlCharacter(key);
-                state.m_queue.push_back(KeyEvent {
+
+                state.m_queue.push_back(KeyEvent
+                {
                     m_key: key,
                     m_state: true,
                     m_character: character,
@@ -400,13 +418,16 @@ pub(crate) fn handleEvent(event: &Event)
                     m_hasText: character != Keyboard::CHAR_NONE,
                 });
             }
+
             Event::KeyUp { keycode: Some(keycode), .. } =>
             {
                 let key: i32 = lwjglKey(*keycode);
+
                 state.m_droppedRepeat = false;
                 state.m_keyDown[key as usize] = false;
                 state.m_queue.push_back(released(key, nanos));
             }
+
             Event::TextInput { text, .. } if !state.m_droppedRepeat => attachText(&mut state, text, nanos),
             _ =>
             {}
@@ -418,12 +439,14 @@ impl Keyboard
 {
     pub fn create() -> Result<(), crate::LWJGLException>
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<crate::input::keyboard::KeyboardState> = state.borrow_mut();
             state.m_created = true;
             state.m_keyDown = vec![false; Self::KEYBOARD_SIZE as usize];
             state.m_queue.clear();
         });
+
         Ok(())
     }
 
@@ -461,8 +484,9 @@ impl Keyboard
 
     pub fn next() -> bool
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<crate::input::keyboard::KeyboardState> = state.borrow_mut();
             match state.m_queue.pop_front()
             {
                 Some(event) =>
@@ -470,6 +494,7 @@ impl Keyboard
                     state.m_current = event;
                     true
                 }
+
                 None => false,
             }
         })

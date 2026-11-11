@@ -40,7 +40,7 @@ impl Block
 {
     pub fn construct(class: &'static BlockClass, ext: Box<dyn Any>, id: i32, material: Rc<Material>) -> Rc<Self>
     {
-        if Block::exists(id)
+        if Self::exists(id)
         {
             jvm::throwable::throw(
                 &jvm::throwable::ILLEGAL_ARGUMENT,
@@ -48,7 +48,8 @@ impl Block
             );
         }
 
-        let block: Rc<Self> = Rc::new(Self {
+        let block: Rc<Self> = Rc::new(Self
+        {
             // mod blocks reuse a vanilla constructor with a class derived from it
             m_class: crate::hooks::blockClass(class),
             m_ext: ext,
@@ -72,6 +73,7 @@ impl Block
         });
         registry::register(id, &block);
         block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+
         let opaque: bool = block.isOpaqueCube();
         registry::setOpaqueCubeLookup(id, opaque);
         registry::setLightOpacityValue(id, if block.isOpaqueCube() { 255 } else { 0 });
@@ -128,10 +130,12 @@ impl Block
     pub fn setHardness(self: Rc<Self>, strength: f32) -> Rc<Self>
     {
         self.m_blockHardness.set(strength);
+
         if self.m_blockResistance.get() < strength * 5.0
         {
             self.m_blockResistance.set(strength * 5.0);
         }
+
         self
     }
 

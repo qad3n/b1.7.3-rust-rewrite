@@ -28,7 +28,9 @@ impl Packet21PickupSpawn
     pub fn new(item: &Entity) -> Self
     {
         let stack: Rc<ItemStack> = entity_item::fields(item).m_item.get().orNpe();
-        Self {
+
+        Self
+        {
             m_entityId: item.m_entityId.get(),
             m_itemID: stack.m_itemID.get(),
             m_count: stack.m_stackSize.get(),

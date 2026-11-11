@@ -1,5 +1,6 @@
 use crate::host::context::{blockCtx, withWorld};
 use crate::state;
+use crate::state::ModRuntime;
 use common::nbt::{NBTBase, NBTTagCompound};
 use game::block::{Block, BlockClass};
 use game::entity::Entity;
@@ -35,7 +36,8 @@ pub struct ModTileExt
     pub m_slots: RefCell<Vec<Option<Rc<ItemStack>>>>,
 }
 
-thread_local! {
+thread_local!
+{
     static TYPES: RefCell<HashMap<Identifier, Rc<TileType>>> = RefCell::new(HashMap::new());
     // block id to the tile type its spec names
     static BLOCK_TYPES: RefCell<HashMap<i32, Rc<TileType>>> = RefCell::new(HashMap::new());
@@ -67,8 +69,9 @@ fn callTile(tile: &Rc<TileEntity>, call: TileCall) -> Option<mod_protocol::abi::
 {
     let tileType: Rc<TileType> = Rc::clone(&ext(tile).m_type);
     let behavior = tileType.m_spec.behavior.as_ref()?;
-    let runtime = state::modAt(tileType.m_owner)?;
+    let runtime: Rc<ModRuntime> = state::modAt(tileType.m_owner)?;
     let request: GuestCall = GuestCall::Tile { handle: behavior.handle, call };
+
     match tile.m_worldObj.get()
     {
         Some(world) => withWorld(&world, || runtime.call(&request)),
@@ -83,10 +86,12 @@ pub fn registerModel(modIndex: usize, id: Identifier, model: mod_protocol::spec:
     let tileType: Rc<TileType> = TYPES
         .with(|types| types.borrow().get(&id).cloned())
         .ok_or_else(|| format!("tile entity {id} is not registered"))?;
+
     if tileType.m_owner != modIndex
     {
         return Err(format!("tile entity {id} belongs to another mod"));
     }
+
     MODELS.with(|models| models.borrow_mut().insert(id, Rc::new(model)));
     Ok(())
 }
@@ -105,6 +110,7 @@ pub fn pose(tile: &Rc<TileEntity>, partial: f32) -> Option<mod_protocol::abi::Po
     {
         return None;
     }
+
     let world: Rc<World> = tile.m_worldObj.get()?;
     let (x, y, z): (i32, i32, i32) = (tile.m_xCoord.get(), tile.m_yCoord.get(), tile.m_zCoord.get());
     let block: i32 = world.getBlockId(x, y, z);
@@ -127,6 +133,7 @@ fn tick(this: &Rc<TileEntity>)
     {
         return;
     }
+
     let world: Rc<World> = this.world();
     let (x, y, z): (i32, i32, i32) = (this.m_xCoord.get(), this.m_yCoord.get(), this.m_zCoord.get());
     let block: i32 = world.getBlockId(x, y, z);
@@ -140,7 +147,9 @@ fn writeNbt(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
     nbt.setInteger("y", this.m_yCoord.get());
     nbt.setInteger("z", this.m_zCoord.get());
     nbt.setByteArray(MOD_DATA, Rc::new(ext(this).m_data.borrow().iter().map(|byte| *byte as i8).collect()));
+
     let items: Rc<NBTBase> = NBTTagCompound::create();
+
     for (slot, stack) in ext(this).m_slots.borrow().iter().enumerate()
     {
         if let Some(stack) = stack
@@ -150,6 +159,7 @@ fn writeNbt(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
             items.compound().setCompoundTag(&format!("{SLOT}{slot}"), &entry);
         }
     }
+
     nbt.setCompoundTag(ITEMS, &items);
     common::nbt::attachments::write(&this.m_attachments.borrow(), nbt);
 }
@@ -160,6 +170,7 @@ fn readNbt(this: &Rc<TileEntity>, nbt: &NBTTagCompound)
     *ext(this).m_data.borrow_mut() =
         nbt.getByteArray(MOD_DATA).map(|bytes| bytes.iter().map(|byte| *byte as u8).collect()).unwrap_or_default();
     let items: Rc<NBTBase> = nbt.getCompoundTag(ITEMS);
+
     for (slot, stack) in ext(this).m_slots.borrow_mut().iter_mut().enumerate()
     {
         let key: String = format!("{SLOT}{slot}");
@@ -179,6 +190,7 @@ fn setSlot(this: &Rc<TileEntity>, slot: i32, stack: Option<Rc<ItemStack>>)
     {
         *entry = stack;
     }
+
     this.onInventoryChanged();
 }
 
@@ -190,7 +202,9 @@ fn decrSlot(this: &Rc<TileEntity>, slot: i32, amount: i32) -> Option<Rc<ItemStac
         setSlot(this, slot, None);
         return Some(stack);
     }
+
     let split: Rc<ItemStack> = stack.splitStack(amount);
+
     this.onInventoryChanged();
     Some(split)
 }
@@ -205,8 +219,10 @@ fn canInteract(this: &Rc<TileEntity>, player: &Rc<Entity>) -> bool
 
 fn tileClass(tileType: &Rc<TileType>) -> &'static TileEntityClass
 {
-    tileType.m_class.get_or_init(|| {
-        crate::classes::deriveTileEntityClass(&TILE_ENTITY, &tileType.m_id.to_string(), |class| {
+    tileType.m_class.get_or_init(||
+    {
+        crate::classes::deriveTileEntityClass(&TILE_ENTITY, &tileType.m_id.to_string(), |class|
+        {
             class.updateEntity = tick;
             class.writeToNBT = writeNbt;
             class.readFromNBT = readNbt;
@@ -217,6 +233,7 @@ fn tileClass(tileType: &Rc<TileType>) -> &'static TileEntityClass
             class.getInvName = |_| "container.mod";
             class.getInventoryStackLimit = |_| STACK_LIMIT;
             class.canInteractWith = canInteract;
+
             if tileType.m_spec.inventory > 0
             {
                 class.m_interfaces = &["IInventory"];
@@ -228,7 +245,9 @@ fn tileClass(tileType: &Rc<TileType>) -> &'static TileEntityClass
 pub fn create(tileType: &Rc<TileType>) -> Rc<TileEntity>
 {
     let slots: usize = tileType.m_spec.inventory.max(0) as usize;
-    let ext: ModTileExt = ModTileExt {
+
+    let ext: ModTileExt = ModTileExt
+    {
         m_type: Rc::clone(tileType),
         m_data: RefCell::new(Vec::new()),
         m_slots: RefCell::new(vec![None; slots]),
@@ -257,6 +276,7 @@ fn blockEntity(this: &Rc<Block>) -> Rc<TileEntity>
     match forBlock(this.m_blockID)
     {
         Some(tileType) => create(&tileType),
+
         None =>
         {
             jvm::throwable::throw(&jvm::throwable::ERROR, &format!("block {} has no tile entity type", this.m_blockID))
@@ -267,16 +287,19 @@ fn blockEntity(this: &Rc<Block>) -> Rc<TileEntity>
 fn added(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     (blockParent(this).onBlockAdded)(this, world, x, y, z);
+
     if !SWAPPING.with(Cell::get)
     {
         world.setBlockTileEntity(x, y, z, &this.getBlockEntity());
     }
+
     crate::behavior::notifyAdded(this, world, x, y, z);
 }
 
 fn removed(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     crate::behavior::notifyRemoved(this, world, x, y, z);
+
     let swapping: bool = SWAPPING.with(Cell::get);
     if !swapping
         && let Some(tile) = world.getBlockTileEntity(x, y, z)
@@ -286,11 +309,13 @@ fn removed(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
         {
             callTile(&tile, TileCall::Removed { ctx: blockCtx(world, this.m_blockID, x, y, z) });
         }
+
         for stack in ext(&tile).m_slots.borrow().iter().flatten()
         {
             this.dropBlockAsItem_do(world, x, y, z, stack.copy());
         }
     }
+
     (blockParent(this).onBlockRemoval)(this, world, x, y, z);
     world.removeBlockTileEntity(x, y, z);
 }
@@ -310,8 +335,11 @@ pub fn swap(world: &Rc<World>, pos: BlockPos, block: i32, meta: i32) -> Result<b
     }
 
     SWAPPING.with(|swapping| swapping.set(true));
+
     let changed: bool = world.setBlockAndMetadataWithNotify(x, y, z, block, meta);
+
     SWAPPING.with(|swapping| swapping.set(false));
+
     if !changed
     {
         return Ok(false);

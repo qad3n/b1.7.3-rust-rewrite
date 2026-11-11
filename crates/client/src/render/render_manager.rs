@@ -1,5 +1,6 @@
 use crate::gui::FontRenderer;
-use crate::model::{
+use crate::model::
+{
     ModelBiped, ModelChicken, ModelCow, ModelPig, ModelSheep1, ModelSheep2, ModelSkeleton, ModelSlime, ModelSquid,
     ModelWolf, ModelZombie,
 };
@@ -16,7 +17,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INSTANCE: Rc<RenderManager> = Rc::new(RenderManager::new());
     static RENDER_POS: Cell<(f64, f64, f64)> = const { Cell::new((0.0, 0.0, 0.0)) };
 }
@@ -41,7 +43,7 @@ pub struct RenderManager
 
 impl RenderManager
 {
-    fn new() -> RenderManager
+    fn new() -> Self
     {
         let renders: Vec<(&'static str, Rc<Render>)> = vec![
             ("EntitySpider", render_mobs::newSpider()),
@@ -73,7 +75,9 @@ impl RenderManager
             ("EntityFish", render_objects::newFish()),
             ("EntityLightningBolt", render_objects::newLightningBolt()),
         ];
-        RenderManager {
+
+        Self
+        {
             m_entityRenderMap: RefCell::new(renders.into_iter().map(|(name, render)| (name, Some(render))).collect()),
             m_fontRenderer: Field::new(None),
             m_renderEngine: Field::new(None),
@@ -89,7 +93,7 @@ impl RenderManager
         }
     }
 
-    pub fn instance() -> Rc<RenderManager> { INSTANCE.with(Rc::clone) }
+    pub fn instance() -> Rc<Self> { INSTANCE.with(Rc::clone) }
 
     pub fn renderPos() -> (f64, f64, f64) { RENDER_POS.with(Cell::get) }
 
@@ -105,12 +109,14 @@ impl RenderManager
         {
             return None;
         }
+
         // rewrite: a mod entity with a model spec gets its own renderer instead of its template's
         if let Some(render) = crate::modded::entity_model::rendererFor(class.m_name)
         {
             self.m_entityRenderMap.borrow_mut().insert(class.m_name, Some(Rc::clone(&render)));
             return Some(render);
         }
+
         let render: Option<Rc<Render>> = class.m_parent.and_then(|parent| self.getEntityClassRenderObject(parent));
         self.m_entityRenderMap.borrow_mut().insert(class.m_name, render.clone());
         render
@@ -136,10 +142,12 @@ impl RenderManager
         self.m_options.set(Some(Rc::clone(settings)));
         self.m_livingPlayer.set(camera.clone());
         self.m_fontRenderer.set(fontRenderer);
+
         let camera: Rc<Entity> = jvm::throwable::OrNpe::orNpe(camera);
         let x: i32 = math_helper::floor_double(camera.posX());
         let y: i32 = math_helper::floor_double(camera.posY());
         let z: i32 = math_helper::floor_double(camera.posZ());
+
         if camera.isPlayerSleeping()
         {
             if world.getBlockId(x, y, z) == Block::BLOCK_BED
@@ -171,6 +179,7 @@ impl RenderManager
             entity.m_prevRotationYaw.get() + (entity.m_rotationYaw.get() - entity.m_prevRotationYaw.get()) * tickDelta;
         let f1: f32 = entity.getEntityBrightness(tickDelta);
         lwjgl::opengl::GL11::glColor3f(f1, f1, f1);
+
         let (x, y, z): (f64, f64, f64) = Self::renderPos();
         self.renderEntityWithPosYaw(entity, d0 - x, d1 - y, d2 - z, f, tickDelta);
     }

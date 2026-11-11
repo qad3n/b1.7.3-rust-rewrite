@@ -9,7 +9,7 @@ pub struct WorldGenTaiga1;
 
 impl WorldGenTaiga1
 {
-    pub fn new() -> WorldGenTaiga1 { WorldGenTaiga1 }
+    pub fn new() -> Self { Self }
 }
 
 impl WorldGenerator for WorldGenTaiga1
@@ -20,6 +20,7 @@ impl WorldGenerator for WorldGenTaiga1
         let n7: i32 = n6 - random.nextIntBounded(2) - 3;
         let n8: i32 = n6 - n7;
         let n9: i32 = 1 + random.nextIntBounded(n8 + 1);
+
         if y < 1 || y + n6 + 1 > 128
         {
             return false;
@@ -33,13 +34,17 @@ impl WorldGenerator for WorldGenTaiga1
         {
             return false;
         }
+
         world.setBlock(x, y - 1, z, Block::DIRT);
+
         let mut n4: i32 = 0;
+
         for n3 in (y + n7..=y + n6).rev()
         {
             for n2 in x - n4..=x + n4
             {
                 let n: i32 = n2 - x;
+
                 for i in z - n4..=z + n4
                 {
                     let n10: i32 = i - z;
@@ -48,20 +53,25 @@ impl WorldGenerator for WorldGenTaiga1
                     {
                         continue;
                     }
+
                     world.setBlockAndMetadata(n2, n3, i, Block::LEAVES, 1);
                 }
             }
+
             if n4 >= 1 && n3 == y + n7 + 1
             {
                 n4 -= 1;
                 continue;
             }
+
             if n4 >= n9
             {
                 continue;
             }
+
             n4 += 1;
         }
+
         for n3 in 0..n6 - 1
         {
             let n2: i32 = world.getBlockId(x, y + n3, z);
@@ -69,8 +79,10 @@ impl WorldGenerator for WorldGenTaiga1
             {
                 continue;
             }
+
             world.setBlockAndMetadata(x, y + n3, z, Block::WOOD, 1);
         }
+
         true
     }
 }

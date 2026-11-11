@@ -1,5 +1,6 @@
-use crate::render::RenderBlocks;
+use crate::render::{RenderBlocks, Tessellator};
 use game::block::Block;
+use game::world::IBlockAccess;
 use modloader::atlas::Atlas;
 use std::rc::Rc;
 
@@ -10,6 +11,7 @@ pub fn renderModel(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y: i3
 {
     let cuboids = modloader::content::blocks::activeCuboids(block.m_blockID, &*renderer.world(), x, y, z);
     let mut drawn: bool = false;
+
     for cuboid in &cuboids
     {
         block.setBlockBounds(
@@ -27,6 +29,7 @@ pub fn renderModel(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y: i3
             .unwrap_or(-1);
         drawn |= renderer.renderStandardBlock(block, x, y, z);
     }
+
     renderer.m_overrideBlockTexture = -1;
     block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
     drawn
@@ -43,9 +46,11 @@ pub fn renderOverlays(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y:
     {
         return false;
     }
-    let world = renderer.world();
-    let tessellator = crate::render::Tessellator::instance();
+
+    let world: Rc<dyn IBlockAccess> = renderer.world();
+    let tessellator: Rc<Tessellator> = crate::render::Tessellator::instance();
     let mut drawn: bool = false;
+
     for (face, [dx, dy, dz]) in FACE_STEP.into_iter().enumerate()
     {
         let face: i32 = face as i32;
@@ -58,6 +63,7 @@ pub fn renderOverlays(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y:
         {
             continue;
         };
+
         let light: f32 = if overlay.glow
         {
             1.0
@@ -68,8 +74,10 @@ pub fn renderOverlays(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y:
         };
         let channel = |shift: u32| ((overlay.color >> shift) & 0xFF) as f32 / 255.0 * light;
         tessellator.setColorOpaque_F(channel(16), channel(8), channel(0));
+
         let lift: f64 = f64::from(overlay.lift / MODEL_UNITS);
         let [ox, oy, oz] = [x as f64 + dx as f64 * lift, y as f64 + dy as f64 * lift, z as f64 + dz as f64 * lift];
+
         match face
         {
             0 => renderer.renderBottomFace(block, ox, oy, oz, overlay.sprite),
@@ -79,8 +87,10 @@ pub fn renderOverlays(renderer: &mut RenderBlocks, block: &Rc<Block>, x: i32, y:
             4 => renderer.renderNorthFace(block, ox, oy, oz, overlay.sprite),
             _ => renderer.renderSouthFace(block, ox, oy, oz, overlay.sprite),
         }
+
         drawn = true;
     }
+
     drawn
 }
 
@@ -89,7 +99,8 @@ pub fn movingShapes(blockId: i32, meta: i32) -> Vec<([f32; 6], i32)>
 {
     modloader::content::blocks::metaCuboids(blockId, meta)
         .into_iter()
-        .map(|cuboid| {
+        .map(|cuboid|
+        {
             let [x0, y0, z0] = cuboid.from.map(|value| value / MODEL_UNITS);
             let [x1, y1, z1] = cuboid.to.map(|value| value / MODEL_UNITS);
             let sprite: i32 = cuboid

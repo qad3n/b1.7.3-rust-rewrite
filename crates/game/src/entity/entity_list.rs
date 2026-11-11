@@ -1,4 +1,5 @@
-use crate::entity::{
+use crate::entity::
+{
     Entity, entity_arrow, entity_boat, entity_chicken, entity_cow, entity_creeper, entity_falling_sand, entity_ghast,
     entity_giant_zombie, entity_item, entity_minecart, entity_mob, entity_painting, entity_pig, entity_pig_zombie,
     entity_sheep, entity_skeleton, entity_slime, entity_snowball, entity_spider, entity_squid, entity_tnt_primed,
@@ -43,7 +44,8 @@ const MAPPINGS: [EntityRow; 24] = [
     EntityRow { m_className: "EntitySquid", m_key: "Squid", m_id: 94, m_create: Some(entity_squid::new) },
     EntityRow { m_className: "EntityWolf", m_key: "Wolf", m_id: 95, m_create: Some(entity_wolf::new) },
     EntityRow { m_className: "EntityTNTPrimed", m_key: "PrimedTnt", m_id: 20, m_create: Some(entity_tnt_primed::new) },
-    EntityRow {
+    EntityRow
+    {
         m_className: "EntityFallingSand",
         m_key: "FallingSand",
         m_id: 21,
@@ -64,9 +66,11 @@ fn instantiate(row: Option<&EntityRow>, world: &Rc<World>) -> Option<Rc<Entity>>
             Some(create) => create(Some(Rc::clone(world))),
             None => throwable::throwBare(&throwable::INSTANTIATION),
         });
+
     match result
     {
         Ok(entity) => Some(entity),
+
         Err(error) =>
         {
             error.printStackTrace();
@@ -100,14 +104,17 @@ impl EntityList
         // mod entities are created by the loader when no vanilla key matches
         let entity: Option<Rc<Entity>> = instantiate(byKey(id.as_ref()), world)
             .or_else(|| id.as_ref().and_then(|key| crate::hooks::createEntity(&key.to_string(), world)));
+
         match &entity
         {
             Some(entity) => entity.readFromNBT(nbt),
+
             None =>
             {
                 warning!("Skipping Entity with id {}", JString::display(nbt.getString("id").as_ref()))
             }
         }
+
         entity
     }
 
@@ -118,6 +125,7 @@ impl EntityList
         {
             warning!("Skipping Entity with id {id}");
         }
+
         entity
     }
 

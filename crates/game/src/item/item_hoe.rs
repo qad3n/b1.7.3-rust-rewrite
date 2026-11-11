@@ -2,10 +2,12 @@ use crate::block::{Block, StepSound};
 use crate::item::{EnumToolMaterial, ITEM, Item, ItemClass};
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemHoe",
     m_parent: Some(&ITEM),
-    onItemUse: |_, stack, player, world, x, y, z, face| {
+    onItemUse: |_, stack, player, world, x, y, z, face|
+    {
         let n: i32 = world.getBlockId(x, y, z);
         let n2: i32 = world.getBlockId(x, y + 1, z);
         if face != 0 && n2 == 0 && n == Block::GRASS || n == Block::DIRT
@@ -20,14 +22,17 @@ pub const CLASS: ItemClass = ItemClass {
                 (sound.getVolume() + 1.0) / 2.0,
                 sound.getPitch() * 0.8,
             );
+
             if world.m_multiplayerWorld.get()
             {
                 return true;
             }
+
             world.setBlockWithNotify(x, y, z, block.m_blockID);
             stack.damageItem(1, player);
             return true;
         }
+
         false
     },
     isFull3D: |_| true,

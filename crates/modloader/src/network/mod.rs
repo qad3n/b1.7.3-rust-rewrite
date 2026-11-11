@@ -28,7 +28,8 @@ struct Router
     m_toPlayers: HashMap<i32, WireSender>,
 }
 
-thread_local! {
+thread_local!
+{
     static ROUTER: RefCell<Router> = RefCell::new(Router::default());
 }
 
@@ -39,7 +40,8 @@ pub fn registerChannel(channel: Channel)
 
 pub fn channels() -> Vec<(Identifier, String, ChannelDirection)>
 {
-    ROUTER.with(|router| {
+    ROUTER.with(|router|
+    {
         let mut list: Vec<(Identifier, String, ChannelDirection)> = router
             .borrow()
             .m_channels
@@ -60,9 +62,11 @@ pub fn setLocalPlayer(player: Option<Rc<Entity>>) { ROUTER.with(|router| router.
 
 fn handler(channel: &Identifier, onServer: bool) -> Option<Handler>
 {
-    ROUTER.with(|router| {
-        let router = router.borrow();
+    ROUTER.with(|router|
+    {
+        let router: std::cell::Ref<Router> = router.borrow();
         let channel: &Channel = router.m_channels.get(channel)?;
+
         if onServer
         {
             channel.m_onServer.clone()
@@ -84,6 +88,7 @@ pub fn deliverToServer(channel: &Identifier, sender: &Rc<Entity>, data: &[u8]) -
             handler(sender, data);
             true
         }
+
         None => false,
     }
 }
@@ -97,6 +102,7 @@ pub fn deliverToClient(channel: &Identifier, player: &Rc<Entity>, data: &[u8]) -
             handler(player, data);
             true
         }
+
         None => false,
     }
 }
@@ -111,12 +117,14 @@ pub fn sendToServer(channel: &Identifier, data: Vec<u8>) -> bool
             sender(channel, data.clone());
             true
         }
+
         None => false,
     });
     if sent
     {
         return true;
     }
+
     match ROUTER.with(|router| router.borrow().m_localPlayer.clone())
     {
         Some(player) => deliverToServer(channel, &player, &data),
@@ -154,6 +162,7 @@ pub fn sendToPlayer(channel: &Identifier, player: &Rc<Entity>, data: Vec<u8>) ->
     {
         return deliverToClient(channel, player, &data);
     }
+
     false
 }
 
@@ -166,6 +175,7 @@ pub fn sendToConnection(player: i32, channel: &Identifier, data: &[u8]) -> bool
             sender(channel, data.to_vec());
             true
         }
+
         None => false,
     })
 }
@@ -174,7 +184,8 @@ pub fn localPlayer() -> Option<Rc<Entity>> { ROUTER.with(|router| router.borrow(
 
 pub fn channelInfo(id: &Identifier) -> Option<(String, ChannelDirection)>
 {
-    ROUTER.with(|router| {
+    ROUTER.with(|router|
+    {
         router.borrow().m_channels.get(id).map(|channel| (channel.m_version.clone(), channel.m_direction))
     })
 }

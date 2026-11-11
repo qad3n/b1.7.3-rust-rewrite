@@ -2,10 +2,9 @@ mod chunks;
 mod sky;
 mod world_access;
 
-pub(crate) use world_access::vanillaParticle;
-
 use crate::client::Minecraft;
-use crate::render::{
+use crate::render::
+{
     EntitySorter, GLAllocation, RenderBlocks, RenderEngine, RenderList, RenderManager, Tessellator, WorldRenderer,
 };
 use crate::settings::GameSettings;
@@ -22,13 +21,14 @@ use lwjgl::buffers::IntBuffer;
 use lwjgl::opengl::{ARBOcclusionQuery, GL11};
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
+pub(crate) use world_access::vanillaParticle;
 
 // blocks per side of one world renderer section
 const SECTION: i32 = 16;
 
 pub struct RenderGlobal
 {
-    m_self: Weak<RenderGlobal>,
+    m_self: Weak<Self>,
     pub m_tileEntities: Rc<JArrayList<Rc<TileEntity>>>,
     m_worldObj: Field<Option<Rc<World>>>,
     m_renderEngine: Rc<RenderEngine>,
@@ -77,7 +77,7 @@ pub struct RenderGlobal
 
 impl RenderGlobal
 {
-    pub fn new(minecraft: &Rc<Minecraft>, textureManager: &Rc<RenderEngine>) -> Rc<RenderGlobal>
+    pub fn new(minecraft: &Rc<Minecraft>, textureManager: &Rc<RenderEngine>) -> Rc<Self>
     {
         let occlusionResult: IntBuffer = GLAllocation::createDirectIntBuffer(64);
         let glDummyList: i32 = GLAllocation::generateDisplayLists(1);
@@ -85,9 +85,11 @@ impl RenderGlobal
         let glRenderListBase: i32 = GLAllocation::generateDisplayLists(n3 * n3 * n3 * 3);
         let occlusionEnabled: bool = minecraft.m_glCapabilities.get().orNpe().checkARBOcclusion();
         let mut glOcclusionQueryBase: Option<IntBuffer> = None;
+
         if occlusionEnabled
         {
             occlusionResult.clear();
+
             let base: IntBuffer = GLAllocation::createDirectIntBuffer(n3 * n3 * n3);
             base.clear();
             base.setPosition(0);
@@ -95,15 +97,19 @@ impl RenderGlobal
             ARBOcclusionQuery::glGenQueriesARB(&base);
             glOcclusionQueryBase = Some(base);
         }
+
         let starGLCallList: i32 = GLAllocation::generateDisplayLists(3);
+
         GL11::glPushMatrix();
         GL11::glNewList(starGLCallList, 4864);
         Self::renderStars();
         GL11::glEndList();
         GL11::glPopMatrix();
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let glSkyList: i32 = starGLCallList + 1;
         GL11::glNewList(glSkyList, 4864);
+
         let n4: i32 = 64;
         let n5: i32 = 256 / n4 + 2;
         let mut f: f32 = 16.0;
@@ -121,9 +127,12 @@ impl RenderGlobal
                 tessellator.draw();
                 n += n4;
             }
+
             n2 += n4;
         }
+
         GL11::glEndList();
+
         let glSkyList2: i32 = starGLCallList + 2;
         GL11::glNewList(glSkyList2, 4864);
         f = -16.0;
@@ -140,11 +149,15 @@ impl RenderGlobal
                 tessellator.addVertex((n2 + n4) as f64, f as f64, (n + n4) as f64);
                 n += n4;
             }
+
             n2 += n4;
         }
+
         tessellator.draw();
         GL11::glEndList();
-        Rc::new_cyclic(|this| RenderGlobal {
+
+        Rc::new_cyclic(|this| Self
+        {
             m_self: Weak::clone(this),
             m_tileEntities: Rc::new(JArrayList::new()),
             m_worldObj: Field::new(None),
@@ -193,7 +206,7 @@ impl RenderGlobal
         })
     }
 
-    fn rc(&self) -> Rc<RenderGlobal> { self.m_self.upgrade().expect("a live render global is owned by an Rc") }
+    fn rc(&self) -> Rc<Self> { self.m_self.upgrade().expect("a live render global is owned by an Rc") }
 
     fn worldObj(&self) -> Rc<World> { self.m_worldObj.get().orNpe() }
 
@@ -206,6 +219,7 @@ impl RenderGlobal
         let random: Random = Random::withSeed(10842);
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         tessellator.startDrawingQuads();
+
         for _ in 0..1500
         {
             let mut d0: f64 = (random.nextFloat() * 2.0 - 1.0) as f64;
@@ -219,6 +233,7 @@ impl RenderGlobal
                 d0 *= d4;
                 d1 *= d4;
                 d2 *= d4;
+
                 let d5: f64 = d0 * 100.0;
                 let d6: f64 = d1 * 100.0;
                 let d7: f64 = d2 * 100.0;
@@ -231,6 +246,7 @@ impl RenderGlobal
                 let d14: f64 = random.nextDouble() * std::f64::consts::PI * 2.0;
                 let d15: f64 = jvm::math::sin(d14);
                 let d16: f64 = jvm::math::cos(d14);
+
                 for j in 0..4
                 {
                     let d17: f64 = 0.0;
@@ -249,26 +265,31 @@ impl RenderGlobal
                 }
             }
         }
+
         tessellator.draw();
     }
 
     pub fn changeWorld(&self, world: Option<Rc<World>>)
     {
         let listener: Rc<dyn IWorldAccess> = self.rc();
+
         if let Some(old) = self.m_worldObj.get()
         {
             old.removeWorldAccess(&listener);
         }
+
         self.m_prevSortX.set(-9999.0);
         self.m_prevSortY.set(-9999.0);
         self.m_prevSortZ.set(-9999.0);
         RenderManager::instance().setWorld(world.clone());
         self.m_worldObj.set(world.clone());
+
         *self.m_globalRenderBlocks.borrow_mut() = Some(match world.clone()
         {
             Some(world) => RenderBlocks::new(world),
             None => RenderBlocks::empty(),
         });
+
         if let Some(world) = world
         {
             world.addWorldAccess(listener);
@@ -286,20 +307,24 @@ impl RenderGlobal
         let settings: Rc<GameSettings> = self.gameSettings();
         block_leaves::setGraphicsLevel(&Block::leaves(), settings.m_fancyGraphics.get());
         self.m_renderDistance.set(settings.m_renderDistance.get());
+
         for renderer in self.m_worldRenderers.borrow().iter()
         {
             renderer.delete();
         }
+
         let mut j1: i32 = 64 << (3 - self.m_renderDistance.get());
         if j1 > 400
         {
             j1 = 400;
         }
+
         self.m_renderChunksWide.set(j1 / 16 + 1);
         // rewrite: one row of sections per 16 blocks of the world's height
         let height: i32 = self.m_worldObj.get().map_or(game::world::HEIGHT, |world| world.height());
         self.m_renderChunksTall.set(height / SECTION);
         self.m_renderChunksDeep.set(j1 / 16 + 1);
+
         let wide: i32 = self.m_renderChunksWide.get();
         let tall: i32 = self.m_renderChunksTall.get();
         let deep: i32 = self.m_renderChunksDeep.get();
@@ -308,19 +333,24 @@ impl RenderGlobal
         let mut sortedWorldRenderers: Vec<Option<Rc<WorldRenderer>>> = vec![None; count];
         let mut b0: i32 = 0;
         let mut j: i32 = 0;
+
         self.m_minBlockX.set(0);
         self.m_minBlockY.set(0);
         self.m_minBlockZ.set(0);
         self.m_maxBlockX.set(wide);
         self.m_maxBlockY.set(tall);
         self.m_maxBlockZ.set(deep);
+
         for k in 0..self.m_worldRenderersToUpdate.size()
         {
             self.m_worldRenderersToUpdate.get(k).orNpe().m_needsUpdate.set(false);
         }
+
         self.m_worldRenderersToUpdate.clear();
         self.m_tileEntities.clear();
+
         let world: Option<Rc<World>> = self.m_worldObj.get();
+
         for k1 in 0..wide
         {
             for l in 0..tall
@@ -337,10 +367,12 @@ impl RenderGlobal
                         16,
                         self.m_glRenderListBase + b0,
                     ));
+
                     if let Some(base) = &self.m_glOcclusionQueryBase
                     {
                         renderer.m_glOcclusionQuery.set(base.getAt(j));
                     }
+
                     renderer.m_isWaitingOnOcclusionQuery.set(false);
                     renderer.m_isVisible.set(true);
                     renderer.m_isInFrustum.set(true);
@@ -356,6 +388,7 @@ impl RenderGlobal
         }
         *self.m_worldRenderers.borrow_mut() = worldRenderers.into_iter().map(OrNpe::orNpe).collect();
         *self.m_sortedWorldRenderers.borrow_mut() = sortedWorldRenderers.into_iter().map(OrNpe::orNpe).collect();
+
         if self.m_worldObj.get().is_some()
             && let Some(entityliving) = self.m_mc.m_renderViewEntity.get()
         {
@@ -364,9 +397,11 @@ impl RenderGlobal
                 math_helper::floor_double(entityliving.posY()),
                 math_helper::floor_double(entityliving.posZ()),
             );
+
             let sorter: EntitySorter = EntitySorter::new(&entityliving);
             jvm::sort::sort(&mut self.m_sortedWorldRenderers.borrow_mut(), &mut |a, b| sorter.compare(a, b));
         }
+
         self.m_renderEntitiesStartupCounter.set(2);
     }
 
@@ -403,9 +438,11 @@ impl RenderGlobal
         self.m_maxBlockX.set(i32::MIN);
         self.m_maxBlockY.set(i32::MIN);
         self.m_maxBlockZ.set(i32::MIN);
+
         let i: i32 = self.m_renderChunksWide.get() * 16;
         let j: i32 = i / 2;
         let worldRenderers: std::cell::Ref<'_, Vec<Rc<WorldRenderer>>> = self.m_worldRenderers.borrow();
+
         for k in 0..self.m_renderChunksWide.get()
         {
             let mut l: i32 = k * 16;
@@ -414,10 +451,12 @@ impl RenderGlobal
             {
                 i1 -= i - 1;
             }
+
             i1 /= i;
             l -= i1 * i;
             self.m_minBlockX.set(self.m_minBlockX.get().min(l));
             self.m_maxBlockX.set(self.m_maxBlockX.get().max(l));
+
             for j1 in 0..self.m_renderChunksDeep.get()
             {
                 let mut k1: i32 = j1 * 16;
@@ -426,18 +465,23 @@ impl RenderGlobal
                 {
                     l1 -= i - 1;
                 }
+
                 l1 /= i;
                 k1 -= l1 * i;
                 self.m_minBlockZ.set(self.m_minBlockZ.get().min(k1));
                 self.m_maxBlockZ.set(self.m_maxBlockZ.get().max(k1));
+
                 for i2 in 0..self.m_renderChunksTall.get()
                 {
                     let j2: i32 = i2 * 16;
                     self.m_minBlockY.set(self.m_minBlockY.get().min(j2));
                     self.m_maxBlockY.set(self.m_maxBlockY.get().max(j2));
+
                     let worldrenderer: &Rc<WorldRenderer> = &worldRenderers[self.rendererIndex(k, i2, j1)];
                     let flag: bool = worldrenderer.m_needsUpdate.get();
+
                     worldrenderer.setPosition(l, j2, k1);
+
                     if !flag && worldrenderer.m_needsUpdate.get()
                     {
                         self.m_worldRenderersToUpdate.add(Some(Rc::clone(worldrenderer)));
@@ -459,6 +503,7 @@ impl RenderGlobal
         let tall: i32 = self.m_renderChunksTall.get();
         let deep: i32 = self.m_renderChunksDeep.get();
         let worldRenderers: std::cell::Ref<'_, Vec<Rc<WorldRenderer>>> = self.m_worldRenderers.borrow();
+
         for k1 in i..=l
         {
             let mut l1: i32 = k1 % wide;
@@ -466,6 +511,7 @@ impl RenderGlobal
             {
                 l1 += wide;
             }
+
             for i2 in j..=i1
             {
                 let mut j2: i32 = i2 % tall;
@@ -473,6 +519,7 @@ impl RenderGlobal
                 {
                     j2 += tall;
                 }
+
                 for k2 in k..=j1
                 {
                     let mut l2: i32 = k2 % deep;
@@ -480,6 +527,7 @@ impl RenderGlobal
                     {
                         l2 += deep;
                     }
+
                     let worldrenderer: &Rc<WorldRenderer> = &worldRenderers[self.rendererIndex(l1, j2, l2)];
                     if !worldrenderer.m_needsUpdate.get()
                     {
@@ -501,6 +549,7 @@ impl RenderGlobal
                 renderer.updateInFrustrum(culler);
             }
         }
+
         self.m_frustrumCheckOffset.set(self.m_frustrumCheckOffset.get() + 1);
     }
 

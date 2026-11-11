@@ -13,11 +13,13 @@ pub fn new(world: &Rc<World>, x: f64, y: f64, z: f64, velocityX: f64, velocityY:
     let fields: &FXFields = fx(&this);
     fields.m_particleGravity.set(0.04);
     fields.m_particleTextureIndex.set(fields.m_particleTextureIndex.get() + 1);
+
     if velocityY == 0.0 && (velocityX != 0.0 || velocityZ != 0.0)
     {
         this.m_motionX.set(velocityX);
         this.m_motionY.set(velocityY + 0.1);
         this.m_motionZ.set(velocityZ);
     }
+
     this
 }

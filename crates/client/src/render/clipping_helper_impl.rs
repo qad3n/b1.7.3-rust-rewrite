@@ -4,7 +4,8 @@ use lwjgl::buffers::FloatBuffer;
 use lwjgl::opengl::GL11;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INSTANCE: Rc<ClippingHelperImpl> = Rc::new(ClippingHelperImpl::new());
 }
 
@@ -19,18 +20,19 @@ pub struct ClippingHelperImpl
 fn normalize(frustum: &mut [[f32; 16]; 16], face: usize)
 {
     let plane: &mut [f32; 16] = &mut frustum[face];
-    let sqrt_float: f32 = math_helper::sqrt_float(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
-    plane[0] /= sqrt_float;
-    plane[1] /= sqrt_float;
-    plane[2] /= sqrt_float;
-    plane[3] /= sqrt_float;
+    let norm: f32 = math_helper::sqrt_float(plane[0] * plane[0] + plane[1] * plane[1] + plane[2] * plane[2]);
+    plane[0] /= norm;
+    plane[1] /= norm;
+    plane[2] /= norm;
+    plane[3] /= norm;
 }
 
 impl ClippingHelperImpl
 {
-    fn new() -> ClippingHelperImpl
+    fn new() -> Self
     {
-        ClippingHelperImpl {
+        Self
+        {
             m_helper: ClippingHelper::new(),
             m_projectionMatrixBuffer: GLAllocation::createDirectFloatBuffer(16),
             m_modelviewMatrixBuffer: GLAllocation::createDirectFloatBuffer(16),
@@ -38,9 +40,9 @@ impl ClippingHelperImpl
         }
     }
 
-    pub fn getInstance() -> Rc<ClippingHelperImpl>
+    pub fn getInstance() -> Rc<Self>
     {
-        let instance: Rc<ClippingHelperImpl> = INSTANCE.with(Rc::clone);
+        let instance: Rc<Self> = INSTANCE.with(Rc::clone);
         instance.init();
         instance
     }
@@ -56,9 +58,11 @@ impl ClippingHelperImpl
         self.m_projectionMatrixBuffer.getInto(&mut *self.m_helper.m_projectionMatrix.borrow_mut());
         self.m_modelviewMatrixBuffer.flip().setLimit(16);
         self.m_modelviewMatrixBuffer.getInto(&mut *self.m_helper.m_modelviewMatrix.borrow_mut());
+
         let modelview: [f32; 16] = *self.m_helper.m_modelviewMatrix.borrow();
         let projection: [f32; 16] = *self.m_helper.m_projectionMatrix.borrow();
         let mut clip: [f32; 16] = [0.0; 16];
+
         for row in 0..4
         {
             for column in 0..4
@@ -70,6 +74,7 @@ impl ClippingHelperImpl
             }
         }
         *self.m_helper.m_clippingMatrix.borrow_mut() = clip;
+
         let mut frustum: std::cell::RefMut<'_, [[f32; 16]; 16]> = self.m_helper.m_frustum.borrow_mut();
         let planes: [(usize, f32); 6] = [(0, -1.0), (0, 1.0), (1, 1.0), (1, -1.0), (2, -1.0), (2, 1.0)];
         for (face, (column, sign)) in planes.iter().enumerate()
@@ -78,6 +83,7 @@ impl ClippingHelperImpl
             {
                 frustum[face][row] = clip[row * 4 + 3] + sign * clip[row * 4 + column];
             }
+
             normalize(&mut frustum, face);
         }
     }

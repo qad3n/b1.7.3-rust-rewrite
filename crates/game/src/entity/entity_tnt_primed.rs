@@ -31,6 +31,7 @@ pub fn create(world: &Rc<World>, x: f64, y: f64, z: f64) -> Rc<Entity>
 {
     let entity: Rc<Entity> = new(Some(Rc::clone(world)));
     entity.setPosition(x, y, z);
+
     let f: f32 = (jvm::math::random() * PI as f64 * 2.0) as f32;
     entity.m_motionX.set((-sin(f * PI / 180.0) * 0.02) as f64);
     entity.m_motionY.set(0.2f32 as f64);
@@ -52,19 +53,24 @@ fn onUpdate(this: &Rc<Entity>)
     this.m_motionX.set(this.m_motionX.get() * 0.98f32 as f64);
     this.m_motionY.set(this.m_motionY.get() * 0.98f32 as f64);
     this.m_motionZ.set(this.m_motionZ.get() * 0.98f32 as f64);
+
     if this.m_onGround.get()
     {
         this.m_motionX.set(this.m_motionX.get() * 0.7f32 as f64);
         this.m_motionZ.set(this.m_motionZ.get() * 0.7f32 as f64);
         this.m_motionY.set(this.m_motionY.get() * -0.5);
     }
+
     let tnt: &TntFields = fields(this);
     let fuse: i32 = tnt.m_fuse.get();
     tnt.m_fuse.set(fuse - 1);
+
     let world: Rc<World> = this.world();
+
     if fuse <= 0
     {
         this.setEntityDead();
+
         if !world.m_multiplayerWorld.get()
         {
             explode(this, &world);
@@ -82,7 +88,8 @@ fn explode(this: &Entity, world: &Rc<World>)
     world.createExplosion(None, this.posX(), this.posY(), this.posZ(), f);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityTNTPrimed",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],

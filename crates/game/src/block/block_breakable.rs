@@ -16,10 +16,12 @@ fn shouldSideBeRendered(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i
     {
         return false;
     }
+
     (BLOCK.shouldSideBeRendered)(this, world, x, y, z, face)
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockBreakable",
     m_parent: Some(&BLOCK),
     isOpaqueCube: |_| false,

@@ -22,6 +22,7 @@ pub fn renderGrowing(
 {
     // the game crate entity vtable passes the tessellator as Any so port downcasts it
     let tessellator: &crate::render::Tessellator = crate::port::tessellator(target);
+
     entity_fx::growScale(this, extra::<InitialSize>(this).m_initialSize.get(), tickDelta);
     entity_fx::renderParticle(this, tessellator, tickDelta, dx, dy, dz, forwards, sideways);
 }
@@ -31,16 +32,19 @@ pub fn floatUpward(this: &Rc<Entity>, drag: f32)
     entity_fx::setPrevPosition(this);
     entity_fx::ageParticle(this);
     entity_fx::moveByMotion(this);
+
     if this.posY() == this.m_prevPosY.get()
     {
         this.m_motionX.set(this.m_motionX.get() * 1.1);
         this.m_motionZ.set(this.m_motionZ.get() * 1.1);
     }
+
     entity_fx::scaleMotion(this, drag as f64);
     entity_fx::groundFriction(this);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityHeartFX",
     m_parent: Some(&entity_fx::CLASS),
     renderParticle: renderGrowing,
@@ -68,6 +72,7 @@ pub fn newScaled(
     let this: Rc<Entity> = entity_fx::construct(&CLASS, Box::new(size), world, x, y, z, 0.0, 0.0, 0.0);
     entity_fx::scaleMotion(&this, 0.01f32 as f64);
     this.m_motionY.set(this.m_motionY.get() + 0.1);
+
     let fields: &FXFields = fx(&this);
     fields.m_particleScale.set(fields.m_particleScale.get() * 0.75);
     fields.m_particleScale.set(fields.m_particleScale.get() * scaleFactor);

@@ -33,7 +33,8 @@ fn alloc(world: Option<Rc<World>>) -> Rc<Entity>
 {
     let entity: Rc<Entity> = Entity::alloc(
         &CLASS,
-        Box::new(FishFields {
+        Box::new(FishFields
+        {
             m_throwable: ThrowableFields::new(),
             m_ticksCatchable: Cell::new(0),
             m_bobber: Field::new(None),
@@ -91,16 +92,19 @@ fn followAngler(this: &Rc<Entity>, fish: &FishFields) -> bool
         entity_player::fields(&angler).m_fishEntity.set(None);
         return true;
     }
+
     let Some(bobber) = fish.m_bobber.get()
     else
     {
         return false;
     };
+
     if bobber.m_isDead.get()
     {
         fish.m_bobber.set(None);
         return false;
     }
+
     this.m_posX.set(bobber.posX());
     this.m_posY.set(bobber.m_boundingBox.minY() + bobber.m_height.get() as f64 * 0.8);
     this.m_posZ.set(bobber.posZ());
@@ -131,12 +135,15 @@ fn spawnSplash(this: &Rc<Entity>, world: &World, kind: &str, f4: f32, motionY: i
 fn onUpdate(this: &Rc<Entity>)
 {
     (ENTITY.onUpdate)(this);
+
     let fish: &FishFields = fields(this);
+
     if this.m_remote.playing()
     {
         this.m_remote.step(this);
         return;
     }
+
     let world: Rc<World> = this.world();
     if !world.m_multiplayerWorld.get() && followAngler(this, fish)
     {
@@ -160,9 +167,11 @@ fn onUpdate(this: &Rc<Entity>)
                     fish.m_bobber.set(Some(Rc::clone(entityHit)));
                 }
             }
+
             None => fish.m_throwable.m_inGround.set(true),
         }
     }
+
     if fish.m_throwable.m_inGround.get()
     {
         return;
@@ -170,13 +179,17 @@ fn onUpdate(this: &Rc<Entity>)
 
     this.moveEntity(this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get());
     rotateTowardsMotion(this);
+
     let mut f2: f32 = 0.92;
+
     if this.m_onGround.get() || this.m_isCollidedHorizontally.get()
     {
         f2 = 0.5;
     }
+
     let n3: i32 = 5;
     let mut d6: f64 = 0.0;
+
     for n in 0..n3
     {
         let bounds: &AxisAlignedBB = &this.m_boundingBox;
@@ -184,6 +197,7 @@ fn onUpdate(this: &Rc<Entity>)
         let d8: f64 = bounds.minY() + (bounds.maxY() - bounds.minY()) * (n + 1) as f64 / n3 as f64 - 0.125 + 0.125;
         let axisAlignedBB: Rc<AxisAlignedBB> =
             AxisAlignedBB::getBoundingBoxFromPool(bounds.minX(), d7, bounds.minZ(), bounds.maxX(), d8, bounds.maxZ());
+
         if world.isAABBInMaterial(&axisAlignedBB, Material::water())
         {
             d6 += 1.0 / n3 as f64;
@@ -199,6 +213,7 @@ fn onUpdate(this: &Rc<Entity>)
         else
         {
             let mut n: i32 = 500;
+
             if world.canBlockBeRainedOn(
                 floor_double(this.posX()),
                 floor_double(this.posY()) + 1,
@@ -207,6 +222,7 @@ fn onUpdate(this: &Rc<Entity>)
             {
                 n = 300;
             }
+
             if this.m_rand.nextIntBounded(n) == 0
             {
                 fish.m_ticksCatchable.set(this.m_rand.nextIntBounded(30) + 10);
@@ -217,10 +233,13 @@ fn onUpdate(this: &Rc<Entity>)
                     0.25,
                     1.0 + (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.4,
                 );
+
                 let f4: f32 = floor_double(this.m_boundingBox.minY()) as f32;
-                spawnSplash(this, &world, "bubble", f4, || {
+                spawnSplash(this, &world, "bubble", f4, ||
+                {
                     this.m_motionY.get() - (this.m_rand.nextFloat() * 0.2) as f64
                 });
+
                 spawnSplash(this, &world, "splash", f4, || this.m_motionY.get());
             }
         }
@@ -233,13 +252,16 @@ fn onUpdate(this: &Rc<Entity>)
                 - (this.m_rand.nextFloat() * this.m_rand.nextFloat() * this.m_rand.nextFloat()) as f64 * 0.2,
         );
     }
+
     let d9: f64 = d6 * 2.0 - 1.0;
     this.m_motionY.set(this.m_motionY.get() + 0.04f32 as f64 * d9);
+
     if d6 > 0.0
     {
         f2 = (f2 as f64 * 0.9) as f32;
         this.m_motionY.set(this.m_motionY.get() * 0.8);
     }
+
     this.m_motionX.set(this.m_motionX.get() * f2 as f64);
     this.m_motionY.set(this.m_motionY.get() * f2 as f64);
     this.m_motionZ.set(this.m_motionZ.get() * f2 as f64);
@@ -261,6 +283,7 @@ pub fn catchFish(this: &Rc<Entity>) -> i32
     let fish: &FishFields = fields(this);
     let angler: Rc<Entity> = angler(this);
     let mut n: i32 = 0;
+
     if let Some(bobber) = fish.m_bobber.get()
     {
         let (x, y, z): (f64, f64, f64) = pullTowardAngler(this, &angler);
@@ -282,16 +305,19 @@ pub fn catchFish(this: &Rc<Entity>) -> i32
         angler.addStat(StatList::fishCaughtStat().as_ref(), 1);
         n = 1;
     }
+
     if fish.m_throwable.m_inGround.get()
     {
         n = 2;
     }
+
     this.setEntityDead();
     entity_player::fields(&angler).m_fishEntity.set(None);
     n
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityFish",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],

@@ -1,5 +1,6 @@
 // java.lang.Character of jdk 6 over its unicode 4.0 data, code points as i32 like java
-use crate::unicode_data::{
+use crate::unicode_data::
+{
     CASED_LETTERS, COMBINING_CLASSES, DECIMAL_DIGITS, DIGIT_VALUES, LOWER_CASE, UPPER_CASE, UPPER_CASE_EXPANSIONS,
     WORD_CHARACTERS,
 };
@@ -52,6 +53,7 @@ fn mapped(table: &[(u32, u32, u32, i32)], codePoint: i32) -> i32
                 codePoint
             }
         }
+
         Err(_) => codePoint,
     }
 }
@@ -78,6 +80,7 @@ pub fn toChars(codePoint: i32) -> Vec<u16>
     {
         return vec![codePoint as u16];
     }
+
     let offset: i32 = codePoint - MIN_SUPPLEMENTARY_CODE_POINT;
     vec![MIN_HIGH_SURROGATE + (offset >> 10) as u16, MIN_LOW_SURROGATE + (offset & 0x3FF) as u16]
 }
@@ -93,6 +96,7 @@ pub fn codePointAt(chars: &[u16], index: usize) -> i32
             + (low - MIN_LOW_SURROGATE) as i32
             + MIN_SUPPLEMENTARY_CODE_POINT;
     }
+
     high as i32
 }
 
@@ -104,6 +108,7 @@ pub fn codePointBefore(chars: &[u16], index: usize) -> i32
     {
         return codePointAt(chars, index - 2);
     }
+
     low as i32
 }
 
@@ -113,6 +118,7 @@ pub fn digit(codePoint: i32, radix: i32) -> i32
     {
         return -1;
     }
+
     let point: u32 = codePoint as u32;
     let value: i32 = match DIGIT_VALUES.binary_search_by(|&(start, end, _)| order(start, end, point))
     {
@@ -135,6 +141,7 @@ pub fn toUpperCaseEx(codePoint: i32) -> i32
     {
         return ERROR;
     }
+
     mapped(UPPER_CASE, codePoint)
 }
 

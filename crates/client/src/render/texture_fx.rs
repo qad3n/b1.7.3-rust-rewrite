@@ -1,6 +1,6 @@
 use crate::render::RenderEngine;
 use lwjgl::opengl::GL11;
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 
 pub const TILE_BYTES: usize = 1024;
 pub const TILE_PIXELS: usize = 256;
@@ -17,9 +17,10 @@ pub struct TextureFXFields
 
 impl TextureFXFields
 {
-    pub fn new(sprite: i32) -> TextureFXFields
+    pub fn new(sprite: i32) -> Self
     {
-        TextureFXFields {
+        Self
+        {
             m_imageData: RefCell::new(vec![0; TILE_BYTES]),
             m_iconIndex: Cell::new(sprite),
             m_anaglyphEnabled: Cell::new(false),
@@ -35,12 +36,13 @@ impl TextureFXFields
         {
             return (r, g, b);
         }
+
         ((r * 30 + g * 59 + b * 11) / 100, (r * 30 + g * 70) / 100, (r * 30 + b * 70) / 100)
     }
 
     pub fn setPixel(&self, index: usize, r: i32, g: i32, b: i32, a: i32)
     {
-        let mut data = self.m_imageData.borrow_mut();
+        let mut data: RefMut<Vec<i8>> = self.m_imageData.borrow_mut();
         data[index * 4] = r as i8;
         data[index * 4 + 1] = g as i8;
         data[index * 4 + 2] = b as i8;

@@ -31,6 +31,7 @@ pub fn transformHeldItem(itemstack: &ItemStack, checkRotateAround: bool)
     if rendersAsBlock(itemstack.m_itemID.get())
     {
         let mut f2: f32 = 0.5;
+
         GL11::glTranslatef(0.0, 0.1875, -0.3125);
         f2 *= 0.75;
         GL11::glRotatef(20.0, 1.0, 0.0, 0.0);
@@ -40,11 +41,13 @@ pub fn transformHeldItem(itemstack: &ItemStack, checkRotateAround: bool)
     else if Item::byIdOrNpe(itemstack.m_itemID.get()).isFull3D()
     {
         let f: f32 = 0.625;
+
         if checkRotateAround && Item::byIdOrNpe(itemstack.m_itemID.get()).shouldRotateAroundWhenRendering()
         {
             GL11::glRotatef(180.0, 0.0, 0.0, 1.0);
             GL11::glTranslatef(0.0, -0.125, 0.0);
         }
+
         GL11::glTranslatef(0.0, 0.1875, 0.0);
         GL11::glScalef(f, -f, f);
         GL11::glRotatef(-100.0, 1.0, 0.0, 0.0);
@@ -53,6 +56,7 @@ pub fn transformHeldItem(itemstack: &ItemStack, checkRotateAround: bool)
     else
     {
         let f1: f32 = 0.375;
+
         GL11::glTranslatef(0.25, 0.1875, -0.1875);
         GL11::glScalef(f1, f1, f1);
         GL11::glRotatef(60.0, 0.0, 0.0, 1.0);
@@ -74,6 +78,7 @@ fn renderEquippedItems(this: &Rc<Render>, entity: &Rc<Entity>, _tickDelta: f32)
     {
         return;
     };
+
     GL11::glPushMatrix();
     moveToRightHand(modelBipedMain(this));
     transformHeldItem(&itemstack, false);

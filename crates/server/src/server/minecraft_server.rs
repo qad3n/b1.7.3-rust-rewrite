@@ -1,6 +1,7 @@
 use crate::network::NetworkListenThread;
 use crate::player::EntityTracker;
-use crate::server::{
+use crate::server::
+{
     ConsoleCommandHandler, ICommandListener, PropertyManager, ServerAuth, ServerCommand, ServerConfigurationManager,
 };
 use crate::world::{IUpdatePlayerListBox, WorldManager, world_server, world_server_multi};
@@ -25,13 +26,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-thread_local! {
+thread_local!
+{
     pub static GIVE_COMMANDS_COOLDOWNS: RefCell<JHashMap<JString, i32>> = RefCell::new(JHashMap::new());
 }
 
 pub struct MinecraftServer
 {
-    m_self: Weak<MinecraftServer>,
+    m_self: Weak<Self>,
     pub m_networkServer: Field<Option<Rc<NetworkListenThread>>>,
     pub m_propertyManagerObj: Field<Option<Rc<PropertyManager>>>,
     pub m_worldMngr: Field<Option<Vec<Option<Rc<World>>>>>,
@@ -76,9 +78,10 @@ impl IProgressUpdate for ConvertProgress
 
 impl MinecraftServer
 {
-    pub fn new() -> Rc<MinecraftServer>
+    pub fn new() -> Rc<Self>
     {
-        let server: Rc<MinecraftServer> = Rc::new_cyclic(|this| MinecraftServer {
+        let server: Rc<Self> = Rc::new_cyclic(|this| Self
+        {
             m_self: this.clone(),
             m_networkServer: Field::new(None),
             m_propertyManagerObj: Field::new(None),
@@ -99,7 +102,9 @@ impl MinecraftServer
             m_allowFlight: Cell::new(false),
             m_auth: Field::new(None),
         });
-        let sleeper: std::io::Result<std::thread::JoinHandle<()>> = jvm::thread::start(jvm::thread::nextName(), || {
+
+        let sleeper: std::io::Result<std::thread::JoinHandle<()>> = jvm::thread::start(jvm::thread::nextName(), ||
+        {
             loop
             {
                 std::thread::sleep(Duration::from_millis(2147483647));
@@ -109,10 +114,11 @@ impl MinecraftServer
         {
             jvm::io::fromStd(&error).printStackTrace();
         }
+
         server
     }
 
-    fn this(&self) -> Rc<MinecraftServer> { self.m_self.upgrade().expect("the server outlives its own calls") }
+    fn this(&self) -> Rc<Self> { self.m_self.upgrade().expect("the server outlives its own calls") }
 
     pub fn networkServer(&self) -> Rc<NetworkListenThread> { self.m_networkServer.get().orNpe() }
 
@@ -129,48 +135,61 @@ impl MinecraftServer
     fn startServer(&self) -> Result<bool, Throwable>
     {
         let startup: Instant = Instant::now();
-        let this: Rc<MinecraftServer> = self.this();
+        let this: Rc<Self> = self.this();
         self.m_commandHandler.set(Some(Rc::new(ConsoleCommandHandler::new(&this))));
+
         let consoleLines: Arc<Mutex<Vec<String>>> = Arc::clone(&self.m_consoleLines);
         let serverStopped: Arc<AtomicBool> = Arc::clone(&self.m_serverStopped);
         let serverRunning: Arc<AtomicBool> = Arc::clone(&self.m_serverRunning);
         // the console thread only reads lines and the server thread turns them into commands
         let started: std::io::Result<std::thread::JoinHandle<()>> =
-            jvm::thread::start(jvm::thread::nextName(), move || {
+            jvm::thread::start(jvm::thread::nextName(), move ||
+            {
                 readConsole(consoleLines, serverStopped, serverRunning)
             });
+
         if let Err(error) = started
         {
             severe!("Could not start the console thread: {error}");
         }
+
         info!("Starting minecraft server version Beta 1.7.3");
         info!("Loading properties");
         self.m_propertyManagerObj.set(Some(Rc::new(PropertyManager::new(Path::new("server.properties")))));
         // the built in mod loader reads its server.properties switches and loads mods next to that file
         crate::modded::start(&self.propertyManager());
+
         let s: String = self.propertyManager().getStringProperty("server-ip", "");
+
         self.m_spawnPeacefulMobs.set(self.propertyManager().getBooleanProperty("spawn-animals", true));
         self.m_pvpOn.set(self.propertyManager().getBooleanProperty("pvp", true));
         self.m_allowFlight.set(self.propertyManager().getBooleanProperty("allow-flight", false));
+
         match ServerAuth::load(&self.propertyManager())
         {
             Ok(auth) => self.m_auth.set(Some(auth)),
+
             Err(error) =>
             {
                 severe!("**** CANNOT START PASSWORD AUTH: {error}");
                 return Ok(false);
             }
         }
+
         let mut inetaddress: Option<IpAddr> = None;
+
         if !s.is_empty()
         {
             inetaddress = Some(getByName(&s)?);
         }
+
         let i: i32 = self.propertyManager().getIntProperty("server-port", 25565);
         info!("Starting Minecraft server on {}:{i}", if s.is_empty() { "*" } else { s.as_str() });
+
         match NetworkListenThread::new(&this, inetaddress, i)
         {
             Ok(networkServer) => self.m_networkServer.set(Some(Rc::new(networkServer))),
+
             Err(ioexception) =>
             {
                 warning!("**** FAILED TO BIND TO PORT!");
@@ -179,33 +198,42 @@ impl MinecraftServer
                 return Ok(false);
             }
         }
+
         let auth: Rc<ServerAuth> = self.auth();
         info!("Password auth has {} accounts, registration is {:?}", auth.vault().count(), auth.policy());
         // rewrite: the level's saved mod id map applies before the per dimension trackers and player managers exist
         modloader::remap::preload(Path::new(&self.propertyManager().getStringProperty("level-name", "world")));
         self.m_configManager.set(Some(ServerConfigurationManager::new(&this)));
+
         let trackers: Vec<Option<Rc<EntityTracker>>> = modloader::dimensions::serverDimensions()
             .iter()
             .map(|dimension| Some(EntityTracker::new(&this, *dimension)))
             .collect();
         self.m_entityTracker.set(trackers);
+
         let s1: String = self.propertyManager().getStringProperty("level-name", "world");
         let s2: String = self.propertyManager().getStringProperty("level-seed", "");
         let mut k: i64 = Random::new().nextLong();
+
         if !s2.is_empty()
         {
             match jvm::integer::parseLong(&JString::from(s2.as_str()))
             {
                 Ok(seed) => k = seed,
+
                 Err(exception) if exception.instanceOf(&throwable::NUMBER_FORMAT) =>
                 {
                     k = JString::from(s2.as_str()).hashCode() as i64
                 }
+
                 Err(exception) => throwable::rethrow(exception),
             }
         }
+
         info!("Preparing level \"{s1}\"");
+
         let preparing: Instant = Instant::now();
+
         self.initWorld(&SaveConverterMcRegion::new(Path::new(".")), &s1, k);
         info!("Level \"{s1}\" prepared in {}", took(preparing));
         info!("Done ({})! For help, type \"help\" or \"?\"", took(startup));
@@ -214,11 +242,14 @@ impl MinecraftServer
 
     fn initWorld(&self, storageSource: &dyn ISaveFormat, saveName: &str, seed: i64)
     {
-        let this: Rc<MinecraftServer> = self.this();
+        let this: Rc<Self> = self.this();
+
         if storageSource.isOldMapFormat(saveName)
         {
             info!("Converting map!");
+
             let converting: Instant = Instant::now();
+
             storageSource.convertMapFormat(
                 saveName,
                 &ConvertProgress { m_lastTimeMillis: Cell::new(jvm::system::currentTimeMillis()) },
@@ -228,7 +259,9 @@ impl MinecraftServer
         // mod dimensions get worlds after the overworld and the nether
         let dimensions: Vec<i32> = modloader::dimensions::serverDimensions();
         self.m_worldMngr.set(Some(vec![None; dimensions.len()]));
+
         let saveolddir: Rc<dyn ISaveHandler> = Rc::new(SaveOldDir::new(Path::new("."), saveName, true));
+
         for (i, dimension) in dimensions.iter().copied().enumerate()
         {
             let world: Rc<World> = if i == 0
@@ -261,11 +294,14 @@ impl MinecraftServer
             );
             self.configManager().setPlayerManager(&self.m_worldMngr.get().orNpe());
         }
+
         let short1: i16 = 196;
         let mut j: i64 = jvm::system::currentTimeMillis();
+
         for k in 0..2
         {
             info!("Preparing start region for level {k}");
+
             if k == 0 || self.propertyManager().getBooleanProperty("allow-nether", true)
             {
                 let preparing: Instant = Instant::now();
@@ -283,6 +319,7 @@ impl MinecraftServer
                         {
                             j = j1;
                         }
+
                         if j1 > j + 1000
                         {
                             let k1: i32 = (short1 * 2 + 1) * (short1 * 2 + 1);
@@ -290,17 +327,21 @@ impl MinecraftServer
                             self.outputPercentRemaining("Preparing spawn area", l1 * 100 / k1);
                             j = j1;
                         }
+
                         world_server::chunkProviderServer(&worldserver)
                             .loadChunk(chunkcoordinates.m_x + l >> 4, chunkcoordinates.m_z + i1 >> 4);
                         while worldserver.updatingLighting() && self.m_serverRunning.load(Ordering::Relaxed)
                         {}
                         i1 += 16;
                     }
+
                     l += 16;
                 }
+
                 debug!("Start region for level {k} ready in {}", took(preparing));
             }
         }
+
         self.clearCurrentTask();
     }
 
@@ -320,26 +361,34 @@ impl MinecraftServer
     fn saveServerWorld(&self)
     {
         info!("Saving chunks");
+
         let saving: Instant = Instant::now();
+
         for worldserver in self.worldMngr()
         {
             worldserver.saveWorld(true, None);
             world_server::forceSave(&worldserver);
         }
+
         debug!("Saved chunks in {}", took(saving));
     }
 
     fn stopServer(&self)
     {
         info!("Stopping server");
+
         let stopping: Instant = Instant::now();
+
         modloader::play::lifecycle(modloader::EventKind::ServerStopping);
+
         if let Some(configManager) = self.m_configManager.get()
         {
             let saving: Instant = Instant::now();
+
             configManager.savePlayerStates();
             debug!("Saved players in {}", took(saving));
         }
+
         for worldserver in self.m_worldMngr.get().orNpe()
         {
             if worldserver.is_some()
@@ -347,6 +396,7 @@ impl MinecraftServer
                 self.saveServerWorld();
             }
         }
+
         info!("Server stopped in {}", took(stopping));
     }
 
@@ -357,8 +407,10 @@ impl MinecraftServer
         if self.startServer()?
         {
             modloader::play::lifecycle(modloader::EventKind::ServerStarted);
+
             let mut i: i64 = jvm::system::currentTimeMillis();
             let mut j: i64 = 0;
+
             while self.m_serverRunning.load(Ordering::Relaxed)
             {
                 let k: i64 = jvm::system::currentTimeMillis();
@@ -370,13 +422,16 @@ impl MinecraftServer
                     );
                     l = 2000;
                 }
+
                 if l < 0
                 {
                     warning!("Time ran backwards! Did the system time change?");
                     l = 0;
                 }
+
                 j += l;
                 i = k;
+
                 if self.worldMngr()[0].isAllPlayersFullyAsleep()
                 {
                     self.doTick();
@@ -408,17 +463,21 @@ impl MinecraftServer
     {
         let result: Result<Result<(), Throwable>, Throwable> =
             throwable::catchThrowable(&throwable::THROWABLE, || self.runLoop());
+
         if let Err(throwable1) = result.and_then(|inner| inner)
         {
             throwable1.printStackTrace();
             logThrown!(Level::SEVERE, Some(throwable1), "Unexpected exception");
+
             while self.m_serverRunning.load(Ordering::Relaxed)
             {
                 self.commandLineParser();
                 std::thread::sleep(Duration::from_millis(10));
             }
         }
-        let stopped: Result<(), Throwable> = throwable::catchThrowable(&throwable::THROWABLE, || {
+
+        let stopped: Result<(), Throwable> = throwable::catchThrowable(&throwable::THROWABLE, ||
+        {
             self.stopServer();
             self.m_serverStopped.store(true, Ordering::Relaxed);
         });
@@ -426,6 +485,7 @@ impl MinecraftServer
         {
             throwable.printStackTrace();
         }
+
         std::process::exit(0);
     }
 
@@ -434,8 +494,11 @@ impl MinecraftServer
         // mod tick listeners run around the server tick, serverbound mod traffic budgets reset each tick
         modloader::netsync::resetBudgets();
         modloader::play::tick(true);
+
         let mut arraylist: Vec<JString> = Vec::new();
-        GIVE_COMMANDS_COOLDOWNS.with(|cooldowns| {
+
+        GIVE_COMMANDS_COOLDOWNS.with(|cooldowns|
+        {
             let mut cooldowns: std::cell::RefMut<'_, JHashMap<JString, i32>> = cooldowns.borrow_mut();
             for s in cooldowns.keys()
             {
@@ -449,19 +512,23 @@ impl MinecraftServer
                     arraylist.push(s);
                 }
             }
+
             for s in &arraylist
             {
                 cooldowns.remove(s);
             }
         });
+
         AxisAlignedBB::clearBoundingBoxPool();
         Vec3D::initialize();
         self.m_deathTime.set(self.m_deathTime.get() + 1);
+
         for k in 0..self.worldMngr().len()
         {
             if k != 1 || self.propertyManager().getBooleanProperty("allow-nether", true)
             {
                 let worldserver: Rc<World> = self.worldMngr()[k].clone();
+
                 if self.m_deathTime.get() % 20 == 0
                 {
                     self.configManager().sendPacketToAllPlayersInDimension(
@@ -469,32 +536,40 @@ impl MinecraftServer
                         worldserver.worldProvider().m_worldType.get(),
                     );
                 }
+
                 worldserver.tick();
                 while worldserver.updatingLighting()
                 {}
                 worldserver.updateEntities();
             }
         }
+
         self.networkServer().handleNetworkListenThread();
         self.configManager().onTick();
         modloader::network::loader::sendTick();
+
         for tracker in self.m_entityTracker.get()
         {
             tracker.orNpe().updateTrackedEntities();
         }
+
         self.networkServer().flush();
+
         let mut i1: i32 = 0;
         while i1 < self.m_tickables.size()
         {
             self.m_tickables.get(i1).update();
             i1 += 1;
         }
+
         let result: Result<(), Throwable> =
             throwable::catchThrowable(&throwable::EXCEPTION, || self.commandLineParser());
+
         if let Err(exception) = result
         {
             logThrown!(Level::WARNING, Some(exception), "Unexpected exception while parsing console command");
         }
+
         // the mod watchdog may stop the server when a mod keeps blowing its tick budget
         if modloader::play::tick(false)
         {
@@ -522,6 +597,7 @@ impl MinecraftServer
     pub fn commandLineParser(&self)
     {
         self.takeConsoleLines();
+
         while !self.m_commands.borrow().is_empty()
         {
             let servercommand: ServerCommand = self.m_commands.borrow_mut().remove(0);
@@ -534,8 +610,10 @@ impl MinecraftServer
     pub fn main(_args: &[String])
     {
         game::stats::StatList::init();
-        let result: Result<(), Throwable> = throwable::catchThrowable(&throwable::EXCEPTION, || {
-            let minecraftserver: Rc<MinecraftServer> = MinecraftServer::new();
+
+        let result: Result<(), Throwable> = throwable::catchThrowable(&throwable::EXCEPTION, ||
+        {
+            let minecraftserver: Rc<Self> = Self::new();
             // the awt gui is not ported so the server always starts as if java were headless
             minecraftserver.run();
         });
@@ -595,17 +673,21 @@ fn readConsole(consoleLines: Arc<Mutex<Vec<String>>>, serverStopped: Arc<AtomicB
 {
     let stdin: std::io::Stdin = std::io::stdin();
     let mut line: Vec<u8> = Vec::new();
+
     while !serverStopped.load(Ordering::Relaxed) && serverRunning.load(Ordering::Relaxed)
     {
         line.clear();
+
         match std::io::BufRead::read_until(&mut stdin.lock(), b'\n', &mut line)
         {
             Ok(0) => return,
+
             Ok(_) =>
             {
                 let s3: String = game::port::text::decodePlatform(&line).trim_end_matches(['\n', '\r']).to_string();
                 game::port::network::lock(&consoleLines).push(s3);
             }
+
             Err(error) =>
             {
                 jvm::io::fromStd(&error).printStackTrace();

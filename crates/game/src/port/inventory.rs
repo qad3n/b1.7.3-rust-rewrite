@@ -15,6 +15,7 @@ pub fn spillInventory(random: &Random, world: &Rc<World>, x: i32, y: i32, z: i32
             let f: f32 = random.nextFloat() * 0.8 + 0.1;
             let f2: f32 = random.nextFloat() * 0.8 + 0.1;
             let f3: f32 = random.nextFloat() * 0.8 + 0.1;
+
             while itemStack.m_stackSize.get() > 0
             {
                 let mut n: i32 = random.nextIntBounded(21) + 10;
@@ -22,7 +23,9 @@ pub fn spillInventory(random: &Random, world: &Rc<World>, x: i32, y: i32, z: i32
                 {
                     n = itemStack.m_stackSize.get();
                 }
+
                 itemStack.m_stackSize.set(itemStack.m_stackSize.get() - n);
+
                 let entityItem: Rc<Entity> = entity_item::create(
                     world,
                     (x as f32 + f) as f64,
@@ -30,6 +33,7 @@ pub fn spillInventory(random: &Random, world: &Rc<World>, x: i32, y: i32, z: i32
                     (z as f32 + f3) as f64,
                     ItemStack::withDamage(itemStack.m_itemID.get(), n, itemStack.getItemDamage()),
                 );
+
                 let f4: f32 = 0.05;
                 entityItem.m_motionX.set((random.nextGaussian() as f32 * f4) as f64);
                 entityItem.m_motionY.set((random.nextGaussian() as f32 * f4 + 0.2) as f64);
@@ -37,6 +41,7 @@ pub fn spillInventory(random: &Random, world: &Rc<World>, x: i32, y: i32, z: i32
                 world.entityJoinedWorld(&entityItem);
             }
         }
+
         i += 1;
     }
 }

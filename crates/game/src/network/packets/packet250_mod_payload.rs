@@ -18,15 +18,18 @@ const MAX_BYTES: u32 = 1 << 20;
 fn readVarint(input: &mut PacketInput) -> IoResult<u32>
 {
     let mut value: u32 = 0;
+
     for shift in 0..5
     {
         let byte: u8 = input.readByte()? as u8;
         value |= ((byte & 0x7F) as u32) << (shift * 7);
+
         if byte & 0x80 == 0
         {
             return Ok(value);
         }
     }
+
     Err(ioError(&IO, "varint longer than 5 bytes"))
 }
 
@@ -35,11 +38,13 @@ fn writeVarint(output: &mut PacketOutput, mut value: u32) -> IoResult<()>
     loop
     {
         let byte: u8 = (value & 0x7F) as u8;
+
         value >>= 7;
         if value == 0
         {
             return output.writeByte(byte as i32);
         }
+
         output.writeByte((byte | 0x80) as i32)?;
     }
 }
@@ -72,11 +77,13 @@ impl Packet for Packet250ModPayload
     fn readPacketData(&mut self, input: &mut PacketInput) -> IoResult<()>
     {
         self.m_channel = readVarint(input)?;
+
         let length: u32 = readVarint(input)?;
         if length > MAX_BYTES
         {
             return Err(ioError(&IO, &format!("mod payload of {length} bytes is too large")));
         }
+
         let mut data: Vec<u8> = vec![0; length as usize];
         input.readFully(&mut data)?;
         self.m_data = data;

@@ -24,7 +24,7 @@ const fn artRow(title: &'static str, width: i32, height: i32, u: i32, v: i32) ->
 
 impl EnumArt
 {
-    pub const VALUES: [EnumArt; 25] = [
+    pub const VALUES: [Self; 25] = [
         artRow("Kebab", 16, 16, 0, 0),
         artRow("Aztec", 16, 16, 16, 0),
         artRow("Alban", 16, 16, 32, 0),
@@ -78,7 +78,8 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
 {
     let entity: Rc<Entity> = Entity::alloc(
         &CLASS,
-        Box::new(PaintingFields {
+        Box::new(PaintingFields
+        {
             m_ticksSinceValidation: Cell::new(0),
             m_direction: Cell::new(0),
             m_xPosition: Cell::new(0),
@@ -88,6 +89,7 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
         }),
     );
     Entity::init(&entity, world);
+
     let painting: &PaintingFields = fields(&entity);
     painting.m_ticksSinceValidation.set(0);
     painting.m_direction.set(0);
@@ -111,19 +113,23 @@ pub fn createAt(world: &Rc<World>, x: i32, y: i32, z: i32, direction: i32) -> Rc
     let entity: Rc<Entity> = newAt(world, x, y, z);
     let painting: &PaintingFields = fields(&entity);
     let list: JArrayList<&'static EnumArt> = JArrayList::new();
+
     for art in &EnumArt::VALUES
     {
         painting.m_art.set(Some(art));
         setDirection(&entity, direction);
+
         if canSurvive(&entity)
         {
             list.add(art);
         }
     }
+
     if list.size() > 0
     {
         painting.m_art.set(Some(list.get(entity.m_rand.nextIntBounded(list.size()))));
     }
+
     setDirection(&entity, direction);
     entity
 }
@@ -131,10 +137,12 @@ pub fn createAt(world: &Rc<World>, x: i32, y: i32, z: i32, direction: i32) -> Rc
 pub fn createWithMotive(world: &Rc<World>, x: i32, y: i32, z: i32, facing: i32, motive: &JString) -> Rc<Entity>
 {
     let entity: Rc<Entity> = newAt(world, x, y, z);
+
     if let Some(art) = EnumArt::VALUES.iter().find(|art| JString::from(art.m_title) == *motive)
     {
         fields(&entity).m_art.set(Some(art));
     }
+
     setDirection(&entity, facing);
     entity
 }
@@ -152,13 +160,16 @@ pub fn setDirection(this: &Entity, dir: i32)
 {
     let painting: &PaintingFields = fields(this);
     painting.m_direction.set(dir);
+
     let n: f32 = (dir * 90) as f32;
     this.m_rotationYaw.set(n);
     this.m_prevRotationYaw.set(n);
+
     let art: &EnumArt = art(this);
     let mut n2: f32 = art.m_sizeX as f32;
     let n3: f32 = art.m_sizeY as f32;
     let mut n4: f32 = art.m_sizeX as f32;
+
     if dir == 0 || dir == 2
     {
         n4 = 0.5;
@@ -174,6 +185,7 @@ pub fn setDirection(this: &Entity, dir: i32)
     let n9: f32 = painting.m_yPosition.get() as f32 + 0.5;
     let mut n10: f32 = painting.m_zPosition.get() as f32 + 0.5;
     let n11: f32 = 0.5625;
+
     match dir
     {
         0 => n10 -= n11,
@@ -183,6 +195,7 @@ pub fn setDirection(this: &Entity, dir: i32)
         _ =>
         {}
     }
+
     match dir
     {
         0 => n8 -= getPositionOffset(art.m_sizeX),
@@ -192,8 +205,10 @@ pub fn setDirection(this: &Entity, dir: i32)
         _ =>
         {}
     }
+
     let n12: f32 = n9 + getPositionOffset(art.m_sizeY);
     this.setPosition(n8 as f64, n12 as f64, n10 as f64);
+
     let n13: f32 = -0.00625;
     this.m_boundingBox.setBounds(
         (n8 - n5 - n13) as f64,
@@ -212,6 +227,7 @@ pub fn canSurvive(this: &Rc<Entity>) -> bool
     {
         return false;
     }
+
     let painting: &PaintingFields = fields(this);
     let art: &EnumArt = art(this);
     let n: i32 = art.m_sizeX / 16;
@@ -219,6 +235,7 @@ pub fn canSurvive(this: &Rc<Entity>) -> bool
     let mut n3: i32 = painting.m_xPosition.get();
     let mut n4: i32 = painting.m_zPosition.get();
     let halfWidth: f64 = (art.m_sizeX as f32 / 32.0) as f64;
+
     match painting.m_direction.get()
     {
         0 | 2 => n3 = floor_double(this.posX() - halfWidth),
@@ -226,7 +243,9 @@ pub fn canSurvive(this: &Rc<Entity>) -> bool
         _ =>
         {}
     }
+
     let floorY: i32 = floor_double(this.posY() - (art.m_sizeY as f32 / 32.0) as f64);
+
     for i in 0..n
     {
         for j in 0..n2
@@ -240,12 +259,14 @@ pub fn canSurvive(this: &Rc<Entity>) -> bool
             {
                 world.getBlockMaterial(painting.m_xPosition.get(), floorY + j, n4 + i)
             };
+
             if !material.isSolid()
             {
                 return false;
             }
         }
     }
+
     let list: Rc<JArrayList<Rc<Entity>>> = world.getEntitiesWithinAABBExcludingEntity(Some(this), &this.m_boundingBox);
     for k in 0..list.size()
     {
@@ -254,12 +275,14 @@ pub fn canSurvive(this: &Rc<Entity>) -> bool
             return false;
         }
     }
+
     true
 }
 
 fn dropAsItem(this: &Rc<Entity>)
 {
     let world: Rc<World> = this.world();
+
     this.setEntityDead();
     world.entityJoinedWorld(&entity_item::create(
         &world,
@@ -278,18 +301,22 @@ fn breakOnPush(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityPainting",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],
     entityInit: |_| {},
-    onUpdate: |this| {
+    onUpdate: |this|
+    {
         let painting: &PaintingFields = fields(this);
         let ticks: i32 = painting.m_ticksSinceValidation.get();
         painting.m_ticksSinceValidation.set(ticks + 1);
+
         if ticks == 100 && !this.world().m_multiplayerWorld.get()
         {
             painting.m_ticksSinceValidation.set(0);
+
             if !canSurvive(this)
             {
                 dropAsItem(this);
@@ -297,11 +324,13 @@ pub const CLASS: EntityClass = EntityClass {
         }
     },
     canBeCollidedWith: |_| true,
-    attackEntityFrom: |this, _source, _amount| {
+    attackEntityFrom: |this, _source, _amount|
+    {
         if !this.m_isDead.get() && !this.world().m_multiplayerWorld.get()
         {
             this.setEntityDead();
             this.setBeenAttacked();
+
             let world: Rc<World> = this.world();
             world.entityJoinedWorld(&entity_item::create(
                 &world,
@@ -311,9 +340,12 @@ pub const CLASS: EntityClass = EntityClass {
                 ItemStack::withItem(&Item::painting()),
             ));
         }
+
         true
     },
-    writeEntityToNBT: |this, nbt| {
+
+    writeEntityToNBT: |this, nbt|
+    {
         let painting: &PaintingFields = fields(this);
         nbt.setByte("Dir", painting.m_direction.get() as i8);
         nbt.setString("Motive", Some(JString::from(art(this).m_title)));
@@ -321,13 +353,17 @@ pub const CLASS: EntityClass = EntityClass {
         nbt.setInteger("TileY", painting.m_yPosition.get());
         nbt.setInteger("TileZ", painting.m_zPosition.get());
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         let painting: &PaintingFields = fields(this);
         painting.m_direction.set(nbt.getByte("Dir") as i32);
         painting.m_xPosition.set(nbt.getInteger("TileX"));
         painting.m_yPosition.set(nbt.getInteger("TileY"));
         painting.m_zPosition.set(nbt.getInteger("TileZ"));
+
         let string: Option<JString> = nbt.getString("Motive");
+
         for art in &EnumArt::VALUES
         {
             if string.as_ref().is_some_and(|motive| JString::from(art.m_title) == *motive)
@@ -335,10 +371,12 @@ pub const CLASS: EntityClass = EntityClass {
                 painting.m_art.set(Some(art));
             }
         }
+
         if painting.m_art.get().is_none()
         {
             painting.m_art.set(Some(&EnumArt::VALUES[0]));
         }
+
         setDirection(this, painting.m_direction.get());
     },
     moveEntity: breakOnPush,

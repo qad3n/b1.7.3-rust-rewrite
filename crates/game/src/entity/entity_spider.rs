@@ -14,6 +14,7 @@ fn attackEntity(this: &Rc<Entity>, target: &Rc<Entity>, distance: f32)
         entity_creature::fields(this).m_playerToAttack.set(None);
         return;
     }
+
     if distance > 2.0 && distance < 6.0 && this.m_rand.nextIntBounded(10) == 0
     {
         if this.m_onGround.get()
@@ -32,18 +33,21 @@ fn attackEntity(this: &Rc<Entity>, target: &Rc<Entity>, distance: f32)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntitySpider",
     m_parent: Some(&entity_mob::CLASS),
     getMountedYOffset: |this| this.m_height.get() as f64 * 0.75 - 0.5,
     canTriggerWalking: |_| false,
-    findPlayerToAttack: |this| {
+    findPlayerToAttack: |this|
+    {
         let f: f32 = this.getEntityBrightness(1.0);
         if f < 0.5
         {
             let d: f64 = 16.0;
             return this.world().getClosestPlayerToEntity(this, d);
         }
+
         None
     },
     getLivingSound: |_| Some("mob.spider".to_string()),
@@ -61,6 +65,7 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
 {
     let entity: Rc<Entity> = Entity::alloc(&CLASS, Box::new(MobExt::default()));
     entity_mob::init(&entity, world);
+
     let living: &entity_living::LivingFields = entity_living::fields(&entity);
     living.m_texture.set(Some(JString::from("/mob/spider.png")));
     entity.setSize(1.4, 0.9);

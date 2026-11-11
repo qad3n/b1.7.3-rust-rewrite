@@ -5,7 +5,7 @@ use game::entity::{Entity, entity_living};
 use lwjgl::opengl::GL11;
 use modloader::mod_protocol::abi::{ModelOp, Pose, PoseInput, StackData};
 use modloader::mod_protocol::spec::{EntityModelSpec, ModelPart};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::rc::Rc;
 
 const RADIANS_TO_DEGREES: f32 = 57.295776;
@@ -39,17 +39,19 @@ pub struct ModModel
 
 impl ModModel
 {
-    pub fn new(spec: &EntityModelSpec) -> ModModel
+    pub fn new(spec: &EntityModelSpec) -> Self
     {
         let mut parts: Vec<Part> = spec
             .parts
             .iter()
-            .map(|part| {
+            .map(|part|
+            {
                 let [width, height] = part.texture_size.unwrap_or(spec.texture_size);
                 let boxes: Vec<ModelRenderer> = part
                     .boxes
                     .iter()
-                    .map(|cuboid| {
+                    .map(|cuboid|
+                    {
                         let [u, v] = cuboid.uv.unwrap_or(part.uv);
                         let mut renderer: ModelRenderer = ModelRenderer::sized(u, v, width, height, part.mirror);
                         let [x, y, z] = cuboid.origin;
@@ -58,7 +60,9 @@ impl ModModel
                         renderer
                     })
                     .collect();
-                Part {
+
+                Part
+                {
                     m_spec: part.clone(),
                     m_boxes: boxes,
                     m_children: Vec::new(),
@@ -69,6 +73,7 @@ impl ModModel
                 }
             })
             .collect();
+
         for index in 0..parts.len()
         {
             let parent: Option<usize> = parts[index]
@@ -76,13 +81,16 @@ impl ModModel
                 .parent
                 .as_ref()
                 .and_then(|name| parts.iter().position(|part| part.m_spec.name == *name));
+
             if let Some(parent) = parent
             {
                 parts[parent].m_children.push(index);
                 parts[index].m_parent = Some(parent);
             }
         }
-        ModModel {
+
+        Self
+        {
             m_base: ModelBaseFields::default(),
             m_parts: parts,
             m_pose: RefCell::new(Pose::default()),
@@ -96,6 +104,7 @@ impl ModModel
         let part: &Part = &self.m_parts[index];
         let [rotateX, rotateY, rotateZ] = part.m_rotation.get();
         let [pivotX, pivotY, pivotZ] = part.m_pivot.get();
+
         for renderer in &part.m_boxes
         {
             renderer.setRotationPoint(pivotX, pivotY, pivotZ);
@@ -104,19 +113,23 @@ impl ModModel
             renderer.m_rotateAngleZ.set(rotateZ);
             renderer.render(scale);
         }
+
         if part.m_children.is_empty()
         {
             return;
         }
+
         GL11::glPushMatrix();
         GL11::glTranslatef(pivotX * scale, pivotY * scale, pivotZ * scale);
         GL11::glRotatef(rotateZ * RADIANS_TO_DEGREES, 0.0, 0.0, 1.0);
         GL11::glRotatef(rotateY * RADIANS_TO_DEGREES, 0.0, 1.0, 0.0);
         GL11::glRotatef(rotateX * RADIANS_TO_DEGREES, 1.0, 0.0, 0.0);
+
         for child in &part.m_children
         {
             self.drawPart(*child, scale);
         }
+
         GL11::glPopMatrix();
     }
 
@@ -128,8 +141,10 @@ impl ModModel
         {
             return;
         };
+
         part.m_rotation.set(rotation);
         part.m_pivot.set(pivot);
+
         if part.m_root
         {
             self.drawPart(index, scale);
@@ -143,6 +158,7 @@ impl ModModel
             match op
             {
                 ModelOp::Part { part, rotation, pivot } => self.place(*part as usize, *rotation, *pivot, scale),
+
                 ModelOp::Rest(part) =>
                 {
                     if let Some(rest) = self.m_parts.get(*part as usize)
@@ -150,6 +166,7 @@ impl ModModel
                         self.place(*part as usize, rest.m_spec.rotation, rest.m_spec.pivot, scale);
                     }
                 }
+
                 ModelOp::HeldItem { part, stack } if !overlay => self.m_held.borrow_mut().push((*part, stack.clone())),
                 op => glOp(op, overlay),
             }
@@ -164,12 +181,15 @@ impl ModModel
         {
             return;
         };
+
         if let Some(parent) = part.m_parent
         {
             self.postRender(parent, scale);
         }
+
         let [x, y, z] = part.m_pivot.get();
         let [rotateX, rotateY, rotateZ] = part.m_rotation.get();
+
         GL11::glTranslatef(x * scale, y * scale, z * scale);
         GL11::glRotatef(rotateZ * RADIANS_TO_DEGREES, 0.0, 0.0, 1.0);
         GL11::glRotatef(rotateY * RADIANS_TO_DEGREES, 0.0, 1.0, 0.0);
@@ -186,6 +206,7 @@ impl ModModel
             {
                 continue;
             };
+
             GL11::glPushMatrix();
             self.postRender(usize::from(part), MODEL_SCALE);
             GL11::glTranslatef(HAND_OFFSET[0], HAND_OFFSET[1], HAND_OFFSET[2]);
@@ -198,6 +219,7 @@ impl ModModel
     fn resetPose(&self)
     {
         self.m_held.borrow_mut().clear();
+
         for part in &self.m_parts
         {
             part.m_rotation.set(part.m_spec.rotation);
@@ -219,14 +241,17 @@ pub(crate) fn glOp(op: &ModelOp, overlay: bool)
         ModelOp::Color([red, green, blue, alpha]) if !overlay => GL11::glColor4f(*red, *green, *blue, *alpha),
         ModelOp::Texture(texture) if !overlay => bindTexture(texture),
         ModelOp::Blend(on) if !overlay => blend(*on),
+
         ModelOp::FaceCamera =>
         {
             let manager: Rc<RenderManager> = RenderManager::instance();
             GL11::glRotatef(180.0 - manager.m_playerViewY.get(), 0.0, 1.0, 0.0);
             GL11::glRotatef(-manager.m_playerViewX.get(), 1.0, 0.0, 0.0);
         }
+
         ModelOp::Quads(vertices) => drawQuads(vertices),
         ModelOp::Normal([x, y, z]) => GL11::glNormal3f(*x, *y, *z),
+
         ModelOp::Lighting(on) if !overlay =>
         {
             if *on
@@ -238,6 +263,7 @@ pub(crate) fn glOp(op: &ModelOp, overlay: bool)
                 GL11::glDisable(GL11::GL_LIGHTING);
             }
         }
+
         _ =>
         {}
     }
@@ -247,10 +273,12 @@ pub(crate) fn drawQuads(vertices: &[[f32; 5]])
 {
     let tessellator: Rc<crate::render::Tessellator> = crate::render::Tessellator::instance();
     tessellator.startDrawingQuads();
+
     for [x, y, z, u, v] in vertices
     {
         tessellator.addVertexWithUV(*x as f64, *y as f64, *z as f64, *u as f64, *v as f64);
     }
+
     tessellator.draw();
 }
 
@@ -283,16 +311,20 @@ impl ModelBase for ModModel
     {
         let draws: u32 = self.m_draws.get();
         self.m_draws.set(draws + 1);
-        let pose = self.m_pose.borrow();
+
+        let pose: Ref<modloader::mod_protocol::abi::Pose> = self.m_pose.borrow();
         if pose.model.is_empty()
         {
             self.resetPose();
+
             for index in (0..self.m_parts.len()).filter(|index| self.m_parts[*index].m_root)
             {
                 self.drawPart(index, scale);
             }
+
             return;
         }
+
         self.run(&pose.model, scale, draws > 0);
     }
 }
@@ -307,12 +339,16 @@ fn poseInput(entity: &Rc<Entity>, tickDelta: f32) -> PoseInput
     let headYaw: f32 = lerp(entity.m_prevRotationYaw.get(), entity.m_rotationYaw.get(), tickDelta);
     let walkSpeed: f32 =
         lerp(fields.m_lastWalkAnimationSpeed.get(), fields.m_walkAnimationSpeed.get(), tickDelta).min(1.0);
-    let isLocal = |other: Rc<Entity>| {
+
+    let isLocal = |other: Rc<Entity>|
+    {
         RenderManager::instance().m_livingPlayer.get().is_some_and(|local| Rc::ptr_eq(&other, &local))
     };
     let localRider: bool = entity.m_riddenByEntity.get().is_some_and(isLocal);
     let ridingLocal: bool = entity.m_ridingEntity.get().is_some_and(isLocal);
-    PoseInput {
+
+    PoseInput
+    {
         entity: modloader::host::context::entityInfo(entity),
         walk: fields.m_walkAnimationProgress.get() - fields.m_walkAnimationSpeed.get() * (1.0 - tickDelta),
         walk_speed: walkSpeed,
@@ -330,13 +366,15 @@ fn poseInput(entity: &Rc<Entity>, tickDelta: f32) -> PoseInput
     }
 }
 
-thread_local! {
+thread_local!
+{
     static MODELS: RefCell<Vec<(Rc<Render>, Rc<ModModel>)>> = const { RefCell::new(Vec::new()) };
 }
 
 fn modelOf(render: &Render) -> Option<Rc<ModModel>>
 {
-    MODELS.with(|models| {
+    MODELS.with(|models|
+    {
         models
             .borrow()
             .iter()
@@ -345,22 +383,28 @@ fn modelOf(render: &Render) -> Option<Rc<ModModel>>
     })
 }
 
-const RENDER_MOD: RenderClass = RenderClass {
+const RENDER_MOD: RenderClass = RenderClass
+{
     m_name: "RenderModEntity",
     m_parent: Some(&render_living::RENDER_LIVING),
-    preRenderCallback: |this, entity, tickDelta| {
+    preRenderCallback: |this, entity, tickDelta|
+    {
         let Some(model) = modelOf(this)
         else
         {
             return;
         };
+
         let pose: Pose = modloader::entities::pose(entity, poseInput(entity, tickDelta)).unwrap_or_default();
+
         model.m_draws.set(0);
         model.resetPose();
         model.run(&pose.pre, MODEL_SCALE, false);
         *model.m_pose.borrow_mut() = pose;
     },
-    renderEquippedItems: |this, entity, _tickDelta| {
+
+    renderEquippedItems: |this, entity, _tickDelta|
+    {
         if let (Some(model), Some(items)) = (modelOf(this), this.renderManager().m_itemRenderer.get())
         {
             model.drawHeld(entity, &items);
@@ -372,7 +416,8 @@ const RENDER_MOD: RenderClass = RenderClass {
 // a projectile has no living fields, its pose input carries where it is and how it flies
 fn objectPoseInput(entity: &Rc<Entity>, tickDelta: f32) -> PoseInput
 {
-    PoseInput {
+    PoseInput
+    {
         entity: modloader::host::context::entityInfo(entity),
         walk: 0.0,
         walk_speed: 0.0,
@@ -390,26 +435,33 @@ fn objectPoseInput(entity: &Rc<Entity>, tickDelta: f32) -> PoseInput
     }
 }
 
-const RENDER_MOD_OBJECT: RenderClass = RenderClass {
+const RENDER_MOD_OBJECT: RenderClass = RenderClass
+{
     m_name: "RenderModObject",
     m_parent: Some(&crate::render::entity::RENDER),
-    doRender: |this, entity, dx, dy, dz, _, tickDelta| {
+    doRender: |this, entity, dx, dy, dz, _, tickDelta|
+    {
         let Some(model) = modelOf(this)
         else
         {
             return;
         };
+
         let pose: Pose = modloader::entities::pose(entity, objectPoseInput(entity, tickDelta)).unwrap_or_default();
+
         GL11::glPushMatrix();
         GL11::glTranslatef(dx as f32, dy as f32, dz as f32);
         GL11::glEnable(lwjgl::opengl::GL12::GL_RESCALE_NORMAL);
+
         if let Some(texture) = entity.getEntityTexture()
         {
             this.loadTexture(&jvm::string::JString::display(Some(&texture)));
         }
+
         model.m_draws.set(0);
         model.resetPose();
         model.run(&pose.pre, MODEL_SCALE, false);
+
         if pose.model.is_empty()
         {
             model.render(0.0, 0.0, 0.0, 0.0, 0.0, MODEL_SCALE);
@@ -429,6 +481,7 @@ pub fn rendererFor(className: &str) -> Option<Rc<Render>>
 {
     let spec: EntityModelSpec = modloader::entities::modelByClass(className)?;
     let model: Rc<ModModel> = Rc::new(ModModel::new(&spec));
+
     let render: Rc<Render> = if modloader::entities::isLivingClass(className)
     {
         render_living::create(&RENDER_MOD, Rc::clone(&model) as Rc<dyn ModelBase>, spec.shadow, Box::new(()))
@@ -446,7 +499,8 @@ pub fn rendererFor(className: &str) -> Option<Rc<Render>>
 // rewrite: a mod tile entity whose type registered a model, drawn every frame from its behavior's pose
 pub struct ModTileRenderer;
 
-thread_local! {
+thread_local!
+{
     // one model per tile entity type, built on first draw
     static TILE_MODELS: RefCell<std::collections::HashMap<String, Rc<ModModel>>> =
         RefCell::new(std::collections::HashMap::new());
@@ -465,6 +519,7 @@ fn tileModel(className: &str) -> Option<Rc<ModModel>>
     {
         return Some(model);
     }
+
     let spec: Rc<EntityModelSpec> = modloader::tiles::modelFor(className)?;
     let model: Rc<ModModel> = Rc::new(ModModel::new(&spec));
     TILE_MODELS.with(|models| models.borrow_mut().insert(className.to_owned(), Rc::clone(&model)));
@@ -480,10 +535,14 @@ impl crate::render::tile::TileEntitySpecialRenderer for ModTileRenderer
         {
             return;
         };
+
         let pose: Pose = modloader::tiles::pose(tile, tickDelta).unwrap_or_default();
-        let light: f32 = tile.m_worldObj.get().map_or(1.0, |world| {
+
+        let light: f32 = tile.m_worldObj.get().map_or(1.0, |world|
+        {
             world.getLightBrightness(tile.m_xCoord.get(), tile.m_yCoord.get(), tile.m_zCoord.get())
         });
+
         GL11::glPushMatrix();
         GL11::glTranslatef(dx as f32, dy as f32, dz as f32);
         GL11::glColor4f(light, light, light, 1.0);

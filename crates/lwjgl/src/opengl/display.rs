@@ -4,7 +4,7 @@ use crate::{LWJGLException, platform};
 use jvm::{info, warning};
 use sdl2::event::{Event, WindowEvent};
 use sdl2::video::{FullscreenType, GLProfile, SwapInterval, Window};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 
 const DEFAULT_TITLE: &str = "Game";
 
@@ -29,8 +29,10 @@ pub(crate) struct Surface
     pub m_scale: f64,
 }
 
-thread_local! {
-    static STATE: RefCell<DisplayState> = RefCell::new(DisplayState {
+thread_local!
+{
+    static STATE: RefCell<DisplayState> = RefCell::new(DisplayState
+    {
         m_mode: None,
         m_title: DEFAULT_TITLE.to_owned(),
         m_fullscreen: false,
@@ -70,6 +72,7 @@ fn applyVSync(video: &sdl2::VideoSubsystem, vsync: bool)
     {
         SwapInterval::Immediate
     };
+
     if let Err(error) = video.gl_set_swap_interval(interval)
     {
         warning!("could not set the swap interval: {error}");
@@ -84,22 +87,26 @@ impl Display
         let index: i32 = match Self::withWindow(|window| window.display_index())
         {
             Some(Ok(index)) => index,
+
             Some(Err(error)) =>
             {
                 warning!("could not find the monitor holding the window: {error}");
                 0
             }
+
             None => 0,
         };
         let mode: Result<sdl2::video::DisplayMode, String> =
             platform::with(|platform| platform.m_video.desktop_display_mode(index))
                 .unwrap_or_else(|error| jvm::throwable::throw(&jvm::throwable::RUNTIME, &error.to_string()));
+
         match mode
         {
             Ok(mode) =>
             {
                 DisplayMode::withFormat(mode.w, mode.h, mode.format.byte_size_per_pixel() as i32 * 8, mode.refresh_rate)
             }
+
             Err(error) => jvm::throwable::throw(&jvm::throwable::RUNTIME, &error),
         }
     }
@@ -116,9 +123,11 @@ impl Display
 
     pub fn setDisplayMode(mode: DisplayMode) -> Result<(), LWJGLException>
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<DisplayState> = state.borrow_mut();
             state.m_mode = Some(mode);
+
             match state.m_window.as_mut()
             {
                 Some(window) => window.set_size(mode.getWidth() as u32, mode.getHeight() as u32).map_err(sdlError),
@@ -129,9 +138,11 @@ impl Display
 
     pub fn setFullscreen(fullscreen: bool) -> Result<(), LWJGLException>
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<DisplayState> = state.borrow_mut();
             state.m_fullscreen = fullscreen;
+
             match state.m_window.as_mut()
             {
                 Some(window) => applyFullscreen(window, fullscreen),
@@ -145,6 +156,7 @@ impl Display
     pub fn setVSyncEnabled(vsync: bool)
     {
         STATE.with(|state| state.borrow_mut().m_vsync = vsync);
+
         if !Self::isCreated()
         {
             return;
@@ -172,7 +184,8 @@ impl Display
         let sizes: Option<((u32, u32), u32)> = Self::withWindow(|window| (window.drawable_size(), window.size().0));
         match sizes
         {
-            Some(((width, height), points)) => Surface {
+            Some(((width, height), points)) => Surface
+            {
                 m_width: width as i32,
                 m_height: height as i32,
                 // minimized windows report zero sizes
@@ -185,6 +198,7 @@ impl Display
                     width as f64 / points as f64
                 },
             },
+
             None =>
             {
                 let mode: DisplayMode = Self::getDisplayMode();
@@ -195,9 +209,11 @@ impl Display
 
     pub fn setTitle(title: &str)
     {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+        STATE.with(|state|
+        {
+            let mut state: RefMut<DisplayState> = state.borrow_mut();
             state.m_title = title.to_owned();
+
             if let Some(window) = state.m_window.as_mut()
             {
                 let _ = window.set_title(title);
@@ -215,36 +231,47 @@ impl Display
         {
             return Err(LWJGLException::new("Only one LWJGL context may be instantiated at any one time."));
         }
+
         let mode: DisplayMode = Self::getDisplayMode();
-        let (title, fullscreen, vsync): (String, bool, bool) = STATE.with(|state| {
-            let state = state.borrow();
+
+        let (title, fullscreen, vsync): (String, bool, bool) = STATE.with(|state|
+        {
+            let state: Ref<DisplayState> = state.borrow();
             (state.m_title.clone(), state.m_fullscreen, state.m_vsync)
         });
-        let (mut window, context): (Window, sdl2::video::GLContext) = platform::with(|platform| {
+
+        let (mut window, context): (Window, sdl2::video::GLContext) = platform::with(|platform|
+        {
             let attributes: sdl2::video::gl_attr::GLAttr = platform.m_video.gl_attr();
             attributes.set_context_profile(GLProfile::Compatibility);
             attributes.set_context_version(2, 1);
             attributes.set_double_buffer(true);
             attributes.set_depth_size(24);
+
             let mut builder: sdl2::video::WindowBuilder =
                 platform.m_video.window(&title, mode.getWidth() as u32, mode.getHeight() as u32);
             builder.opengl().position_centered().resizable().allow_highdpi();
+
             let window: Window = builder.build().map_err(sdlError)?;
             let context: sdl2::video::GLContext = window.gl_create_context().map_err(sdlError)?;
             window.gl_make_current(&context).map_err(sdlError)?;
             applyVSync(&platform.m_video, vsync);
+
             let video: sdl2::VideoSubsystem = platform.m_video.clone();
             GLContext::load(|name| video.gl_get_proc_address(name).cast());
             Ok::<(Window, sdl2::video::GLContext), LWJGLException>((window, context))
         })??;
         applyFullscreen(&mut window, fullscreen)?;
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+
+        STATE.with(|state|
+        {
+            let mut state: RefMut<DisplayState> = state.borrow_mut();
             state.m_window = Some(window);
             state.m_context = Some(context);
             state.m_active = true;
             state.m_closeRequested = false;
         });
+
         info!("Display scale {:.2}", Self::surface().m_scale);
         Ok(())
     }
@@ -252,8 +279,10 @@ impl Display
     pub fn destroy()
     {
         GLContext::unload();
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
+
+        STATE.with(|state|
+        {
+            let mut state: RefMut<DisplayState> = state.borrow_mut();
             state.m_context = None;
             state.m_window = None;
         });
@@ -268,6 +297,7 @@ impl Display
                 window.gl_swap_window();
                 Ok(())
             }
+
             None => Err(LWJGLException::new("Display not created")),
         })
     }
@@ -279,7 +309,9 @@ impl Display
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_STATE, "Display not created");
         }
+
         let _ = Self::swapBuffers();
+
         Self::processMessages();
     }
 
@@ -295,10 +327,12 @@ impl Display
                 {
                     STATE.with(|state| state.borrow_mut().m_closeRequested = true);
                 }
+
                 Event::Window { win_event: WindowEvent::FocusGained, .. } =>
                 {
                     STATE.with(|state| state.borrow_mut().m_active = true);
                 }
+
                 Event::Window { win_event: WindowEvent::FocusLost, .. } =>
                 {
                     STATE.with(|state| state.borrow_mut().m_active = false);
@@ -306,6 +340,7 @@ impl Display
                     keyboard::release();
                     mouse::release();
                 }
+
                 _ =>
                 {
                     keyboard::handleEvent(&event);

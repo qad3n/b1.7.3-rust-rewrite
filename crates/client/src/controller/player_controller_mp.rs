@@ -7,7 +7,8 @@ use game::block::Block;
 use game::container::Container;
 use game::entity::{Entity, entity_player};
 use game::item::ItemStack;
-use game::network::packets::{
+use game::network::packets::
+{
     Packet7UseEntity, Packet14BlockDig, Packet15Place, Packet16BlockItemSwitch, Packet102WindowClick,
 };
 use game::world::World;
@@ -39,12 +40,14 @@ fn sendBlockRemoved(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, face: i
     if let Some(itemStack) = entity_player::getCurrentEquippedItem(&thePlayer)
     {
         itemStack.onDestroyBlock(n, x, y, z, &thePlayer);
+
         if itemStack.m_stackSize.get() == 0
         {
             itemStack.onRemoved(&thePlayer);
             entity_player::destroyCurrentEquippedItem(&thePlayer);
         }
     }
+
     bl
 }
 
@@ -57,11 +60,13 @@ fn clickBlock(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, face: i32)
         || z != ext.m_currentblockZ.get()
     {
         ext.m_netClientHandler.addToSendQueue(Box::new(Packet14BlockDig::new(0, x, y, z, face)));
+
         let n: i32 = this.theWorld().getBlockId(x, y, z);
         if n > 0 && ext.m_curBlockDamageMP.get() == 0.0
         {
             Block::byId(n).orNpe().onBlockClicked(&this.theWorld(), x, y, z, &this.thePlayer());
         }
+
         if n > 0 && Block::byId(n).orNpe().blockStrengthAt(&this.theWorld(), x, y, z, &this.thePlayer()) >= 1.0
         {
             this.sendBlockRemoved(x, y, z, face);
@@ -86,12 +91,15 @@ fn sendBlockRemoving(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, face: 
     {
         return;
     }
+
     syncCurrentPlayItem(this);
+
     if ext.m_blockHitDelay.get() > 0
     {
         ext.m_blockHitDelay.set(ext.m_blockHitDelay.get() - 1);
         return;
     }
+
     if x == ext.m_currentBlockX.get() && y == ext.m_currentBlockY.get() && z == ext.m_currentblockZ.get()
     {
         let n: i32 = this.theWorld().getBlockId(x, y, z);
@@ -100,14 +108,18 @@ fn sendBlockRemoving(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, face: 
             ext.m_isHittingBlock.set(false);
             return;
         }
+
         let block: Rc<Block> = Block::byId(n).orNpe();
         let strength: f32 = block.blockStrengthAt(&this.theWorld(), x, y, z, &this.thePlayer());
         ext.m_curBlockDamageMP.set(ext.m_curBlockDamageMP.get() + strength);
+
         if ext.m_miningTicks.get() % 4.0 == 0.0
         {
             playDigSound(&this.m_mc, &block, x, y, z);
         }
+
         ext.m_miningTicks.set(ext.m_miningTicks.get() + 1.0);
+
         if ext.m_curBlockDamageMP.get() >= 1.0
         {
             ext.m_isHittingBlock.set(false);
@@ -148,6 +160,7 @@ fn sendPlaceBlock(
 ) -> bool
 {
     syncCurrentPlayItem(this);
+
     let currentItem: Option<Rc<ItemStack>> = entity_player::inventory(player).getCurrentItem();
     fields(this).m_netClientHandler.addToSendQueue(Box::new(Packet15Place::new(x, y, z, face, currentItem.as_ref())));
     (PLAYER_CONTROLLER.sendPlaceBlock)(this, player, world, itemInHand, x, y, z, face)
@@ -157,6 +170,7 @@ fn sendUseItem(this: &Rc<PlayerController>, player: &Rc<Entity>, world: &Rc<Worl
 -> bool
 {
     syncCurrentPlayItem(this);
+
     let currentItem: Option<Rc<ItemStack>> = entity_player::inventory(player).getCurrentItem();
     fields(this).m_netClientHandler.addToSendQueue(Box::new(Packet15Place::new(-1, -1, -1, 255, currentItem.as_ref())));
     (PLAYER_CONTROLLER.sendUseItem)(this, player, world, itemInHand)
@@ -195,40 +209,49 @@ fn useEntity(this: &PlayerController, player: &Rc<Entity>, target: &Rc<Entity>, 
     )));
 }
 
-pub const CLASS: PlayerControllerClass = PlayerControllerClass {
+pub const CLASS: PlayerControllerClass = PlayerControllerClass
+{
     m_name: "PlayerControllerMP",
     m_parent: Some(&PLAYER_CONTROLLER),
     m_interfaces: &[],
     flipPlayer: |_, player| player.m_rotationYaw.set(-180.0),
     sendBlockRemoved,
     clickBlock,
-    resetBlockRemoving: |this| {
+    resetBlockRemoving: |this|
+    {
         fields(this).m_curBlockDamageMP.set(0.0);
         fields(this).m_isHittingBlock.set(false);
     },
     sendBlockRemoving,
-    setPartialTime: |this, tickDelta| {
+    setPartialTime: |this, tickDelta|
+    {
         let ext: &ControllerMPExt = fields(this);
         setDamagePartialTime(&this.m_mc, ext.m_prevBlockDamageMP.get(), ext.m_curBlockDamageMP.get(), tickDelta);
     },
     getBlockReachDistance: |_| 4.0,
     initWorld: |this, world| (PLAYER_CONTROLLER.initWorld)(this, world),
-    updateController: |this| {
+    updateController: |this|
+    {
         syncCurrentPlayItem(this);
         fields(this).m_prevBlockDamageMP.set(fields(this).m_curBlockDamageMP.get());
         this.m_mc.m_sndManager.get().orNpe().playRandomMusicIfReady();
     },
     sendPlaceBlock,
     sendUseItem,
-    createPlayer: |this, world| {
+    createPlayer: |this, world|
+    {
         let mc: &Rc<Minecraft> = &this.m_mc;
         entity_client_player_mp::new(mc, world, mc.m_session.get(), &fields(this).m_netClientHandler)
     },
-    attackEntity: |this, player, target| {
+
+    attackEntity: |this, player, target|
+    {
         useEntity(this, player, target, 1);
         entity_player::attackTargetEntityWithCurrentItem(player, target);
     },
-    interactWithEntity: |this, player, target| {
+
+    interactWithEntity: |this, player, target|
+    {
         useEntity(this, player, target, 0);
         entity_player::useCurrentItemOnEntity(player, target);
     },
@@ -239,7 +262,8 @@ pub const CLASS: PlayerControllerClass = PlayerControllerClass {
 
 pub fn new(minecraft: &Rc<Minecraft>, networkHandler: &Rc<NetClientHandler>) -> Rc<PlayerController>
 {
-    let ext: ControllerMPExt = ControllerMPExt {
+    let ext: ControllerMPExt = ControllerMPExt
+    {
         m_currentBlockX: Cell::new(-1),
         m_currentBlockY: Cell::new(-1),
         m_currentblockZ: Cell::new(-1),

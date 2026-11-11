@@ -9,11 +9,11 @@ pub struct JsonStringNode
 
 impl JsonStringNode
 {
-    pub fn new(value: JString) -> JsonStringNode { JsonStringNode { m_value: value } }
+    pub fn new(value: JString) -> Self { Self { m_value: value } }
 
     pub fn getText(&self) -> JString { self.m_value.clone() }
 
-    pub fn compareTo(&self, other: &JsonStringNode) -> std::cmp::Ordering { self.m_value.cmp(&other.m_value) }
+    pub fn compareTo(&self, other: &Self) -> std::cmp::Ordering { self.m_value.cmp(&other.m_value) }
 
     pub fn toString(&self) -> String { format!("JsonStringNode value:[{}]", self.m_value) }
 }

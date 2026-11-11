@@ -24,7 +24,7 @@ impl Source
     {
         match self
         {
-            Source::Archive(path, _) | Source::Folder(path) => path,
+            Self::Archive(path, _) | Self::Folder(path) => path,
         }
     }
 
@@ -32,14 +32,15 @@ impl Source
     {
         match self
         {
-            Source::Archive(_, archive) =>
+            Self::Archive(_, archive) =>
             {
                 let mut entry: zip::read::ZipFile<'_, std::fs::File> = archive.by_name(name).ok()?;
                 let mut bytes: Vec<u8> = Vec::with_capacity(entry.size() as usize);
                 entry.read_to_end(&mut bytes).ok()?;
                 Some(bytes)
             }
-            Source::Folder(root) => std::fs::read(root.join(name)).ok(),
+
+            Self::Folder(root) => std::fs::read(root.join(name)).ok(),
         }
     }
 
@@ -48,12 +49,12 @@ impl Source
     {
         let mut names: Vec<String> = match self
         {
-            Source::Archive(_, archive) => archive
+            Self::Archive(_, archive) => archive
                 .file_names()
                 .filter(|name| name.starts_with(prefix) && !name.ends_with('/'))
                 .map(str::to_owned)
                 .collect(),
-            Source::Folder(root) =>
+            Self::Folder(root) =>
             {
                 let mut found: Vec<String> = Vec::new();
                 collect(root, &root.join(prefix), &mut found);
@@ -72,6 +73,7 @@ fn collect(root: &Path, directory: &Path, found: &mut Vec<String>)
     {
         return;
     };
+
     for entry in entries.flatten()
     {
         let path: PathBuf = entry.path();
@@ -98,6 +100,7 @@ pub fn hex(bytes: &[u8]) -> String { bytes.iter().map(|byte| format!("{byte:02x}
 fn hashFolder(path: &Path) -> String
 {
     let mut hasher: Sha256 = Sha256::new();
+
     for name in [MANIFEST_FILE, crate::manifest::WASM_FILE]
     {
         if let Ok(bytes) = std::fs::read(path.join(name))
@@ -105,6 +108,7 @@ fn hashFolder(path: &Path) -> String
             hasher.update(&bytes);
         }
     }
+
     hex(&hasher.finalize())
 }
 
@@ -124,6 +128,7 @@ fn open(path: &Path) -> Result<Discovered, String>
     let manifestBytes: Vec<u8> = source.read(MANIFEST_FILE).ok_or_else(|| format!("{MANIFEST_FILE} is missing"))?;
     let text: String = String::from_utf8(manifestBytes).map_err(|_| format!("{MANIFEST_FILE} is not UTF-8"))?;
     let manifest: Manifest = Manifest::parse(&text).map_err(|error| format!("{MANIFEST_FILE}: {error}"))?;
+
     let sha256: String = match &source
     {
         Source::Archive(path, _) => hashFile(path).map_err(|error| error.to_string())?,
@@ -147,8 +152,10 @@ pub fn discover(modsDir: &Path) -> (Vec<Discovered>, Vec<DiscoveryError>)
         Err(_) => Vec::new(),
     };
     paths.sort();
+
     let mut found: Vec<Discovered> = Vec::new();
     let mut errors: Vec<DiscoveryError> = Vec::new();
+
     for path in paths
     {
         let isArchive: bool = path.extension().is_some_and(|extension| extension == MOD_EXTENSION);
@@ -157,19 +164,23 @@ pub fn discover(modsDir: &Path) -> (Vec<Discovered>, Vec<DiscoveryError>)
         {
             continue;
         }
+
         match open(&path)
         {
             Ok(discovered) => found.push(discovered),
             Err(reason) => errors.push(DiscoveryError { m_path: path, m_reason: reason }),
         }
     }
+
     (found, errors)
 }
 
 pub fn hasMods(modsDir: &Path) -> bool
 {
-    std::fs::read_dir(modsDir).is_ok_and(|entries| {
-        entries.flatten().any(|entry| {
+    std::fs::read_dir(modsDir).is_ok_and(|entries|
+    {
+        entries.flatten().any(|entry|
+        {
             let path: PathBuf = entry.path();
             path.extension().is_some_and(|extension| extension == MOD_EXTENSION)
                 || (path.is_dir() && path.join(MANIFEST_FILE).is_file())

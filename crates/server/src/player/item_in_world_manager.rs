@@ -28,9 +28,10 @@ pub struct ItemInWorldManager
 
 impl ItemInWorldManager
 {
-    pub fn new(world: &Rc<World>) -> Rc<ItemInWorldManager>
+    pub fn new(world: &Rc<World>) -> Rc<Self>
     {
-        Rc::new(ItemInWorldManager {
+        Rc::new(Self
+        {
             m_thisPlayer: Field::new(None),
             m_field_672_d: Cell::new(0.0),
             m_miningStartTime: Cell::new(0),
@@ -52,6 +53,7 @@ impl ItemInWorldManager
     pub fn tick(&self)
     {
         self.m_ticks.set(self.m_ticks.get() + 1);
+
         if self.m_wasMiningBlock.get()
         {
             let n: i32 = self.m_ticks.get() - self.m_prevMiningStartTime.get();
@@ -60,6 +62,7 @@ impl ItemInWorldManager
                 self.m_prevTargetY.get(),
                 self.m_prevTargetZ.get(),
             );
+
             if n2 != 0
             {
                 let block: Rc<Block> = Block::byId(n2).orNpe();
@@ -83,11 +86,13 @@ impl ItemInWorldManager
     {
         self.m_thisWorld.onBlockHit(None, x, y, z, face);
         self.m_miningStartTime.set(self.m_ticks.get());
+
         let n: i32 = self.m_thisWorld.getBlockId(x, y, z);
         if n > 0
         {
             Block::byId(n).orNpe().onBlockClicked(&self.m_thisWorld, x, y, z, &self.thisPlayer());
         }
+
         if n > 0 && Block::byId(n).orNpe().blockStrengthAt(&self.m_thisWorld, x, y, z, &self.thisPlayer()) >= 1.0
         {
             self.tryMineBlock(x, y, z);
@@ -124,6 +129,7 @@ impl ItemInWorldManager
                 }
             }
         }
+
         self.m_field_672_d.set(0.0);
     }
 
@@ -134,6 +140,7 @@ impl ItemInWorldManager
         {
             return false;
         }
+
         let block: Option<Rc<Block>> = Block::byId(self.m_thisWorld.getBlockId(x, y, z));
         let n: i32 = self.m_thisWorld.getBlockMetadata(x, y, z);
         let bl: bool = self.m_thisWorld.setBlockWithNotify(x, y, z, 0);
@@ -142,6 +149,7 @@ impl ItemInWorldManager
         {
             block.onBlockDestroyedByPlayer(&self.m_thisWorld, x, y, z, n);
         }
+
         bl
     }
 
@@ -150,17 +158,20 @@ impl ItemInWorldManager
         let n: i32 = self.m_thisWorld.getBlockId(x, y, z);
         let n2: i32 = self.m_thisWorld.getBlockMetadata(x, y, z);
         self.m_thisWorld.doEventFrom(Some(&self.thisPlayer()), block::BREAK_EVENT, x, y, z, block::packBreak(n, n2));
+
         let bl: bool = self.removeBlock(x, y, z);
         let itemStack: Option<Rc<ItemStack>> = entity_player::getCurrentEquippedItem(&self.thisPlayer());
         if let Some(itemStack) = itemStack
         {
             itemStack.onDestroyBlock(n, x, y, z, &self.thisPlayer());
+
             if itemStack.m_stackSize.get() == 0
             {
                 itemStack.onRemoved(&self.thisPlayer());
                 entity_player::destroyCurrentEquippedItem(&self.thisPlayer());
             }
         }
+
         if bl && entity_player::canHarvestBlock(&self.thisPlayer(), &Block::byId(n).orNpe())
         {
             Block::byId(n).orNpe().harvestBlock(&self.m_thisWorld, &self.thisPlayer(), x, y, z, n2);
@@ -171,6 +182,7 @@ impl ItemInWorldManager
                 &self.m_thisWorld,
             )));
         }
+
         bl
     }
 
@@ -184,12 +196,15 @@ impl ItemInWorldManager
             let inventory: Rc<game::inventory::InventoryPlayer> = entity_player::inventory(player);
             let currentItem: usize = inventory.m_currentItem.get() as usize;
             inventory.m_mainInventory.borrow_mut()[currentItem] = itemStack.clone();
+
             if itemStack.as_ref().is_some_and(|stack| stack.m_stackSize.get() == 0)
             {
                 inventory.m_mainInventory.borrow_mut()[currentItem] = None;
             }
+
             return true;
         }
+
         false
     }
 
@@ -223,6 +238,7 @@ impl ItemInWorldManager
         {
             return false;
         };
+
         itemInHand.useItem(player, world, x, y, z, face)
     }
 }

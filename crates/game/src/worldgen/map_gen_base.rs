@@ -2,8 +2,10 @@ use jvm::random::Random;
 use std::cell::Cell;
 use std::rc::Rc;
 
-crate::vtable! {
-    MapGenBaseClass for MapGenBase {
+crate::vtable!
+{
+    MapGenBaseClass for MapGenBase
+    {
         fn recursiveGenerate(startChunkX: i32, startChunkZ: i32, chunkX: i32, chunkZ: i32, blocks: &mut [i8]);
     }
 }
@@ -17,17 +19,20 @@ pub struct MapGenBase
 
 impl MapGenBase
 {
-    pub fn alloc(class: &'static MapGenBaseClass) -> Rc<MapGenBase>
+    pub fn alloc(class: &'static MapGenBaseClass) -> Rc<Self>
     {
-        Rc::new(MapGenBase { m_class: class, m_range: Cell::new(8), m_rand: Random::new() })
+        Rc::new(Self { m_class: class, m_range: Cell::new(8), m_rand: Random::new() })
     }
 
     pub fn place(self: &Rc<Self>, seed: i64, chunkX: i32, chunkZ: i32, blocks: &mut [i8])
     {
         let n: i32 = self.m_range.get();
+
         self.m_rand.setSeed(seed);
+
         let l: i64 = self.m_rand.nextLong() / 2 * 2 + 1;
         let l2: i64 = self.m_rand.nextLong() / 2 * 2 + 1;
+
         for i in chunkX - n..=chunkX + n
         {
             for j in chunkZ - n..=chunkZ + n
@@ -39,7 +44,8 @@ impl MapGenBase
     }
 }
 
-pub const MAP_GEN_BASE: MapGenBaseClass = MapGenBaseClass {
+pub const MAP_GEN_BASE: MapGenBaseClass = MapGenBaseClass
+{
     m_name: "MapGenBase",
     m_parent: None,
     m_interfaces: &[],

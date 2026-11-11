@@ -21,7 +21,8 @@ impl Default for Packet52MultiBlockChange
 {
     fn default() -> Self
     {
-        Self {
+        Self
+        {
             m_base: PacketBase::chunkData(),
             m_xPosition: 0,
             m_zPosition: 0,
@@ -41,16 +42,20 @@ impl Packet52MultiBlockChange
         let mut typeArray: Vec<u8> = vec![0; blockChangeCount as usize];
         let mut metadataArray: Vec<u8> = vec![0; blockChangeCount as usize];
         let chunk: Rc<Chunk> = world.getChunkFromChunkCoords(chunkX, chunkZ);
+
         for i in 0..blockChangeCount as usize
         {
             let n: i32 = positions[i] as i32 >> 12 & 0xF;
             let n2: i32 = positions[i] as i32 >> 8 & 0xF;
             let n3: i32 = positions[i] as i32 & 0xFF;
+
             coordinateArray[i] = positions[i];
             typeArray[i] = chunk.getBlockID(n, n3, n2) as u8;
             metadataArray[i] = chunk.getBlockMetadata(n, n3, n2) as u8;
         }
-        Self {
+
+        Self
+        {
             m_xPosition: chunkX,
             m_zPosition: chunkZ,
             m_size: blockChangeCount,
@@ -73,12 +78,15 @@ impl Packet for Packet52MultiBlockChange
         self.m_size = input.readShort()? as i32 & 0xFFFF;
         let size: usize = self.m_size as usize;
         let mut coordinateArray: Vec<i16> = vec![0; size];
+
         self.m_typeArray = Some(vec![0; size]);
         self.m_metadataArray = Some(vec![0; size]);
+
         for coordinate in &mut coordinateArray
         {
             *coordinate = input.readShort()?;
         }
+
         self.m_coordinateArray = Some(coordinateArray);
         input.readFully(self.m_typeArray.as_mut().orNpe())?;
         input.readFully(self.m_metadataArray.as_mut().orNpe())
@@ -89,11 +97,14 @@ impl Packet for Packet52MultiBlockChange
         output.writeInt(self.m_xPosition)?;
         output.writeInt(self.m_zPosition)?;
         output.writeShort(self.m_size as i16 as i32)?;
+
         let coordinateArray: &Vec<i16> = self.m_coordinateArray.as_ref().orNpe();
+
         for i in 0..self.m_size
         {
             output.writeShort(coordinateArray[i as usize] as i32)?;
         }
+
         output.writeBuf(self.m_typeArray.as_ref().orNpe())?;
         output.writeBuf(self.m_metadataArray.as_ref().orNpe())
     }

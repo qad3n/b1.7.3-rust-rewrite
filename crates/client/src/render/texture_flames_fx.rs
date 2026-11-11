@@ -1,7 +1,7 @@
 use crate::render::{TILE_PIXELS, TextureFX, TextureFXFields};
 use game::block::Block;
 use jvm::math;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 
 const FIRE_CELLS: usize = 320;
 const FIRE_ROWS: i32 = 20;
@@ -15,9 +15,10 @@ pub struct TextureFlamesFX
 
 impl TextureFlamesFX
 {
-    pub fn new(variant: i32) -> TextureFlamesFX
+    pub fn new(variant: i32) -> Self
     {
-        TextureFlamesFX {
+        Self
+        {
             m_fx: TextureFXFields::new(Block::fire().m_blockIndexInTexture.get() + variant * 16),
             m_current: RefCell::new(vec![0.0; FIRE_CELLS]),
             m_next: RefCell::new(vec![0.0; FIRE_CELLS]),
@@ -32,14 +33,16 @@ impl TextureFX for TextureFlamesFX
     fn onTick(&self)
     {
         {
-            let current = self.m_current.borrow();
-            let mut next = self.m_next.borrow_mut();
+            let current: Ref<Vec<f32>> = self.m_current.borrow();
+            let mut next: RefMut<Vec<f32>> = self.m_next.borrow_mut();
+
             for i in 0..16i32
             {
                 for j in 0..FIRE_ROWS
                 {
                     let mut k: i32 = 18;
                     let mut f: f32 = current[(i + (j + 1) % FIRE_ROWS * 16) as usize] * k as f32;
+
                     for l in i - 1..=i + 1
                     {
                         for i1 in j..=j + 1
@@ -48,11 +51,14 @@ impl TextureFX for TextureFlamesFX
                             {
                                 f += current[(l + i1 * 16) as usize];
                             }
+
                             k += 1;
                         }
                     }
+
                     let index: usize = (i + j * 16) as usize;
                     next[index] = f / (k as f32 * 1.06);
+
                     if j >= FIRE_ROWS - 1
                     {
                         next[index] = (math::random() * math::random() * math::random() * 4.0
@@ -63,7 +69,9 @@ impl TextureFX for TextureFlamesFX
             }
         }
         self.m_next.swap(&self.m_current);
-        let current = self.m_current.borrow();
+
+        let current: Ref<Vec<f32>> = self.m_current.borrow();
+
         for k2 in 0..TILE_PIXELS
         {
             let f1: f32 = (current[k2] * 1.8).clamp(0.0, 1.0);

@@ -14,7 +14,8 @@ use std::f32::consts::PI;
 use std::path::Path;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static SND_SYSTEM: Field<Option<Rc<SoundSystem>>> = Field::new(None);
     static LOADED: Cell<bool> = const { Cell::new(false) };
 }
@@ -36,11 +37,13 @@ pub struct SoundManager
 
 impl SoundManager
 {
-    pub fn new() -> SoundManager
+    pub fn new() -> Self
     {
         let rand: Random = Random::new();
         let ticksBeforeMusic: i32 = rand.nextIntBounded(12000);
-        SoundManager {
+
+        Self
+        {
             m_soundPoolSounds: SoundPool::new(),
             m_soundPoolStreaming: SoundPool::new(),
             m_soundPoolMusic: SoundPool::new(),
@@ -56,14 +59,17 @@ impl SoundManager
     pub fn loadSoundSettings(&self, options: Option<Rc<GameSettings>>)
     {
         self.m_soundPoolStreaming.m_trimTrailingDigits.set(false);
+
         let silent: bool = options
             .as_ref()
             .is_some_and(|options| options.m_soundVolume.get() == 0.0 && options.m_musicVolume.get() == 0.0);
         self.m_options.set(options);
+
         if silent
         {
             info!("Sound and music are muted, the sound system starts once either is turned up");
         }
+
         if !(loaded() || silent)
         {
             self.tryToSetLibraryAndCodecs();
@@ -83,10 +89,12 @@ impl SoundManager
     fn tryToSetLibraryAndCodecs(&self)
     {
         let result: Result<(), jvm::throwable::Throwable> =
-            jvm::throwable::catchThrowable(&jvm::throwable::THROWABLE, || {
+            jvm::throwable::catchThrowable(&jvm::throwable::THROWABLE, ||
+            {
                 let options: Rc<GameSettings> = self.options();
                 let f: f32 = options.m_soundVolume.get();
                 let f2: f32 = options.m_musicVolume.get();
+
                 options.m_soundVolume.set(0.0);
                 options.m_musicVolume.set(0.0);
                 options.saveOptions();
@@ -99,15 +107,18 @@ impl SoundManager
                 options.m_musicVolume.set(f2);
                 options.saveOptions();
             });
+
         match result
         {
             Ok(()) => debug!("Sound system linked"),
+
             Err(throwable) =>
             {
                 throwable.printStackTrace();
                 jvm::system::errPrintln("error linking with the LibraryJavaSound plug-in");
             }
         }
+
         LOADED.with(|loaded| loaded.set(true));
     }
 
@@ -118,6 +129,7 @@ impl SoundManager
         {
             self.tryToSetLibraryAndCodecs();
         }
+
         if loaded()
         {
             if options.m_musicVolume.get() == 0.0
@@ -161,11 +173,13 @@ impl SoundManager
         {
             return;
         }
+
         if self.m_ticksBeforeMusic.get() > 0
         {
             self.m_ticksBeforeMusic.set(self.m_ticksBeforeMusic.get() - 1);
             return;
         }
+
         if let Some(soundPoolEntry) = self.m_soundPoolMusic.getRandomSound()
         {
             self.m_ticksBeforeMusic.set(self.m_rand.nextIntBounded(12000) + 12000);
@@ -187,6 +201,7 @@ impl SoundManager
         {
             return false;
         };
+
         let system: Rc<SoundSystem> = sndSystem();
         system.backgroundMusic("BgMusic", &entry.m_soundUrl, &entry.m_soundName, false);
         system.setVolume("BgMusic", self.options().m_musicVolume.get());
@@ -218,6 +233,7 @@ impl SoundManager
         {
             return;
         };
+
         let prevYaw: f32 = listener.m_prevRotationYaw.get();
         let f: f32 = prevYaw + (listener.m_rotationYaw.get() - prevYaw) * tickDelta;
         let d: f64 = listener.m_prevPosX.get() + (listener.posX() - listener.m_prevPosX.get()) * tickDelta as f64;
@@ -242,17 +258,20 @@ impl SoundManager
         {
             return;
         }
+
         let string: &str = "streaming";
         let system: Rc<SoundSystem> = sndSystem();
         if system.playing("streaming")
         {
             system.stop("streaming");
         }
+
         let Some(name) = name
         else
         {
             return;
         };
+
         let soundPoolEntry: Option<Rc<SoundPoolEntry>> = self.m_soundPoolStreaming.getRandomSoundFromSoundPool(name);
         if let Some(soundPoolEntry) = soundPoolEntry
             && volume > 0.0
@@ -261,6 +280,7 @@ impl SoundManager
             {
                 system.stop("BgMusic");
             }
+
             let f: f32 = 16.0;
             system.newStreamingSource(
                 true,
@@ -291,16 +311,19 @@ impl SoundManager
         {
             return;
         }
+
         let soundPoolEntry: Option<Rc<SoundPoolEntry>> = self.m_soundPoolSounds.getRandomSoundFromSoundPool(id);
         if let Some(soundPoolEntry) = soundPoolEntry
             && volume > 0.0
         {
             let string: String = self.nextSourceName();
             let mut f: f32 = 16.0;
+
             if volume > 1.0
             {
                 f *= volume;
             }
+
             let system: Rc<SoundSystem> = sndSystem();
             system.newSource(
                 volume > 1.0,
@@ -315,10 +338,12 @@ impl SoundManager
                 f,
             );
             system.setPitch(&string, pitch);
+
             if volume > 1.0
             {
                 volume = 1.0;
             }
+
             system.setVolume(&string, volume * self.options().m_soundVolume.get());
             system.play(&string);
         }
@@ -330,6 +355,7 @@ impl SoundManager
         {
             return;
         }
+
         if let Some(soundPoolEntry) = self.m_soundPoolSounds.getRandomSoundFromSoundPool(id)
         {
             let string: String = self.nextSourceName();
@@ -346,10 +372,12 @@ impl SoundManager
                 0,
                 0.0,
             );
+
             if volume > 1.0
             {
                 volume = 1.0;
             }
+
             volume *= 0.25;
             system.setPitch(&string, pitch);
             system.setVolume(&string, volume * self.options().m_soundVolume.get());

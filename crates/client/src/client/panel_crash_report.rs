@@ -44,14 +44,14 @@ pub struct PanelCrashReport;
 
 impl PanelCrashReport
 {
-    pub fn new(report: &UnexpectedThrowable) -> PanelCrashReport
+    pub fn new(report: &UnexpectedThrowable) -> Self
     {
         // the awt crash panel is not ported so its text goes to stderr the log and its own file
-        let text: String = PanelCrashReport::text(report);
+        let text: String = Self::text(report);
         eprint!("{text}");
         jvm::log_files::write(&text);
-        PanelCrashReport::save(&text);
-        PanelCrashReport
+        Self::save(&text);
+        Self
     }
 
     fn save(text: &str)
@@ -61,11 +61,13 @@ impl PanelCrashReport
             "crash-{:04}-{:02}-{:02}_{:02}.{:02}.{:02}-client.txt",
             fields.m_year, fields.m_month, fields.m_day, fields.m_hour, fields.m_minute, fields.m_second
         );
+
         let dir: PathBuf = jvm::data_dir::root().join(REPORT_DIR);
         let path: PathBuf = dir.join(name);
         match std::fs::create_dir_all(&dir).and_then(|()| std::fs::write(&path, text))
         {
             Ok(()) => jvm::system::errPrintln(&format!("Crash report saved to {}", path.display())),
+
             Err(error) =>
             {
                 jvm::system::errPrintln(&format!("could not save crash report to {}: {error}", path.display()))
@@ -81,9 +83,12 @@ impl PanelCrashReport
             report.m_exception.stackTrace(),
             report.m_details
         );
+
         let mut string2: String = String::new();
         let mut string3: String = String::new();
-        let properties: Result<(), Throwable> = catchThrowable(&THROWABLE, || {
+
+        let properties: Result<(), Throwable> = catchThrowable(&THROWABLE, ||
+        {
             string3 += &format!("Generated {}\n", formatDefault(jvm::system::currentTimeMillis()));
             string3 += "\n";
             string3 += "Minecraft: Minecraft Beta 1.7.3\n";
@@ -97,9 +102,12 @@ impl PanelCrashReport
         {
             string3 += &format!("[failed to get system properties ({throwable})]\n");
         }
+
         string3 += "\n";
         string3 += &string;
+
         let mut string4: String = String::from("\n\n");
+
         if string.contains("Pixel format not accelerated")
         {
             string4 += "      Bad video card drivers!      \n";
@@ -107,6 +115,7 @@ impl PanelCrashReport
             string4 += "\n";
             string4 += "Minecraft was unable to start because it failed to find an accelerated OpenGL mode.\n";
             string4 += "This can usually be fixed by updating the video card drivers.\n";
+
             if JString::from(string2.as_str()).toLowerCase().to_string().contains("nvidia")
             {
                 string4 += "\n";

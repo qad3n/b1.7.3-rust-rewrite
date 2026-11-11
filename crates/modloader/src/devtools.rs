@@ -1,7 +1,7 @@
 use crate::host::context;
 use game::block::Block;
-use game::inventory::IInventory;
-use game::world::World;
+use game::inventory::{IInventory, InventoryPlayer};
+use game::world::{IChunkProvider, World};
 use game::worldgen::{EnumCreatureType, SpawnListEntry};
 use mod_protocol::abi::Sender;
 use std::rc::Rc;
@@ -47,8 +47,9 @@ fn world(dimension: i32) -> Result<Rc<World>, String>
 // dedicated server's getChunk would hand back its empty stand in
 fn generate(world: &World, centerX: i32, centerZ: i32, radius: i32) -> usize
 {
-    let provider = world.chunkProvider();
+    let provider: Rc<dyn IChunkProvider> = world.chunkProvider();
     let mut count: usize = 0;
+
     for chunkX in centerX - radius..=centerX + radius
     {
         for chunkZ in centerZ - radius..=centerZ + radius
@@ -57,6 +58,7 @@ fn generate(world: &World, centerX: i32, centerZ: i32, radius: i32) -> usize
             count += 1;
         }
     }
+
     count
 }
 
@@ -74,10 +76,12 @@ fn topColor(world: &World, x: i32, z: i32) -> u32
         {
             continue;
         };
+
         let base: u32 = block.m_blockMaterial.m_materialMapColor.m_colorValue as u32;
         let shade: f32 = (1.0 + (y as f32 - map::SHADE_SPAN) / (map::SHADE_SPAN * 2.0)).max(map::MIN_SHADE).min(1.0);
         return shaded(base, shade);
     }
+
     map::VOID
 }
 
@@ -87,6 +91,7 @@ fn writePng(path: &str, width: i32, height: i32, pixels: &[u8]) -> Result<(), St
     let mut encoder: png::Encoder<std::fs::File> = png::Encoder::new(file, width as u32, height as u32);
     encoder.set_color(png::ColorType::Rgb);
     encoder.set_depth(png::BitDepth::Eight);
+
     let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
     writer.write_image_data(pixels).map_err(|error| error.to_string())
 }
@@ -97,6 +102,7 @@ fn writeMap(world: &World, centerX: i32, centerZ: i32, radius: i32, path: &str) 
     let originX: i32 = (centerX - radius) * map::CHUNK;
     let originZ: i32 = (centerZ - radius) * map::CHUNK;
     let mut pixels: Vec<u8> = Vec::with_capacity((size * size) as usize * map::CHANNELS);
+
     for z in 0..size
     {
         for x in 0..size
@@ -105,6 +111,7 @@ fn writeMap(world: &World, centerX: i32, centerZ: i32, radius: i32, path: &str) 
             pixels.extend_from_slice(&channels(color));
         }
     }
+
     writePng(path, size, size, &pixels)?;
     Ok(format!("wrote {size}x{size} map of blocks {originX},{originZ} to {path}"))
 }
@@ -118,7 +125,9 @@ fn blockColor(world: &World, x: i32, y: i32, z: i32) -> u32
     {
         return map::VOID;
     };
+
     let base: u32 = block.m_blockMaterial.m_materialMapColor.m_colorValue as u32;
+
     if Block::lightValue(id) > 0
     {
         shaded(base, map::GLOW)
@@ -138,6 +147,7 @@ fn slice(world: &World, args: &[String]) -> Result<String, String>
     let width: i32 = to - from + 1;
     let height: i32 = world.height();
     let mut pixels: Vec<u8> = Vec::with_capacity((width * height) as usize * map::CHANNELS);
+
     for y in (0..world.height()).rev()
     {
         for along in from..=to
@@ -150,6 +160,7 @@ fn slice(world: &World, args: &[String]) -> Result<String, String>
             pixels.extend_from_slice(&channels(color));
         }
     }
+
     writePng(path, width, height, &pixels)?;
     Ok(format!("wrote {width}x{height} slice at {axis}={at} to {path}"))
 }
@@ -164,6 +175,7 @@ fn spawns(world: &Rc<World>, args: &[String]) -> Result<String, String>
         Some("water") => EnumCreatureType::WaterCreature,
         _ => return Err(USAGE.to_owned()),
     };
+
     let [x, y, z]: [i32; 3] = [number(args, 3)?, number(args, 4)?, number(args, 5)?];
     let (source, entries): (&str, Vec<SpawnListEntry>) = match game::hooks::spawnList(world, kind, x, y, z)
     {
@@ -172,6 +184,7 @@ fn spawns(world: &Rc<World>, args: &[String]) -> Result<String, String>
     };
     let listed: Vec<String> =
         entries.iter().map(|entry| format!("{} {}", entry.m_entityClass, entry.m_spawnRarityRate)).collect();
+
     let shown: String = if listed.is_empty()
     {
         "nothing".to_owned()
@@ -203,9 +216,11 @@ fn structureAt(world: &World, args: &[String]) -> Result<String, String>
 fn locate(world: &Rc<World>, args: &[String]) -> Result<String, String>
 {
     const DEFAULT_RADIUS: i32 = 64;
+
     let kind: mod_protocol::Identifier =
         mod_protocol::Identifier::parse(args.get(2).ok_or(USAGE)?).map_err(|error| error.to_string())?;
     let from: mod_protocol::abi::BlockPos = mod_protocol::abi::BlockPos::new(number(args, 3)?, 0, number(args, 4)?);
+
     let radius: i32 = if args.len() > 5
     {
         number(args, 5)?
@@ -214,6 +229,7 @@ fn locate(world: &Rc<World>, args: &[String]) -> Result<String, String>
     {
         DEFAULT_RADIUS
     };
+
     let Some(found) = crate::structures::locate(world, &kind, from, radius)?
     else
     {
@@ -239,15 +255,18 @@ fn column(world: &World, x: i32, z: i32) -> String
     {
         let (id, meta): (i32, i32) = (world.getBlockId(x, y, z), world.getBlockMetadata(x, y, z));
         let top: i32 = y;
+
         while y >= 0 && world.getBlockId(x, y, z) == id && world.getBlockMetadata(x, y, z) == meta
         {
             y -= 1;
         }
+
         if id != 0
         {
             runs.push(format!("{} {}..{top}", stateName(id, meta), y + 1));
         }
     }
+
     if runs.is_empty()
     {
         "empty column".to_owned()
@@ -266,6 +285,7 @@ fn stateName(id: i32, meta: i32) -> String
     {
         return format!("{id}:{meta}");
     };
+
     let values: Vec<String> = state.properties.iter().map(|(key, value)| format!("{key}={value}")).collect();
     format!("{}[{}]", state.block, values.join(","))
 }
@@ -293,7 +313,8 @@ fn namedPlayer(name: &str) -> Result<Rc<game::entity::Entity>, String>
     context::worlds()
         .iter()
         .flat_map(|world| world.m_playerEntities.toVec())
-        .find(|player| {
+        .find(|player|
+        {
             game::entity::entity_player::fields(player)
                 .m_username
                 .get()
@@ -313,15 +334,17 @@ fn useItem(args: &[String]) -> Result<String, String>
         crate::registry::with(|registries| registries.itemId(&id)).ok_or_else(|| format!("no item {id}"))?;
     let world: Rc<World> = player.m_worldObj.get().ok_or("the player has no world")?;
     let [x, y, z, face]: [i32; 4] = [number(args, 3)?, number(args, 4)?, number(args, 5)?, number(args, 6)?];
-    let inventory = game::entity::entity_player::inventory(&player);
+    let inventory: Rc<InventoryPlayer> = game::entity::entity_player::inventory(&player);
     inventory
         .setInventorySlotContents(inventory.m_currentItem.get(), Some(game::item::ItemStack::withDamage(item, 1, 0)));
-    let stack = inventory.getCurrentItem().ok_or("the hand stayed empty")?;
+    let stack: Rc<game::item::ItemStack> = inventory.getCurrentItem().ok_or("the hand stayed empty")?;
     let used: bool = stack.useItem(&player, &world, x, y, z, face);
     let held: String = inventory
         .getCurrentItem()
-        .and_then(|held| {
-            crate::registry::with(|registries| {
+        .and_then(|held|
+        {
+            crate::registry::with(|registries|
+            {
                 registries.m_items.byNumeric(held.m_itemID.get()).map(|row| row.m_id.to_string())
             })
         })
@@ -348,11 +371,13 @@ fn teleport(args: &[String]) -> Result<String, String>
     let player: Rc<game::entity::Entity> = namedPlayer(name)?;
     let dimension: i32 = number(args, 2)?;
     let pos: [f64; 3] = [number(args, 3)? as f64 + 0.5, number(args, 4)? as f64, number(args, 5)? as f64 + 0.5];
+
     if let (Ok(yaw), Ok(pitch)) = (number(args, 6), number(args, 7))
     {
         player.m_rotationYaw.set(yaw as f32);
         player.m_rotationPitch.set(pitch as f32);
     }
+
     crate::netplay::teleport(player.m_entityId.get(), dimension, pos)?;
     Ok(format!("sending {name} to dimension {dimension} at {pos:?}"))
 }
@@ -372,6 +397,7 @@ fn fill(world: &Rc<World>, args: &[String]) -> Result<String, String>
         crate::states::resolve(&state).ok_or_else(|| format!("no block {}", state.block))?
     };
     let mut count: i32 = 0;
+
     for x in corners[0].min(corners[3])..=corners[0].max(corners[3])
     {
         for y in corners[1].min(corners[4])..=corners[1].max(corners[4])
@@ -383,6 +409,7 @@ fn fill(world: &Rc<World>, args: &[String]) -> Result<String, String>
             }
         }
     }
+
     Ok(format!("placed {count} {name}"))
 }
 
@@ -415,6 +442,7 @@ fn slot(world: &World, args: &[String]) -> Result<String, String>
     let name: &String = args.get(6).ok_or(USAGE)?;
     let count: i32 = number(args, 7).unwrap_or(1);
     let damage: i32 = number(args, 8).unwrap_or(0);
+
     let stack: Option<Rc<game::item::ItemStack>> = if name == "air"
     {
         None
@@ -432,8 +460,10 @@ fn tile(world: &World, args: &[String]) -> Result<String, String>
 {
     let tile: Rc<game::tileentity::TileEntity> = inventoryTile(world, args)?;
     let slots: Vec<String> = (0..tile.getSizeInventory())
-        .map(|slot| {
-            tile.getStackInSlot(slot).map_or("empty".to_owned(), |stack| {
+        .map(|slot|
+        {
+            tile.getStackInSlot(slot).map_or("empty".to_owned(), |stack|
+            {
                 let components: Vec<String> = stack.m_components.borrow().keys().cloned().collect();
                 format!(
                     "{} {}@{} {components:?}",
@@ -452,7 +482,8 @@ fn tile(world: &World, args: &[String]) -> Result<String, String>
 
 fn entities(world: &World) -> String
 {
-    let describe = |entity: &Rc<game::entity::Entity>| {
+    let describe = |entity: &Rc<game::entity::Entity>|
+    {
         let info = context::entityInfo(entity);
         format!(
             "{} {} {:.1},{:.1},{:.1}",
@@ -476,17 +507,21 @@ fn run(args: &[String]) -> Result<String, String>
         "tp" => return teleport(args),
         "use" => return useItem(args),
         "interact" => return interact(args),
+
         "close" =>
         {
             let name: &String = args.get(1).ok_or(USAGE)?;
             namedPlayer(name)?.closeScreen();
             return Ok(format!("closed {name}'s screen"));
         }
+
         _ =>
         {}
     }
+
     let dimension: i32 = number(args, 1)?;
     let world: Rc<World> = world(dimension)?;
+
     match tool
     {
         "gen" =>
@@ -496,13 +531,16 @@ fn run(args: &[String]) -> Result<String, String>
             let elapsed: f64 = started.elapsed().as_secs_f64() * MILLIS_PER_SECOND;
             Ok(format!("loaded {count} chunks in {elapsed:.0} ms, {:.2} ms each", elapsed / count.max(1) as f64))
         }
+
         "map" =>
         {
             let (x, z, radius): (i32, i32, i32) = (number(args, 2)?, number(args, 3)?, number(args, 4)?);
             generate(&world, x, z, radius + 1);
+
             let path: &String = args.get(5).ok_or(USAGE)?;
             writeMap(&world, x, z, radius, path)
         }
+
         "column" => Ok(column(&world, number(args, 2)?, number(args, 3)?)),
         "slice" => slice(&world, args),
         "fill" => fill(&world, args),
@@ -513,6 +551,7 @@ fn run(args: &[String]) -> Result<String, String>
         "structures" => Ok(crate::structures::summary()),
         "structure" => Ok(structureAt(&world, args)?),
         "locate" => locate(&world, args),
+
         "summon" =>
         {
             let kind: &String = args.get(2).ok_or(USAGE)?;
@@ -522,6 +561,7 @@ fn run(args: &[String]) -> Result<String, String>
             let entity: i32 = crate::entities::spawn(&world, &id, pos, Vec::new())?;
             Ok(format!("summoned {id} as entity {entity}"))
         }
+
         _ => Err(USAGE.to_owned()),
     }
 }
@@ -532,5 +572,6 @@ pub fn execute(args: &[String], sender: &Sender) -> String
     {
         return "\u{a7}cOnly ops and the console use /loader".to_owned();
     }
+
     run(args).unwrap_or_else(|reason| format!("\u{a7}c{reason}"))
 }

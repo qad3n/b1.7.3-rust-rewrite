@@ -11,12 +11,9 @@ pub struct JsonFieldBuilder
 
 impl JsonFieldBuilder
 {
-    pub fn aJsonFieldBuilder() -> JsonFieldBuilder
-    {
-        JsonFieldBuilder { m_keyBuilder: Field::new(None), m_valueBuilder: Field::new(None) }
-    }
+    pub fn aJsonFieldBuilder() -> Self { Self { m_keyBuilder: Field::new(None), m_valueBuilder: Field::new(None) } }
 
-    pub fn withKey(self, keyBuilder: Rc<dyn JsonNodeBuilder>) -> JsonFieldBuilder
+    pub fn withKey(self, keyBuilder: Rc<dyn JsonNodeBuilder>) -> Self
     {
         self.m_keyBuilder.set(Some(keyBuilder));
         self

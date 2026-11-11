@@ -10,9 +10,10 @@ pub struct ClippingHelper
 
 impl ClippingHelper
 {
-    pub fn new() -> ClippingHelper
+    pub fn new() -> Self
     {
-        ClippingHelper {
+        Self
+        {
             m_frustum: RefCell::new([[0.0; 16]; 16]),
             m_projectionMatrix: RefCell::new([0.0; 16]),
             m_modelviewMatrix: RefCell::new([0.0; 16]),
@@ -40,8 +41,10 @@ impl ClippingHelper
             {
                 continue;
             }
+
             return false;
         }
+
         true
     }
 }

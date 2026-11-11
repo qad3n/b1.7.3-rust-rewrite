@@ -20,14 +20,12 @@ pub struct MapItemRenderer
 
 impl MapItemRenderer
 {
-    pub fn new(
-        textRenderer: Rc<FontRenderer>,
-        options: Rc<GameSettings>,
-        textureManager: &RenderEngine,
-    ) -> MapItemRenderer
+    pub fn new(textRenderer: Rc<FontRenderer>, options: Rc<GameSettings>, textureManager: &RenderEngine) -> Self
     {
         let texture: i32 = textureManager.allocateAndSetupTexture(Rc::new(BufferedImage::new(128, 128, 2)));
-        MapItemRenderer {
+
+        Self
+        {
             m_colors: RefCell::new(vec![0; 16384]),
             m_texture: texture,
             m_options: options,
@@ -41,13 +39,16 @@ impl MapItemRenderer
         {
             return (((n + n / 128) & 1) * 8 + 16) << 24;
         }
+
         let index: i32 = by as i32 / 4;
         let mapColors: Rc<game::block::map_color::MapColors> = MapColor::colors();
         if !(0..mapColors.m_mapColorArray.len() as i32).contains(&index)
         {
             jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &index.to_string());
         }
+
         let n2: i32 = mapColors.m_mapColorArray[index as usize].as_ref().orNpe().m_colorValue;
+
         let n4: i32 = match by & 3
         {
             2 => 255,
@@ -57,15 +58,18 @@ impl MapItemRenderer
         let mut n5: i32 = (n2 >> 16 & 0xFF) * n4 / 255;
         let mut n6: i32 = (n2 >> 8 & 0xFF) * n4 / 255;
         let mut n7: i32 = (n2 & 0xFF) * n4 / 255;
+
         if self.m_options.m_anaglyph.get()
         {
             let n8: i32 = (n5 * 30 + n6 * 59 + n7 * 11) / 100;
             let n9: i32 = (n5 * 30 + n6 * 70) / 100;
             let n10: i32 = (n5 * 30 + n7 * 70) / 100;
+
             n5 = n8;
             n6 = n9;
             n7 = n10;
         }
+
         0xFF000000u32 as i32 | n5 << 16 | n6 << 8 | n7
     }
 
@@ -74,20 +78,24 @@ impl MapItemRenderer
         {
             let source: std::cell::Ref<Vec<i8>> = mapData.m_map.m_colors.borrow();
             let mut colors: std::cell::RefMut<Vec<i32>> = self.m_colors.borrow_mut();
+
             for n in 0..16384
             {
                 colors[n as usize] = self.pixelColor(n, source[n as usize]);
             }
         }
         textureManager.bind(&self.m_colors.borrow(), 128, 128, self.m_texture);
+
         let n: i32 = 0;
         let by: i32 = 0;
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let f: f32 = 0.0;
+
         GL11::glBindTexture(3553, self.m_texture);
         GL11::glEnable(3042);
         GL11::glDisable(3008);
         tessellator.startDrawingQuads();
+
         let depth: f64 = -0.01f32 as f64;
         tessellator.addVertexWithUV((n as f32 + f) as f64, ((by + 128) as f32 - f) as f64, depth, 0.0, 1.0);
         tessellator.addVertexWithUV(((n + 128) as f32 - f) as f64, ((by + 128) as f32 - f) as f64, depth, 1.0, 1.0);
@@ -97,6 +105,7 @@ impl MapItemRenderer
         GL11::glEnable(3008);
         GL11::glDisable(3042);
         textureManager.bindTexture(textureManager.getTexture("/misc/mapicons.png"));
+
         for mapCoord in mapData.m_map.m_decorations.borrow().iter()
         {
             GL11::glPushMatrix();
@@ -108,11 +117,13 @@ impl MapItemRenderer
             GL11::glRotatef((mapCoord.m_rotation as i32 * 360) as f32 / 16.0, 0.0, 0.0, 1.0);
             GL11::glScalef(4.0, 4.0, 3.0);
             GL11::glTranslatef(-0.125, 0.125, 0.0);
+
             let kind: i32 = mapCoord.m_type as i32;
             let f2: f64 = ((kind % 4) as f32 / 4.0) as f64;
             let f3: f64 = ((kind / 4) as f32 / 4.0) as f64;
             let f4: f64 = ((kind % 4 + 1) as f32 / 4.0) as f64;
             let f5: f64 = ((kind / 4 + 1) as f32 / 4.0) as f64;
+
             tessellator.startDrawingQuads();
             tessellator.addVertexWithUV(-1.0, 1.0, 0.0, f2, f3);
             tessellator.addVertexWithUV(1.0, 1.0, 0.0, f4, f3);
@@ -121,6 +132,7 @@ impl MapItemRenderer
             tessellator.draw();
             GL11::glPopMatrix();
         }
+
         GL11::glPushMatrix();
         GL11::glTranslatef(0.0, 0.0, -0.04);
         GL11::glScalef(1.0, 1.0, 1.0);

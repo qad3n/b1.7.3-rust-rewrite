@@ -12,15 +12,19 @@ fn onUpdate(this: &Rc<Entity>)
     this.m_motionY.set(this.m_motionY.get() + 0.002);
     entity_fx::moveByMotion(this);
     entity_fx::scaleMotion(this, 0.85f32 as f64);
+
     let material: Rc<Material> =
         this.world().getBlockMaterial(floor_double(this.posX()), floor_double(this.posY()), floor_double(this.posZ()));
+
     if !Rc::ptr_eq(&material, &Material::water())
     {
         this.setEntityDead();
     }
+
     let fields: &FXFields = fx(this);
     let maxAge: i32 = fields.m_particleMaxAge.get();
     fields.m_particleMaxAge.set(maxAge - 1);
+
     if maxAge <= 0
     {
         this.setEntityDead();

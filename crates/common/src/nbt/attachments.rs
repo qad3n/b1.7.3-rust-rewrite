@@ -18,11 +18,13 @@ pub fn readAt(nbt: &NBTTagCompound, key: &str) -> Attachments
     {
         return Attachments::new();
     }
+
     nbt.getCompoundTag(key)
         .compound()
         .getValues()
         .iter()
-        .map(|tag| {
+        .map(|tag|
+        {
             let bytes: Vec<u8> = tag
                 .byteArrayTag()
                 .m_byteArray
@@ -40,10 +42,13 @@ pub fn writeAt(attachments: &Attachments, nbt: &NBTTagCompound, key: &str)
     {
         return;
     }
+
     let compound: Rc<NBTBase> = NBTTagCompound::create();
+
     for (owner, bytes) in attachments
     {
         compound.compound().setByteArray(owner, Rc::new(bytes.iter().map(|byte| *byte as i8).collect()));
     }
+
     nbt.setCompoundTag(key, &compound);
 }

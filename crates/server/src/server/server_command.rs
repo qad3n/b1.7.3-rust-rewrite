@@ -9,8 +9,8 @@ pub struct ServerCommand
 
 impl ServerCommand
 {
-    pub fn new(command: String, source: Rc<dyn ICommandListener>) -> ServerCommand
+    pub fn new(command: String, source: Rc<dyn ICommandListener>) -> Self
     {
-        ServerCommand { m_command: command, m_commandListener: source }
+        Self { m_command: command, m_commandListener: source }
     }
 }

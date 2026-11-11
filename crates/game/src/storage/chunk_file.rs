@@ -15,7 +15,7 @@ pub struct ChunkFile
 
 impl ChunkFile
 {
-    pub fn new(path: &Path) -> ChunkFile
+    pub fn new(path: &Path) -> Self
     {
         let (chunkX, chunkZ): (i32, i32) = match chunkFilePattern(&file::getName(path))
         {
@@ -25,10 +25,10 @@ impl ChunkFile
             ),
             None => (0, 0),
         };
-        ChunkFile { m_file: path.to_path_buf(), m_chunkX: chunkX, m_chunkZ: chunkZ }
+        Self { m_file: path.to_path_buf(), m_chunkX: chunkX, m_chunkZ: chunkZ }
     }
 
-    pub fn compareTo(&self, chunkFile: &ChunkFile) -> i32
+    pub fn compareTo(&self, chunkFile: &Self) -> i32
     {
         let n: i32 = self.m_chunkX >> 5;
         let n2: i32 = chunkFile.m_chunkX >> 5;
@@ -38,6 +38,7 @@ impl ChunkFile
             let n4: i32 = chunkFile.m_chunkZ >> 5;
             return n3 - n4;
         }
+
         n - n2
     }
 

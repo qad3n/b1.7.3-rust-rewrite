@@ -19,7 +19,8 @@ use lwjgl::opengl::{GL11, GL12};
 use std::cell::{Cell, OnceCell};
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static ITEM_RENDERER: OnceCell<Rc<RenderItem>> = const { OnceCell::new() };
 }
 
@@ -47,6 +48,7 @@ pub enum ContainerScreen
         m_xSize_lo: Cell<f32>,
         m_ySize_lo: Cell<f32>,
     },
+
     // a mod container screen, its state belongs to the mod loader glue
     Mod
     {
@@ -68,7 +70,8 @@ pub fn construct(class: &'static GuiScreenClass, menu: Rc<Container>, screen: Co
 {
     GuiScreen::construct(
         class,
-        Box::new(GuiContainer {
+        Box::new(GuiContainer
+        {
             m_xSize: Cell::new(176),
             m_ySize: Cell::new(166),
             m_inventorySlots: menu,
@@ -92,6 +95,7 @@ fn getIsMouseOverSlot(this: &GuiScreen, slot: &Slot, mut mouseX: i32, mut mouseY
     let (i, j): (i32, i32) = origin(this);
     mouseX -= i;
     mouseY -= j;
+
     let (x, y): (i32, i32) = (slot.m_xDisplayPosition.get(), slot.m_yDisplayPosition.get());
     mouseX >= x - 1 && mouseX < x + 16 + 1 && mouseY >= y - 1 && mouseY < y + 16 + 1
 }
@@ -113,6 +117,7 @@ fn hoveredStack(this: &GuiScreen) -> Option<Rc<ItemStack>>
     {
         return None;
     }
+
     getSlotAtPosition(this, x, y).and_then(|slot| slot.getStack())
 }
 
@@ -122,6 +127,7 @@ fn drawSlotInventory(this: &GuiScreen, slot: &Slot)
     let j: i32 = slot.m_yDisplayPosition.get();
     let itemstack: Option<Rc<ItemStack>> = slot.getStack();
     let renderEngine: Rc<RenderEngine> = renderEngine(this);
+
     if itemstack.is_none()
     {
         let k: i32 = slot.getBackgroundIconIndex();
@@ -134,6 +140,7 @@ fn drawSlotInventory(this: &GuiScreen, slot: &Slot)
             return;
         }
     }
+
     let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
     itemRenderer().renderItemIntoGUI(&fontRenderer, &renderEngine, itemstack.as_ref(), i, j);
     itemRenderer().renderItemOverlayIntoGUI(&fontRenderer, &renderEngine, itemstack.as_ref(), i, j);
@@ -142,7 +149,9 @@ fn drawSlotInventory(this: &GuiScreen, slot: &Slot)
 fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
 {
     this.drawDefaultBackground();
+
     let (i, j): (i32, i32) = origin(this);
+
     this.drawGuiContainerBackgroundLayer(tickDelta);
     GL11::glPushMatrix();
     GL11::glRotatef(120.0, 1.0, 0.0, 0.0);
@@ -152,6 +161,7 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
     GL11::glTranslatef(i as f32, j as f32, 0.0);
     GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
     GL11::glEnable(32826);
+
     let mut slot: Option<Rc<Slot>> = None;
     // rewrite: a mod overlay over the container hides the slot under the mouse from hover and tooltip
     let covered: bool = crate::modded::overlayCovered(this, mouseX - i, mouseY - j);
@@ -161,10 +171,12 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
     {
         let slot1: Rc<Slot> = slots.get(k);
         drawSlotInventory(this, &slot1);
+
         if !covered && getIsMouseOverSlot(this, &slot1, mouseX, mouseY)
         {
             GL11::glDisable(2896);
             GL11::glDisable(2929);
+
             let l: i32 = slot1.m_xDisplayPosition.get();
             let i1: i32 = slot1.m_yDisplayPosition.get();
             this.m_gui.drawGradientRect(l, i1, l + 16, i1 + 16, -2130706433, -2130706433);
@@ -172,15 +184,20 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
             GL11::glEnable(2929);
             slot = Some(slot1);
         }
+
         k += 1;
     }
+
     let inventoryplayer: Rc<InventoryPlayer> = entity_player::inventory(&player(this));
+
     GL11::glDisable(32826);
     RenderHelper::disableStandardItemLighting();
     GL11::glDisable(2896);
     GL11::glDisable(2929);
     this.drawGuiContainerForegroundLayer();
+
     let tooltip: Option<Rc<Slot>> = slot.filter(|slot| inventoryplayer.getItemStack().is_none() && slot.getHasStack());
+
     GL11::glPopMatrix();
     (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
     // rewrite: mod overlays draw over the finished screen at the container's corner, under the slot tooltip
@@ -192,6 +209,7 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
     );
     // rewrite: the held stack draws after mod overlays so overlay panels never cover it
     drawHeld(this, &inventoryplayer, mouseX, mouseY);
+
     if let Some(slot) = tooltip
     {
         GL11::glPushMatrix();
@@ -199,6 +217,7 @@ fn drawScreen(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickDelta: f32)
         drawTooltip(this, &slot, mouseX - i, mouseY - j);
         GL11::glPopMatrix();
     }
+
     GL11::glEnable(2896);
     GL11::glEnable(2929);
 }
@@ -242,15 +261,18 @@ fn drawTooltip(this: &GuiScreen, slot: &Slot, x: i32, y: i32)
     {
         return;
     }
+
     // rewrite: mod lines sit under the name spaced as later versions space tooltip lines
     const LINE_SPACING: i32 = 10;
     const NAME_GAP: i32 = 2;
+
     let lines: Vec<String> = crate::modded::tooltipLines(&stack);
     let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
     let k1: i32 = x + 12;
     let l1: i32 = y - 12;
     let j1: i32 =
         lines.iter().map(|line| fontRenderer.getStringWidth(line)).fold(fontRenderer.getStringWidth(&s), i32::max);
+
     let extra: i32 = if lines.is_empty()
     {
         0
@@ -261,6 +283,7 @@ fn drawTooltip(this: &GuiScreen, slot: &Slot, x: i32, y: i32)
     };
     this.m_gui.drawGradientRect(k1 - 3, l1 - 3, k1 + j1 + 3, l1 + 8 + extra + 3, -1073741824, -1073741824);
     fontRenderer.drawStringWithShadow(&s, k1, l1, -1);
+
     for (index, line) in lines.iter().enumerate()
     {
         fontRenderer.drawStringWithShadow(line, k1, l1 + NAME_GAP + (index as i32 + 1) * LINE_SPACING, -1);
@@ -276,25 +299,31 @@ fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
         debug!("A mod overlay took mouse button {button} on {}", this.className());
         return;
     }
+
     (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button);
+
     if button != 0 && button != 1
     {
         return;
     }
+
     let slot: Option<Rc<Slot>> = getSlotAtPosition(this, mouseX, mouseY);
     let (i, j): (i32, i32) = origin(this);
     let container: &GuiContainer = fields(this);
     let flag: bool =
         mouseX < i || mouseY < j || mouseX >= i + container.m_xSize.get() || mouseY >= j + container.m_ySize.get();
     let mut k: i32 = -1;
+
     if let Some(slot) = &slot
     {
         k = slot.m_slotNumber.get();
     }
+
     if flag
     {
         k = -999;
     }
+
     if k != -1
     {
         let flag1: bool = k != -999 && (Keyboard::isKeyDown(42) || Keyboard::isKeyDown(54));
@@ -303,6 +332,7 @@ fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
             if flag1 { " and shift" } else { "" },
             this.className()
         );
+
         let mc: Rc<Minecraft> = this.mc();
         mc.m_playerController.get().orNpe().clickSlot(
             container.m_inventorySlots.m_windowId.get(),
@@ -314,11 +344,13 @@ fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
     }
 }
 
-pub const GUI_CONTAINER: GuiScreenClass = GuiScreenClass {
+pub const GUI_CONTAINER: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiContainer",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         (GUI_SCREEN.initGui)(this);
         entity_player::fields(&player(this)).m_craftingInventory.set(Some(Rc::clone(&fields(this).m_inventorySlots)));
     },
@@ -326,38 +358,48 @@ pub const GUI_CONTAINER: GuiScreenClass = GuiScreenClass {
     drawGuiContainerForegroundLayer: |_| {},
     mouseClicked,
     // rewrite: the mouse wheel reaches mod overlays, vanilla containers ignore it
-    mouseMovedOrUp: |this, mouseX, mouseY, _| {
+    mouseMovedOrUp: |this, mouseX, mouseY, _|
+    {
         let delta: i32 = Mouse::getEventDWheel();
         let (left, top): (i32, i32) = origin(this);
+
         if delta != 0
         {
             crate::modded::overlayScroll(this, mouseX - left, mouseY - top, delta.signum());
         }
     },
-    keyTyped: |this, character, key| {
+
+    keyTyped: |this, character, key|
+    {
         // rewrite: a mod overlay may take the key before the container sees it
         if crate::modded::overlayKey(this, character, key, hoveredStack(this))
         {
             return;
         }
+
         let mc: Rc<Minecraft> = this.mc();
         if key == 1 || key == mc.m_gameSettings.get().orNpe().m_keyBindInventory.m_keyCode.get()
         {
             player(this).closeScreen();
         }
     },
-    onGuiClosed: |this| {
+
+    onGuiClosed: |this|
+    {
         let mc: Rc<Minecraft> = this.mc();
         let Some(player) = mc.m_thePlayer.get()
         else
         {
             return;
         };
+
         mc.m_playerController.get().orNpe().closeMenu(fields(this).m_inventorySlots.m_windowId.get(), &player);
     },
     doesGuiPauseGame: |_| false,
-    updateScreen: |this| {
+    updateScreen: |this|
+    {
         (GUI_SCREEN.updateScreen)(this);
+
         let player: Rc<Entity> = player(this);
         if !player.isEntityAlive() || player.m_isDead.get()
         {
@@ -371,8 +413,10 @@ fn drawBackgroundTexture(this: &GuiScreen, texture: &str)
 {
     let renderEngine: Rc<RenderEngine> = renderEngine(this);
     let n: i32 = renderEngine.getTexture(texture);
+
     GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
     renderEngine.bindTexture(n);
+
     let (n2, n3): (i32, i32) = origin(this);
     let container: &GuiContainer = fields(this);
     this.m_gui.drawTexturedModalRect(n2, n3, 0, 0, container.m_xSize.get(), container.m_ySize.get());
@@ -387,31 +431,39 @@ fn drawTitles(this: &GuiScreen, title: &str, titleX: i32)
 
 pub struct GuiChest;
 
-pub const GUI_CHEST: GuiScreenClass = GuiScreenClass {
+pub const GUI_CHEST: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiChest",
     m_parent: Some(&GUI_CONTAINER),
     m_interfaces: &[],
-    drawGuiContainerForegroundLayer: |this| {
+    drawGuiContainerForegroundLayer: |this|
+    {
         let ContainerScreen::Chest { m_upperChestInventory: upper, m_lowerChestInventory: lower, .. } =
             &fields(this).m_screen
         else
         {
             return;
         };
+
         let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
         fontRenderer.drawString(&lower.getInvName(), 8, 6, 0x404040);
         fontRenderer.drawString(&upper.getInvName(), 8, fields(this).m_ySize.get() - 96 + 2, 0x404040);
     },
-    drawGuiContainerBackgroundLayer: |this, _| {
+
+    drawGuiContainerBackgroundLayer: |this, _|
+    {
         let ContainerScreen::Chest { m_inventoryRows: rows, .. } = &fields(this).m_screen
         else
         {
             return;
         };
+
         let renderEngine: Rc<RenderEngine> = renderEngine(this);
         let n: i32 = renderEngine.getTexture("/gui/container.png");
+
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         renderEngine.bindTexture(n);
+
         let (n2, n3): (i32, i32) = origin(this);
         let xSize: i32 = fields(this).m_xSize.get();
         this.m_gui.drawTexturedModalRect(n2, n3, 0, 0, xSize, rows * 18 + 17);
@@ -427,13 +479,16 @@ impl GuiChest
         let inventory: Rc<dyn IInventory> = inventory.orNpe();
         let menu: Rc<Container> = container_chest::create(Rc::clone(&playerInventory), Rc::clone(&inventory));
         let rows: i32 = inventory.getSizeInventory() / 9;
-        let screen: ContainerScreen = ContainerScreen::Chest {
+
+        let screen: ContainerScreen = ContainerScreen::Chest
+        {
             m_upperChestInventory: playerInventory,
             m_lowerChestInventory: inventory,
             m_inventoryRows: rows,
         };
         let gui: Rc<GuiScreen> = construct(&GUI_CHEST, menu, screen);
         gui.m_passEvents.set(false);
+
         let n: i32 = 222;
         let n2: i32 = n - 108;
         fields(&gui).m_ySize.set(n2 + rows * 18);
@@ -443,15 +498,19 @@ impl GuiChest
 
 pub struct GuiCrafting;
 
-pub const GUI_CRAFTING: GuiScreenClass = GuiScreenClass {
+pub const GUI_CRAFTING: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiCrafting",
     m_parent: Some(&GUI_CONTAINER),
     m_interfaces: &[],
-    onGuiClosed: |this| {
+    onGuiClosed: |this|
+    {
         (GUI_CONTAINER.onGuiClosed)(this);
         fields(this).m_inventorySlots.onCraftGuiClosed(&this.mc().m_thePlayer.get().orNpe());
     },
-    drawGuiContainerForegroundLayer: |this| {
+
+    drawGuiContainerForegroundLayer: |this|
+    {
         let fontRenderer: Rc<FontRenderer> = this.fontRenderer();
         fontRenderer.drawString("Crafting", 28, 6, 0x404040);
         fontRenderer.drawString("Inventory", 8, fields(this).m_ySize.get() - 96 + 2, 0x404040);
@@ -474,24 +533,30 @@ impl GuiCrafting
 
 pub struct GuiFurnace;
 
-pub const GUI_FURNACE: GuiScreenClass = GuiScreenClass {
+pub const GUI_FURNACE: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiFurnace",
     m_parent: Some(&GUI_CONTAINER),
     m_interfaces: &[],
     drawGuiContainerForegroundLayer: |this| drawTitles(this, "Furnace", 60),
-    drawGuiContainerBackgroundLayer: |this, _| {
+    drawGuiContainerBackgroundLayer: |this, _|
+    {
         drawBackgroundTexture(this, "/gui/furnace.png");
+
         let ContainerScreen::Furnace { m_furnaceInventory: furnace } = &fields(this).m_screen
         else
         {
             return;
         };
+
         let (n3, n4): (i32, i32) = origin(this);
+
         if tile_entity_furnace::isBurning(furnace)
         {
             let n: i32 = tile_entity_furnace::getBurnTimeRemainingScaled(furnace, 12);
             this.m_gui.drawTexturedModalRect(n3 + 56, n4 + 36 + 12 - n, 176, 12 - n, 14, n + 2);
         }
+
         let n: i32 = tile_entity_furnace::getCookProgressScaled(furnace, 24);
         this.m_gui.drawTexturedModalRect(n3 + 79, n4 + 34, 176, 14, n + 1, 16);
     },
@@ -510,7 +575,8 @@ impl GuiFurnace
 
 pub struct GuiDispenser;
 
-pub const GUI_DISPENSER: GuiScreenClass = GuiScreenClass {
+pub const GUI_DISPENSER: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiDispenser",
     m_parent: Some(&GUI_CONTAINER),
     m_interfaces: &[],
@@ -534,19 +600,24 @@ pub struct GuiInventory;
 fn drawInventoryBackground(this: &Rc<GuiScreen>, _tickDelta: f32)
 {
     drawBackgroundTexture(this, "/gui/inventory.png");
+
     let ContainerScreen::Inventory { m_xSize_lo: xSizeLo, m_ySize_lo: ySizeLo } = &fields(this).m_screen
     else
     {
         return;
     };
+
     let (n2, n3): (i32, i32) = origin(this);
+
     GL11::glEnable(32826);
     GL11::glEnable(2903);
     GL11::glPushMatrix();
     GL11::glTranslatef((n2 + 51) as f32, (n3 + 75) as f32, 50.0);
+
     let f: f32 = 30.0;
     GL11::glScalef(-f, f, f);
     GL11::glRotatef(180.0, 0.0, 0.0, 1.0);
+
     let player: Rc<Entity> = player(this);
     let living: &game::entity::entity_living::LivingFields = game::entity::entity_living::fields(&player);
     let f2: f32 = living.m_renderYawOffset.get();
@@ -555,6 +626,7 @@ fn drawInventoryBackground(this: &Rc<GuiScreen>, _tickDelta: f32)
     let f5: f32 = (n2 + 51) as f32 - xSizeLo.get();
     let f6: f32 = (n3 + 75 - 50) as f32 - ySizeLo.get();
     let atan = |value: f32| jvm::math::atan(value as f64) as f32;
+
     GL11::glRotatef(135.0, 0.0, 1.0, 0.0);
     RenderHelper::enableStandardItemLighting();
     GL11::glRotatef(-135.0, 0.0, 1.0, 0.0);
@@ -575,14 +647,17 @@ fn drawInventoryBackground(this: &Rc<GuiScreen>, _tickDelta: f32)
     GL11::glDisable(32826);
 }
 
-pub const GUI_INVENTORY: GuiScreenClass = GuiScreenClass {
+pub const GUI_INVENTORY: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiInventory",
     m_parent: Some(&GUI_CONTAINER),
     m_interfaces: &[],
     initGui: |this| this.m_controlList.clear(),
     drawGuiContainerForegroundLayer: |this| this.fontRenderer().drawString("Crafting", 86, 16, 0x404040),
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         (GUI_CONTAINER.drawScreen)(this, mouseX, mouseY, tickDelta);
+
         if let ContainerScreen::Inventory { m_xSize_lo: xSizeLo, m_ySize_lo: ySizeLo } = &fields(this).m_screen
         {
             xSizeLo.set(mouseX as f32);
@@ -590,12 +665,15 @@ pub const GUI_INVENTORY: GuiScreenClass = GuiScreenClass {
         }
     },
     drawGuiContainerBackgroundLayer: drawInventoryBackground,
-    actionPerformed: |this, button| {
+    actionPerformed: |this, button|
+    {
         let mc: Rc<Minecraft> = this.mc();
+
         if button.m_id.get() == 0
         {
             mc.displayGuiScreen(Some(crate::gui::GuiAchievements::new(mc.m_statFileWriter.get().orNpe())));
         }
+
         if button.m_id.get() == 1
         {
             mc.displayGuiScreen(Some(crate::gui::GuiStats::new(this.rc(), mc.m_statFileWriter.get().orNpe())));

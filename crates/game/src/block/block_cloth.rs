@@ -7,11 +7,13 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, _face: i32, metadata: i3
     {
         return this.m_blockIndexInTexture.get();
     }
+
     let metadata: i32 = !(metadata & 0xF);
     113 + ((metadata & 8) >> 3) + (metadata & 7) * 16
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockCloth",
     m_parent: Some(&BLOCK),
     getBlockTextureFromSideAndMetadata,

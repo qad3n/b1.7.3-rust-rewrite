@@ -1,7 +1,8 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockOreStorage",
     m_parent: Some(&BLOCK),
     getBlockTextureFromSide: |this, _| this.m_blockIndexInTexture.get(),

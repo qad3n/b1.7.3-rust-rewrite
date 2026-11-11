@@ -7,7 +7,8 @@ use jvm::array_list::{JArrayList, ListIterator};
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static MOVED_ENTITIES: JArrayList<Rc<Entity>> = JArrayList::new();
 }
 
@@ -39,6 +40,7 @@ pub fn getProgress(this: &TileEntity, mut tickDelta: f32) -> f32
     {
         tickDelta = 1.0;
     }
+
     let state: &PistonExt = piston(this);
     state.m_lastProgress.get() + (state.m_progress.get() - state.m_lastProgress.get()) * tickDelta
 }
@@ -46,10 +48,12 @@ pub fn getProgress(this: &TileEntity, mut tickDelta: f32) -> f32
 fn renderOffset(this: &TileEntity, tickDelta: f32, offset: &[i32; 6]) -> f32
 {
     let facing: usize = getFacing(this) as usize;
+
     if isExtending(this)
     {
         return (getProgress(this, tickDelta) - 1.0) * offset[facing] as f32;
     }
+
     (1.0 - getProgress(this, tickDelta)) * offset[facing] as f32
 }
 
@@ -91,8 +95,11 @@ fn moveEntities(this: &TileEntity, mut progress: f32, amount: f32)
     {
         return;
     }
-    MOVED_ENTITIES.with(|movedEntities| {
+
+    MOVED_ENTITIES.with(|movedEntities|
+    {
         movedEntities.addAll(&list.toVec());
+
         let mut iterator: ListIterator = movedEntities.iterator();
         while iterator.hasNext(movedEntities)
         {
@@ -103,6 +110,7 @@ fn moveEntities(this: &TileEntity, mut progress: f32, amount: f32)
                 (amount * Z_OFFSET[facing] as f32) as f64,
             );
         }
+
         movedEntities.clear();
     });
 }
@@ -112,6 +120,7 @@ fn settle(this: &Rc<TileEntity>)
     let world: Rc<World> = this.world();
     world.removeBlockTileEntity(this.m_xCoord.get(), this.m_yCoord.get(), this.m_zCoord.get());
     this.markRemoved();
+
     if world.getBlockId(this.m_xCoord.get(), this.m_yCoord.get(), this.m_zCoord.get()) == Block::PISTON_MOVING
     {
         world.setBlockAndMetadataWithNotify(
@@ -139,41 +148,52 @@ fn updateEntity(this: &Rc<TileEntity>)
 {
     let state: &PistonExt = piston(this);
     state.m_lastProgress.set(state.m_progress.get());
+
     if state.m_lastProgress.get() >= 1.0
     {
         moveEntities(this, 1.0, 0.25);
         settle(this);
         return;
     }
+
     state.m_progress.set(state.m_progress.get() + 0.5);
+
     if state.m_progress.get() >= 1.0
     {
         state.m_progress.set(1.0);
     }
+
     if state.m_extending.get()
     {
         moveEntities(this, state.m_progress.get(), state.m_progress.get() - state.m_lastProgress.get() + 0.0625);
     }
 }
 
-pub const CLASS: TileEntityClass = TileEntityClass {
+pub const CLASS: TileEntityClass = TileEntityClass
+{
     m_name: "TileEntityPiston",
     m_parent: Some(&TILE_ENTITY),
     getBlockMetadata: |this| piston(this).m_storedMetadata.get(),
     updateEntity,
-    readFromNBT: |this, nbt| {
+    readFromNBT: |this, nbt|
+    {
         (TILE_ENTITY.readFromNBT)(this, nbt);
+
         let state: &PistonExt = piston(this);
         state.m_storedBlockID.set(nbt.getInteger("blockId"));
         state.m_storedMetadata.set(nbt.getInteger("blockData"));
         state.m_facing.set(nbt.getInteger("facing"));
+
         let progress: f32 = nbt.getFloat("progress");
         state.m_progress.set(progress);
         state.m_lastProgress.set(progress);
         state.m_extending.set(nbt.getBoolean("extending"));
     },
-    writeToNBT: |this, nbt| {
+
+    writeToNBT: |this, nbt|
+    {
         (TILE_ENTITY.writeToNBT)(this, nbt);
+
         let state: &PistonExt = piston(this);
         nbt.setInteger("blockId", state.m_storedBlockID.get());
         nbt.setInteger("blockData", state.m_storedMetadata.get());
@@ -188,7 +208,8 @@ pub fn createEmpty() -> Rc<TileEntity> { TileEntity::new(&CLASS, Box::new(Piston
 
 pub fn create(movedBlock: i32, movedMetadata: i32, facing: i32, extending: bool, source: bool) -> Rc<TileEntity>
 {
-    let ext: PistonExt = PistonExt {
+    let ext: PistonExt = PistonExt
+    {
         m_storedBlockID: Cell::new(movedBlock),
         m_storedMetadata: Cell::new(movedMetadata),
         m_facing: Cell::new(facing),

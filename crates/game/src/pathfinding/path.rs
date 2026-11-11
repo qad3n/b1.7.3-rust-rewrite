@@ -10,7 +10,7 @@ pub struct Path
 
 impl Path
 {
-    pub fn new() -> Path { Path { m_pathPoints: RefCell::new(vec![None; 1024]), m_count: Cell::new(0) } }
+    pub fn new() -> Self { Self { m_pathPoints: RefCell::new(vec![None; 1024]), m_count: Cell::new(0) } }
 
     fn point(&self, index: i32) -> Rc<PathPoint>
     {
@@ -49,9 +49,11 @@ impl Path
         let pathPoint: Rc<PathPoint> = self.point(0);
         let count: i32 = self.m_count.get() - 1;
         self.m_count.set(count);
+
         let last: Option<Rc<PathPoint>> = self.m_pathPoints.borrow()[count as usize].clone();
         self.store(0, last);
         self.store(count, None);
+
         if count > 0
         {
             self.sortForward(0);
@@ -64,7 +66,9 @@ impl Path
     pub fn changeDistance(&self, node: &PathPoint, weight: f32)
     {
         let f: f32 = node.m_distanceToTarget.get();
+
         node.m_distanceToTarget.set(weight);
+
         if weight < f
         {
             self.sortBack(node.m_index.get());
@@ -79,6 +83,7 @@ impl Path
     {
         let pathPoint: Rc<PathPoint> = self.point(index);
         let f: f32 = pathPoint.m_distanceToTarget.get();
+
         while index > 0
         {
             let n: i32 = (index - 1) >> 1;
@@ -87,6 +92,7 @@ impl Path
             {
                 break;
             }
+
             pathPoint2.m_index.set(index);
             self.store(index, Some(pathPoint2));
             index = n;
@@ -100,16 +106,20 @@ impl Path
     {
         let pathPoint: Rc<PathPoint> = self.point(index);
         let f: f32 = pathPoint.m_distanceToTarget.get();
+
         loop
         {
             let n: i32 = 1 + (index << 1);
             let n2: i32 = n + 1;
+
             if n >= self.m_count.get()
             {
                 break;
             }
+
             let pathPoint3: Rc<PathPoint> = self.point(n);
             let f3: f32 = pathPoint3.m_distanceToTarget.get();
+
             let (pathPoint2, f2): (Option<Rc<PathPoint>>, f32) = if n2 >= self.m_count.get()
             {
                 (None, f32::INFINITY)
@@ -120,21 +130,25 @@ impl Path
                 let f2: f32 = pathPoint2.m_distanceToTarget.get();
                 (Some(pathPoint2), f2)
             };
+
             if f3 < f2
             {
                 if !(f3 < f)
                 {
                     break;
                 }
+
                 pathPoint3.m_index.set(index);
                 self.store(index, Some(pathPoint3));
                 index = n;
                 continue;
             }
+
             if !(f2 < f)
             {
                 break;
             }
+
             let pathPoint2: Rc<PathPoint> = pathPoint2.unwrap_or_else(|| jvm::throwable::npe());
             pathPoint2.m_index.set(index);
             self.store(index, Some(pathPoint2));

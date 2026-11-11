@@ -19,30 +19,28 @@ pub struct ItemStack
 
 impl ItemStack
 {
-    pub fn withBlock(block: &Block) -> Rc<ItemStack> { ItemStack::withBlockCount(block, 1) }
+    pub fn withBlock(block: &Block) -> Rc<Self> { Self::withBlockCount(block, 1) }
 
-    pub fn withBlockCount(block: &Block, size: i32) -> Rc<ItemStack> { ItemStack::withDamage(block.m_blockID, size, 0) }
+    pub fn withBlockCount(block: &Block, size: i32) -> Rc<Self> { Self::withDamage(block.m_blockID, size, 0) }
 
-    pub fn withBlockDamage(block: &Block, size: i32, metadata: i32) -> Rc<ItemStack>
+    pub fn withBlockDamage(block: &Block, size: i32, metadata: i32) -> Rc<Self>
     {
-        ItemStack::withDamage(block.m_blockID, size, metadata)
+        Self::withDamage(block.m_blockID, size, metadata)
     }
 
-    pub fn withItem(item: &Item) -> Rc<ItemStack> { ItemStack::withDamage(item.m_shiftedIndex, 1, 0) }
+    pub fn withItem(item: &Item) -> Rc<Self> { Self::withDamage(item.m_shiftedIndex, 1, 0) }
 
-    pub fn withItemCount(item: &Item, size: i32) -> Rc<ItemStack>
+    pub fn withItemCount(item: &Item, size: i32) -> Rc<Self> { Self::withDamage(item.m_shiftedIndex, size, 0) }
+
+    pub fn withItemDamage(item: &Item, size: i32, metadata: i32) -> Rc<Self>
     {
-        ItemStack::withDamage(item.m_shiftedIndex, size, 0)
+        Self::withDamage(item.m_shiftedIndex, size, metadata)
     }
 
-    pub fn withItemDamage(item: &Item, size: i32, metadata: i32) -> Rc<ItemStack>
+    pub fn withDamage(id: i32, size: i32, metadata: i32) -> Rc<Self>
     {
-        ItemStack::withDamage(item.m_shiftedIndex, size, metadata)
-    }
-
-    pub fn withDamage(id: i32, size: i32, metadata: i32) -> Rc<ItemStack>
-    {
-        Rc::new(ItemStack {
+        Rc::new(Self
+        {
             m_stackSize: Cell::new(size),
             m_animationsToGo: Cell::new(0),
             m_itemID: Cell::new(id),
@@ -51,17 +49,17 @@ impl ItemStack
         })
     }
 
-    pub fn withNbt(nbt: &NBTTagCompound) -> Rc<ItemStack>
+    pub fn withNbt(nbt: &NBTTagCompound) -> Rc<Self>
     {
-        let stack: Rc<ItemStack> = ItemStack::withDamage(0, 0, 0);
+        let stack: Rc<Self> = Self::withDamage(0, 0, 0);
         stack.readFromNBT(nbt);
         stack
     }
 
-    pub fn splitStack(&self, amount: i32) -> Rc<ItemStack>
+    pub fn splitStack(&self, amount: i32) -> Rc<Self>
     {
         self.m_stackSize.set(self.m_stackSize.get() - amount);
-        self.withComponents(ItemStack::withDamage(self.m_itemID.get(), amount, self.m_itemDamage.get()))
+        self.withComponents(Self::withDamage(self.m_itemID.get(), amount, self.m_itemDamage.get()))
     }
 
     pub fn getItem(&self) -> Rc<Item> { Item::byIdOrNpe(self.m_itemID.get()) }
@@ -74,29 +72,33 @@ impl ItemStack
     pub fn useItem(self: &Rc<Self>, player: &Rc<Entity>, world: &Rc<World>, x: i32, y: i32, z: i32, face: i32) -> bool
     {
         // mods may take the use before the item does, a canceled use counts as used so the right click stops here
-        if world.playerEdit(|| {
+        if world.playerEdit(||
+        {
             crate::hooks::fire(crate::hooks::GameEvent::ItemUseOnBlock { world, player, stack: self, x, y, z, face })
         })
         {
             return true;
         }
+
         let bl: bool = world.playerEdit(|| self.getItem().onItemUse(self, player, world, x, y, z, face));
         if bl
         {
             crate::stats::named::count(player, ContentStat::Used, self.m_itemID.get(), 1);
         }
+
         bl
     }
 
     pub fn getStrVsBlock(self: &Rc<Self>, block: &Rc<Block>) -> f32 { self.getItem().getStrVsBlock(self, block) }
 
-    pub fn useItemRightClick(self: &Rc<Self>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<ItemStack>>
+    pub fn useItemRightClick(self: &Rc<Self>, world: &Rc<World>, player: &Rc<Entity>) -> Option<Rc<Self>>
     {
         // mods may take the right click before the item does
         if world.playerEdit(|| crate::hooks::fire(crate::hooks::GameEvent::ItemUse { world, player, stack: self }))
         {
             return Some(Rc::clone(self));
         }
+
         world.playerEdit(|| self.getItem().onItemRightClick(self, world, player))
     }
 
@@ -116,6 +118,7 @@ impl ItemStack
         self.m_itemID.set(nbt.getShort("id") as i32);
         self.m_stackSize.set(nbt.getByte("Count") as i32);
         self.m_itemDamage.set(nbt.getShort("Damage") as i32);
+
         // rewrite: a saved name wins over the numeric id, which only a vanilla game or an unknown item falls back to
         if let Some(id) = crate::hooks::itemByName(nbt)
         {
@@ -154,22 +157,28 @@ impl ItemStack
         {
             crate::hooks::fire(crate::hooks::GameEvent::ItemDestroyed { player: holder, stack: self });
         }
+
         if !self.isItemStackDamageable()
         {
             return;
         }
+
         self.m_itemDamage.set(self.m_itemDamage.get() + amount);
+
         if self.m_itemDamage.get() > self.getMaxDamage()
         {
             if holder.instanceOf("EntityPlayer")
             {
                 crate::stats::named::count(holder, ContentStat::Broken, self.m_itemID.get(), 1);
             }
+
             self.m_stackSize.set(self.m_stackSize.get() - 1);
+
             if self.m_stackSize.get() < 0
             {
                 self.m_stackSize.set(0);
             }
+
             self.m_itemDamage.set(0);
         }
     }
@@ -200,24 +209,21 @@ impl ItemStack
 
     pub fn useItemOnEntity(self: &Rc<Self>, entity: &Rc<Entity>) { self.getItem().saddleEntity(self, entity); }
 
-    pub fn copy(&self) -> Rc<ItemStack>
+    pub fn copy(&self) -> Rc<Self>
     {
-        self.withComponents(ItemStack::withDamage(self.m_itemID.get(), self.m_stackSize.get(), self.m_itemDamage.get()))
+        self.withComponents(Self::withDamage(self.m_itemID.get(), self.m_stackSize.get(), self.m_itemDamage.get()))
     }
 
-    fn withComponents(&self, stack: Rc<ItemStack>) -> Rc<ItemStack>
+    fn withComponents(&self, stack: Rc<Self>) -> Rc<Self>
     {
         stack.m_components.borrow_mut().clone_from(&self.m_components.borrow());
         stack
     }
 
     // rewrite: stacks with different mod components never merge or compare equal
-    pub fn sameComponents(&self, other: &ItemStack) -> bool
-    {
-        *self.m_components.borrow() == *other.m_components.borrow()
-    }
+    pub fn sameComponents(&self, other: &Self) -> bool { *self.m_components.borrow() == *other.m_components.borrow() }
 
-    pub fn areItemStacksEqual(stack1: Option<&Rc<ItemStack>>, stack2: Option<&Rc<ItemStack>>) -> bool
+    pub fn areItemStacksEqual(stack1: Option<&Rc<Self>>, stack2: Option<&Rc<Self>>) -> bool
     {
         match (stack1, stack2)
         {
@@ -227,7 +233,7 @@ impl ItemStack
         }
     }
 
-    fn isItemStackEqual(&self, other: &ItemStack) -> bool
+    fn isItemStackEqual(&self, other: &Self) -> bool
     {
         if self.m_stackSize.get() != other.m_stackSize.get()
         {
@@ -237,10 +243,11 @@ impl ItemStack
         {
             return false;
         }
+
         self.m_itemDamage.get() == other.m_itemDamage.get() && self.sameComponents(other)
     }
 
-    pub fn isItemEqual(&self, other: &ItemStack) -> bool
+    pub fn isItemEqual(&self, other: &Self) -> bool
     {
         self.m_itemID.get() == other.m_itemID.get()
             && self.m_itemDamage.get() == other.m_itemDamage.get()
@@ -249,7 +256,7 @@ impl ItemStack
 
     pub fn getItemName(self: &Rc<Self>) -> Option<String> { self.getItem().getItemNameIS(self) }
 
-    pub fn copyItemStack(stack: Option<&Rc<ItemStack>>) -> Option<Rc<ItemStack>> { stack.map(|stack| stack.copy()) }
+    pub fn copyItemStack(stack: Option<&Rc<Self>>) -> Option<Rc<Self>> { stack.map(|stack| stack.copy()) }
 
     pub fn toString(&self) -> String
     {
@@ -263,6 +270,7 @@ impl ItemStack
         {
             self.m_animationsToGo.set(self.m_animationsToGo.get() - 1);
         }
+
         self.getItem().onUpdate(self, world, entity, slot, selected);
     }
 
@@ -272,7 +280,7 @@ impl ItemStack
         self.getItem().onCreated(self, world, player);
     }
 
-    pub fn isStackEqual(&self, other: &ItemStack) -> bool
+    pub fn isStackEqual(&self, other: &Self) -> bool
     {
         self.m_itemID.get() == other.m_itemID.get()
             && self.m_stackSize.get() == other.m_stackSize.get()

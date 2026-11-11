@@ -38,11 +38,13 @@ pub const BLOCK_TEMPLATES: [BlockTemplate; 31] = [
     BlockTemplate { m_name: "dirt", m_create: |id, sprite, _| blocks::block_dirt::create(id, sprite) },
     BlockTemplate { m_name: "sand", m_create: |id, sprite, _| blocks::block_sand::create(id, sprite) },
     BlockTemplate { m_name: "gravel", m_create: |id, sprite, _| blocks::block_gravel::create(id, sprite) },
-    BlockTemplate {
+    BlockTemplate
+    {
         m_name: "glass",
         m_create: |id, sprite, _| blocks::block_glass::create(id, sprite, Material::glass(), false),
     },
-    BlockTemplate {
+    BlockTemplate
+    {
         m_name: "glowstone",
         m_create: |id, sprite, material| blocks::block_glow_stone::create(id, sprite, material),
     },
@@ -60,7 +62,8 @@ pub const BLOCK_TEMPLATES: [BlockTemplate; 31] = [
     BlockTemplate { m_name: "cactus", m_create: |id, sprite, _| blocks::block_cactus::create(id, sprite) },
     BlockTemplate { m_name: "stone_button", m_create: |id, sprite, _| blocks::block_button::create(id, sprite) },
     BlockTemplate { m_name: "lever", m_create: |id, sprite, _| blocks::block_lever::create(id, sprite) },
-    BlockTemplate {
+    BlockTemplate
+    {
         m_name: "stone_pressure_plate",
         m_create: |id, sprite, _| blocks::block_pressure_plate::create(id, sprite, EnumMobType::Mobs, Material::rock()),
     },
@@ -110,9 +113,11 @@ fn armorSlot(spec: &ItemSpec) -> i32
 
 pub const ITEM_TEMPLATES: [ItemTemplate; 12] = [
     ItemTemplate { m_name: "stick", m_create: |id, _| Item::basic(id) },
-    ItemTemplate {
+    ItemTemplate
+    {
         m_name: "apple",
-        m_create: |id, spec| {
+        m_create: |id, spec|
+        {
             let food: Option<&FoodSpec> = spec.food.as_ref();
             items::item_food::create(id, food.map_or(4, |food| food.heal))
         },
@@ -125,7 +130,8 @@ pub const ITEM_TEMPLATES: [ItemTemplate; 12] = [
     ItemTemplate { m_name: "snowball", m_create: |id, _| items::item_snowball::create(id) },
     ItemTemplate { m_name: "shears", m_create: |id, _| items::item_shears::create(id) },
     ItemTemplate { m_name: "iron_helmet", m_create: |id, spec| items::item_armor::create(id, 2, 2, armorSlot(spec)) },
-    ItemTemplate {
+    ItemTemplate
+    {
         m_name: "record_13",
         m_create: |id, spec| items::item_record::create(id, spec.record.as_ref().map_or("13", |record| &record.sound)),
     },
@@ -148,6 +154,7 @@ pub fn defaultItemTemplate(spec: &ItemSpec) -> &'static str
             ToolClass::Shears => "shears",
         };
     }
+
     if spec.food.is_some()
     {
         return "apple";
@@ -160,6 +167,7 @@ pub fn defaultItemTemplate(spec: &ItemSpec) -> &'static str
     {
         return "record_13";
     }
+
     "stick"
 }
 

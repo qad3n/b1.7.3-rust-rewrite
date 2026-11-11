@@ -13,10 +13,7 @@ pub struct WorldGenMinable
 
 impl WorldGenMinable
 {
-    pub fn new(block: i32, size: i32) -> WorldGenMinable
-    {
-        WorldGenMinable { m_minableBlockId: block, m_numberOfBlocks: size }
-    }
+    pub fn new(block: i32, size: i32) -> Self { Self { m_minableBlockId: block, m_numberOfBlocks: size } }
 }
 
 impl WorldGenerator for WorldGenMinable
@@ -31,6 +28,7 @@ impl WorldGenerator for WorldGenMinable
         let d3: f64 = ((z + 8) as f32 - math_helper::cos(f) * size as f32 / 8.0f32) as f64;
         let d4: f64 = (y + random.nextIntBounded(3) + 2) as f64;
         let d5: f64 = (y + random.nextIntBounded(3) + 2) as f64;
+
         for i in 0..=size
         {
             let d6: f64 = d0 + (d1 - d0) * i as f64 / size as f64;
@@ -45,6 +43,7 @@ impl WorldGenerator for WorldGenMinable
             let i1: i32 = math_helper::floor_double(d6 + d10 / 2.0);
             let j1: i32 = math_helper::floor_double(d7 + d11 / 2.0);
             let k1: i32 = math_helper::floor_double(d8 + d10 / 2.0);
+
             for l1 in j..=i1
             {
                 let d12: f64 = (l1 as f64 + 0.5 - d6) / (d10 / 2.0);
@@ -69,6 +68,7 @@ impl WorldGenerator for WorldGenMinable
                 }
             }
         }
+
         true
     }
 }

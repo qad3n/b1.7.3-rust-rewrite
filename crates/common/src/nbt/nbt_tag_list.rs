@@ -32,18 +32,23 @@ impl NBTTagList
 
         output.writeByte(self.m_tagType.get() as i32)?;
         output.writeInt(tags.len() as i32)?;
+
         for tag in &tags
         {
             tag.writeTagContents(output)?;
         }
+
         Ok(())
     }
 
     pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>) -> IoResult<()>
     {
         self.m_tagType.set(input.readByte()?);
+
         let i: i32 = input.readInt()?;
+
         self.m_tagList.set(Vec::new());
+
         for _ in 0..i
         {
             let nbtbase: Rc<NBTBase> = match NBTBase::createTagOfType(self.m_tagType.get())
@@ -54,6 +59,7 @@ impl NBTTagList
             nbtbase.readTagContents(input)?;
             self.m_tagList.update(|list| list.push(nbtbase));
         }
+
         Ok(())
     }
 
@@ -75,10 +81,12 @@ impl NBTTagList
         {
             throwable::throw(&throwable::INDEX_OUT_OF_BOUNDS, &format!("Index: {index}, Size: {size}"));
         }
+
         if index < 0
         {
             throwable::throw(&throwable::ARRAY_INDEX, &index.to_string());
         }
+
         self.m_tagList.with(|list| Rc::clone(&list[index as usize]))
     }
 

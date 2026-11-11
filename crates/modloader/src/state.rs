@@ -3,6 +3,7 @@ use crate::discovery::Source;
 use crate::manifest::Manifest;
 use crate::resolver::Problem;
 use crate::wasm::ModInstance;
+use mod_protocol::Identifier;
 use mod_protocol::abi::{GuestCall, GuestReply};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -37,9 +38,10 @@ impl ModRuntime
         sha256: String,
         source: Source,
         config: ModConfig,
-    ) -> ModRuntime
+    ) -> Self
     {
-        ModRuntime {
+        Self
+        {
             m_index: index,
             m_manifest: manifest,
             m_file: file,
@@ -74,6 +76,7 @@ impl ModRuntime
         {
             return None;
         }
+
         let instance: &ModInstance = self.m_instance.as_ref()?;
         match instance.call(call)
         {
@@ -82,7 +85,9 @@ impl ModRuntime
                 crate::log::warn(self.id(), &reason);
                 None
             }
+
             Ok(reply) => Some(reply),
+
             Err(reason) =>
             {
                 self.fail(reason);
@@ -90,9 +95,25 @@ impl ModRuntime
             }
         }
     }
+
+    pub(crate) fn own(&self, name: &str) -> Result<Identifier, String>
+    {
+        Identifier::parseIn(name, self.id()).map_err(|error| error.to_string()).and_then(|id|
+        {
+            if id.namespace() == self.id()
+            {
+                Ok(id)
+            }
+            else
+            {
+                Err(format!("{id} is outside the namespace {}", self.id()))
+            }
+        })
+    }
 }
 
-thread_local! {
+thread_local!
+{
     static MODS: RefCell<Vec<Rc<ModRuntime>>> = const { RefCell::new(Vec::new()) };
     static PHASE: Cell<Phase> = const { Cell::new(Phase::Bootstrap) };
     static PROBLEMS: RefCell<Vec<Problem>> = const { RefCell::new(Vec::new()) };
@@ -132,8 +153,10 @@ pub fn setPhase(phase: Phase) { PHASE.with(|slot| slot.set(phase)); }
 
 pub fn problem(modId: &str, file: &str, reason: &str)
 {
-    PROBLEMS.with(|list| {
-        list.borrow_mut().push(Problem {
+    PROBLEMS.with(|list|
+    {
+        list.borrow_mut().push(Problem
+        {
             m_mod: modId.to_owned(),
             m_file: file.to_owned(),
             m_reason: reason.to_owned(),

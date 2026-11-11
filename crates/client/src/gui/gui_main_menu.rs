@@ -8,14 +8,15 @@ use game::locale::StringTranslate;
 use game::math::math_helper;
 use game::port::text;
 use jvm::field::Field;
-use jvm::io::InputStream;
+use jvm::io::{FileInputStream, InputStream};
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static RAND: Random = Random::new();
 }
 
@@ -30,8 +31,9 @@ fn fields(this: &GuiScreen) -> &MainMenuExt { this.ext::<MainMenuExt>() }
 
 fn readSplashes() -> Option<Vec<String>>
 {
-    let mut stream = assets::getResourceAsStream("/title/splashes.txt")?;
+    let mut stream: FileInputStream = assets::getResourceAsStream("/title/splashes.txt")?;
     let mut bytes: Vec<u8> = Vec::new();
+
     loop
     {
         let value: i32 = stream.read().ok()?;
@@ -39,8 +41,10 @@ fn readSplashes() -> Option<Vec<String>>
         {
             break;
         }
+
         bytes.push(value as u8);
     }
+
     let text: String = String::from_utf8_lossy(&bytes).into_owned();
     // port readLines and trimStr give java BufferedReader.readLine and String.trim
     Some(
@@ -60,13 +64,15 @@ const HOLIDAY_SPLASHES: [(i32, i32, &str); 4] = [
     (1, 1, "Happy new year!"),
 ];
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiMainMenu",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
     updateScreen: |this| fields(this).m_updateCounter.set(fields(this).m_updateCounter.get() + 1.0),
     keyTyped: |_, _, _| {},
-    initGui: |this| {
+    initGui: |this|
+    {
         let ext: &MainMenuExt = fields(this);
         // port dateFields stands in for java Calendar fields in local time
         let date: DateFields = dateFields(jvm::system::currentTimeMillis());
@@ -75,15 +81,18 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         {
             ext.m_splashText.set(splash.to_string());
         }
+
         let stringtranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         let i: i32 = this.m_height.get() / 4 + 48;
         let x: i32 = this.m_width.get() / 2 - 100;
         this.m_controlList.add(GuiButton::new(1, x, i, &stringtranslate.translateKey("menu.singleplayer")));
+
         let multiplayerButton: Rc<GuiButton> =
             GuiButton::new(2, x, i + 24, &stringtranslate.translateKey("menu.multiplayer"));
         ext.m_multiplayerButton.set(Some(Rc::clone(&multiplayerButton)));
         this.m_controlList.add(multiplayerButton);
         this.m_controlList.add(GuiButton::new(3, x, i + 48, &stringtranslate.translateKey("menu.mods")));
+
         let mc: Rc<Minecraft> = this.mc();
         if mc.m_hideQuitButton.get()
         {
@@ -108,14 +117,18 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 &stringtranslate.translateKey("menu.quit"),
             ));
         }
+
         if mc.m_session.get().is_none()
         {
             ext.m_multiplayerButton.get().orNpe().m_enabled.set(false);
         }
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         let mc: Rc<Minecraft> = this.mc();
         let parent: Rc<GuiScreen> = this.rc();
+
         match button.m_id.get()
         {
             0 => mc.displayGuiScreen(Some(GuiOptions::new(&parent, &mc.m_gameSettings.get().orNpe()))),
@@ -127,8 +140,11 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             {}
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         this.drawDefaultBackground();
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let short1: i32 = 274;
         let i: i32 = this.m_width.get() / 2 - short1 / 2;
@@ -142,6 +158,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         GL11::glPushMatrix();
         GL11::glTranslatef((this.m_width.get() / 2 + 90) as f32, 70.0, 0.0);
         GL11::glRotatef(-20.0, 0.0, 0.0, 1.0);
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         let splashText: String = fields(this).m_splashText.get();
         let phase: f32 = (jvm::system::currentTimeMillis() % 1000) as f32 / 1000.0 * std::f64::consts::PI as f32 * 2.0;
@@ -151,6 +168,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         this.m_gui.drawCenteredString(&font, &splashText, 0, -8, 16776960);
         GL11::glPopMatrix();
         this.m_gui.drawString(&font, "Minecraft Beta 1.7.3", 2, 2, 5263440);
+
         let s: &str = "Copyright Mojang AB. Do not distribute.";
         this.m_gui.drawString(
             &font,
@@ -172,17 +190,20 @@ impl GuiMainMenu
 {
     pub fn new() -> Rc<GuiScreen>
     {
-        let ext: MainMenuExt = MainMenuExt {
+        let ext: MainMenuExt = MainMenuExt
+        {
             m_updateCounter: Cell::new(0.0),
             m_splashText: Field::new("missingno".to_string()),
             m_multiplayerButton: Field::new(None),
         };
+
         if let Some(splashes) = readSplashes()
             && !splashes.is_empty()
         {
             let index: i32 = RAND.with(|rand| rand.nextIntBounded(splashes.len() as i32));
             ext.m_splashText.set(splashes[index as usize].clone());
         }
+
         GuiScreen::construct(&CLASS, Box::new(ext))
     }
 }

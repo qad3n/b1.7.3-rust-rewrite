@@ -11,11 +11,13 @@ fn saddleEntity(_this: &Rc<Item>, stack: &Rc<ItemStack>, entity: &Rc<Entity>)
     }
 }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemSaddle",
     m_parent: Some(&ITEM),
     saddleEntity,
-    hitEntity: |this, stack, target, _| {
+    hitEntity: |this, stack, target, _|
+    {
         this.saddleEntity(stack, target);
         true
     },

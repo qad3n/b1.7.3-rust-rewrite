@@ -18,7 +18,8 @@ pub const CLASS: ItemClass = ItemClass { m_name: "ItemArmor", m_parent: Some(&IT
 
 pub fn create(id: i32, durability: i32, materialId: i32, slot: i32) -> Rc<Item>
 {
-    let ext: ArmorExt = ArmorExt {
+    let ext: ArmorExt = ArmorExt
+    {
         m_armorLevel: durability,
         m_armorType: slot,
         m_damageReduceAmount: DAMAGE_REDUCE_AMOUNT_ARRAY[slot as usize],

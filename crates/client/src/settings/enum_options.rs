@@ -53,12 +53,9 @@ impl EnumOptions
 {
     fn row(self) -> &'static OptionRow { &OPTIONS[self as usize] }
 
-    pub fn values() -> impl Iterator<Item = EnumOptions> { OPTIONS.iter().map(|row| row.m_option) }
+    pub fn values() -> impl Iterator<Item = Self> { OPTIONS.iter().map(|row| row.m_option) }
 
-    pub fn getEnumOptions(id: i32) -> Option<EnumOptions>
-    {
-        EnumOptions::values().find(|option| option.returnEnumOrdinal() == id)
-    }
+    pub fn getEnumOptions(id: i32) -> Option<Self> { Self::values().find(|option| option.returnEnumOrdinal() == id) }
 
     pub fn getEnumFloat(self) -> bool { self.row().m_enumFloat }
 

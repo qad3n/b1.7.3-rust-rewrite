@@ -9,7 +9,8 @@ pub struct DispenserExt
     m_dispenser: Rc<TileEntity>,
 }
 
-pub const CLASS: ContainerClass = ContainerClass {
+pub const CLASS: ContainerClass = ContainerClass
+{
     m_name: "ContainerDispenser",
     m_parent: Some(&CONTAINER),
     m_interfaces: &[],
@@ -22,6 +23,7 @@ pub fn create(playerInventory: Rc<dyn IInventory>, dispenser: &Rc<TileEntity>) -
     let this: Rc<Container> =
         Container::construct(&CLASS, |_| Box::new(DispenserExt { m_dispenser: Rc::clone(dispenser) }));
     let inventory: Rc<dyn IInventory> = Rc::clone(dispenser) as Rc<dyn IInventory>;
+
     for n2 in 0..3
     {
         for n in 0..3
@@ -29,6 +31,7 @@ pub fn create(playerInventory: Rc<dyn IInventory>, dispenser: &Rc<TileEntity>) -
             this.addSlot(Slot::new(Rc::clone(&inventory), n + n2 * 3, 62 + n * 18, 17 + n2 * 18));
         }
     }
+
     for n2 in 0..3
     {
         for n in 0..9
@@ -36,9 +39,11 @@ pub fn create(playerInventory: Rc<dyn IInventory>, dispenser: &Rc<TileEntity>) -
             this.addSlot(Slot::new(Rc::clone(&playerInventory), n + n2 * 9 + 9, 8 + n * 18, 84 + n2 * 18));
         }
     }
+
     for n2 in 0..9
     {
         this.addSlot(Slot::new(Rc::clone(&playerInventory), n2, 8 + n2 * 18, 142));
     }
+
     this
 }

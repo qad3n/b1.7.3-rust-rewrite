@@ -1,7 +1,7 @@
 use crate::LWJGLException;
 use jvm::{debug, info};
 use sdl2::{EventPump, Sdl, VideoSubsystem};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 
 // compositor window rules and desktop files match on this name
 const APP_ID: &str = "beta173";
@@ -35,7 +35,8 @@ pub(crate) struct Platform
     pub m_events: EventPump,
 }
 
-thread_local! {
+thread_local!
+{
     static PLATFORM: RefCell<Option<Platform>> = const { RefCell::new(None) };
 }
 
@@ -67,6 +68,7 @@ fn start() -> Result<Platform, LWJGLException>
     {
         hint(row.m_name, row.m_value);
     }
+
     preferWayland();
 
     let sdl: Sdl = sdl2::init().map_err(LWJGLException::new)?;
@@ -80,12 +82,14 @@ fn start() -> Result<Platform, LWJGLException>
 // runs body with sdl started, the first call starts it like lwjgl's Display class initializer
 pub(crate) fn with<R>(body: impl FnOnce(&mut Platform) -> R) -> Result<R, LWJGLException>
 {
-    PLATFORM.with(|platform| {
-        let mut platform = platform.borrow_mut();
+    PLATFORM.with(|platform|
+    {
+        let mut platform: RefMut<Option<Platform>> = platform.borrow_mut();
         if platform.is_none()
         {
             *platform = Some(start()?);
         }
+
         Ok(body(platform.as_mut().expect("platform started above")))
     })
 }

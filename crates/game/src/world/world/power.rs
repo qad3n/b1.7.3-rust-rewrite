@@ -34,6 +34,7 @@ impl World
         {
             return self.isBlockGettingPowered(x, y, z);
         }
+
         let i: i32 = self.getBlockId(x, y, z);
         if i == 0
         {

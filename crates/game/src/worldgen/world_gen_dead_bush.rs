@@ -12,7 +12,7 @@ pub struct WorldGenDeadBush
 
 impl WorldGenDeadBush
 {
-    pub fn new(deadBush: i32) -> WorldGenDeadBush { WorldGenDeadBush { m_deadBush: deadBush } }
+    pub fn new(deadBush: i32) -> Self { Self { m_deadBush: deadBush } }
 }
 
 impl WorldGenerator for WorldGenDeadBush
@@ -26,8 +26,10 @@ impl WorldGenerator for WorldGenDeadBush
             {
                 break;
             }
+
             y -= 1;
         }
+
         for _ in 0..4
         {
             let k: i32 = x + random.nextIntBounded(8) - random.nextIntBounded(8);
@@ -38,6 +40,7 @@ impl WorldGenerator for WorldGenDeadBush
                 world.setBlock(k, l, i1, self.m_deadBush);
             }
         }
+
         true
     }
 }

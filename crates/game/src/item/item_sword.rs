@@ -9,21 +9,28 @@ pub struct SwordExt
     pub m_toolMaterial: EnumToolMaterial,
 }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemSword",
     m_parent: Some(&ITEM),
-    getStrVsBlock: |_, _, block| {
+    getStrVsBlock: |_, _, block|
+    {
         if block.m_blockID == Block::WEB
         {
             return 15.0;
         }
+
         1.5
     },
-    hitEntity: |_, stack, _, attacker| {
+
+    hitEntity: |_, stack, _, attacker|
+    {
         stack.damageItem(1, attacker);
         true
     },
-    onBlockDestroyed: |_, stack, _, _, _, _, entity| {
+
+    onBlockDestroyed: |_, stack, _, _, _, _, entity|
+    {
         stack.damageItem(2, entity);
         true
     },

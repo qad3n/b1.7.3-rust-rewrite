@@ -8,5 +8,5 @@ pub struct ChatLine
 
 impl ChatLine
 {
-    pub fn new(text: String) -> ChatLine { ChatLine { m_message: text, m_updateCounter: Cell::new(0) } }
+    pub fn new(text: String) -> Self { Self { m_message: text, m_updateCounter: Cell::new(0) } }
 }

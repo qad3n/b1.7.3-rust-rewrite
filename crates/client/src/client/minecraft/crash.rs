@@ -12,7 +12,8 @@ impl Minecraft
     {
         let mut text: String = String::from("-- Game --\n");
         text += &format!("Ticks: {}\n", self.m_ticksRan.get());
-        let server: String = self.m_serverName.get().map_or_else(|| "single player".to_owned(), |name| name.clone());
+
+        let server: String = self.m_serverName.get().unwrap_or_else(|| "single player".to_owned());
         text += &format!("Server: {server}\n");
         text += &catchThrowable(&THROWABLE, || self.worldDetails())
             .unwrap_or_else(|throwable| format!("World: [failed to read ({throwable})]\n"));
@@ -30,11 +31,13 @@ impl Minecraft
         };
 
         let mut text: String = worldLine(&world);
+
         if let Some(player) = self.m_thePlayer.get()
         {
             let name: String = JString::display(entity_player::fields(&player).m_username.get().as_ref());
             text += &format!("Player: {name} at {:.2} {:.2} {:.2}\n", player.posX(), player.posY(), player.posZ());
         }
+
         text
     }
 }
@@ -59,14 +62,18 @@ fn modDetails() -> String
     }
 
     let mut text: String = String::new();
+
     for runtime in mods
     {
         text += &format!("{} {} ({})", runtime.id(), runtime.m_manifest.version, runtime.m_file);
+
         if let Some(reason) = runtime.failure()
         {
             text += &format!(", disabled: {reason}");
         }
+
         text += "\n";
     }
+
     text
 }

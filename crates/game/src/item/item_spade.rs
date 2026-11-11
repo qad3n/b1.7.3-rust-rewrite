@@ -3,14 +3,17 @@ use crate::item::{EnumToolMaterial, Item, ItemClass, item_tool};
 use crate::tags::Tag;
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemSpade",
     m_parent: Some(&item_tool::CLASS),
-    canHarvestBlock: |_, block| {
+    canHarvestBlock: |_, block|
+    {
         if Rc::ptr_eq(block, &Block::snow())
         {
             return true;
         }
+
         Rc::ptr_eq(block, &Block::blockSnow())
     },
     ..item_tool::CLASS

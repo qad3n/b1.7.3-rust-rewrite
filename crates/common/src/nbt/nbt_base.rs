@@ -129,10 +129,12 @@ impl NBTBase
     pub fn writeTag<S: OutputStream>(nbt: &Rc<Self>, output: &mut DataOutputStream<S>) -> IoResult<()>
     {
         output.writeByte(nbt.getType() as i32)?;
+
         if nbt.getType() == 0
         {
             return Ok(());
         }
+
         output.writeUTF(&nbt.getKey())?;
         nbt.writeTagContents(output)
     }

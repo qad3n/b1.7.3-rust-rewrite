@@ -23,18 +23,22 @@ fn onPickupFromSlot(this: &Rc<Slot>, item: Option<Rc<ItemStack>>)
     stack.onCrafting(&thePlayer.world(), &thePlayer);
     // mods observe smelted items
     crate::hooks::fire(crate::hooks::GameEvent::ItemSmelted { player: &thePlayer, stack });
+
     if stack.m_itemID.get() == Item::ingotIron().m_shiftedIndex
     {
         thePlayer.addStat(AchievementList::acquireIron().as_ref(), 1);
     }
+
     if stack.m_itemID.get() == Item::fishCooked().m_shiftedIndex
     {
         thePlayer.addStat(AchievementList::cookFish().as_ref(), 1);
     }
+
     (SLOT.onPickupFromSlot)(this, item);
 }
 
-pub const CLASS: SlotClass = SlotClass {
+pub const CLASS: SlotClass = SlotClass
+{
     m_name: "SlotFurnace",
     m_parent: Some(&SLOT),
     m_interfaces: &[],

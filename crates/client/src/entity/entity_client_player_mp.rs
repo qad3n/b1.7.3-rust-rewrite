@@ -5,7 +5,8 @@ use game::entity::entity_living::LivingFields;
 use game::entity::entity_player::PlayerFields;
 use game::entity::{Entity, EntityClass, entity_living, entity_player};
 use game::math::math_helper;
-use game::network::packets::{
+use game::network::packets::
+{
     Packet3Chat, Packet9Respawn, Packet10Flying, Packet11PlayerPosition, Packet12PlayerLook, Packet13PlayerLookMove,
     Packet14BlockDig, Packet18Animation, Packet19EntityAction, Packet101CloseWindow,
 };
@@ -52,6 +53,7 @@ fn onUpdate(this: &Rc<Entity>)
     {
         return;
     }
+
     (entity_player_sp::CLASS.onUpdate)(this);
     sendMovement(this);
 }
@@ -61,11 +63,13 @@ pub fn sendMovement(this: &Rc<Entity>)
     let mp: &ClientPlayerMPFields = fields(this);
     let ticksSinceSendInventory: i32 = mp.m_ticksSinceSendInventory.get();
     mp.m_ticksSinceSendInventory.set(ticksSinceSendInventory + 1);
+
     if ticksSinceSendInventory == 20
     {
         sendInventoryChanged(this);
         mp.m_ticksSinceSendInventory.set(0);
     }
+
     let sneaking: bool = this.isSneaking();
     if sneaking != mp.m_wasSneaking.get()
     {
@@ -79,6 +83,7 @@ pub fn sendMovement(this: &Rc<Entity>)
         }
         mp.m_wasSneaking.set(sneaking);
     }
+
     let minY: f64 = this.m_boundingBox.minY();
     let n: f64 = this.posX() - mp.m_oldPosX.get();
     let n2: f64 = minY - mp.m_sentMinY.get();
@@ -91,10 +96,12 @@ pub fn sendMovement(this: &Rc<Entity>)
     let yaw: f32 = this.m_rotationYaw.get();
     let pitch: f32 = this.m_rotationPitch.get();
     let onGround: bool = this.m_onGround.get();
+
     if this.m_ridingEntity.get().is_some()
     {
         let motionX: f64 = this.m_motionX.get();
         let motionZ: f64 = this.m_motionZ.get();
+
         if b2
         {
             mp.m_sendQueue
@@ -140,6 +147,7 @@ pub fn sendMovement(this: &Rc<Entity>)
     else
     {
         mp.m_sendQueue.addToSendQueue(Box::new(Packet10Flying::new(onGround)));
+
         if mp.m_sentOnGround.get() != onGround || mp.m_ticksSinceSendOnGround.get() > 200
         {
             mp.m_ticksSinceSendOnGround.set(0);
@@ -150,6 +158,7 @@ pub fn sendMovement(this: &Rc<Entity>)
         }
     }
     mp.m_sentOnGround.set(onGround);
+
     if b
     {
         mp.m_oldPosX.set(this.posX());
@@ -157,6 +166,7 @@ pub fn sendMovement(this: &Rc<Entity>)
         mp.m_oldPosY.set(this.posY());
         mp.m_oldPosZ.set(this.posZ());
     }
+
     if b2
     {
         mp.m_oldRotationYaw.set(yaw);
@@ -173,13 +183,15 @@ pub fn incrementRemoteStat(this: &Rc<Entity>, stat: Option<&Rc<StatBase>>, amoun
     {
         return;
     };
+
     if !stat.m_local.get()
     {
         entity_player_sp::addStat(this, Some(stat), amount);
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityClientPlayerMP",
     m_parent: Some(&entity_player_sp::CLASS),
     attackEntityFrom: |_, _, _| false,
@@ -187,35 +199,48 @@ pub const CLASS: EntityClass = EntityClass {
     onUpdate,
     dropCurrentItem: |this| sendQueue(this).addToSendQueue(Box::new(Packet14BlockDig::new(4, 0, 0, 0, 0))),
     joinEntityItemWithWorld: |_, _| {},
-    sendChatMessage: |this, content| {
+    sendChatMessage: |this, content|
+    {
         // a password never goes through chat, the change runs on the auth channel
         if content.trim().eq_ignore_ascii_case("/password")
         {
             sendQueue(this).openPasswordChange();
             return;
         }
+
         sendQueue(this).addToSendQueue(Box::new(Packet3Chat::new(JString::from(content))));
     },
-    swingItem: |this| {
+
+    swingItem: |this|
+    {
         (entity_player_sp::CLASS.swingItem)(this);
         sendQueue(this).addToSendQueue(Box::new(Packet18Animation::new(this, 1)));
     },
-    respawnPlayer: |this| {
+
+    respawnPlayer: |this|
+    {
         sendInventoryChanged(this);
+
         let dimension: i8 = entity_player::fields(this).m_dimension.get() as i8;
         sendQueue(this).addToSendQueue(Box::new(Packet9Respawn::new(dimension)));
     },
-    damageEntity: |this, amount| {
+
+    damageEntity: |this, amount|
+    {
         let living: &LivingFields = entity_living::fields(this);
         living.m_health.set(living.m_health.get() - amount);
     },
-    closeScreen: |this| {
+
+    closeScreen: |this|
+    {
         let windowId: i32 = entity_player::fields(this).m_craftingInventory.get().orNpe().m_windowId.get();
         sendQueue(this).addToSendQueue(Box::new(Packet101CloseWindow::new(windowId)));
         entity_player::inventory(this).setItemStack(None);
         (entity_player_sp::CLASS.closeScreen)(this);
     },
-    setHealth: |this, health| {
+
+    setHealth: |this, health|
+    {
         let mp: &ClientPlayerMPFields = fields(this);
         if mp.m_healthInitialized.get()
         {
@@ -227,12 +252,15 @@ pub const CLASS: EntityClass = EntityClass {
             mp.m_healthInitialized.set(true);
         }
     },
-    addStat: |this, stat, amount| {
+
+    addStat: |this, stat, amount|
+    {
         let Some(stat) = stat
         else
         {
             return;
         };
+
         if stat.m_local.get()
         {
             entity_player_sp::addStat(this, Some(stat), amount);
@@ -248,7 +276,8 @@ pub fn new(
     networkHandler: &Rc<NetClientHandler>,
 ) -> Rc<Entity>
 {
-    let mp: ClientPlayerMPFields = ClientPlayerMPFields {
+    let mp: ClientPlayerMPFields = ClientPlayerMPFields
+    {
         m_sendQueue: Rc::clone(networkHandler),
         m_ticksSinceSendInventory: Cell::new(0),
         m_healthInitialized: Cell::new(false),
@@ -262,7 +291,9 @@ pub fn new(
         m_wasSneaking: Cell::new(false),
         m_ticksSinceSendOnGround: Cell::new(0),
     };
-    let ext: PlayerSPExt = PlayerSPExt {
+
+    let ext: PlayerSPExt = PlayerSPExt
+    {
         m_living: LivingFields::default(),
         m_player: PlayerFields::default(),
         m_sp: entity_player_sp::spFields(minecraft),

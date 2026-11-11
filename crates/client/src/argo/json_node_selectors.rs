@@ -1,5 +1,6 @@
 use crate::argo::json_object::JsonFields;
-use crate::argo::{
+use crate::argo::
+{
     ChainedFunctor, EnumJsonNodeType, JsonNode, JsonNodeFactories, JsonNodeSelector, JsonStringNode, LeafFunctor,
 };
 use jvm::string::JString;
@@ -15,14 +16,14 @@ pub enum PathElement
 
 impl PathElement
 {
-    pub fn commaSeparate(pathElements: &[PathElement]) -> String
+    pub fn commaSeparate(pathElements: &[Self]) -> String
     {
         let parts: Vec<String> = pathElements
             .iter()
             .map(|element| match element
             {
-                PathElement::Index(index) => index.to_string(),
-                PathElement::Field(name) => format!("\"{name}\""),
+                Self::Index(index) => index.to_string(),
+                Self::Field(name) => format!("\"{name}\""),
             })
             .collect();
         parts.join(".")
@@ -38,7 +39,8 @@ fn leaf<T: 'static, V: 'static>(
     toString: String,
 ) -> Rc<JsonNodeSelector<T, V>>
 {
-    Rc::new(JsonNodeSelector::new(Rc::new(LeafFunctor {
+    Rc::new(JsonNodeSelector::new(Rc::new(LeafFunctor
+    {
         m_matchesNode: Box::new(matchesNode),
         m_typeSafeApplyTo: Box::new(typeSafeApplyTo),
         m_shortForm: shortForm,
@@ -129,6 +131,7 @@ impl JsonNodeSelectors
     fn chainOn<T: 'static>(pathElements: &[PathElement], parentSelector: NodeSelector<T>) -> NodeSelector<T>
     {
         let mut selector: NodeSelector<T> = parentSelector;
+
         for element in pathElements.iter().rev()
         {
             let parent: NodeSelector<Rc<JsonNode>> = match element
@@ -138,6 +141,7 @@ impl JsonNodeSelectors
             };
             selector = Rc::new(JsonNodeSelector::new(Rc::new(ChainedFunctor::new(parent, selector))));
         }
+
         selector
     }
 }

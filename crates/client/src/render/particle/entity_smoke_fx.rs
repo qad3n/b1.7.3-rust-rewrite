@@ -14,16 +14,19 @@ fn onUpdate(this: &Rc<Entity>)
     animateTexture(this);
     this.m_motionY.set(this.m_motionY.get() + 0.004);
     entity_fx::moveByMotion(this);
+
     if this.posY() == this.m_prevPosY.get()
     {
         this.m_motionX.set(this.m_motionX.get() * 1.1);
         this.m_motionZ.set(this.m_motionZ.get() * 1.1);
     }
+
     entity_fx::scaleMotion(this, 0.96f32 as f64);
     entity_fx::groundFriction(this);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntitySmokeFX",
     m_parent: Some(&entity_fx::CLASS),
     renderParticle: entity_heart_fx::renderGrowing,
@@ -53,6 +56,7 @@ pub fn newScaled(
     this.m_motionX.set(this.m_motionX.get() + velocityX);
     this.m_motionY.set(this.m_motionY.get() + velocityY);
     this.m_motionZ.set(this.m_motionZ.get() + velocityZ);
+
     let fields: &FXFields = fx(&this);
     let color: f32 = (math::random() * 0.3f32 as f64) as f32;
     fields.m_particleRed.set(color);

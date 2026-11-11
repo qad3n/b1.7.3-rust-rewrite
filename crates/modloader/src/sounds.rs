@@ -13,7 +13,9 @@ pub fn files() -> Vec<(String, PathBuf)>
     {
         return Vec::new();
     };
+
     let mut found: Vec<(String, PathBuf)> = Vec::new();
+
     for runtime in state::mods().iter().filter(|runtime| runtime.isActive())
     {
         let id: String = runtime.id().to_owned();
@@ -39,6 +41,7 @@ pub fn files() -> Vec<(String, PathBuf)>
             }
         }
     }
+
     found
 }
 

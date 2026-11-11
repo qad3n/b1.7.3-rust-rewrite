@@ -24,45 +24,59 @@ fn parse(text: &JString, radix: i32, min: i64, max: i64) -> Result<i64, Throwabl
     {
         return Err(forInputString(text));
     }
+
     let radix: i64 = radix as i64;
     let mut index: usize = 0;
     let negative: bool = chars[0] == u16::from(b'-');
     let limit: i64 = if negative { min } else { -max };
+
     if negative
     {
         index += 1;
     }
+
     let multmin: i64 = limit / radix;
     let mut result: i64 = 0;
+
     if index < chars.len()
     {
         let digit: i32 = character::digit(chars[index] as i32, radix as i32);
+
         index += 1;
+
         if digit < 0
         {
             return Err(forInputString(text));
         }
+
         result = -(digit as i64);
     }
+
     while index < chars.len()
     {
         let digit: i64 = character::digit(chars[index] as i32, radix as i32) as i64;
+
         index += 1;
+
         if digit < 0 || result < multmin
         {
             return Err(forInputString(text));
         }
+
         result *= radix;
         if result < limit + digit
         {
             return Err(forInputString(text));
         }
+
         result -= digit;
     }
+
     if !negative
     {
         return Ok(-result);
     }
+
     if index > 1
     {
         Ok(result)

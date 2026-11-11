@@ -9,11 +9,11 @@ pub struct RandomAccessFile
 
 impl RandomAccessFile
 {
-    pub fn open(path: &Path) -> IoResult<RandomAccessFile>
+    pub fn open(path: &Path) -> IoResult<Self>
     {
         match std::fs::OpenOptions::new().read(true).write(true).create(true).truncate(false).open(path)
         {
-            Ok(file) => Ok(RandomAccessFile { m_file: file }),
+            Ok(file) => Ok(Self { m_file: file }),
             Err(error) => Err(io::fileNotFound(path, &error)),
         }
     }
@@ -34,6 +34,7 @@ impl RandomAccessFile
         {
             return Ok(0);
         }
+
         match self.m_file.read(buf)
         {
             Ok(0) => Ok(-1),

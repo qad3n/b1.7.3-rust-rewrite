@@ -27,7 +27,8 @@ pub struct LootTable
     pub m_entries: Vec<LootEntry>,
 }
 
-thread_local! {
+thread_local!
+{
     static BLOCKS: RefCell<HashMap<i32, Rc<LootTable>>> = RefCell::new(HashMap::new());
     static ENTITIES: RefCell<HashMap<String, Rc<LootTable>>> = RefCell::new(HashMap::new());
 }
@@ -53,6 +54,7 @@ pub fn clear()
 pub fn roll(table: &LootTable, random: &Random, byPlayer: bool, blockMeta: i32) -> Vec<Rc<ItemStack>>
 {
     let mut stacks: Vec<Rc<ItemStack>> = Vec::new();
+
     for entry in &table.m_entries
     {
         let allowed: bool = (!entry.m_player || byPlayer) && entry.m_blockMeta.is_none_or(|meta| meta == blockMeta);
@@ -69,10 +71,12 @@ pub fn roll(table: &LootTable, random: &Random, byPlayer: bool, blockMeta: i32) 
         {
             entry.m_min
         };
+
         if count > 0
         {
             stacks.push(ItemStack::withDamage(entry.m_item, count, entry.m_meta));
         }
     }
+
     stacks
 }

@@ -17,13 +17,16 @@ pub struct PlayerExt
 
 pub fn fields(this: &Container) -> &PlayerExt { this.ext::<PlayerExt>() }
 
-const ARMOR_SLOT: SlotClass = SlotClass {
+const ARMOR_SLOT: SlotClass = SlotClass
+{
     m_name: "ContainerPlayer$1",
     m_parent: Some(&SLOT),
     m_interfaces: &[],
     getSlotStackLimit: |_| 1,
-    isItemValid: |this, item| {
+    isItemValid: |this, item|
+    {
         let j1: i32 = *this.ext::<i32>();
+
         if item.getItem().instanceOf("ItemArmor")
         {
             item_armor::fields(&item.getItem()).m_armorType == j1
@@ -50,7 +53,9 @@ fn onCraftMatrixChanged(this: &Rc<Container>, _inventory: &dyn IInventory)
 fn onCraftGuiClosed(this: &Rc<Container>, player: &Rc<Entity>)
 {
     (CONTAINER.onCraftGuiClosed)(this, player);
+
     let craftMatrix: &Rc<InventoryCrafting> = &fields(this).m_craftMatrix;
+
     for i in 0..4
     {
         let itemstack: Option<Rc<ItemStack>> = craftMatrix.getStackInSlot(i);
@@ -64,7 +69,8 @@ fn onCraftGuiClosed(this: &Rc<Container>, player: &Rc<Entity>)
 
 fn getStackInSlot(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
 {
-    this.quickMove(slot, |itemstack1| {
+    this.quickMove(slot, |itemstack1|
+    {
         if slot == 0
         {
             this.moveItem(itemstack1, 9, 45, true);
@@ -84,7 +90,8 @@ fn getStackInSlot(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
     })
 }
 
-pub const CLASS: ContainerClass = ContainerClass {
+pub const CLASS: ContainerClass = ContainerClass
+{
     m_name: "ContainerPlayer",
     m_parent: Some(&CONTAINER),
     m_interfaces: &[],
@@ -97,8 +104,10 @@ pub const CLASS: ContainerClass = ContainerClass {
 
 pub fn new(inventory: &Rc<InventoryPlayer>, active: bool) -> Rc<Container>
 {
-    let this: Rc<Container> = Container::construct(&CLASS, |this| {
-        Box::new(PlayerExt {
+    let this: Rc<Container> = Container::construct(&CLASS, |this|
+    {
+        Box::new(PlayerExt
+        {
             m_craftMatrix: Rc::new(InventoryCrafting::new(this, 2, 2)),
             m_craftResult: Rc::new(InventoryCraftResult::new()),
             m_isSinglePlayer: Cell::new(false),
@@ -107,6 +116,7 @@ pub fn new(inventory: &Rc<InventoryPlayer>, active: bool) -> Rc<Container>
     let ext: &PlayerExt = fields(&this);
     let playerInventory: Rc<dyn IInventory> = Rc::clone(inventory) as Rc<dyn IInventory>;
     let craftMatrix: Rc<dyn IInventory> = Rc::clone(&ext.m_craftMatrix) as Rc<dyn IInventory>;
+
     ext.m_isSinglePlayer.set(active);
     this.addSlot(slot_crafting::create(
         &inventory.player(),
@@ -116,6 +126,7 @@ pub fn new(inventory: &Rc<InventoryPlayer>, active: bool) -> Rc<Container>
         144,
         36,
     ));
+
     for i in 0..2
     {
         for j in 0..2
@@ -123,6 +134,7 @@ pub fn new(inventory: &Rc<InventoryPlayer>, active: bool) -> Rc<Container>
             this.addSlot(Slot::new(Rc::clone(&craftMatrix), j + i * 2, 88 + j * 18, 26 + i * 18));
         }
     }
+
     for k in 0..4
     {
         let j1: i32 = k;
@@ -135,6 +147,7 @@ pub fn new(inventory: &Rc<InventoryPlayer>, active: bool) -> Rc<Container>
             8 + k * 18,
         ));
     }
+
     for l in 0..3
     {
         for k1 in 0..9
@@ -142,10 +155,12 @@ pub fn new(inventory: &Rc<InventoryPlayer>, active: bool) -> Rc<Container>
             this.addSlot(Slot::new(Rc::clone(&playerInventory), k1 + (l + 1) * 9, 8 + k1 * 18, 84 + l * 18));
         }
     }
+
     for i1 in 0..9
     {
         this.addSlot(Slot::new(Rc::clone(&playerInventory), i1, 8 + i1 * 18, 142));
     }
+
     this.onCraftMatrixChanged(&*ext.m_craftMatrix);
     this
 }

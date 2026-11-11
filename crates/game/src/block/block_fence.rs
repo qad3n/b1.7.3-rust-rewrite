@@ -2,10 +2,12 @@ use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::math::AxisAlignedBB;
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockFence",
     m_parent: Some(&BLOCK),
-    canPlaceBlockAt: |this, world, x, y, z| {
+    canPlaceBlockAt: |this, world, x, y, z|
+    {
         if world.getBlockId(x, y - 1, z) == this.m_blockID
         {
             return true;
@@ -14,9 +16,12 @@ pub const CLASS: BlockClass = BlockClass {
         {
             return false;
         }
+
         (BLOCK.canPlaceBlockAt)(this, world, x, y, z)
     },
-    getCollisionBoundingBoxFromPool: |_, _, x, y, z| {
+
+    getCollisionBoundingBoxFromPool: |_, _, x, y, z|
+    {
         Some(AxisAlignedBB::getBoundingBoxFromPool(
             x as f64,
             y as f64,

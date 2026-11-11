@@ -5,8 +5,10 @@ use crate::network::packet::Packet;
 use crate::world::World;
 use std::rc::Rc;
 
-crate::vtable! {
-    ItemClass for Item {
+crate::vtable!
+{
+    ItemClass for Item
+    {
         fn canHarvestBlock(block: &Rc<Block>) -> bool;
         fn getColorFromDamage(metadata: i32) -> i32;
         fn getDamageVsEntity(target: Option<&Rc<Entity>>) -> i32;
@@ -35,7 +37,8 @@ crate::vtable! {
     }
 }
 
-pub const ITEM: ItemClass = ItemClass {
+pub const ITEM: ItemClass = ItemClass
+{
     m_name: "Item",
     m_parent: None,
     m_interfaces: &[],

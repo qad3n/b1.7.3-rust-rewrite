@@ -58,10 +58,10 @@ impl AuthScreen
     {
         match self
         {
-            AuthScreen::Login => &[PASSWORD],
-            AuthScreen::Register { invite: false } => &[PASSWORD, CONFIRM],
-            AuthScreen::Register { invite: true } => &[PASSWORD, CONFIRM, INVITE],
-            AuthScreen::Change => &[CURRENT, NEW, CONFIRM_NEW],
+            Self::Login => &[PASSWORD],
+            Self::Register { invite: false } => &[PASSWORD, CONFIRM],
+            Self::Register { invite: true } => &[PASSWORD, CONFIRM, INVITE],
+            Self::Change => &[CURRENT, NEW, CONFIRM_NEW],
         }
     }
 
@@ -69,9 +69,9 @@ impl AuthScreen
     {
         match self
         {
-            AuthScreen::Login => "Log in",
-            AuthScreen::Register { .. } => "Create your account",
-            AuthScreen::Change => "Change password",
+            Self::Login => "Log in",
+            Self::Register { .. } => "Create your account",
+            Self::Change => "Change password",
         }
     }
 
@@ -80,9 +80,9 @@ impl AuthScreen
     {
         match self
         {
-            AuthScreen::Login => None,
-            AuthScreen::Register { .. } => Some((0, 1)),
-            AuthScreen::Change => Some((1, 2)),
+            Self::Login => None,
+            Self::Register { .. } => Some((0, 1)),
+            Self::Change => Some((1, 2)),
         }
     }
 }
@@ -127,10 +127,12 @@ fn submit(this: &GuiScreen)
                 field.setText("");
                 field.m_isEnabled.set(false);
             }
+
             ext.m_sent.set(true);
             this.m_controlList.get(0).m_enabled.set(false);
             ext.m_status.set(Some((String::from("Checking..."), false)));
         }
+
         Err(reason) => ext.m_status.set(Some((reason, true))),
     }
 }
@@ -153,39 +155,49 @@ fn focusNext(this: &GuiScreen)
     let ext: &AuthExt = fields(this);
     let list: std::cell::Ref<'_, Vec<Rc<GuiTextField>>> = ext.m_fields.borrow();
     let current: usize = list.iter().position(|field| field.m_isFocused.get()).unwrap_or(list.len() - 1);
+
     for (i, field) in list.iter().enumerate()
     {
         field.setFocused(i == (current + 1) % list.len());
     }
 }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiAuth",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    updateScreen: |this| {
+    updateScreen: |this|
+    {
         let ext: &AuthExt = fields(this);
         for field in ext.m_fields.borrow().iter()
         {
             field.updateCursorCounter();
         }
+
         // before play nothing else drives the connection and the socket times out after 30 idle seconds
         if !ext.m_handler.playing()
         {
             ext.m_ticks.set(ext.m_ticks.get() + 1);
+
             if ext.m_ticks.get() % KEEP_ALIVE_TICKS == 0
             {
                 ext.m_handler.addToSendQueue(Box::new(Packet0KeepAlive::default()));
             }
+
             ext.m_handler.processReadPackets();
         }
     },
-    initGui: |this| {
+
+    initGui: |this|
+    {
         Keyboard::enableRepeatEvents(true);
+
         let ext: &AuthExt = fields(this);
         let x: i32 = this.m_width.get() / 2 - layout::FIELD_WIDTH / 2;
         let entries: &[Entry] = ext.m_kind.entries();
         let mut built: Vec<Rc<GuiTextField>> = Vec::new();
+
         for (i, entry) in entries.iter().enumerate()
         {
             let y: i32 = top(this) + i as i32 * layout::ROW + layout::LABEL_GAP;
@@ -199,12 +211,14 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         *ext.m_fields.borrow_mut() = built;
 
         let buttonY: i32 = top(this) + entries.len() as i32 * layout::ROW + layout::LABEL_GAP + layout::FIELD_HEIGHT;
+
         this.m_controlList.clear();
         this.m_controlList.add(GuiButton::new(buttons::DONE, x, buttonY, "Done"));
         this.m_controlList.add(GuiButton::new(buttons::CANCEL, x, buttonY + 24, "Cancel"));
     },
     onGuiClosed: |_| Keyboard::enableRepeatEvents(false),
-    actionPerformed: |this, button| {
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
@@ -218,11 +232,13 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             {}
         }
     },
+
     keyTyped: |this, chr, key| match key
     {
         Keyboard::KEY_ESCAPE => cancel(this),
         Keyboard::KEY_TAB => focusNext(this),
         Keyboard::KEY_RETURN => submit(this),
+
         _ =>
         {
             for field in fields(this).m_fields.borrow().iter()
@@ -231,35 +247,47 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             }
         }
     },
-    mouseClicked: |this, mouseX, mouseY, button| {
+
+    mouseClicked: |this, mouseX, mouseY, button|
+    {
         (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button);
+
         for field in fields(this).m_fields.borrow().iter()
         {
             field.mouseClicked(mouseX, mouseY, button);
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         this.drawDefaultBackground();
+
         let ext: &AuthExt = fields(this);
         let font: Rc<FontRenderer> = this.fontRenderer();
         let center: i32 = this.m_width.get() / 2;
         let x: i32 = center - layout::FIELD_WIDTH / 2;
+
         this.m_gui.drawCenteredString(&font, ext.m_kind.title(), center, top(this) - 40, TEXT_COLOR);
+
         let key: String = format!("Server key {}", ext.m_fingerprint);
         this.m_gui.drawCenteredString(&font, &key, center, top(this) - 26, LABEL_COLOR);
+
         for (i, entry) in ext.m_kind.entries().iter().enumerate()
         {
             this.m_gui.drawString(&font, entry.m_label, x, top(this) + i as i32 * layout::ROW, LABEL_COLOR);
         }
+
         for field in ext.m_fields.borrow().iter()
         {
             field.drawTextBox();
         }
+
         if let Some((status, error)) = ext.m_status.get()
         {
             let color: i32 = if error { ERROR_COLOR } else { TEXT_COLOR };
             this.m_gui.drawCenteredString(&font, &status, center, top(this) - 12, color);
         }
+
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
     },
     ..GUI_SCREEN
@@ -271,7 +299,8 @@ impl GuiAuth
 {
     pub fn new(handler: &Rc<NetClientHandler>, kind: AuthScreen, fingerprint: &str) -> Rc<GuiScreen>
     {
-        let ext: AuthExt = AuthExt {
+        let ext: AuthExt = AuthExt
+        {
             m_handler: Rc::clone(handler),
             m_kind: kind,
             m_fingerprint: fingerprint.to_string(),

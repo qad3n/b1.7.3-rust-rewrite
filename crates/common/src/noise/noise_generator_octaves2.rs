@@ -45,6 +45,7 @@ impl NoiseGeneratorOctaves2
     {
         let scaleX: f64 = scaleX / 1.5;
         let scaleY: f64 = scaleY / 1.5;
+
         let mut values: Vec<f64> = match values
         {
             Some(mut values) if values.len() as i32 >= sizeX * sizeY =>
@@ -52,16 +53,20 @@ impl NoiseGeneratorOctaves2
                 values.iter_mut().for_each(|value| *value = 0.0);
                 values
             }
+
             _ => vec![0.0; (sizeX * sizeY) as usize],
         };
+
         let mut d: f64 = 1.0;
         let mut d2: f64 = 1.0;
+
         for i in 0..self.m_levels
         {
             self.m_noiseLevels[i as usize].add(&mut values, x, y, sizeX, sizeY, scaleX * d2, scaleY * d2, 0.55 / d);
             d2 *= scaleExponentX;
             d *= scaleExponentY;
         }
+
         values
     }
 }

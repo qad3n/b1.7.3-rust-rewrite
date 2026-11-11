@@ -5,7 +5,8 @@ use std::thread::JoinHandle;
 
 static THREAD_INIT_NUMBER: AtomicI32 = AtomicI32::new(0);
 
-thread_local! {
+thread_local!
+{
     static NAME: RefCell<Option<JString>> = const { RefCell::new(None) };
 }
 
@@ -36,7 +37,8 @@ pub fn start<F>(name: JString, body: F) -> std::io::Result<JoinHandle<()>>
 where F: FnOnce() + Send + 'static
 {
     let label: String = name.to_string();
-    std::thread::Builder::new().name(label).spawn(move || {
+    std::thread::Builder::new().name(label).spawn(move ||
+    {
         setCurrentName(name);
         body();
     })

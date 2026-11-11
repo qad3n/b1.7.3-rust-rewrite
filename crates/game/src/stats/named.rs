@@ -3,7 +3,7 @@ use crate::item::ItemStack;
 use crate::stats::{Achievement, StatBase, StatList};
 use common::nbt::{NBTBase, NBTTagCompound, NBTTagList, NBTTagString};
 use jvm::string::JString;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
@@ -59,7 +59,8 @@ pub struct Progress
     m_achievements: RefCell<BTreeSet<String>>,
 }
 
-thread_local! {
+thread_local!
+{
     static ACHIEVEMENTS: RefCell<Vec<Rc<ModAchievement>>> = const { RefCell::new(Vec::new()) };
     // achievements this client saw unlock, the client shows each once as beta's toast
     static TOASTS: RefCell<Vec<Rc<ModAchievement>>> = const { RefCell::new(Vec::new()) };
@@ -82,11 +83,13 @@ pub fn count(player: &Rc<Entity>, kind: ContentStat, id: i32, amount: i32)
     }
 
     player.addStat(None, amount);
+
     let Some(name) = modName(kind, id)
     else
     {
         return;
     };
+
     add(player, &format!("{}/{name}", kind.name()), amount);
 }
 
@@ -114,8 +117,9 @@ pub fn value(player: &Entity, name: &str) -> i32
 
 pub fn registerAchievement(achievement: ModAchievement)
 {
-    ACHIEVEMENTS.with(|list| {
-        let mut list = list.borrow_mut();
+    ACHIEVEMENTS.with(|list|
+    {
+        let mut list: RefMut<Vec<Rc<ModAchievement>>> = list.borrow_mut();
         list.retain(|old| old.m_name != achievement.m_name);
         list.push(Rc::new(achievement));
     });
@@ -152,14 +156,16 @@ pub fn unlock(player: &Entity, name: &str) -> bool
     {
         TOASTS.with(|toasts| toasts.borrow_mut().push(achievement));
     }
+
     newly
 }
 
 // the next mod achievement to announce as a beta style toast, built as a display only stat
 pub fn nextToast() -> Option<Rc<StatBase>>
 {
-    let achievement: Rc<ModAchievement> = TOASTS.with(|toasts| {
-        let mut toasts = toasts.borrow_mut();
+    let achievement: Rc<ModAchievement> = TOASTS.with(|toasts|
+    {
+        let mut toasts: RefMut<Vec<Rc<ModAchievement>>> = toasts.borrow_mut();
         (!toasts.is_empty()).then(|| toasts.remove(0))
     })?;
     let icon: Rc<ItemStack> = ItemStack::withDamage(achievement.m_icon.get(), 1, 0);
@@ -171,7 +177,7 @@ impl Progress
     pub fn stats(&self) -> BTreeMap<String, i32> { self.m_stats.borrow().clone() }
 
     // a respawned player keeps what the dead one earned, beta makes a new player object on respawn
-    pub fn copyFrom(&self, other: &Progress)
+    pub fn copyFrom(&self, other: &Self)
     {
         *self.m_stats.borrow_mut() = other.m_stats.borrow().clone();
         *self.m_achievements.borrow_mut() = other.m_achievements.borrow().clone();
@@ -183,8 +189,10 @@ impl Progress
     pub fn replace(&self, stats: BTreeMap<String, i32>, earned: BTreeSet<String>)
     {
         let fresh: Vec<String> = earned.difference(&self.m_achievements.borrow()).cloned().collect();
+
         *self.m_stats.borrow_mut() = stats;
         *self.m_achievements.borrow_mut() = earned;
+
         for name in fresh
         {
             if let Some(achievement) = achievement(&name)
@@ -197,24 +205,29 @@ impl Progress
     // written only when something was earned, so a vanilla player file is unchanged
     pub fn write(&self, nbt: &NBTTagCompound)
     {
-        let stats = self.m_stats.borrow();
+        let stats: Ref<BTreeMap<String, i32>> = self.m_stats.borrow();
         if !stats.is_empty()
         {
             let compound: Rc<NBTBase> = NBTTagCompound::create();
+
             for (name, value) in stats.iter()
             {
                 compound.compound().setInteger(name, *value);
             }
+
             nbt.setTag(STATS_KEY, &compound);
         }
-        let achievements = self.m_achievements.borrow();
+
+        let achievements: Ref<BTreeSet<String>> = self.m_achievements.borrow();
         if !achievements.is_empty()
         {
             let list: Rc<NBTBase> = NBTTagList::create();
+
             for name in achievements.iter()
             {
                 list.list().setTag(NBTTagString::create(Some(JString::from(name.as_str()))));
             }
+
             nbt.setTag(ACHIEVEMENTS_KEY, &list);
         }
     }
@@ -224,16 +237,19 @@ impl Progress
         if nbt.hasKey(STATS_KEY)
         {
             let tag: Rc<NBTBase> = nbt.getCompoundTag(STATS_KEY);
-            let mut stats = self.m_stats.borrow_mut();
+            let mut stats: RefMut<BTreeMap<String, i32>> = self.m_stats.borrow_mut();
+
             for entry in tag.compound().getValues()
             {
                 stats.insert(entry.getKey().to_string(), tag.compound().getInteger(&entry.getKey().to_string()));
             }
         }
+
         if nbt.hasKey(ACHIEVEMENTS_KEY)
         {
             let list: Rc<NBTBase> = nbt.getTagList(ACHIEVEMENTS_KEY);
-            let mut achievements = self.m_achievements.borrow_mut();
+            let mut achievements: RefMut<BTreeSet<String>> = self.m_achievements.borrow_mut();
+
             for i in 0..list.list().tagCount()
             {
                 if let Some(name) = list.list().tagAt(i).stringTag().m_stringValue.get()

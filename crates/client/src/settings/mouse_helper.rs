@@ -16,24 +16,28 @@ pub struct MouseHelper
 
 impl MouseHelper
 {
-    pub fn new(component: Rc<dyn Component>) -> MouseHelper
+    pub fn new(component: Rc<dyn Component>) -> Self
     {
-        let helper: MouseHelper = MouseHelper {
+        let helper: Self = Self
+        {
             m_component: component,
             m_cursor: RefCell::new(None),
             m_deltaX: Cell::new(0),
             m_deltaY: Cell::new(0),
             m_field_1115_e: Cell::new(10),
         };
+
         let intBuffer: IntBuffer = GLAllocation::createDirectIntBuffer(1);
         intBuffer.put(0);
         intBuffer.flip();
+
         let intBuffer2: IntBuffer = GLAllocation::createDirectIntBuffer(1024);
         match Cursor::new(32, 32, 16, 16, 1, &intBuffer2, Some(&intBuffer))
         {
             Ok(cursor) => *helper.m_cursor.borrow_mut() = Some(cursor),
             Err(exception) => exception.printStackTrace(),
         }
+
         helper
     }
 

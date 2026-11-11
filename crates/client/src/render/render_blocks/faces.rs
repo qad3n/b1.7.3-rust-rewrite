@@ -44,12 +44,14 @@ impl RenderBlocks
             (ao.m_colorRedBottomRight, ao.m_colorGreenBottomRight, ao.m_colorBlueBottomRight),
             (ao.m_colorRedTopRight, ao.m_colorGreenTopRight, ao.m_colorBlueTopRight),
         ];
+
         for ((x, y, z, u, v), (r, g, b)) in vertices.into_iter().zip(colors)
         {
             if self.m_enableAO
             {
                 tessellator.setColorOpaque_F(r, g, b);
             }
+
             tessellator.addVertexWithUV(x, y, z, u, v);
         }
     }
@@ -63,20 +65,27 @@ impl RenderBlocks
         let mut d2: f64 = (n + maxX * 16.0 - 0.01) / 256.0;
         let mut d3: f64 = (n2 + minZ * 16.0) / 256.0;
         let mut d4: f64 = (n2 + maxZ * 16.0 - 0.01) / 256.0;
+
         if minX < 0.0 || maxX > 1.0
         {
             (d, d2) = fullSpan(n);
         }
+
         if minZ < 0.0 || maxZ > 1.0
         {
             (d3, d4) = fullSpan(n2);
         }
+
         let (mut d5, mut d6, mut d7, mut d8): (f64, f64, f64, f64) = (d2, d, d3, d4);
+
         if rotation == rotationA
         {
             d = (n + minZ * 16.0) / 256.0;
+
             let d3o: f64 = (n2 + 16.0 - maxX * 16.0) / 256.0;
+
             d2 = (n + maxZ * 16.0) / 256.0;
+
             let d4o: f64 = (n2 + 16.0 - minX * 16.0) / 256.0;
             (d5, d6, d7, d8) = (d, d2, d3o, d4o);
             (d3, d4) = (d4o, d3o);
@@ -84,8 +93,11 @@ impl RenderBlocks
         else if rotation == 3 - rotationA
         {
             let d1o: f64 = (n + 16.0 - maxZ * 16.0) / 256.0;
+
             d3 = (n2 + minX * 16.0) / 256.0;
+
             let d2o: f64 = (n + 16.0 - minZ * 16.0) / 256.0;
+
             d4 = (n2 + maxX * 16.0) / 256.0;
             (d, d2, d5, d6) = (d2o, d1o, d2o, d1o);
             (d7, d8) = (d4, d3);
@@ -110,24 +122,32 @@ impl RenderBlocks
         let mut d3: f64 = (n + maxA * 16.0 - 0.01) / 256.0;
         let mut d4: f64 = (n2 + 16.0 - maxY * 16.0) / 256.0;
         let mut d5: f64 = (n2 + 16.0 - minY * 16.0 - 0.01) / 256.0;
+
         if self.m_flipTexture
         {
             std::mem::swap(&mut d2, &mut d3);
         }
+
         if minA < 0.0 || maxA > 1.0
         {
             (d2, d3) = fullSpan(n);
         }
+
         if minY < 0.0 || maxY > 1.0
         {
             (d4, d5) = fullSpan(n2);
         }
+
         let (mut d, mut d6, mut d7, mut d8): (f64, f64, f64, f64) = (d3, d2, d4, d5);
+
         if rotation == rotations.m_rotationA
         {
             d2 = (n + minY * 16.0) / 256.0;
+
             let d4o: f64 = (n2 + 16.0 - rotations.m_edgeA.0 * 16.0) / 256.0;
+
             d3 = (n + maxY * 16.0) / 256.0;
+
             let d5o: f64 = (n2 + 16.0 - rotations.m_edgeA.1 * 16.0) / 256.0;
             (d, d6, d7, d8) = (d2, d3, d4o, d5o);
             (d4, d5) = (d5o, d4o);
@@ -135,8 +155,11 @@ impl RenderBlocks
         else if rotation == rotations.m_rotationB
         {
             let d2o: f64 = (n + 16.0 - maxY * 16.0) / 256.0;
+
             d4 = (n2 + rotations.m_edgeB.0 * 16.0) / 256.0;
+
             let d3o: f64 = (n + 16.0 - minY * 16.0) / 256.0;
+
             d5 = (n2 + rotations.m_edgeB.1 * 16.0) / 256.0;
             (d, d6, d2, d3) = (d3o, d2o, d3o, d2o);
             (d7, d8) = (d5, d4);

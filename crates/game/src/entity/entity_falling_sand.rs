@@ -56,6 +56,7 @@ fn onUpdate(this: &Rc<Entity>)
         this.setEntityDead();
         return;
     }
+
     this.m_prevPosX.set(this.posX());
     this.m_prevPosY.set(this.posY());
     this.m_prevPosZ.set(this.posZ());
@@ -65,6 +66,7 @@ fn onUpdate(this: &Rc<Entity>)
     this.m_motionX.set(this.m_motionX.get() * 0.98f32 as f64);
     this.m_motionY.set(this.m_motionY.get() * 0.98f32 as f64);
     this.m_motionZ.set(this.m_motionZ.get() * 0.98f32 as f64);
+
     let n: i32 = floor_double(this.posX());
     let n2: i32 = floor_double(this.posY());
     let n3: i32 = floor_double(this.posZ());
@@ -73,12 +75,14 @@ fn onUpdate(this: &Rc<Entity>)
     {
         world.setBlockWithNotify(n, n2, n3, 0);
     }
+
     if this.m_onGround.get()
     {
         this.m_motionX.set(this.m_motionX.get() * 0.7f32 as f64);
         this.m_motionZ.set(this.m_motionZ.get() * 0.7f32 as f64);
         this.m_motionY.set(this.m_motionY.get() * -0.5);
         this.setEntityDead();
+
         if world.canBlockBePlacedAt(blockID, n, n2, n3, true, 1)
             && !block_sand::canFallBelow(&world, n, n2 - 1, n3)
             && world.setBlockWithNotify(n, n2, n3, blockID)
@@ -86,6 +90,7 @@ fn onUpdate(this: &Rc<Entity>)
         {
             return;
         }
+
         this.dropItem(blockID, 1);
     }
     else
@@ -94,6 +99,7 @@ fn onUpdate(this: &Rc<Entity>)
         {
             return;
         }
+
         this.dropItem(blockID, 1);
         this.setEntityDead();
     }
@@ -101,7 +107,8 @@ fn onUpdate(this: &Rc<Entity>)
 
 pub fn getWorld(this: &Entity) -> Option<Rc<World>> { this.m_worldObj.get() }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityFallingSand",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],

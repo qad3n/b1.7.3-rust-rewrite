@@ -16,7 +16,8 @@ pub fn packBreak(id: i32, meta: i32) -> i32 { id | (meta & META_MASK) << BREAK_M
 
 pub fn unpackBreak(data: i32) -> (i32, i32) { (data & (BLOCK_IDS as i32 - 1), data >> BREAK_META_SHIFT & META_MASK) }
 
-thread_local! {
+thread_local!
+{
     static INIT: Cell<u8> = const { Cell::new(0) };
     static BLOCKS_LIST: RefCell<[Option<Rc<Block>>; BLOCK_IDS]> = const { RefCell::new([const { None }; BLOCK_IDS]) };
     static TICK_ON_LOAD: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
@@ -28,12 +29,13 @@ thread_local! {
     static UPDATE_CLIENTS: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
 }
 
-pub fn ensureInit()
+pub(crate) fn ensureInit()
 {
     if INIT.with(Cell::get) != 0
     {
         return;
     }
+
     INIT.with(|state| state.set(1));
     initBlocks();
     INIT.with(|state| state.set(2));
@@ -45,51 +47,54 @@ fn index(id: i32) -> usize
     {
         jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &id.to_string());
     }
+
     id as usize
 }
 
-pub(super) fn register(id: i32, block: &Rc<Block>)
+pub(crate) fn register(id: i32, block: &Rc<Block>)
 {
     BLOCKS_LIST.with(|list| list.borrow_mut()[index(id)] = Some(Rc::clone(block)));
 }
 
-pub(super) fn setOpaqueCubeLookup(id: i32, value: bool)
+pub(crate) fn setOpaqueCubeLookup(id: i32, value: bool)
 {
     OPAQUE_CUBE_LOOKUP.with(|table| table.borrow_mut()[index(id)] = value);
 }
 
-pub(super) fn setLightOpacityValue(id: i32, value: i32)
+pub(crate) fn setLightOpacityValue(id: i32, value: i32)
 {
     LIGHT_OPACITY.with(|table| table.borrow_mut()[index(id)] = value);
 }
 
-pub(super) fn setCanBlockGrass(id: i32, value: bool)
+pub(crate) fn setCanBlockGrass(id: i32, value: bool)
 {
     CAN_BLOCK_GRASS.with(|table| table.borrow_mut()[index(id)] = value);
 }
 
-pub(super) fn setIsBlockContainer(id: i32, value: bool)
+pub(crate) fn setIsBlockContainer(id: i32, value: bool)
 {
     IS_BLOCK_CONTAINER.with(|table| table.borrow_mut()[index(id)] = value);
 }
 
-pub(super) fn setUpdateClients(id: i32, value: bool)
+pub(crate) fn setUpdateClients(id: i32, value: bool)
 {
     UPDATE_CLIENTS.with(|table| table.borrow_mut()[index(id)] = value);
 }
 
-pub(super) fn setLightValueEntry(id: i32, value: i32)
+pub(crate) fn setLightValueEntry(id: i32, value: i32)
 {
     LIGHT_VALUE.with(|table| table.borrow_mut()[index(id)] = value);
 }
 
-pub(super) fn setTickOnLoadEntry(id: i32, value: bool)
+pub(crate) fn setTickOnLoadEntry(id: i32, value: bool)
 {
     TICK_ON_LOAD.with(|table| table.borrow_mut()[index(id)] = value);
 }
 
-macro_rules! named_blocks {
-    ($($name:ident $constant:ident = $id:expr,)*) => {
+macro_rules! named_blocks
+{
+    ($($name:ident $constant:ident = $id:expr,)*) =>
+    {
         impl Block
         {
             $(pub const $constant: i32 = $id;)*
@@ -99,7 +104,8 @@ macro_rules! named_blocks {
     };
 }
 
-named_blocks! {
+named_blocks!
+{
     stone STONE = 1,
     grass GRASS = 2,
     dirt DIRT = 3,
@@ -200,20 +206,20 @@ named_blocks! {
 
 impl Block
 {
-    pub fn basic(id: i32, sprite: i32, material: Rc<Material>) -> Rc<Block>
+    pub fn basic(id: i32, sprite: i32, material: Rc<Material>) -> Rc<Self>
     {
-        Block::constructWithSprite(&BLOCK, Box::new(()), id, sprite, material)
+        Self::constructWithSprite(&BLOCK, Box::new(()), id, sprite, material)
     }
 
-    pub fn byId(id: i32) -> Option<Rc<Block>>
+    pub fn byId(id: i32) -> Option<Rc<Self>>
     {
         ensureInit();
         BLOCKS_LIST.with(|list| list.borrow()[index(id)].clone())
     }
 
-    fn named(id: i32) -> Rc<Block>
+    fn named(id: i32) -> Rc<Self>
     {
-        match Block::byId(id)
+        match Self::byId(id)
         {
             Some(block) => block,
             None => jvm::throwable::npe(),
@@ -221,7 +227,7 @@ impl Block
     }
 
     // an item id that names a block, vanilla ones are below 256 and 12-bit mod blocks reach 4095
-    pub fn isBlockItem(id: i32) -> bool { (0..BLOCK_IDS as i32).contains(&id) && Block::byId(id).is_some() }
+    pub fn isBlockItem(id: i32) -> bool { (0..BLOCK_IDS as i32).contains(&id) && Self::byId(id).is_some() }
 
     pub fn exists(id: i32) -> bool { BLOCKS_LIST.with(|list| list.borrow()[index(id)].is_some()) }
 
@@ -273,10 +279,12 @@ impl Block
     pub fn unregister(id: i32)
     {
         BLOCKS_LIST.with(|list| list.borrow_mut()[index(id)] = None);
+
         for table in [&TICK_ON_LOAD, &OPAQUE_CUBE_LOOKUP, &IS_BLOCK_CONTAINER, &CAN_BLOCK_GRASS, &UPDATE_CLIENTS]
         {
             table.with(|table| table.borrow_mut()[index(id)] = false);
         }
+
         LIGHT_OPACITY.with(|table| table.borrow_mut()[index(id)] = 0);
         LIGHT_VALUE.with(|table| table.borrow_mut()[index(id)] = 0);
     }

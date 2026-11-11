@@ -3,7 +3,7 @@ use crate::damage::{DamageKind, DamageSource};
 use crate::entity::Entity;
 use common::nbt::{NBTBase, NBTTagCompound, NBTTagList};
 use jvm::string::JString;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
 const NBT_KEY: &str = "ActiveEffects";
@@ -30,14 +30,16 @@ pub struct ActiveEffect
     pub m_ticks: i32,
 }
 
-thread_local! {
+thread_local!
+{
     static TYPES: RefCell<Vec<Rc<EffectType>>> = const { RefCell::new(Vec::new()) };
 }
 
 pub fn register(effect: EffectType)
 {
-    TYPES.with(|types| {
-        let mut types = types.borrow_mut();
+    TYPES.with(|types|
+    {
+        let mut types: RefMut<Vec<Rc<EffectType>>> = types.borrow_mut();
         types.retain(|old| old.m_name != effect.m_name);
         types.push(Rc::new(effect));
     });
@@ -80,6 +82,7 @@ impl Effects
         }
 
         let list: Rc<NBTBase> = NBTTagList::create();
+
         for active in self.m_active.borrow().iter()
         {
             let entry: Rc<NBTBase> = NBTTagCompound::create();
@@ -88,6 +91,7 @@ impl Effects
             entry.compound().setInteger("Ticks", active.m_ticks);
             list.list().setTag(entry);
         }
+
         nbt.setTag(NBT_KEY, &list);
     }
 
@@ -101,6 +105,7 @@ impl Effects
 
         let list: Rc<NBTBase> = nbt.getTagList(NBT_KEY);
         let mut active: Vec<ActiveEffect> = Vec::new();
+
         for i in 0..list.list().tagCount()
         {
             let tag: Rc<NBTBase> = list.list().tagAt(i);
@@ -111,7 +116,9 @@ impl Effects
             {
                 continue;
             };
-            active.push(ActiveEffect {
+
+            active.push(ActiveEffect
+            {
                 m_effect: effect,
                 m_level: entry.getInteger("Level"),
                 m_ticks: entry.getInteger("Ticks"),
@@ -136,13 +143,14 @@ pub fn add(entity: &Entity, effect: Rc<EffectType>, level: i32, ticks: i32)
     };
 
     {
-        let mut active = living.m_effects.m_active.borrow_mut();
+        let mut active: RefMut<Vec<ActiveEffect>> = living.m_effects.m_active.borrow_mut();
         if let Some(old) = active.iter_mut().find(|old| Rc::ptr_eq(&old.m_effect, &effect))
         {
             if old.m_level > level || (old.m_level == level && old.m_ticks >= ticks)
             {
                 return;
             }
+
             old.m_level = level;
             old.m_ticks = ticks;
         }
@@ -162,8 +170,9 @@ pub fn remove(entity: &Entity, name: &str)
         return;
     };
 
-    let removed: Vec<Rc<EffectType>> = {
-        let mut active = living.m_effects.m_active.borrow_mut();
+    let removed: Vec<Rc<EffectType>> =
+    {
+        let mut active: RefMut<Vec<ActiveEffect>> = living.m_effects.m_active.borrow_mut();
         let gone: Vec<Rc<EffectType>> =
             active.iter().filter(|old| old.m_effect.m_name == name).map(|old| Rc::clone(&old.m_effect)).collect();
         active.retain(|old| old.m_effect.m_name != name);
@@ -185,7 +194,8 @@ fn applyModifiers(entity: &Entity, effect: &EffectType, level: i32)
 
     for (attribute, amount, operation) in &effect.m_modifiers
     {
-        living.m_attributes.set(Modifier {
+        living.m_attributes.set(Modifier
+        {
             m_attribute: *attribute,
             m_id: modifierId(effect),
             m_amount: amount * (level + 1) as f64,
@@ -223,22 +233,26 @@ pub fn tick(entity: &Rc<Entity>)
 
     let authority: bool = !entity.world().m_multiplayerWorld.get();
     let mut pulses: Vec<i32> = Vec::new();
+
     let mut expired: Vec<Rc<EffectType>> = Vec::new();
     {
-        let mut active = living.m_effects.m_active.borrow_mut();
+        let mut active: RefMut<Vec<ActiveEffect>> = living.m_effects.m_active.borrow_mut();
         for effect in active.iter_mut()
         {
             effect.m_ticks -= 1;
+
             let interval: i32 = effect.m_effect.m_interval;
             if authority && interval > 0 && effect.m_ticks % interval == 0
             {
                 pulses.push(effect.m_effect.m_amount * (effect.m_level + 1));
             }
+
             if effect.m_ticks <= 0
             {
                 expired.push(Rc::clone(&effect.m_effect));
             }
         }
+
         active.retain(|effect| effect.m_ticks > 0);
     }
 
@@ -254,6 +268,7 @@ pub fn tick(entity: &Rc<Entity>)
             entity.attackEntityFrom(&DamageSource::new(DamageKind::Magic), -amount);
         }
     }
+
     for effect in expired
     {
         removeModifiers(entity, &effect);

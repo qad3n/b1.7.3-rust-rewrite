@@ -11,6 +11,7 @@ pub fn sleepInBedAt(this: &Rc<Entity>, x: i32, y: i32, z: i32) -> EnumStatus
     {
         return EnumStatus::OtherProblem;
     }
+
     let player: &PlayerFields = fields(this);
     let world: Rc<World> = this.world();
     if !world.m_multiplayerWorld.get()
@@ -34,14 +35,17 @@ pub fn sleepInBedAt(this: &Rc<Entity>, x: i32, y: i32, z: i32) -> EnumStatus
             return EnumStatus::TooFarAway;
         }
     }
+
     this.setSize(0.2, 0.2);
     this.m_yOffset.set(0.2);
+
     if world.blockExists(x, y, z)
     {
         let i: i32 = world.getBlockMetadata(x, y, z);
         let j: i32 = block_bed::getDirectionFromMetadata(i);
         let mut f: f32 = 0.5;
         let mut f1: f32 = 0.5;
+
         match j
         {
             0 => f1 = 0.9,
@@ -51,6 +55,7 @@ pub fn sleepInBedAt(this: &Rc<Entity>, x: i32, y: i32, z: i32) -> EnumStatus
             _ =>
             {}
         }
+
         setSleepingCameraOffset(player, j);
         this.setPosition((x as f32 + f) as f64, (y as f32 + 0.9375) as f64, (z as f32 + f1) as f64);
     }
@@ -64,10 +69,12 @@ pub fn sleepInBedAt(this: &Rc<Entity>, x: i32, y: i32, z: i32) -> EnumStatus
     this.m_motionY.set(0.0);
     this.m_motionZ.set(0.0);
     this.m_motionX.set(0.0);
+
     if !world.m_multiplayerWorld.get()
     {
         world.updateAllPlayersSleepingFlag();
     }
+
     EnumStatus::Ok
 }
 
@@ -75,6 +82,7 @@ fn setSleepingCameraOffset(player: &PlayerFields, facing: i32)
 {
     player.m_sleepingCameraOffsetX.set(0.0);
     player.m_sleepingCameraOffsetZ.set(0.0);
+
     match facing
     {
         0 => player.m_sleepingCameraOffsetZ.set(-1.8),
@@ -90,13 +98,16 @@ pub fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSl
 {
     let player: &PlayerFields = fields(this);
     let world: Rc<World> = this.world();
+
     this.setSize(0.6, 1.8);
     this.resetHeight();
+
     let chunkcoordinates: Option<ChunkCoordinates> = player.m_bedChunkCoordinates.get();
     if let Some(bed) = chunkcoordinates
         && world.getBlockId(bed.m_x, bed.m_y, bed.m_z) == Block::BLOCK_BED
     {
         block_bed::setBedOccupied(&world, bed.m_x, bed.m_y, bed.m_z, false);
+
         let chunkcoordinates1: ChunkCoordinates =
             match block_bed::getNearestEmptyChunkCoordinates(&world, bed.m_x, bed.m_y, bed.m_z, 0)
             {
@@ -109,11 +120,14 @@ pub fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSl
             (chunkcoordinates1.m_z as f32 + 0.5) as f64,
         );
     }
+
     player.m_sleeping.set(false);
+
     if !world.m_multiplayerWorld.get() && updateAllPlayersSleeping
     {
         world.updateAllPlayersSleepingFlag();
     }
+
     if resetSleepTimer
     {
         player.m_sleepTimer.set(0);
@@ -122,6 +136,7 @@ pub fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSl
     {
         player.m_sleepTimer.set(100);
     }
+
     // rewrite: beta keeps one spawn point with no dimension and respawns players in the overworld so only overworld beds set it
     if setSpawnPoint && world.worldProvider().m_worldType.get() == 0
     {
@@ -129,7 +144,7 @@ pub fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSl
     }
 }
 
-pub(super) fn isInBed(this: &Rc<Entity>) -> bool
+pub(crate) fn isInBed(this: &Rc<Entity>) -> bool
 {
     let bed: ChunkCoordinates = jvm::throwable::OrNpe::orNpe(fields(this).m_bedChunkCoordinates.get());
     // rewrite: any bed block counts, mod beds share BlockBed's class
@@ -143,11 +158,13 @@ pub fn loadSpawnPoint(world: &Rc<World>, pos: &ChunkCoordinates) -> Option<Chunk
     ichunkprovider.prepareChunk((pos.m_x + 3) >> 4, (pos.m_z - 3) >> 4);
     ichunkprovider.prepareChunk((pos.m_x - 3) >> 4, (pos.m_z + 3) >> 4);
     ichunkprovider.prepareChunk((pos.m_x + 3) >> 4, (pos.m_z + 3) >> 4);
+
     // rewrite: any bed block keeps a spawn point, mod beds share BlockBed's class
     if !Block::byId(world.getBlockId(pos.m_x, pos.m_y, pos.m_z)).is_some_and(|block| block.instanceOf("BlockBed"))
     {
         return None;
     }
+
     block_bed::getNearestEmptyChunkCoordinates(world, pos.m_x, pos.m_y, pos.m_z, 0)
 }
 
@@ -166,6 +183,7 @@ pub fn getBedOrientationInDegrees(this: &Entity) -> f32
             {}
         }
     }
+
     0.0
 }
 

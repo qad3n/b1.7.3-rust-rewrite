@@ -1,4 +1,5 @@
-use crate::worldgen::{
+use crate::worldgen::
+{
     BIOME_GEN_BASE, BiomeGenBase, BiomeGenBaseClass, WorldGenBigTree, WorldGenTrees, WorldGenerator,
 };
 use jvm::random::Random;
@@ -10,10 +11,12 @@ fn getRandomWorldGenForTrees(_this: &Rc<BiomeGenBase>, random: &Random) -> Box<d
     {
         return Box::new(WorldGenBigTree::new());
     }
+
     Box::new(WorldGenTrees::new())
 }
 
-pub const BIOME_GEN_RAINFOREST: BiomeGenBaseClass = BiomeGenBaseClass {
+pub const BIOME_GEN_RAINFOREST: BiomeGenBaseClass = BiomeGenBaseClass
+{
     m_name: "BiomeGenRainforest",
     m_parent: Some(&BIOME_GEN_BASE),
     getRandomWorldGenForTrees,

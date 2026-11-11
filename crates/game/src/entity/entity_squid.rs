@@ -46,27 +46,33 @@ fn randomTentacleSpeed(this: &Entity) -> f32 { 1.0 / (this.m_rand.nextFloat() + 
 fn onLivingUpdate(this: &Rc<Entity>)
 {
     (entity_water_mob::CLASS.onLivingUpdate)(this);
+
     let squid: &SquidExt = fields(this);
     let living: &entity_living::LivingFields = entity_living::fields(this);
+
     squid.m_lastBodyPitch.set(squid.m_bodyPitch.get());
     squid.m_lastBodyRoll.set(squid.m_bodyRoll.get());
     squid.m_lastTentacleMovement.set(squid.m_tentacleMovement.get());
     squid.m_lastTentacleRotation.set(squid.m_tentacleRotation.get());
     squid.m_tentacleMovement.set(squid.m_tentacleMovement.get() + squid.m_tentacleSpeed.get());
+
     if squid.m_tentacleMovement.get() > PI_F * 2.0
     {
         squid.m_tentacleMovement.set(squid.m_tentacleMovement.get() - PI_F * 2.0);
+
         if this.m_rand.nextIntBounded(10) == 0
         {
             squid.m_tentacleSpeed.set(randomTentacleSpeed(this));
         }
     }
+
     if this.isInWater()
     {
         if squid.m_tentacleMovement.get() < PI_F
         {
             let f: f32 = squid.m_tentacleMovement.get() / PI_F;
             squid.m_tentacleRotation.set(math_helper::sin(f * f * PI_F) * PI_F * 0.25);
+
             if f as f64 > 0.75
             {
                 squid.m_randomMotionSpeed.set(1.0);
@@ -83,25 +89,30 @@ fn onLivingUpdate(this: &Rc<Entity>)
             squid.m_randomMotionSpeed.set(squid.m_randomMotionSpeed.get() * 0.9);
             squid.m_rotationSpeed.set(squid.m_rotationSpeed.get() * 0.99);
         }
+
         if !living.m_isMultiplayerEntity.get()
         {
             this.m_motionX.set((squid.m_randomMotionVecX.get() * squid.m_randomMotionSpeed.get()) as f64);
             this.m_motionY.set((squid.m_randomMotionVecY.get() * squid.m_randomMotionSpeed.get()) as f64);
             this.m_motionZ.set((squid.m_randomMotionVecZ.get() * squid.m_randomMotionSpeed.get()) as f64);
         }
+
         let f: f32 = math_helper::sqrt_double(
             this.m_motionX.get() * this.m_motionX.get() + this.m_motionZ.get() * this.m_motionZ.get(),
         );
+
         let yaw: f32 = -(jvm::math::atan2(this.m_motionX.get(), this.m_motionZ.get()) as f32) * 180.0 / PI_F;
         living.m_renderYawOffset.set(living.m_renderYawOffset.get() + (yaw - living.m_renderYawOffset.get()) * 0.1);
         this.m_rotationYaw.set(living.m_renderYawOffset.get());
         squid.m_bodyRoll.set(squid.m_bodyRoll.get() + PI_F * squid.m_rotationSpeed.get() * 1.5);
+
         let pitch: f32 = -(jvm::math::atan2(f as f64, this.m_motionY.get()) as f32) * 180.0 / PI_F;
         squid.m_bodyPitch.set(squid.m_bodyPitch.get() + (pitch - squid.m_bodyPitch.get()) * 0.1);
     }
     else
     {
         squid.m_tentacleRotation.set(math_helper::abs(math_helper::sin(squid.m_tentacleMovement.get())) * PI_F * 0.25);
+
         if !living.m_isMultiplayerEntity.get()
         {
             this.m_motionX.set(0.0);
@@ -109,6 +120,7 @@ fn onLivingUpdate(this: &Rc<Entity>)
             this.m_motionY.set(this.m_motionY.get() * 0.98f32 as f64);
             this.m_motionZ.set(0.0);
         }
+
         squid
             .m_bodyPitch
             .set((squid.m_bodyPitch.get() as f64 + (-90.0 - squid.m_bodyPitch.get()) as f64 * 0.02) as f32);
@@ -129,10 +141,12 @@ fn updatePlayerActionState(this: &Rc<Entity>)
         squid.m_randomMotionVecY.set(-0.1 + this.m_rand.nextFloat() * 0.2);
         squid.m_randomMotionVecZ.set(math_helper::sin(f) * 0.2);
     }
+
     entity_living::checkDespawn(this);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntitySquid",
     m_parent: Some(&entity_water_mob::CLASS),
     writeEntityToNBT: |this, nbt| (entity_water_mob::CLASS.writeEntityToNBT)(this, nbt),
@@ -142,7 +156,8 @@ pub const CLASS: EntityClass = EntityClass {
     getDeathSound: |_| None,
     getSoundVolume: |_| 0.4,
     getDropItemId: |_| 0,
-    dropFewItems: |this| {
+    dropFewItems: |this|
+    {
         let n: i32 = this.m_rand.nextIntBounded(3) + 1;
         for _ in 0..n
         {
@@ -150,12 +165,14 @@ pub const CLASS: EntityClass = EntityClass {
         }
     },
     interact: |_, _| false,
-    isInWater: |this| {
+    isInWater: |this|
+    {
         let bounds: Rc<crate::math::AxisAlignedBB> = this.m_boundingBox.expand(0.0, -0.6f32 as f64, 0.0);
         this.world().handleMaterialAcceleration(&bounds, Material::water(), this)
     },
     onLivingUpdate,
-    moveEntityWithHeading: |this, _, _| {
+    moveEntityWithHeading: |this, _, _|
+    {
         this.moveEntity(this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get())
     },
     updatePlayerActionState,

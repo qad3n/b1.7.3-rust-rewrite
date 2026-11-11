@@ -8,10 +8,12 @@ pub fn copyFields(fields: &JsonFields) -> JsonFields
 {
     let capacity: i32 = ((fields.size() as f32 / 0.75) as i32 + 1).max(16);
     let mut copy: JsonFields = JHashMap::withCapacity(capacity);
+
     for (key, value) in fields.entries()
     {
         copy.put(key, value);
     }
+
     copy
 }
 
@@ -22,7 +24,7 @@ pub struct JsonObject
 
 impl JsonObject
 {
-    pub fn new(fields: &JsonFields) -> JsonObject { JsonObject { m_fields: copyFields(fields) } }
+    pub fn new(fields: &JsonFields) -> Self { Self { m_fields: copyFields(fields) } }
 
     pub fn getFields(&self) -> JsonFields { copyFields(&self.m_fields) }
 
@@ -31,12 +33,13 @@ impl JsonObject
 
 impl JsonObject
 {
-    pub fn equals(&self, other: &JsonObject) -> bool
+    pub fn equals(&self, other: &Self) -> bool
     {
         if self.m_fields.size() != other.m_fields.size()
         {
             return false;
         }
+
         self.m_fields
             .entries()
             .iter()

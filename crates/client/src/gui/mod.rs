@@ -47,7 +47,8 @@ pub use gui_chat::{GUI_CHAT, GUI_SLEEP_MP, GuiChat, newSleepMP};
 pub use gui_conflict_warning::GuiConflictWarning;
 pub use gui_connect_failed::GuiConnectFailed;
 pub use gui_connecting::GuiConnecting;
-pub use gui_container::{
+pub use gui_container::
+{
     ContainerScreen, GUI_CHEST, GUI_CONTAINER, GUI_CRAFTING, GUI_DISPENSER, GUI_FURNACE, GUI_INVENTORY, GuiChest,
     GuiContainer, GuiCrafting, GuiDispenser, GuiFurnace, GuiInventory,
 };

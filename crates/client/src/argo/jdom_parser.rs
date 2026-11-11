@@ -12,11 +12,13 @@ impl JdomParser
         match throwable::catchThrowable(&throwable::IO, || SajParser.parse(json, &mut adapter))
         {
             Ok(parsed) => parsed?,
+
             Err(_) =>
             {
                 throwable::throw(&throwable::RUNTIME, "Coding failure in Argo:  StringWriter gave an IOException")
             }
         }
+
         Ok(adapter.getDocument())
     }
 }

@@ -2,12 +2,13 @@ use crate::state::{self, ModRuntime};
 use crate::{network, registry};
 use mod_protocol::Identifier;
 pub use mod_protocol::handshake::LOADER_MAGIC;
-use mod_protocol::handshake::{
+use mod_protocol::handshake::
+{
     ChannelEntry, ConfigSync, Control, DataSync, Hello, ModEntry, ModSide, RegistrySnapshot, acks,
 };
 use mod_protocol::spec::RecipeSpec;
 use mod_protocol::wire::{self, CONTROL_CHANNEL, Frame, limits};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
@@ -24,6 +25,7 @@ pub fn isRequired(runtime: &ModRuntime) -> bool
     {
         return true;
     }
+
     let hasChannels: bool = network::channels().iter().any(|(channel, _, _)| channel.namespace() == id);
     runtime.m_manifest.network.required.unwrap_or(hasChannels)
 }
@@ -51,7 +53,8 @@ pub fn localHello(includeServerMods: bool) -> Hello
         .iter()
         .filter(|runtime| runtime.isActive())
         .filter(|runtime| includeServerMods || runtime.m_manifest.side.wire() != ModSide::Server)
-        .map(|runtime| ModEntry {
+        .map(|runtime| ModEntry
+        {
             id: runtime.id().to_owned(),
             version: runtime.m_manifest.version.clone(),
             side: runtime.m_manifest.side.wire(),
@@ -67,7 +70,8 @@ pub fn localHello(includeServerMods: bool) -> Hello
     Hello { loader_version: crate::LOADER_VERSION.to_owned(), mods, channels }
 }
 
-thread_local! {
+thread_local!
+{
     static STRICT_MODS: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -102,6 +106,7 @@ fn needsPeer(entry: &ModEntry) -> bool { entry.required && entry.side == ModSide
 fn requiredCheck(server: &Hello, client: &Hello) -> Vec<String>
 {
     let mut problems: Vec<String> = Vec::new();
+
     for needed in server.mods.iter().filter(|entry| needsPeer(entry))
     {
         match client.mods.iter().find(|entry| entry.id == needed.id)
@@ -115,6 +120,7 @@ fn requiredCheck(server: &Hello, client: &Hello) -> Vec<String>
             {}
         }
     }
+
     problems
 }
 
@@ -122,27 +128,33 @@ fn requiredCheck(server: &Hello, client: &Hello) -> Vec<String>
 fn strictCheck(server: &Hello, client: &Hello) -> Vec<String>
 {
     let mut problems: Vec<String> = Vec::new();
+
     for needed in &server.mods
     {
         match client.mods.iter().find(|entry| entry.id == needed.id)
         {
             None => problems.push(format!("missing {} {}", needed.id, needed.version)),
+
             Some(found) if found.version != needed.version =>
             {
                 problems.push(format!("{} {} but the server has {}", found.id, found.version, needed.version))
             }
+
             Some(found) if found.sha256 != needed.sha256 =>
             {
                 problems.push(format!("{} {} is not the server's file", found.id, found.version))
             }
+
             Some(_) =>
             {}
         }
     }
+
     for extra in client.mods.iter().filter(|entry| !server.mods.iter().any(|found| found.id == entry.id))
     {
         problems.push(format!("extra {} {}", extra.id, extra.version));
     }
+
     problems
 }
 
@@ -183,6 +195,7 @@ pub fn logServerMods()
         crate::log::info(crate::log::LOADER, "no mods loaded");
         return;
     }
+
     let entries: Vec<String> =
         mods.iter().map(|entry| format!("{} {} ({})", entry.id, entry.version, sideLabel(entry))).collect();
     crate::log::info(
@@ -211,7 +224,8 @@ pub fn kickMessage(problems: &[String]) -> String { format!("Mod mismatch: {}", 
 
 fn recipeTable() -> Vec<(Identifier, RecipeSpec)>
 {
-    registry::with(|registries| {
+    registry::with(|registries|
+    {
         registries
             .m_recipes
             .modded()
@@ -232,10 +246,12 @@ fn dataHash() -> String
 
 fn configSync() -> ConfigSync
 {
-    ConfigSync {
+    ConfigSync
+    {
         values: state::mods()
             .iter()
-            .map(|runtime| {
+            .map(|runtime|
+            {
                 (
                     runtime.id().to_owned(),
                     toml::to_string(&runtime.m_config.borrow().serverValues()).unwrap_or_default(),
@@ -277,12 +293,13 @@ pub struct ServerSession
 
 impl ServerSession
 {
-    pub fn start(sender: &dyn Fn(u32, Vec<u8>), who: String) -> ServerSession
+    pub fn start(sender: &dyn Fn(u32, Vec<u8>), who: String) -> Self
     {
         let channels: Vec<Identifier> = network::channels().into_iter().map(|(id, _, _)| id).collect();
+
         send(sender, &Control::Hello(localHello(false)));
         send(sender, &Control::Channels(channels.clone()));
-        ServerSession { m_who: who, m_step: ServerStep::Hello, m_peer: None, m_channels: channels }
+        Self { m_who: who, m_step: ServerStep::Hello, m_peer: None, m_channels: channels }
     }
 
     pub fn peer(&self) -> Option<&Hello> { self.m_peer.as_ref() }
@@ -307,6 +324,7 @@ impl ServerSession
             (ServerStep::Hello, Control::HelloReply(peer)) =>
             {
                 crate::log::info(crate::log::LOADER, &format!("{} has mods [{}]", self.m_who, modList(&peer.mods)));
+
                 let problems: Vec<String> = serverCheck(&localHello(false), &peer);
                 if !problems.is_empty()
                 {
@@ -316,11 +334,13 @@ impl ServerSession
                     );
                     return Outcome::Kick(kickMessage(&problems));
                 }
+
                 self.m_peer = Some(peer);
                 send(sender, &Control::Registry(crate::remap::snapshot()));
                 self.m_step = ServerStep::Registry;
                 Outcome::Continue
             }
+
             (ServerStep::Registry, Control::Ack(ack)) if ack == acks::REGISTRY =>
             {
                 send(sender, &Control::Config(configSync()));
@@ -328,12 +348,14 @@ impl ServerSession
                 self.m_step = ServerStep::Data;
                 Outcome::Continue
             }
+
             (ServerStep::Data, Control::DataRequest) =>
             {
                 let table: DataTable = (recipeTable(), crate::content::tags::table());
                 send(sender, &Control::Data(DataSync::Full(wire::encode(&table))));
                 Outcome::Continue
             }
+
             (ServerStep::Data, Control::Ack(ack)) if ack == acks::DATA =>
             {
                 crate::log::info(
@@ -343,6 +365,7 @@ impl ServerSession
                 send(sender, &Control::Done);
                 Outcome::Done
             }
+
             (_, Control::Refused(entries)) => Outcome::Kick(format!("Content mismatch: {}", entries.join(", "))),
             (step, other) => Outcome::Kick(format!("unexpected loader message {other:?} in step {step:?}")),
         }
@@ -361,7 +384,8 @@ struct ClientState
     m_local: Option<RegistrySnapshot>,
 }
 
-thread_local! {
+thread_local!
+{
     static CLIENT: RefCell<ClientState> = RefCell::new(ClientState::default());
 }
 
@@ -376,24 +400,30 @@ pub fn loginPacket(mut packet: game::network::packets::Packet1Login) -> game::ne
         packet.m_mapSeed = LOADER_MAGIC;
         packet.m_dimension = mod_protocol::handshake::LOADER_PROTOCOL;
     }
+
     packet
 }
 
 pub fn clientConnected(raw: RawSender)
 {
     game::entity::remote::setServerTick(None);
+
     if !state::hasMods()
     {
         return;
     }
-    CLIENT.with(|client| {
-        let mut client = client.borrow_mut();
+
+    CLIENT.with(|client|
+    {
+        let mut client: RefMut<ClientState> = client.borrow_mut();
         client.m_raw = Some(Rc::clone(&raw));
         client.m_modded = false;
         client.m_channels.clear();
         client.m_serverChannels.clear();
     });
-    network::setServerConnection(Some(Box::new(move |id: &Identifier, data: Vec<u8>| {
+
+    network::setServerConnection(Some(Box::new(move |id: &Identifier, data: Vec<u8>|
+    {
         if let Some(index) = clientChannelIndex(id)
         {
             let (channel, body): (u32, Vec<u8>) = wire::compress(index, &data);
@@ -409,12 +439,14 @@ pub fn clientLoggedIn() -> Option<String>
     {
         return None;
     }
+
     let problems: Vec<String> = vanillaServerProblems();
     if problems.is_empty()
     {
         crate::log::info(crate::log::LOADER, "server has no mod loader, joining without server mods");
         return None;
     }
+
     let reason: String = problems.join(", ");
     crate::log::warn(crate::log::LOADER, &format!("leaving a server without the mod loader: {reason}"));
     Some(reason)
@@ -439,23 +471,30 @@ pub fn clientKicked(reason: &str)
 pub fn clientDisconnected()
 {
     game::entity::remote::setServerTick(None);
+
     if !state::hasMods()
     {
         return;
     }
+
     network::setServerConnection(None);
     CLIENT.with(|client| client.borrow_mut().m_raw = None);
-    let local: Option<RegistrySnapshot> = CLIENT.with(|client| {
-        let mut client = client.borrow_mut();
+
+    let local: Option<RegistrySnapshot> = CLIENT.with(|client|
+    {
+        let mut client: RefMut<ClientState> = client.borrow_mut();
         client.m_modded = false;
         client.m_channels.clear();
         client.m_local.clone()
     });
+
     for runtime in state::mods()
     {
         runtime.m_config.borrow_mut().clearSynced();
     }
+
     crate::content::tags::restoreLocal();
+
     if let Some(local) = local
     {
         crate::remap::apply(&local);
@@ -469,10 +508,12 @@ fn applyData(bytes: &[u8]) -> Result<(), String>
     let (recipes, tags): DataTable = wire::decode(bytes).map_err(|error| error.to_string())?;
     crate::content::tags::applySynced(&tags).map_err(|reason| format!("server tags: {reason}"))?;
     crate::content::recipes::removeModded();
+
     for (id, spec) in recipes
     {
         crate::content::recipes::apply(&id, &spec).map_err(|reason| format!("recipe {id}: {reason}"))?;
     }
+
     crate::content::recipes::finish();
     Ok(())
 }
@@ -489,21 +530,26 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
     {
         let id: Option<Identifier> =
             CLIENT.with(|client| client.borrow().m_channels.get(frame.m_channel as usize - 1).cloned());
+
         match (id, network::localPlayer())
         {
             (Some(id), Some(player)) =>
             {
                 network::deliverToClient(&id, &player, &frame.m_data);
             }
+
             (None, _) =>
             {
                 crate::log::warn(crate::log::LOADER, &format!("payload on unknown channel {}", frame.m_channel))
             }
+
             _ =>
             {}
         }
+
         return None;
     }
+
     let control: Control = match wire::decode(&frame.m_data)
     {
         Ok(control) => control,
@@ -514,25 +560,33 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
         Control::Hello(server) =>
         {
             let local: Hello = localHello(false);
+
             crate::log::info(crate::log::LOADER, &format!("server mods [{}]", modList(&server.mods)));
+
             let problems: Vec<String> = clientCheck(&server, &local);
             if !problems.is_empty()
             {
                 return Some(problems.join(", "));
             }
-            CLIENT.with(|client| {
+
+            CLIENT.with(|client|
+            {
                 client.borrow_mut().m_serverChannels =
                     server.channels.iter().map(|entry| (entry.id.clone(), entry.version.clone())).collect()
             });
+
             send(sender, &Control::HelloReply(local));
         }
+
         Control::Channels(channels) => CLIENT.with(|client| client.borrow_mut().m_channels = channels),
+
         Control::Registry(snapshot) =>
         {
             let missing: Vec<String> = crate::remap::apply(&snapshot);
             let mut required: Vec<String> = missing
                 .into_iter()
-                .filter(|entry| {
+                .filter(|entry|
+                {
                     entry
                         .split_whitespace()
                         .nth(1)
@@ -541,8 +595,10 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
                 })
                 .collect();
             required.extend(crate::states::mismatches(snapshot.registries.get(crate::states::SNAPSHOT_KEY)));
+
             let ids: usize = snapshot.registries.values().map(BTreeMap::len).sum();
             crate::log::info(crate::log::LOADER, &format!("applied server registry, {ids} ids"));
+
             if required.is_empty()
             {
                 send(sender, &Control::Ack(acks::REGISTRY.to_owned()));
@@ -552,6 +608,7 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
                 send(sender, &Control::Refused(required));
             }
         }
+
         Control::Config(sync) =>
         {
             for (modId, text) in sync.values
@@ -563,6 +620,7 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
                 }
             }
         }
+
         Control::Data(DataSync::Hash(hash)) =>
         {
             let reply: Control = if hash == dataHash()
@@ -575,28 +633,34 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
             };
             send(sender, &reply);
         }
+
         Control::Data(DataSync::Full(bytes)) =>
         {
             if let Err(reason) = applyData(&bytes)
             {
                 return Some(reason);
             }
+
             send(sender, &Control::Ack(acks::DATA.to_owned()));
         }
+
         Control::Done =>
         {
             crate::log::info(crate::log::LOADER, "server handshake done, playing with server mods");
             CLIENT.with(|client| client.borrow_mut().m_modded = true);
         }
+
         other => return Some(format!("unexpected loader message {other:?}")),
     }
+
     None
 }
 
 // play traffic to the server goes out under the index the server assigned to the channel
 pub fn clientChannelIndex(id: &Identifier) -> Option<u32>
 {
-    CLIENT.with(|client| {
+    CLIENT.with(|client|
+    {
         client.borrow().m_channels.iter().position(|channel| channel == id).map(|index| index as u32 + 1)
     })
 }
@@ -613,7 +677,8 @@ struct Connection
     m_budget: usize,
 }
 
-thread_local! {
+thread_local!
+{
     static CONNECTIONS: RefCell<HashMap<i32, Connection>> = RefCell::new(HashMap::new());
 }
 
@@ -623,14 +688,18 @@ pub fn serverPlayerJoined(player: i32, session: &ServerSession, raw: Rc<dyn Fn(u
     let channels: Vec<Identifier> = session.channels().to_vec();
     let peerChannels: Vec<Identifier> =
         session.peer().map(|peer| peer.channels.iter().map(|entry| entry.id.clone()).collect()).unwrap_or_default();
-    CONNECTIONS.with(|connections| {
+
+    CONNECTIONS.with(|connections|
+    {
         connections
             .borrow_mut()
             .insert(player, Connection { m_channels: channels.clone(), m_peerChannels: peerChannels, m_budget: 0 })
     });
+
     network::setPlayerConnection(
         player,
-        Some(Box::new(move |id: &Identifier, data: Vec<u8>| {
+        Some(Box::new(move |id: &Identifier, data: Vec<u8>|
+        {
             if let Some((channel, body)) = frame(&channels, id, &data)
             {
                 raw(channel, body);
@@ -639,6 +708,7 @@ pub fn serverPlayerJoined(player: i32, session: &ServerSession, raw: Rc<dyn Fn(u
     );
     // the columns mods turned so far, a joining client has none of them yet
     let biome: Identifier = network::loader::id(network::loader::BIOME);
+
     for column in crate::biomes::columns()
     {
         network::sendToConnection(player, &biome, &mod_protocol::wire::encode(&column));
@@ -669,14 +739,17 @@ pub fn peerHasChannel(player: i32, id: &Identifier) -> bool
     {
         return serverHasChannel(id) || network::isLoopbackClient();
     }
-    CONNECTIONS.with(|connections| {
+
+    CONNECTIONS.with(|connections|
+    {
         connections.borrow().get(&player).is_some_and(|connection| connection.m_peerChannels.contains(id))
     })
 }
 
 pub fn peersWith(id: &Identifier) -> Vec<i32>
 {
-    CONNECTIONS.with(|connections| {
+    CONNECTIONS.with(|connections|
+    {
         connections
             .borrow()
             .iter()
@@ -688,7 +761,8 @@ pub fn peersWith(id: &Identifier) -> Vec<i32>
 
 pub fn resetBudgets()
 {
-    CONNECTIONS.with(|connections| {
+    CONNECTIONS.with(|connections|
+    {
         for connection in connections.borrow_mut().values_mut()
         {
             connection.m_budget = 0;
@@ -701,14 +775,17 @@ pub fn serverReceive(player: &Rc<game::entity::Entity>, channel: u32, body: &[u8
 {
     let id: i32 = player.m_entityId.get();
     let frame: Frame = wire::decompress(channel, body, limits::SERVERBOUND_MAX).map_err(|error| error.to_string())?;
-    let target: Identifier = CONNECTIONS.with(|connections| {
-        let mut connections = connections.borrow_mut();
+
+    let target: Identifier = CONNECTIONS.with(|connections|
+    {
+        let mut connections: RefMut<HashMap<i32, Connection>> = connections.borrow_mut();
         let connection: &mut Connection = connections.get_mut(&id).ok_or("mod payload from a vanilla connection")?;
         connection.m_budget += body.len();
         if connection.m_budget > limits::SERVERBOUND_BUDGET_PER_TICK
         {
             return Err("too much mod traffic".to_owned());
         }
+
         connection
             .m_channels
             .get((frame.m_channel as usize).wrapping_sub(1))
@@ -719,5 +796,6 @@ pub fn serverReceive(player: &Rc<game::entity::Entity>, channel: u32, body: &[u8
     {
         return Err(format!("channel {target} takes no serverbound messages"));
     }
+
     Ok(())
 }

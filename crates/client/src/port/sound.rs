@@ -17,6 +17,7 @@ fn decodeMus(url: &str, bytes: Vec<u8>) -> Vec<u8>
         {
             Ok(read) if read > 0 => offset += read as usize,
             Ok(_) => break,
+
             Err(throwable) =>
             {
                 throwable.printStackTrace();
@@ -24,6 +25,7 @@ fn decodeMus(url: &str, bytes: Vec<u8>) -> Vec<u8>
             }
         }
     }
+
     decoded.truncate(offset);
     decoded
 }

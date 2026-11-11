@@ -7,7 +7,7 @@ use jvm::field::Field;
 use jvm::throwable::OrNpe;
 use std::rc::Rc;
 
-pub struct OptionsExt
+pub(crate) struct OptionsExt
 {
     m_parentScreen: Rc<GuiScreen>,
     m_screenTitle: Field<String>,
@@ -24,7 +24,7 @@ const RENDER_OPTIONS: [EnumOptions; 5] = [
     EnumOptions::Difficulty,
 ];
 
-pub fn addOptionControls(this: &GuiScreen, options: &GameSettings, list: &[EnumOptions])
+pub(crate) fn addOptionControls(this: &GuiScreen, options: &GameSettings, list: &[EnumOptions])
 {
     for (n, enumOptions) in list.iter().enumerate()
     {
@@ -33,6 +33,7 @@ pub fn addOptionControls(this: &GuiScreen, options: &GameSettings, list: &[EnumO
         let y: i32 = this.m_height.get() / 6 + 24 * (n >> 1);
         let label: String = options.getKeyBinding(*enumOptions);
         let id: i32 = enumOptions.returnEnumOrdinal();
+
         if !enumOptions.getEnumFloat()
         {
             this.m_controlList.add(GuiButton::smallOption(id, x, y, Some(*enumOptions), &label));
@@ -51,7 +52,7 @@ pub fn addOptionControls(this: &GuiScreen, options: &GameSettings, list: &[EnumO
     }
 }
 
-pub fn toggleOption(options: &GameSettings, button: &GuiButton)
+pub(crate) fn toggleOption(options: &GameSettings, button: &GuiButton)
 {
     if button.m_id.get() < 100 && button.instanceOf("GuiSmallButton")
     {
@@ -60,29 +61,37 @@ pub fn toggleOption(options: &GameSettings, button: &GuiButton)
     }
 }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiOptions",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let ext: &OptionsExt = fields(this);
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         ext.m_screenTitle.set(stringTranslate.translateKey("options.title"));
         addOptionControls(this, &ext.m_options, &RENDER_OPTIONS);
+
         let x: i32 = this.m_width.get() / 2 - 100;
         let y: i32 = this.m_height.get() / 6;
         this.m_controlList.add(GuiButton::new(101, x, y + 96 + 12, &stringTranslate.translateKey("options.video")));
         this.m_controlList.add(GuiButton::new(100, x, y + 120 + 12, &stringTranslate.translateKey("options.controls")));
         this.m_controlList.add(GuiButton::new(200, x, y + 168, &stringTranslate.translateKey("gui.done")));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         let ext: &OptionsExt = fields(this);
         toggleOption(&ext.m_options, button);
+
         let mc: Rc<Minecraft> = this.mc();
+
         match button.m_id.get()
         {
             101 =>
@@ -90,21 +99,26 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 mc.m_gameSettings.get().orNpe().saveOptions();
                 mc.displayGuiScreen(Some(GuiVideoSettings::new(&this.rc(), &ext.m_options)));
             }
+
             100 =>
             {
                 mc.m_gameSettings.get().orNpe().saveOptions();
                 mc.displayGuiScreen(Some(GuiControls::new(&this.rc(), &ext.m_options)));
             }
+
             200 =>
             {
                 mc.m_gameSettings.get().orNpe().saveOptions();
                 mc.displayGuiScreen(Some(Rc::clone(&ext.m_parentScreen)));
             }
+
             _ =>
             {}
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         this.drawDefaultBackground();
         this.m_gui.drawCenteredString(
             &this.fontRenderer(),
@@ -124,7 +138,8 @@ impl GuiOptions
 {
     pub fn new(parent: &Rc<GuiScreen>, options: &Rc<GameSettings>) -> Rc<GuiScreen>
     {
-        let ext: OptionsExt = OptionsExt {
+        let ext: OptionsExt = OptionsExt
+        {
             m_parentScreen: Rc::clone(parent),
             m_screenTitle: Field::new("Options".to_string()),
             m_options: Rc::clone(options),

@@ -43,12 +43,14 @@ impl WorldInfo
         info.m_raining.set(nbt.getBoolean("raining"));
         info.m_thunderTime.set(nbt.getInteger("thunderTime"));
         info.m_thundering.set(nbt.getBoolean("thundering"));
+
         if nbt.hasKey("Player")
         {
             let player: Rc<NBTBase> = nbt.getCompoundTag("Player");
             info.m_dimension.set(player.compound().getInteger("Dimension"));
             info.m_playerTag.set(Some(player));
         }
+
         info
     }
 
@@ -60,7 +62,7 @@ impl WorldInfo
         info
     }
 
-    pub fn withCopy(data: &WorldInfo) -> Self
+    pub fn withCopy(data: &Self) -> Self
     {
         let info: Self = Self::default();
         info.m_randomSeed.set(data.m_randomSeed.get());
@@ -93,12 +95,14 @@ impl WorldInfo
         let nbt: Rc<NBTBase> = NBTTagCompound::create();
         let entityPlayer: Option<&Rc<Entity>> = players.first();
         let mut playerData: Option<Rc<NBTBase>> = None;
+
         if let Some(player) = entityPlayer
         {
             let data: Rc<NBTBase> = NBTTagCompound::create();
             player.writeToNBT(data.compound());
             playerData = Some(data);
         }
+
         self.updateTagCompound(nbt.compound(), playerData);
         nbt
     }
@@ -118,6 +122,7 @@ impl WorldInfo
         nbt.setBoolean("raining", self.m_raining.get());
         nbt.setInteger("thunderTime", self.m_thunderTime.get());
         nbt.setBoolean("thundering", self.m_thundering.get());
+
         if let Some(playerData) = playerData
         {
             nbt.setCompoundTag("Player", &playerData);

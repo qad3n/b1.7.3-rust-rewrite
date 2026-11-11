@@ -32,9 +32,10 @@ fn printExceptions(body: impl FnOnce() -> IoResult<()>)
 
 impl MapStorage
 {
-    pub fn new(storage: Rc<dyn ISaveHandler>) -> MapStorage
+    pub fn new(storage: Rc<dyn ISaveHandler>) -> Self
     {
-        let mapStorage: MapStorage = MapStorage {
+        let mapStorage: Self = Self
+        {
             m_storage: Some(storage),
             m_loadedDataMap: RefCell::new(HashMap::new()),
             m_loadedDataList: JArrayList::new(),
@@ -50,29 +51,36 @@ impl MapStorage
         {
             return Some(Rc::clone(mapdatabase));
         }
+
         let mut mapdatabase: Option<Rc<MapDataBase>> = None;
+
         if let Some(storage) = &self.m_storage
         {
-            printExceptions(|| {
+            printExceptions(||
+            {
                 let file1: Option<PathBuf> = storage.getDataFile(id);
                 if let Some(file1) = file1
                     && file1.exists()
                 {
                     let data: Rc<MapDataBase> = MapDataBase::newInstance(kind, id);
                     mapdatabase = Some(Rc::clone(&data));
+
                     let fileinputstream: FileInputStream = FileInputStream::open(&file1)?;
                     let nbttagcompound: Rc<NBTBase> = CompressedStreamTools::readCompressed(fileinputstream)?;
                     data.readFromNBT(nbttagcompound.compound().getCompoundTag("data").compound());
                     debug!("Read world data {id} from {}", file1.display());
                 }
+
                 Ok(())
             });
         }
+
         if let Some(data) = &mapdatabase
         {
             self.m_loadedDataMap.borrow_mut().insert(id.to_string(), Rc::clone(data));
             self.m_loadedDataList.add(Rc::clone(data));
         }
+
         mapdatabase
     }
 
@@ -83,6 +91,7 @@ impl MapStorage
         {
             self.m_loadedDataList.removeIdentity(&previous);
         }
+
         self.m_loadedDataMap.borrow_mut().insert(id.to_string(), Rc::clone(&data));
         self.m_loadedDataList.add(data);
     }
@@ -98,6 +107,7 @@ impl MapStorage
                 self.saveData(&mapdatabase);
                 mapdatabase.setDirty(false);
             }
+
             i += 1;
         }
     }
@@ -109,30 +119,38 @@ impl MapStorage
         {
             return;
         };
-        printExceptions(|| {
+
+        printExceptions(||
+        {
             if let Some(dataFile) = storage.getDataFile(&data.m_id)
             {
                 let nbtTagCompound: Rc<NBTBase> = NBTTagCompound::create();
                 data.writeToNBT(nbtTagCompound.compound());
+
                 let nbt: Rc<NBTBase> = NBTTagCompound::create();
                 nbt.compound().setCompoundTag("data", &nbtTagCompound);
+
                 let os: FileOutputStream = FileOutputStream::create(&dataFile, false)?;
                 CompressedStreamTools::writeGzippedCompoundToOutputStream(&nbt, os)?;
                 debug!("Wrote world data {} to {}", data.m_id, dataFile.display());
             }
+
             Ok(())
         });
     }
 
     fn loadIdCounts(&self)
     {
-        printExceptions(|| {
+        printExceptions(||
+        {
             self.m_idCounts.borrow_mut().clear();
+
             let Some(storage) = &self.m_storage
             else
             {
                 return Ok(());
             };
+
             if let Some(file1) = storage.getDataFile("idcounts")
                 && file1.exists()
             {
@@ -149,6 +167,7 @@ impl MapStorage
                     }
                 }
             }
+
             Ok(())
         });
     }
@@ -163,12 +182,15 @@ impl MapStorage
             Some(count) => count.wrapping_add(1),
         };
         self.m_idCounts.borrow_mut().put(key, oshort);
+
         let Some(storage) = &self.m_storage
         else
         {
             return oshort as i32;
         };
-        printExceptions(|| {
+
+        printExceptions(||
+        {
             if let Some(file1) = storage.getDataFile("idcounts")
             {
                 let nbttagcompound: Rc<NBTBase> = NBTTagCompound::create();
@@ -177,13 +199,16 @@ impl MapStorage
                 {
                     nbttagcompound.compound().setShort(&s.to_string(), short1);
                 }
+
                 let mut dataoutputstream: DataOutputStream<FileOutputStream> =
                     DataOutputStream::new(FileOutputStream::create(&file1, false)?);
                 CompressedStreamTools::write(&nbttagcompound, &mut dataoutputstream)?;
                 dataoutputstream.close()?;
             }
+
             Ok(())
         });
+
         oshort as i32
     }
 }

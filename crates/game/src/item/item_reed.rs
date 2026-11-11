@@ -22,6 +22,7 @@ fn onItemUse(
 ) -> bool
 {
     let id: i32 = this.ext::<ReedExt>().m_block;
+
     if world.getBlockId(x, y, z) == Block::SNOW
     {
         face = 0;
@@ -32,38 +33,47 @@ fn onItemUse(
         {
             y -= 1;
         }
+
         if face == 1
         {
             y += 1;
         }
+
         if face == 2
         {
             z -= 1;
         }
+
         if face == 3
         {
             z += 1;
         }
+
         if face == 4
         {
             x -= 1;
         }
+
         if face == 5
         {
             x += 1;
         }
     }
+
     if stack.m_stackSize.get() == 0
     {
         return false;
     }
+
     if world.canBlockBePlacedAt(id, x, y, z, false, face)
     {
         let block: Rc<Block> = Block::byId(id).orNpe();
+
         if world.setBlockWithNotify(x, y, z, id)
         {
             Block::byId(id).orNpe().onBlockPlaced(world, x, y, z, face);
             Block::byId(id).orNpe().onBlockPlacedBy(world, x, y, z, player);
+
             let sound: Rc<StepSound> = block.m_stepSound.get();
             world.playSoundEffect(
                 (x as f32 + 0.5) as f64,
@@ -76,6 +86,7 @@ fn onItemUse(
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
         }
     }
+
     true
 }
 

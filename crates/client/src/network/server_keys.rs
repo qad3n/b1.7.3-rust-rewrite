@@ -13,14 +13,17 @@ fn pinPath() -> PathBuf { Minecraft::getMinecraftDir().join(PIN_FILE) }
 pub fn fingerprint(key: &[u8]) -> String
 {
     let mut text: String = String::new();
+
     for (i, byte) in key.iter().take(FINGERPRINT_BYTES).enumerate()
     {
         if i > 0
         {
             text.push(':');
         }
+
         let _ = write!(text, "{byte:02X}");
     }
+
     text
 }
 
@@ -31,6 +34,7 @@ pub fn check(server: &str, key: &[u8]) -> Result<(), String>
 {
     let path: PathBuf = pinPath();
     let wanted: String = hex(key);
+
     let pins: String = match fs::read_to_string(&path)
     {
         Ok(pins) => pins,
@@ -40,6 +44,7 @@ pub fn check(server: &str, key: &[u8]) -> Result<(), String>
 
     let pinned: Option<&str> =
         pins.lines().filter_map(|line| line.split_once('\t')).find(|(host, _)| *host == server).map(|(_, key)| key);
+
     match pinned
     {
         Some(pinned) if pinned == wanted => Ok(()),
@@ -47,6 +52,7 @@ pub fn check(server: &str, key: &[u8]) -> Result<(), String>
             "The key of {server} changed to {}, this may not be the real server. Remove its line from {PIN_FILE} only if the owner confirms the new key",
             fingerprint(key)
         )),
+
         None =>
         {
             let pinned: std::io::Result<()> = OpenOptions::new()
@@ -54,10 +60,12 @@ pub fn check(server: &str, key: &[u8]) -> Result<(), String>
                 .append(true)
                 .open(&path)
                 .and_then(|mut file| writeln!(file, "{server}\t{wanted}"));
+
             if let Err(error) = pinned
             {
                 warning!("Could not save the key of {server} to {}: {error}", path.display());
             }
+
             Ok(())
         }
     }

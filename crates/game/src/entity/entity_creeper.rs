@@ -48,8 +48,10 @@ pub fn setCreeperFlashTime(this: &Rc<Entity>, tickDelta: f32) -> f32
 fn coolDown(this: &Entity)
 {
     let creeper: &CreeperExt = fields(this);
+
     setCreeperState(this, -1);
     creeper.m_timeSinceIgnited.set(creeper.m_timeSinceIgnited.get() - 1);
+
     if creeper.m_timeSinceIgnited.get() < 0
     {
         creeper.m_timeSinceIgnited.set(0);
@@ -60,6 +62,7 @@ fn onUpdate(this: &Rc<Entity>)
 {
     let creeper: &CreeperExt = fields(this);
     creeper.m_lastActiveTime.set(creeper.m_timeSinceIgnited.get());
+
     let world: Rc<World> = this.world();
     if world.m_multiplayerWorld.get()
     {
@@ -68,17 +71,22 @@ fn onUpdate(this: &Rc<Entity>)
         {
             world.playSoundAtEntity(this, "random.fuse", 1.0, 0.5);
         }
+
         creeper.m_timeSinceIgnited.set(creeper.m_timeSinceIgnited.get() + n);
+
         if creeper.m_timeSinceIgnited.get() < 0
         {
             creeper.m_timeSinceIgnited.set(0);
         }
+
         if creeper.m_timeSinceIgnited.get() >= FUSE_TICKS
         {
             creeper.m_timeSinceIgnited.set(FUSE_TICKS);
         }
     }
+
     (entity_mob::CLASS.onUpdate)(this);
+
     if entity_creature::fields(this).m_playerToAttack.with(Option::is_none) && creeper.m_timeSinceIgnited.get() > 0
     {
         coolDown(this);
@@ -92,6 +100,7 @@ fn attackEntity(this: &Rc<Entity>, _target: &Rc<Entity>, distance: f32)
     {
         return;
     }
+
     let creeper: &CreeperExt = fields(this);
     let n: i32 = getCreeperState(this);
     if n <= 0 && distance < 3.0 || n > 0 && distance < 7.0
@@ -100,14 +109,17 @@ fn attackEntity(this: &Rc<Entity>, _target: &Rc<Entity>, distance: f32)
         {
             world.playSoundAtEntity(this, "random.fuse", 1.0, 0.5);
         }
+
         setCreeperState(this, 1);
         creeper.m_timeSinceIgnited.set(creeper.m_timeSinceIgnited.get() + 1);
+
         if creeper.m_timeSinceIgnited.get() >= FUSE_TICKS
         {
             let power: f32 = if getPowered(this) { 6.0 } else { 3.0 };
             world.createExplosion(Some(this), this.posX(), this.posY(), this.posZ(), power);
             this.setEntityDead();
         }
+
         entity_creature::fields(this).m_hasAttacked.set(true);
     }
     else
@@ -116,30 +128,40 @@ fn attackEntity(this: &Rc<Entity>, _target: &Rc<Entity>, distance: f32)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityCreeper",
     m_parent: Some(&entity_mob::CLASS),
-    entityInit: |this| {
+    entityInit: |this|
+    {
         (entity_mob::CLASS.entityInit)(this);
         this.m_dataWatcher.addObject(16, WatchedValue::Byte(-1));
         this.m_dataWatcher.addObject(17, WatchedValue::Byte(0));
     },
-    writeEntityToNBT: |this, nbt| {
+
+    writeEntityToNBT: |this, nbt|
+    {
         (entity_mob::CLASS.writeEntityToNBT)(this, nbt);
+
         if this.m_dataWatcher.getWatchableObjectByte(17) == 1
         {
             nbt.setBoolean("powered", true);
         }
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         (entity_mob::CLASS.readEntityFromNBT)(this, nbt);
         this.m_dataWatcher.updateObject(17, WatchedValue::Byte(if nbt.getBoolean("powered") { 1 } else { 0 }));
     },
-    attackBlockedEntity: |this, _, _| {
+
+    attackBlockedEntity: |this, _, _|
+    {
         if this.world().m_multiplayerWorld.get()
         {
             return;
         }
+
         if fields(this).m_timeSinceIgnited.get() > 0
         {
             coolDown(this);
@@ -148,8 +170,10 @@ pub const CLASS: EntityClass = EntityClass {
     onUpdate,
     getHurtSound: |_| Some("mob.creeper".to_string()),
     getDeathSound: |_| Some("mob.creeperdeath".to_string()),
-    onDeath: |this, killer| {
+    onDeath: |this, killer|
+    {
         (entity_mob::CLASS.onDeath)(this, killer);
+
         if killer.is_some_and(|killer| killer.instanceOf("EntitySkeleton"))
         {
             this.dropItem(Item::record13().m_shiftedIndex + this.m_rand.nextIntBounded(2), 1);
@@ -157,7 +181,8 @@ pub const CLASS: EntityClass = EntityClass {
     },
     attackEntity,
     getDropItemId: |_| Item::gunpowder().m_shiftedIndex,
-    onStruckByLightning: |this, lightning| {
+    onStruckByLightning: |this, lightning|
+    {
         (entity_mob::CLASS.onStruckByLightning)(this, lightning);
         this.m_dataWatcher.updateObject(17, WatchedValue::Byte(1));
     },

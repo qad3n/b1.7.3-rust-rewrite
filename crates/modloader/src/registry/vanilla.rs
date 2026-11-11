@@ -2,7 +2,7 @@ use game::worldgen::BiomeGenBase;
 use std::rc::Rc;
 
 // modern names for the b1.7.3 numeric ids, index is the block id
-pub const BLOCK_NAMES: [&str; 97] = [
+pub(crate) const BLOCK_NAMES: [&str; 97] = [
     "air",
     "stone",
     "grass",
@@ -103,7 +103,7 @@ pub const BLOCK_NAMES: [&str; 97] = [
 ];
 
 // index is the item constructor id, the numeric id is 256 plus it
-pub const ITEM_NAMES: [&str; 104] = [
+pub(crate) const ITEM_NAMES: [&str; 104] = [
     "iron_shovel",
     "iron_pickaxe",
     "iron_axe",
@@ -210,12 +210,12 @@ pub const ITEM_NAMES: [&str; 104] = [
     "shears",
 ];
 
-pub const RECORD_NAMES: [(i32, &str); 2] = [(2256, "record_13"), (2257, "record_cat")];
+pub(crate) const RECORD_NAMES: [(i32, &str); 2] = [(2256, "record_13"), (2257, "record_cat")];
 
-pub type BiomeRow = (&'static str, fn() -> Rc<BiomeGenBase>);
+pub(crate) type BiomeRow = (&'static str, fn() -> Rc<BiomeGenBase>);
 
 // BiomeGenBase statics in declaration order with their modern names, the overworld ones first
-pub const BIOMES: [BiomeRow; 13] = [
+pub(crate) const BIOMES: [BiomeRow; 13] = [
     ("rainforest", BiomeGenBase::rainforest),
     ("swampland", BiomeGenBase::swampland),
     ("seasonal_forest", BiomeGenBase::seasonalForest),
@@ -232,14 +232,15 @@ pub const BIOMES: [BiomeRow; 13] = [
 ];
 
 // hell and sky close the list and never take overworld spawns
-pub const OVERWORLD_BIOMES: usize = 11;
+pub(crate) const OVERWORLD_BIOMES: usize = 11;
 
-pub const DIMENSIONS: [(i32, &str); 2] = [(0, "overworld"), (-1, "the_nether")];
+pub(crate) const DIMENSIONS: [(i32, &str); 2] = [(0, "overworld"), (-1, "the_nether")];
 
 // java class keys such as PigZombie become pig_zombie
-pub fn snakeCase(key: &str) -> String
+pub(crate) fn snakeCase(key: &str) -> String
 {
     let mut out: String = String::with_capacity(key.len() + 4);
+
     for (index, character) in key.chars().enumerate()
     {
         if character.is_ascii_uppercase()
@@ -248,6 +249,7 @@ pub fn snakeCase(key: &str) -> String
             {
                 out.push('_');
             }
+
             out.push(character.to_ascii_lowercase());
         }
         else
@@ -255,5 +257,6 @@ pub fn snakeCase(key: &str) -> String
             out.push(character);
         }
     }
+
     out
 }

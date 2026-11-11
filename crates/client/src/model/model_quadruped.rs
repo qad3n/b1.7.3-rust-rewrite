@@ -22,9 +22,10 @@ fn leg(x: f32, z: f32, pivotPoint: i32, reduction: f32) -> ModelRenderer
 
 impl ModelQuadruped
 {
-    pub fn new(pivotPoint: i32, reduction: f32) -> ModelQuadruped
+    pub fn new(pivotPoint: i32, reduction: f32) -> Self
     {
-        ModelQuadruped {
+        Self
+        {
             m_base: ModelBaseFields::default(),
             m_head: ModelRenderer::new(0, 0).withBox(-4.0, -4.0, -8.0, 8, 8, 8, reduction).at(
                 0.0,

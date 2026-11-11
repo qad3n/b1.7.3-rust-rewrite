@@ -27,9 +27,10 @@ pub struct ModelRenderer
 
 impl ModelRenderer
 {
-    pub fn new(u: i32, v: i32) -> ModelRenderer
+    pub fn new(u: i32, v: i32) -> Self
     {
-        ModelRenderer {
+        Self
+        {
             m_faces: Vec::new(),
             m_textureOffsetX: u,
             m_textureOffsetY: v,
@@ -49,17 +50,17 @@ impl ModelRenderer
     }
 
     // rewrite: a part of a mod model on a sheet of any size
-    pub fn sized(u: i32, v: i32, width: i32, height: i32, mirror: bool) -> ModelRenderer
+    pub fn sized(u: i32, v: i32, width: i32, height: i32, mirror: bool) -> Self
     {
-        let mut renderer: ModelRenderer = Self::new(u, v);
+        let mut renderer: Self = Self::new(u, v);
         renderer.m_textureSize = (width as f32, height as f32);
         renderer.m_mirror = mirror;
         renderer
     }
 
-    pub fn mirrored(u: i32, v: i32) -> ModelRenderer
+    pub fn mirrored(u: i32, v: i32) -> Self
     {
-        let mut renderer: ModelRenderer = Self::new(u, v);
+        let mut renderer: Self = Self::new(u, v);
         renderer.m_mirror = true;
         renderer
     }
@@ -70,16 +71,22 @@ impl ModelRenderer
         let mut f: f32 = x + sizeX as f32;
         let f2: f32 = y + sizeY as f32;
         let f3: f32 = z + sizeZ as f32;
+
         x -= increase;
+
         let y: f32 = y - increase;
         let z: f32 = z - increase;
+
         f += increase;
+
         let f2: f32 = f2 + increase;
         let f3: f32 = f3 + increase;
+
         if self.m_mirror
         {
             std::mem::swap(&mut x, &mut f);
         }
+
         let v1: PositionTextureVertex = PositionTextureVertex::new(x, y, z, 0.0, 0.0);
         let v2: PositionTextureVertex = PositionTextureVertex::new(f, y, z, 0.0, 8.0);
         let v3: PositionTextureVertex = PositionTextureVertex::new(f, f2, z, 8.0, 8.0);
@@ -91,7 +98,9 @@ impl ModelRenderer
         let u: i32 = self.m_textureOffsetX;
         let v: i32 = self.m_textureOffsetY;
         let (width, height): (f32, f32) = self.m_textureSize;
-        let quad = |corners: [&PositionTextureVertex; 4], u1: i32, v1: i32, u2: i32, v2: i32| -> TexturedQuad {
+
+        let quad = |corners: [&PositionTextureVertex; 4], u1: i32, v1: i32, u2: i32, v2: i32| -> TexturedQuad
+        {
             TexturedQuad::withTextureSized(corners.map(Clone::clone).to_vec(), [u1, v1, u2, v2], width, height)
         };
         self.m_faces = vec![
@@ -108,6 +117,7 @@ impl ModelRenderer
                 v + sizeZ + sizeY,
             ),
         ];
+
         if self.m_mirror
         {
             for face in &mut self.m_faces
@@ -117,8 +127,7 @@ impl ModelRenderer
         }
     }
 
-    pub fn withBox(mut self, x: f32, y: f32, z: f32, sizeX: i32, sizeY: i32, sizeZ: i32, increase: f32)
-    -> ModelRenderer
+    pub fn withBox(mut self, x: f32, y: f32, z: f32, sizeX: i32, sizeY: i32, sizeZ: i32, increase: f32) -> Self
     {
         self.addBox(x, y, z, sizeX, sizeY, sizeZ, increase);
         self
@@ -131,7 +140,7 @@ impl ModelRenderer
         self.m_rotationPointZ.set(z);
     }
 
-    pub fn at(self, x: f32, y: f32, z: f32) -> ModelRenderer
+    pub fn at(self, x: f32, y: f32, z: f32) -> Self
     {
         self.setRotationPoint(x, y, z);
         self
@@ -177,10 +186,12 @@ impl ModelRenderer
         {
             return false;
         }
+
         if !self.m_compiled.get()
         {
             self.compileDisplayList(scale);
         }
+
         true
     }
 
@@ -190,6 +201,7 @@ impl ModelRenderer
         {
             return;
         }
+
         if self.isRotated()
         {
             GL11::glPushMatrix();
@@ -220,6 +232,7 @@ impl ModelRenderer
         {
             return;
         }
+
         GL11::glPushMatrix();
         self.translateToPivot(scale);
         Self::rotate(self.m_rotateAngleY.get(), 0.0, 1.0, 0.0);
@@ -235,6 +248,7 @@ impl ModelRenderer
         {
             return;
         }
+
         if self.isRotated()
         {
             self.translateToPivot(scale);
@@ -250,11 +264,14 @@ impl ModelRenderer
     {
         self.m_displayList.set(GLAllocation::generateDisplayLists(1));
         GL11::glNewList(self.m_displayList.get(), GL11::GL_COMPILE);
+
         let tessellator: std::rc::Rc<Tessellator> = Tessellator::instance();
+
         for face in &self.m_faces
         {
             face.draw(&tessellator, scale);
         }
+
         GL11::glEndList();
         self.m_compiled.set(true);
     }

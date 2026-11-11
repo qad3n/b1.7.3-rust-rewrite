@@ -51,6 +51,7 @@ pub fn getSheared(this: &Rc<Entity>) -> bool
 pub fn setSheared(this: &Rc<Entity>, sheared: bool)
 {
     let b0: i32 = this.m_dataWatcher.getWatchableObjectByte(16) as i32;
+
     let value: i32 = if sheared
     {
         b0 | wool::SHEARED_BIT
@@ -85,6 +86,7 @@ pub fn getRandomFleeceColor(random: &Random) -> i32
     {
         return 6;
     }
+
     0
 }
 
@@ -103,6 +105,7 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
         if !this.world().m_multiplayerWorld.get()
         {
             setSheared(this, true);
+
             let i: i32 = 2 + this.m_rand.nextIntBounded(3);
             for _ in 0..i
             {
@@ -116,20 +119,25 @@ fn interact(this: &Rc<Entity>, player: &Rc<Entity>) -> bool
                 );
             }
         }
+
         itemstack.damageItem(1, player);
     }
+
     false
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntitySheep",
     m_parent: Some(&entity_animal::CLASS),
-    entityInit: |this| {
+    entityInit: |this|
+    {
         (entity_animal::CLASS.entityInit)(this);
         this.m_dataWatcher.addObject(16, WatchedValue::Byte(0));
     },
     attackEntityFrom: |this, damage, amount| (entity_animal::CLASS.attackEntityFrom)(this, damage, amount),
-    dropFewItems: |this| {
+    dropFewItems: |this|
+    {
         if !getSheared(this)
         {
             this.entityDropItem(woolStack(this), 0.0);
@@ -137,12 +145,15 @@ pub const CLASS: EntityClass = EntityClass {
     },
     getDropItemId: |_| Block::CLOTH,
     interact,
-    writeEntityToNBT: |this, nbt| {
+    writeEntityToNBT: |this, nbt|
+    {
         (entity_animal::CLASS.writeEntityToNBT)(this, nbt);
         nbt.setBoolean("Sheared", getSheared(this));
         nbt.setByte("Color", getFleeceColor(this) as i8);
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         (entity_animal::CLASS.readEntityFromNBT)(this, nbt);
         setSheared(this, nbt.getBoolean("Sheared"));
         setFleeceColor(this, nbt.getByte("Color") as i32);

@@ -2,7 +2,8 @@ use crate::server::MinecraftServer;
 use crate::world::ChunkProviderServer;
 use game::entity::Entity;
 use game::math::math_helper;
-use game::network::packets::{
+use game::network::packets::
+{
     Packet38EntityStatus, Packet54PlayNoteBlock, Packet60Explosion, Packet70Bed, Packet71Weather,
 };
 use game::pathfinding::MCHash;
@@ -30,7 +31,8 @@ pub fn chunkProviderServer(this: &World) -> Rc<ChunkProviderServer> { fields(thi
 
 pub fn alloc(class: &'static WorldClass) -> Rc<World>
 {
-    let ext: WorldServerExt = WorldServerExt {
+    let ext: WorldServerExt = WorldServerExt
+    {
         m_chunkProviderServer: Field::new(None),
         m_bypassSpawnProtection: Cell::new(false),
         m_levelSaving: Cell::new(false),
@@ -73,6 +75,7 @@ fn updateEntityWithOptionalForce(this: &Rc<World>, entity: &Rc<Entity>, requireL
     {
         entity.setEntityDead();
     }
+
     match entity.m_riddenByEntity.get()
     {
         Some(rider) if rider.instanceOf("EntityPlayer") =>
@@ -120,8 +123,10 @@ pub fn getTileEntityList(
         {
             arraylist.push(tileentity);
         }
+
         i += 1;
     }
+
     arraylist
 }
 
@@ -133,6 +138,7 @@ fn canModify(this: &Rc<World>, player: &Rc<Entity>, x: i32, _y: i32, z: i32) -> 
     {
         j = i;
     }
+
     j > 16 || mcServer(this).configManager().isOp(game::entity::entity_player::fields(player).m_username.get().as_ref())
 }
 
@@ -167,6 +173,7 @@ fn addWeatherEffect(this: &Rc<World>, entity: Rc<Entity>) -> bool
         );
         return true;
     }
+
     false
 }
 
@@ -192,6 +199,7 @@ fn newExplosion(
     explosion.m_isFlaming.set(createFire);
     explosion.doExplosionA();
     explosion.doExplosionB(false);
+
     let packet: Packet60Explosion =
         explosion.m_destroyedBlockPositions.with(|positions| Packet60Explosion::new(x, y, z, power, positions));
     mcServer(this).configManager().sendPacketToPlayersAroundPoint(
@@ -223,7 +231,9 @@ pub fn forceSave(this: &World) { this.saveHandler().forceSave(); }
 fn updateWeather(this: &Rc<World>)
 {
     let flag: bool = this.isRaining();
+
     (WORLD.updateWeather)(this);
+
     if flag != this.isRaining()
     {
         if flag
@@ -237,7 +247,8 @@ fn updateWeather(this: &Rc<World>)
     }
 }
 
-pub const CLASS: WorldClass = WorldClass {
+pub const CLASS: WorldClass = WorldClass
+{
     m_name: "WorldServer",
     m_parent: Some(&WORLD),
     updateEntityWithOptionalForce,

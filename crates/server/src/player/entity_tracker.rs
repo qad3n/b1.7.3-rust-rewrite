@@ -19,9 +19,10 @@ pub struct EntityTracker
 
 impl EntityTracker
 {
-    pub fn new(server: &Rc<MinecraftServer>, dimension: i32) -> Rc<EntityTracker>
+    pub fn new(server: &Rc<MinecraftServer>, dimension: i32) -> Rc<Self>
     {
-        Rc::new(EntityTracker {
+        Rc::new(Self
+        {
             m_trackedEntitySet: Field::new(JHashSet::new()),
             m_trackedEntityHashTable: RefCell::new(MCHash::new()),
             m_mcServer: Rc::clone(server),
@@ -42,9 +43,11 @@ impl EntityTracker
             self.trackEntityWithVelocity(entity, range, frequency, velocity);
             return;
         }
+
         if entity.instanceOf("EntityPlayerMP")
         {
             self.trackEntityWith(entity, 512, 2);
+
             for entitytrackerentry in self.entries()
             {
                 if !Rc::ptr_eq(&entitytrackerentry.m_trackedEntity, entity)
@@ -125,10 +128,12 @@ impl EntityTracker
         {
             trackingRange = self.m_maxTrackingDistanceThreshold.get();
         }
+
         if self.m_trackedEntityHashTable.borrow().containsItem(entity.m_entityId.get())
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_STATE, "Entity is already tracked!");
         }
+
         let entitytrackerentry: Rc<EntityTrackerEntry> =
             EntityTrackerEntry::new(entity, trackingRange, updateInterval, syncVelocity);
         self.m_trackedEntitySet.update(|set| set.add(Rc::clone(&entitytrackerentry)));
@@ -145,8 +150,10 @@ impl EntityTracker
                 entitytrackerentry.removeFromTrackedPlayers(entity);
             }
         }
+
         let entitytrackerentry1: Option<Rc<EntityTrackerEntry>> =
             self.m_trackedEntityHashTable.borrow_mut().removeObject(entity.m_entityId.get());
+
         if let Some(entitytrackerentry1) = entitytrackerentry1
         {
             self.m_trackedEntitySet.update(|set| set.remove(&entitytrackerentry1));
@@ -157,15 +164,18 @@ impl EntityTracker
     pub fn updateTrackedEntities(&self)
     {
         let mut arraylist: Vec<Rc<Entity>> = Vec::new();
+
         for entitytrackerentry in self.entries()
         {
             entitytrackerentry.updatePlayerList(&self.players());
+
             if entitytrackerentry.m_playerEntitiesUpdated.get()
                 && entitytrackerentry.m_trackedEntity.instanceOf("EntityPlayerMP")
             {
                 arraylist.push(Rc::clone(&entitytrackerentry.m_trackedEntity));
             }
         }
+
         for entityplayermp in &arraylist
         {
             for entitytrackerentry1 in self.entries()
@@ -182,6 +192,7 @@ impl EntityTracker
     {
         let entitytrackerentry: Option<Rc<EntityTrackerEntry>> =
             self.m_trackedEntityHashTable.borrow().lookup(entity.m_entityId.get());
+
         if let Some(entitytrackerentry) = entitytrackerentry
         {
             entitytrackerentry.sendPacketToTrackedPlayers(packet);
@@ -192,6 +203,7 @@ impl EntityTracker
     {
         let entitytrackerentry: Option<Rc<EntityTrackerEntry>> =
             self.m_trackedEntityHashTable.borrow().lookup(entity.m_entityId.get());
+
         if let Some(entitytrackerentry) = entitytrackerentry
         {
             entitytrackerentry.sendPacketToTrackedPlayersAndTrackedEntity(packet);

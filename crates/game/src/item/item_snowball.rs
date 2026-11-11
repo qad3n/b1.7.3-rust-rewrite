@@ -2,16 +2,20 @@ use crate::entity::entity_snowball;
 use crate::item::{ITEM, Item, ItemClass};
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemSnowball",
     m_parent: Some(&ITEM),
-    onItemRightClick: |_, stack, world, player| {
+    onItemRightClick: |_, stack, world, player|
+    {
         stack.m_stackSize.set(stack.m_stackSize.get() - 1);
         world.playSoundAtEntity(player, "random.bow", 0.5, 0.4 / (Item::itemRand().nextFloat() * 0.4 + 0.8));
+
         if !world.m_multiplayerWorld.get()
         {
             world.entityJoinedWorld(&entity_snowball::createFromThrower(world, player));
         }
+
         Some(Rc::clone(stack))
     },
     ..ITEM

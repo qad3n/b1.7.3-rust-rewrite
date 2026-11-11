@@ -20,13 +20,14 @@ impl Cursor
         numImages: i32,
         images: &IntBuffer,
         _delays: Option<&IntBuffer>,
-    ) -> Result<Cursor, LWJGLException>
+    ) -> Result<Self, LWJGLException>
     {
         if images.remaining() < width * height * numImages
         {
             return Err(LWJGLException::new("images buffer is smaller than width * height * numImages"));
         }
-        Ok(Cursor { m_width: width, m_height: height, m_xHotspot: xHotspot, m_yHotspot: yHotspot })
+
+        Ok(Self { m_width: width, m_height: height, m_xHotspot: xHotspot, m_yHotspot: yHotspot })
     }
 
     pub fn getWidth(&self) -> i32 { self.m_width }

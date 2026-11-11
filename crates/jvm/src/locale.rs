@@ -33,6 +33,7 @@ fn parse(locale: &str) -> DefaultLocale
     {
         return DefaultLocale { m_language: "en".to_string(), m_charset: Charset::Ascii };
     }
+
     let withoutModifier: &str = locale.split('@').next().unwrap_or(locale);
     let (name, codeset): (&str, Option<&str>) = match withoutModifier.split_once('.')
     {
@@ -40,6 +41,7 @@ fn parse(locale: &str) -> DefaultLocale
         None => (withoutModifier, None),
     };
     let language: String = name.split('_').next().unwrap_or(name).to_ascii_lowercase();
+
     let charset: Charset = match codeset.map(|codeset| codeset.to_ascii_lowercase().replace('-', ""))
     {
         Some(codeset) if codeset == "utf8" => Charset::Utf8,

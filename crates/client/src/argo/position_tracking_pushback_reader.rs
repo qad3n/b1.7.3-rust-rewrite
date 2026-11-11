@@ -13,9 +13,10 @@ pub struct PositionTrackingPushbackReader
 
 impl PositionTrackingPushbackReader
 {
-    pub fn new(reader: &JString) -> PositionTrackingPushbackReader
+    pub fn new(reader: &JString) -> Self
     {
-        PositionTrackingPushbackReader {
+        Self
+        {
             m_chars: reader.chars().to_vec(),
             m_next: 0,
             m_pushback: None,
@@ -28,10 +29,12 @@ impl PositionTrackingPushbackReader
     pub fn unread(&mut self, c: u16)
     {
         self.m_characterCount = (self.m_characterCount - 1).max(0);
+
         if self.m_pushback.is_some()
         {
             jvm::throwable::throw(&jvm::throwable::IO, "Pushback buffer overflow");
         }
+
         self.m_pushback = Some(c);
     }
 
@@ -46,6 +49,7 @@ impl PositionTrackingPushbackReader
         {
             return c as i32;
         }
+
         match self.m_chars.get(self.m_next)
         {
             Some(c) =>
@@ -53,6 +57,7 @@ impl PositionTrackingPushbackReader
                 self.m_next += 1;
                 *c as i32
             }
+
             None => -1,
         }
     }
@@ -68,13 +73,16 @@ impl PositionTrackingPushbackReader
     {
         let mut off: usize = 0;
         let mut avail: i32 = 0;
+
         if let Some(c) = self.m_pushback.take()
         {
             buffer[0] = c;
             off = 1;
             avail = 1;
         }
+
         let mut n: i32 = avail;
+
         if off < buffer.len()
         {
             let remaining: usize = self.m_chars.len() - self.m_next;
@@ -90,10 +98,12 @@ impl PositionTrackingPushbackReader
                 n = avail + count as i32;
             }
         }
+
         for c in buffer.iter()
         {
             self.updateCharacterAndLineCounts(*c as i32);
         }
+
         n
     }
 
@@ -106,6 +116,7 @@ impl PositionTrackingPushbackReader
             self.m_lastCharacterWasCariageReturn = true;
             return;
         }
+
         if result == 10 && !self.m_lastCharacterWasCariageReturn
         {
             self.m_characterCount = 0;

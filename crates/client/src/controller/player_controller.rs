@@ -11,8 +11,10 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
 
-game::vtable! {
-    PlayerControllerClass for PlayerController {
+game::vtable!
+{
+    PlayerControllerClass for PlayerController
+    {
         fn adjustPlayer(player: &Rc<Entity>);
         fn attackEntity(player: &Rc<Entity>, target: &Rc<Entity>);
         fn clickBlock(x: i32, y: i32, z: i32, face: i32);
@@ -45,6 +47,7 @@ fn sendBlockRemoved(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, _face: 
         z,
         game::block::packBreak(block.as_ref().orNpe().m_blockID, world.getBlockMetadata(x, y, z)),
     );
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     let bl: bool = world.setBlockWithNotify(x, y, z, 0);
     if let Some(block) = block
@@ -52,6 +55,7 @@ fn sendBlockRemoved(this: &Rc<PlayerController>, x: i32, y: i32, z: i32, _face: 
     {
         block.onBlockDestroyedByPlayer(&world, x, y, z, n);
     }
+
     bl
 }
 
@@ -70,12 +74,15 @@ fn sendUseItem(_this: &Rc<PlayerController>, player: &Rc<Entity>, world: &Rc<Wor
         let inventory: Rc<InventoryPlayer> = entity_player::inventory(player);
         let currentItem: usize = inventory.m_currentItem.get() as usize;
         inventory.m_mainInventory.borrow_mut()[currentItem] = itemStack.clone();
+
         if itemStack.as_ref().is_some_and(|stack| stack.m_stackSize.get() == 0)
         {
             inventory.m_mainInventory.borrow_mut()[currentItem] = None;
         }
+
         return true;
     }
+
     false
 }
 
@@ -104,6 +111,7 @@ fn sendPlaceBlock(
     {
         return true;
     }
+
     match itemInHand
     {
         None => false,
@@ -131,19 +139,22 @@ fn closeMenu(_this: &Rc<PlayerController>, _menuId: i32, player: &Rc<Entity>)
     fields.m_craftingInventory.set(fields.m_inventorySlots.get());
 }
 
-pub const PLAYER_CONTROLLER: PlayerControllerClass = PlayerControllerClass {
+pub const PLAYER_CONTROLLER: PlayerControllerClass = PlayerControllerClass
+{
     m_name: "PlayerController",
     m_parent: None,
     m_interfaces: &[],
     adjustPlayer: |_, _| {},
     attackEntity: |_, player, target| entity_player::attackTargetEntityWithCurrentItem(player, target),
-    clickBlock: |this, x, y, z, face| {
+    clickBlock: |this, x, y, z, face|
+    {
         this.theWorld().onBlockHit(Some(&this.thePlayer()), x, y, z, face);
         this.sendBlockRemoved(x, y, z, face);
     },
     clickSlot,
     closeMenu,
-    createPlayer: |this, world| {
+    createPlayer: |this, world|
+    {
         let mc: &Rc<Minecraft> = &this.m_mc;
         entity_player_sp::new(mc, world, mc.m_session.get(), world.worldProvider().m_worldType.get())
     },
@@ -171,23 +182,11 @@ pub struct PlayerController
 
 impl PlayerController
 {
-    pub fn new(minecraft: &Rc<Minecraft>) -> Rc<PlayerController>
-    {
-        PlayerController::construct(&PLAYER_CONTROLLER, Box::new(()), minecraft)
-    }
+    pub fn new(minecraft: &Rc<Minecraft>) -> Rc<Self> { Self::construct(&PLAYER_CONTROLLER, Box::new(()), minecraft) }
 
-    pub fn construct(
-        class: &'static PlayerControllerClass,
-        ext: Box<dyn Any>,
-        minecraft: &Rc<Minecraft>,
-    ) -> Rc<PlayerController>
+    pub fn construct(class: &'static PlayerControllerClass, ext: Box<dyn Any>, minecraft: &Rc<Minecraft>) -> Rc<Self>
     {
-        Rc::new(PlayerController {
-            m_class: class,
-            m_ext: ext,
-            m_mc: Rc::clone(minecraft),
-            m_creative: Cell::new(false),
-        })
+        Rc::new(Self { m_class: class, m_ext: ext, m_mc: Rc::clone(minecraft), m_creative: Cell::new(false) })
     }
 
     pub fn ext<T: 'static>(&self) -> &T

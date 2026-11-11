@@ -30,6 +30,7 @@ fn mergeSort<T: Clone>(
                 j -= 1;
             }
         }
+
         return;
     }
 
@@ -50,6 +51,7 @@ fn mergeSort<T: Clone>(
 
     let mut p: i32 = low;
     let mut q: i32 = mid;
+
     for i in destLow..destHigh
     {
         if q >= high || (p < mid && compare(&src[p as usize], &src[q as usize]) <= 0)

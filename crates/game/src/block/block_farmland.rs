@@ -10,11 +10,13 @@ fn updateTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rand
     {
         return;
     }
+
     if isWaterNearby(world, x, y, z) || world.canBlockBeRainedOn(x, y + 1, z)
     {
         world.setBlockMetadataWithNotify(x, y, z, 7);
         return;
     }
+
     let blockMetadata: i32 = world.getBlockMetadata(x, y, z);
     if blockMetadata > 0
     {
@@ -39,12 +41,14 @@ fn isCropsNearby(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
             }
         }
     }
+
     false
 }
 
 fn isWaterNearby(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
     let water: Rc<Material> = Material::water();
+
     for i in (x - 4)..=(x + 4)
     {
         for j in y..=(y + 1)
@@ -58,13 +62,16 @@ fn isWaterNearby(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
             }
         }
     }
+
     false
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockFarmland",
     m_parent: Some(&BLOCK),
-    getCollisionBoundingBoxFromPool: |_, _, x, y, z| {
+    getCollisionBoundingBoxFromPool: |_, _, x, y, z|
+    {
         Some(AxisAlignedBB::getBoundingBoxFromPool(
             x as f64,
             y as f64,
@@ -76,7 +83,8 @@ pub const CLASS: BlockClass = BlockClass {
     },
     isOpaqueCube: |_| false,
     renderAsNormalBlock: |_| false,
-    getBlockTextureFromSideAndMetadata: |this, face, metadata| {
+    getBlockTextureFromSideAndMetadata: |this, face, metadata|
+    {
         if face == 1 && metadata > 0
         {
             return this.m_blockIndexInTexture.get() - 1;
@@ -85,17 +93,22 @@ pub const CLASS: BlockClass = BlockClass {
         {
             return this.m_blockIndexInTexture.get();
         }
+
         2
     },
     updateTick,
-    onEntityWalking: |_, world, x, y, z, _| {
+    onEntityWalking: |_, world, x, y, z, _|
+    {
         if world.m_rand.nextIntBounded(4) == 0
         {
             world.setBlockWithNotify(x, y, z, Block::DIRT);
         }
     },
-    onNeighborBlockChange: |this, world, x, y, z, neighborBlock| {
+
+    onNeighborBlockChange: |this, world, x, y, z, neighborBlock|
+    {
         (BLOCK.onNeighborBlockChange)(this, world, x, y, z, neighborBlock);
+
         if world.getBlockMaterial(x, y + 1, z).isSolid()
         {
             world.setBlockWithNotify(x, y, z, Block::DIRT);
@@ -109,6 +122,7 @@ pub fn create(id: i32) -> Rc<Block>
 {
     let block: Rc<Block> = Block::construct(&CLASS, Box::new(()), id, Material::ground());
     block.m_blockIndexInTexture.set(87);
+
     let block: Rc<Block> = block.setTickOnLoad(true);
     block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 0.9375, 1.0);
     block.setLightOpacity(255)

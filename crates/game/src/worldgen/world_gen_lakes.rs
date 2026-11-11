@@ -12,7 +12,7 @@ pub struct WorldGenLakes
 
 impl WorldGenLakes
 {
-    pub fn new(liquid: i32) -> WorldGenLakes { WorldGenLakes { m_liquid: liquid } }
+    pub fn new(liquid: i32) -> Self { Self { m_liquid: liquid } }
 }
 
 fn index(x: i32, z: i32, y: i32) -> usize { ((x * 16 + z) * 8 + y) as usize }
@@ -38,7 +38,9 @@ impl WorldGenerator for WorldGenLakes
         {
             y -= 1;
         }
+
         y -= 4;
+
         let mut shape: Vec<bool> = vec![false; 2048];
         let i: i32 = random.nextIntBounded(4) + 4;
         for _ in 0..i
@@ -49,6 +51,7 @@ impl WorldGenerator for WorldGenLakes
             let d3: f64 = random.nextDouble() * (16.0 - d0 - 2.0) + 1.0 + d0 / 2.0;
             let d4: f64 = random.nextDouble() * (8.0 - d1 - 4.0) + 2.0 + d1 / 2.0;
             let d5: f64 = random.nextDouble() * (16.0 - d2 - 2.0) + 1.0 + d2 / 2.0;
+
             for l in 1..15
             {
                 for i1 in 1..15
@@ -67,6 +70,7 @@ impl WorldGenerator for WorldGenLakes
                 }
             }
         }
+
         for k1 in 0..16
         {
             for k2 in 0..16
@@ -88,6 +92,7 @@ impl WorldGenerator for WorldGenLakes
                 }
             }
         }
+
         for l1 in 0..16
         {
             for l2 in 0..16
@@ -101,6 +106,7 @@ impl WorldGenerator for WorldGenLakes
                 }
             }
         }
+
         for i2 in 0..16
         {
             for i3 in 0..16
@@ -116,6 +122,7 @@ impl WorldGenerator for WorldGenLakes
                 }
             }
         }
+
         if Rc::ptr_eq(&Block::byId(self.m_liquid).orNpe().m_blockMaterial, &Material::lava())
         {
             for j2 in 0..16
@@ -134,6 +141,7 @@ impl WorldGenerator for WorldGenLakes
                 }
             }
         }
+
         true
     }
 }

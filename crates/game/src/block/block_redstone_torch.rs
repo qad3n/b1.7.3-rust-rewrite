@@ -14,7 +14,8 @@ pub struct RedstoneUpdateInfo
     m_updateTime: i64,
 }
 
-thread_local! {
+thread_local!
+{
     static TORCH_UPDATES: JArrayList<RedstoneUpdateInfo> = JArrayList::new();
 }
 
@@ -28,12 +29,15 @@ fn active(this: &Block) -> bool { this.ext::<TorchExt>().m_torchActive.get() }
 
 fn checkForBurnout(world: &Rc<World>, x: i32, y: i32, z: i32, logToggle: bool) -> bool
 {
-    TORCH_UPDATES.with(|updates| {
+    TORCH_UPDATES.with(|updates|
+    {
         if logToggle
         {
             updates.add(RedstoneUpdateInfo { m_x: x, m_y: y, m_z: z, m_updateTime: world.getWorldTime() });
         }
+
         let mut i: i32 = 0;
+
         for j in 0..updates.size()
         {
             let info: RedstoneUpdateInfo = updates.get(j);
@@ -46,6 +50,7 @@ fn checkForBurnout(world: &Rc<World>, x: i32, y: i32, z: i32, logToggle: bool) -
                 }
             }
         }
+
         false
     })
 }
@@ -72,6 +77,7 @@ fn isPoweringTo(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i
     {
         return false;
     }
+
     n != 2 || dir != 4
 }
 
@@ -94,13 +100,16 @@ fn hasNeighborSignal(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
     {
         return true;
     }
+
     n == 2 && world.isBlockIndirectlyProvidingPowerTo(x + 1, y, z, 5)
 }
 
 fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
     let bl: bool = hasNeighborSignal(world, x, y, z);
-    TORCH_UPDATES.with(|updates| {
+
+    TORCH_UPDATES.with(|updates|
+    {
         while updates.size() > 0 && world.getWorldTime() - updates.get(0).m_updateTime > 100
         {
             updates.removeAt(0);
@@ -112,6 +121,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
         if bl
         {
             world.setBlockAndMetadataWithNotify(x, y, z, Block::TORCH_REDSTONE_IDLE, world.getBlockMetadata(x, y, z));
+
             if checkForBurnout(world, x, y, z, true)
             {
                 let pitch: f32 = 2.6 + (world.m_rand.nextFloat() - world.m_rand.nextFloat()) * 0.8;
@@ -123,6 +133,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
                     0.5,
                     pitch,
                 );
+
                 for _ in 0..5
                 {
                     let d: f64 = x as f64 + random.nextDouble() * 0.6 + 0.2;
@@ -145,12 +156,14 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     {
         return;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     let d: f64 = (x as f32 + 0.5) as f64 + (random.nextFloat() - 0.5) as f64 * 0.2;
     let d2: f64 = (y as f32 + 0.7) as f64 + (random.nextFloat() - 0.5) as f64 * 0.2;
     let d3: f64 = (z as f32 + 0.5) as f64 + (random.nextFloat() - 0.5) as f64 * 0.2;
     let d4: f64 = 0.22f32 as f64;
     let d5: f64 = 0.27f32 as f64;
+
     let (px, py, pz): (f64, f64, f64) = match n
     {
         1 => (d - d5, d2 + d4, d3),
@@ -162,28 +175,35 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     world.spawnParticle("reddust", px, py, pz, 0.0, 0.0, 0.0);
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockRedstoneTorch",
     m_parent: Some(&block_torch::CLASS),
-    getBlockTextureFromSideAndMetadata: |this, face, metadata| {
+    getBlockTextureFromSideAndMetadata: |this, face, metadata|
+    {
         if face == 1
         {
             return Block::redstoneWire().getBlockTextureFromSideAndMetadata(face, metadata);
         }
+
         (block_torch::CLASS.getBlockTextureFromSideAndMetadata)(this, face, metadata)
     },
     tickRate: |_| 2,
-    onBlockAdded: |this, world, x, y, z| {
+    onBlockAdded: |this, world, x, y, z|
+    {
         if world.getBlockMetadata(x, y, z) == 0
         {
             (block_torch::CLASS.onBlockAdded)(this, world, x, y, z);
         }
+
         if active(this)
         {
             notifyAround(this, world, x, y, z);
         }
     },
-    onBlockRemoval: |this, world, x, y, z| {
+
+    onBlockRemoval: |this, world, x, y, z|
+    {
         if active(this)
         {
             notifyAround(this, world, x, y, z);
@@ -191,11 +211,14 @@ pub const CLASS: BlockClass = BlockClass {
     },
     isPoweringTo,
     updateTick,
-    onNeighborBlockChange: |this, world, x, y, z, neighborBlock| {
+    onNeighborBlockChange: |this, world, x, y, z, neighborBlock|
+    {
         (block_torch::CLASS.onNeighborBlockChange)(this, world, x, y, z, neighborBlock);
         world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());
     },
-    isIndirectlyPoweringTo: |this, world, x, y, z, dir| {
+
+    isIndirectlyPoweringTo: |this, world, x, y, z, dir|
+    {
         if dir == 0
         {
             this.isPoweringTo(&**world, x, y, z, dir)

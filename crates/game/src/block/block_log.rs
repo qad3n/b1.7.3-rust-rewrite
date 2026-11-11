@@ -11,6 +11,7 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return;
     }
+
     for j in -b0..=b0
     {
         for k in -b0..=b0
@@ -38,6 +39,7 @@ fn getBlockTextureFromSideAndMetadata(_this: &Rc<Block>, face: i32, metadata: i3
     {
         return 21;
     }
+
     match metadata
     {
         1 => 116,
@@ -46,7 +48,8 @@ fn getBlockTextureFromSideAndMetadata(_this: &Rc<Block>, face: i32, metadata: i3
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockLog",
     m_parent: Some(&BLOCK),
     quantityDropped: |_, _| 1,

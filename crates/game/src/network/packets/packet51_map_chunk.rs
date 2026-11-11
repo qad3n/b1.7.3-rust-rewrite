@@ -24,7 +24,8 @@ impl Default for Packet51MapChunk
 {
     fn default() -> Self
     {
-        Self {
+        Self
+        {
             m_base: PacketBase::chunkData(),
             m_xPosition: 0,
             m_yPosition: 0,
@@ -44,6 +45,7 @@ fn newByteArray(length: i32) -> Vec<u8>
     {
         jvm::throwable::throwBare(&jvm::throwable::NEGATIVE_ARRAY_SIZE);
     }
+
     vec![0; length as usize]
 }
 
@@ -51,7 +53,8 @@ impl Packet51MapChunk
 {
     pub fn new(minX: i32, minY: i32, minZ: i32, widthX: i32, height: i32, widthZ: i32, world: &Rc<World>) -> Self
     {
-        let mut packet: Self = Self {
+        let mut packet: Self = Self
+        {
             m_xPosition: minX,
             m_yPosition: minY,
             m_zPosition: minZ,
@@ -60,11 +63,13 @@ impl Packet51MapChunk
             m_zSize: widthZ,
             ..Self::default()
         };
+
         let byArray: Vec<u8> =
             world.getChunkData(minX, minY, minZ, widthX, height, widthZ).into_iter().map(|value| value as u8).collect();
         let mut deflater: Deflater = Deflater::new(-1);
         deflater.setInput(&byArray);
         deflater.finish();
+
         let mut chunk: Vec<u8> = newByteArray(widthX * height * widthZ * 5 / 2);
         packet.m_chunkSize = deflater.deflate(&mut chunk);
         packet.m_chunk = Some(chunk);
@@ -88,13 +93,17 @@ impl Packet for Packet51MapChunk
         self.m_chunkSize = input.readInt()?;
         let mut byArray: Vec<u8> = newByteArray(self.m_chunkSize);
         input.readFully(&mut byArray)?;
+
         let mut chunk: Vec<u8> =
             newByteArray(self.m_xSize.wrapping_mul(self.m_ySize).wrapping_mul(self.m_zSize).wrapping_mul(5) / 2);
         let mut inflater: Inflater = Inflater::new();
         inflater.setInput(&byArray);
+
         let inflated: IoResult<i32> = inflater.inflate(&mut chunk);
+
         inflater.end();
         self.m_chunk = Some(chunk);
+
         match inflated
         {
             Err(error) if error.instanceOf(&DATA_FORMAT) => Err(ioError(&IO, "Bad compressed data format")),

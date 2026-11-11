@@ -1,5 +1,6 @@
 use crate::string::JString;
 use crate::throwable::{self, Throwable, ThrowableClass};
+use std::io::{Read, Seek, Write};
 
 pub type IoResult<T> = Result<T, Throwable>;
 
@@ -40,6 +41,7 @@ pub trait InputStream
     fn readInto(&mut self, buf: &mut [u8], off: i32, len: i32) -> IoResult<i32>
     {
         checkBounds(buf.len(), off, len);
+
         if len == 0
         {
             return Ok(0);
@@ -50,6 +52,7 @@ pub trait InputStream
         {
             return Ok(-1);
         }
+
         buf[off as usize] = first as u8;
 
         let mut i: i32 = 1;
@@ -64,16 +67,20 @@ pub trait InputStream
             {
                 break;
             }
+
             buf[(off + i) as usize] = value as u8;
             i += 1;
         }
+
         Ok(i)
     }
 
     fn skip(&mut self, n: i64) -> IoResult<i64>
     {
         const SKIP_BUFFER_SIZE: i64 = 2048;
+
         let mut remaining: i64 = n;
+
         if n <= 0
         {
             return Ok(0);
@@ -81,6 +88,7 @@ pub trait InputStream
 
         let size: i64 = SKIP_BUFFER_SIZE.min(remaining);
         let mut buffer: Vec<u8> = vec![0; size as usize];
+
         while remaining > 0
         {
             let count: i32 = self.readInto(&mut buffer, 0, size.min(remaining) as i32)?;
@@ -88,8 +96,10 @@ pub trait InputStream
             {
                 break;
             }
+
             remaining -= count as i64;
         }
+
         Ok(n - remaining)
     }
 
@@ -105,10 +115,12 @@ pub trait OutputStream
     fn writeFrom(&mut self, buf: &[u8], off: i32, len: i32) -> IoResult<()>
     {
         checkBounds(buf.len(), off, len);
+
         for i in 0..len
         {
             self.write(buf[(off + i) as usize] as i32)?;
         }
+
         Ok(())
     }
 
@@ -167,15 +179,18 @@ impl InputStream for ByteArrayInputStream
         if self.m_pos < self.m_count
         {
             let value: i32 = self.m_buf[self.m_pos as usize] as i32;
+
             self.m_pos += 1;
             return Ok(value);
         }
+
         Ok(-1)
     }
 
     fn readInto(&mut self, buf: &mut [u8], off: i32, len: i32) -> IoResult<i32>
     {
         checkBounds(buf.len(), off, len);
+
         if self.m_pos >= self.m_count
         {
             return Ok(-1);
@@ -186,6 +201,7 @@ impl InputStream for ByteArrayInputStream
         {
             len = self.m_count - self.m_pos;
         }
+
         if len <= 0
         {
             return Ok(0);
@@ -204,10 +220,12 @@ impl InputStream for ByteArrayInputStream
         {
             n = (self.m_count - self.m_pos) as i64;
         }
+
         if n < 0
         {
             return Ok(0);
         }
+
         self.m_pos += n as i32;
         Ok(n)
     }
@@ -284,8 +302,10 @@ impl<S: InputStream> DataInputStream<S>
             {
                 return Err(eof());
             }
+
             n += count;
         }
+
         Ok(())
     }
 
@@ -299,8 +319,10 @@ impl<S: InputStream> DataInputStream<S>
             {
                 break;
             }
+
             total += cur;
         }
+
         Ok(total)
     }
 
@@ -311,6 +333,7 @@ impl<S: InputStream> DataInputStream<S>
         {
             return Err(eof());
         }
+
         Ok(ch)
     }
 
@@ -328,6 +351,7 @@ impl<S: InputStream> DataInputStream<S>
         {
             return Err(eof());
         }
+
         Ok(((ch1 << 8) + ch2) as i16)
     }
 
@@ -339,6 +363,7 @@ impl<S: InputStream> DataInputStream<S>
         {
             return Err(eof());
         }
+
         Ok((ch1 << 8) + ch2)
     }
 
@@ -354,6 +379,7 @@ impl<S: InputStream> DataInputStream<S>
         {
             return Err(eof());
         }
+
         Ok((ch1 << 24).wrapping_add(ch2 << 16).wrapping_add(ch3 << 8).wrapping_add(ch4))
     }
 
@@ -392,6 +418,7 @@ pub fn decodeModifiedUtf8(bytes: &[u8]) -> IoResult<JString>
                 count += 1;
                 chars.push(c as u16);
             }
+
             12 | 13 =>
             {
                 count += 2;
@@ -404,8 +431,10 @@ pub fn decodeModifiedUtf8(bytes: &[u8]) -> IoResult<JString>
                 {
                     return Err(ioError(&UTF_DATA_FORMAT, &format!("malformed input around byte {count}")));
                 }
+
                 chars.push((((c & 0x1F) << 6) | (char2 & 0x3F)) as u16);
             }
+
             14 =>
             {
                 count += 3;
@@ -419,17 +448,21 @@ pub fn decodeModifiedUtf8(bytes: &[u8]) -> IoResult<JString>
                 {
                     return Err(ioError(&UTF_DATA_FORMAT, &format!("malformed input around byte {}", count - 1)));
                 }
+
                 chars.push((((c & 0x0F) << 12) | ((char2 & 0x3F) << 6) | (char3 & 0x3F)) as u16);
             }
+
             _ => return Err(ioError(&UTF_DATA_FORMAT, &format!("malformed input around byte {count}"))),
         }
     }
+
     Ok(JString::fromUtf16(chars))
 }
 
 pub fn encodeModifiedUtf8(text: &JString) -> IoResult<Vec<u8>>
 {
     let mut utflen: i32 = 0;
+
     for &c in text.chars()
     {
         if (0x0001..=0x007F).contains(&c)
@@ -454,6 +487,7 @@ pub fn encodeModifiedUtf8(text: &JString) -> IoResult<Vec<u8>>
     let mut bytes: Vec<u8> = Vec::with_capacity(utflen as usize + 2);
     bytes.push(((utflen >> 8) & 0xFF) as u8);
     bytes.push((utflen & 0xFF) as u8);
+
     for &c in text.chars()
     {
         let c: i32 = c as i32;
@@ -473,6 +507,7 @@ pub fn encodeModifiedUtf8(text: &JString) -> IoResult<Vec<u8>>
             bytes.push((0x80 | (c & 0x3F)) as u8);
         }
     }
+
     Ok(bytes)
 }
 
@@ -493,6 +528,7 @@ impl<S: OutputStream> DataOutputStream<S>
         {
             temp = i32::MAX;
         }
+
         self.m_written = temp;
     }
 
@@ -564,6 +600,7 @@ impl<S: OutputStream> DataOutputStream<S>
         {
             self.m_out.write(c as u8 as i32)?;
         }
+
         self.incCount(text.length());
         Ok(())
     }
@@ -576,6 +613,7 @@ impl<S: OutputStream> DataOutputStream<S>
             self.m_out.write((v >> 8) & 0xFF)?;
             self.m_out.write(v & 0xFF)?;
         }
+
         self.incCount(text.length() * 2);
         Ok(())
     }
@@ -597,6 +635,7 @@ pub fn floatToIntBits(value: f32) -> i32
     {
         return 0x7FC00000;
     }
+
     value.to_bits() as i32
 }
 
@@ -606,6 +645,7 @@ pub fn doubleToLongBits(value: f64) -> i64
     {
         return 0x7FF8000000000000;
     }
+
     value.to_bits() as i64
 }
 
@@ -649,17 +689,19 @@ impl InputStream for FileInputStream
         {
             return Ok(-1);
         }
+
         Ok(buffer[0] as i32)
     }
 
     fn readInto(&mut self, buf: &mut [u8], off: i32, len: i32) -> IoResult<i32>
     {
-        use std::io::Read;
         checkBounds(buf.len(), off, len);
+
         if len == 0
         {
             return Ok(0);
         }
+
         match self.m_file.read(&mut buf[off as usize..(off + len) as usize])
         {
             Ok(0) => Ok(-1),
@@ -670,7 +712,6 @@ impl InputStream for FileInputStream
 
     fn skip(&mut self, n: i64) -> IoResult<i64>
     {
-        use std::io::Seek;
         match self.m_file.seek(std::io::SeekFrom::Current(n))
         {
             Ok(_) => Ok(n),
@@ -690,6 +731,7 @@ impl FileOutputStream
     {
         let result: std::io::Result<std::fs::File> =
             std::fs::OpenOptions::new().write(true).create(true).append(append).truncate(!append).open(path);
+
         match result
         {
             Ok(file) => Ok(Self { m_file: file }),
@@ -708,7 +750,6 @@ impl OutputStream for FileOutputStream
 
     fn writeFrom(&mut self, buf: &[u8], off: i32, len: i32) -> IoResult<()>
     {
-        use std::io::Write;
         checkBounds(buf.len(), off, len);
         self.m_file.write_all(&buf[off as usize..(off + len) as usize]).map_err(|error| fromStd(&error))
     }
@@ -730,6 +771,7 @@ impl<S: OutputStream> BufferedOutputStream<S>
         {
             throwable::throw(&throwable::ILLEGAL_ARGUMENT, "Buffer size <= 0");
         }
+
         Self { m_out: output, m_buf: Vec::with_capacity(size as usize), m_capacity: size as usize }
     }
 
@@ -741,6 +783,7 @@ impl<S: OutputStream> BufferedOutputStream<S>
             let len: i32 = pending.len() as i32;
             self.m_out.writeFrom(&pending, 0, len)?;
         }
+
         Ok(())
     }
 }
@@ -753,6 +796,7 @@ impl<S: OutputStream> OutputStream for BufferedOutputStream<S>
         {
             self.flushBuffer()?;
         }
+
         self.m_buf.push(value as u8);
         Ok(())
     }
@@ -769,6 +813,7 @@ impl<S: OutputStream> OutputStream for BufferedOutputStream<S>
         {
             self.flushBuffer()?;
         }
+
         self.m_buf.extend_from_slice(&buf[off as usize..(off + len) as usize]);
         Ok(())
     }
@@ -782,6 +827,7 @@ impl<S: OutputStream> OutputStream for BufferedOutputStream<S>
     fn close(&mut self) -> IoResult<()>
     {
         let flushed: IoResult<()> = self.flush();
+
         self.m_out.close()?;
         flushed
     }
@@ -802,6 +848,7 @@ impl<S: InputStream> BufferedInputStream<S>
         {
             throwable::throw(&throwable::ILLEGAL_ARGUMENT, "Buffer size <= 0");
         }
+
         Self { m_in: input, m_buf: Vec::with_capacity(size as usize), m_pos: 0 }
     }
 
@@ -810,6 +857,7 @@ impl<S: InputStream> BufferedInputStream<S>
         let capacity: usize = self.m_buf.capacity();
         self.m_buf.resize(capacity, 0);
         self.m_pos = 0;
+
         let count: i32 = self.m_in.readInto(&mut self.m_buf, 0, capacity as i32)?;
         self.m_buf.truncate(count.max(0) as usize);
         Ok(())
@@ -823,12 +871,15 @@ impl<S: InputStream> InputStream for BufferedInputStream<S>
         if self.m_pos >= self.m_buf.len()
         {
             self.fill()?;
+
             if self.m_pos >= self.m_buf.len()
             {
                 return Ok(-1);
             }
         }
+
         let value: i32 = self.m_buf[self.m_pos] as i32;
+
         self.m_pos += 1;
         Ok(value)
     }
@@ -836,6 +887,7 @@ impl<S: InputStream> InputStream for BufferedInputStream<S>
     fn readInto(&mut self, buf: &mut [u8], off: i32, len: i32) -> IoResult<i32>
     {
         checkBounds(buf.len(), off, len);
+
         if len == 0
         {
             return Ok(0);
@@ -847,7 +899,9 @@ impl<S: InputStream> InputStream for BufferedInputStream<S>
             {
                 return self.m_in.readInto(buf, off, len);
             }
+
             self.fill()?;
+
             if self.m_pos >= self.m_buf.len()
             {
                 return Ok(-1);

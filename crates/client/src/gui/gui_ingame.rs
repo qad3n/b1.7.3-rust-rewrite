@@ -17,7 +17,8 @@ use lwjgl::opengl::GL11;
 use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static ITEM_RENDERER: OnceCell<Rc<RenderItem>> = const { OnceCell::new() };
 }
 
@@ -43,9 +44,10 @@ pub struct GuiIngame
 
 impl GuiIngame
 {
-    pub fn new(minecraft: Rc<Minecraft>) -> GuiIngame
+    pub fn new(minecraft: Rc<Minecraft>) -> Self
     {
-        GuiIngame {
+        Self
+        {
             m_gui: Gui::new(),
             m_chatMessageList: RefCell::new(Vec::new()),
             m_rand: Random::new(),
@@ -74,13 +76,17 @@ impl GuiIngame
         let i: i32 = scaledresolution.getScaledWidth();
         let j: i32 = scaledresolution.getScaledHeight();
         let fontrenderer: Rc<FontRenderer> = mc.m_fontRenderer.get().orNpe();
+
         mc.m_entityRenderer.get().orNpe().setupGuiState();
         GL11::glEnable(3042);
+
         let player: Rc<Entity> = self.player();
+
         if Minecraft::isFancyGraphicsEnabled()
         {
             self.renderVignette(player.getEntityBrightness(tickDelta), i, j);
         }
+
         let inventoryplayer: Rc<InventoryPlayer> = entity_player::inventory(&player);
         let itemstack: Option<Rc<ItemStack>> = inventoryplayer.armorItemInSlot(3);
         if !self.settings().m_thirdPersonView.get()
@@ -88,14 +94,18 @@ impl GuiIngame
         {
             self.renderPumpkinBlur(i, j);
         }
+
         let playerFields: &entity_player::PlayerFields = entity_player::fields(&player);
         let f: f32 = playerFields.m_prevTimeInPortal.get()
             + (playerFields.m_timeInPortal.get() - playerFields.m_prevTimeInPortal.get()) * tickDelta;
+
         if f > 0.0
         {
             self.renderPortalOverlay(f, i, j);
         }
+
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
         let renderEngine: Rc<RenderEngine> = self.renderEngine();
         GL11::glBindTexture(3553, renderEngine.getTexture("/gui/gui.png"));
         self.m_gui.m_zLevel.set(-90.0);
@@ -121,33 +131,40 @@ impl GuiIngame
         GL11::glRotatef(120.0, 1.0, 0.0, 0.0);
         RenderHelper::enableStandardItemLighting();
         GL11::glPopMatrix();
+
         for i3 in 0..9
         {
             let i4: i32 = i / 2 - 90 + i3 * 20 + 2;
             let l4: i32 = j - 16 - 3;
             self.renderInventorySlot(i3, i4, l4, tickDelta);
         }
+
         RenderHelper::disableStandardItemLighting();
         GL11::glDisable(32826);
+
         let sleepingTime: i32 = entity_player::getSleepingTime(&player);
         if sleepingTime > 0
         {
             GL11::glDisable(2929);
             GL11::glDisable(3008);
+
             let mut f2: f32 = sleepingTime as f32 / 100.0;
             if f2 > 1.0
             {
                 f2 = 1.0 - (sleepingTime - 100) as f32 / 10.0;
             }
+
             let i5: i32 = ((220.0 * f2) as i32) << 24 | 1052704;
             self.m_gui.drawRect(0, 0, i, j, i5);
             GL11::glEnable(3008);
             GL11::glEnable(2929);
         }
+
         if self.settings().m_showDebugInfo.get()
         {
             self.renderDebugInfo(&fontrenderer, &player, i);
         }
+
         self.renderRecordMessage(&fontrenderer, tickDelta, i, j);
         self.renderChat(&fontrenderer, j);
         // mod hud draw lists paint over the vanilla overlay
@@ -157,18 +174,23 @@ impl GuiIngame
     fn renderStatusBars(&self, player: &Rc<Entity>, i: i32, j: i32)
     {
         let mut flag: bool = player.m_heartsLife.get() / 3 % 2 == 1;
+
         if player.m_heartsLife.get() < 10
         {
             flag = false;
         }
+
         let living: &entity_living::LivingFields = entity_living::fields(player);
         let k: i32 = living.m_health.get();
         let l: i32 = living.m_prevHealth.get();
+
         self.m_rand.setSeed((self.m_updateCounter.get().wrapping_mul(312871)) as i64);
+
         if !self.m_mc.m_playerController.get().orNpe().shouldDrawHUD()
         {
             return;
         }
+
         let i1: i32 = entity_player_sp::getPlayerArmorValue(player);
         let gui: &Gui = &self.m_gui;
         // rewrite: hearts past ten stack in rows as forge draws a raised max health
@@ -176,50 +198,63 @@ impl GuiIngame
         for j1 in 0..rows.m_hearts
         {
             let mut k1: i32 = j - 32;
+
             if i1 > 0 && j1 < HeartRows::PER_ROW
             {
                 let l1: i32 = i / 2 + 91 - j1 * 8 - 9;
+
                 if j1 * 2 + 1 < i1
                 {
                     gui.drawTexturedModalRect(l1, k1, 34, 9, 9, 9);
                 }
+
                 if j1 * 2 + 1 == i1
                 {
                     gui.drawTexturedModalRect(l1, k1, 25, 9, 9, 9);
                 }
+
                 if j1 * 2 + 1 > i1
                 {
                     gui.drawTexturedModalRect(l1, k1, 16, 9, 9, 9);
                 }
             }
+
             let b1: i32 = if flag { 1 } else { 0 };
             let i2: i32 = i / 2 - 91 + j1 % HeartRows::PER_ROW * 8;
+
             k1 -= rows.lift(j1);
+
             if k <= 4
             {
                 k1 += self.m_rand.nextIntBounded(2);
             }
+
             gui.drawTexturedModalRect(i2, k1, 16 + b1 * 9, 0, 9, 9);
+
             if flag
             {
                 if j1 * 2 + 1 < l
                 {
                     gui.drawTexturedModalRect(i2, k1, 70, 0, 9, 9);
                 }
+
                 if j1 * 2 + 1 == l
                 {
                     gui.drawTexturedModalRect(i2, k1, 79, 0, 9, 9);
                 }
             }
+
             if j1 * 2 + 1 < k
             {
                 gui.drawTexturedModalRect(i2, k1, 52, 0, 9, 9);
             }
+
             if j1 * 2 + 1 == k
             {
                 gui.drawTexturedModalRect(i2, k1, 61, 0, 9, 9);
             }
         }
+
         if player.isInsideOfMaterial(&Material::water())
         {
             let air: i32 = player.m_air.get();
@@ -236,11 +271,14 @@ impl GuiIngame
     fn renderDebugInfo(&self, fontrenderer: &FontRenderer, player: &Entity, i: i32)
     {
         let mc: &Rc<Minecraft> = &self.m_mc;
+
         GL11::glPushMatrix();
+
         if Minecraft::hasPaidCheckTime() > 0
         {
             GL11::glTranslatef(0.0, 32.0, 0.0);
         }
+
         fontrenderer.drawStringWithShadow(&format!("Minecraft Beta 1.7.3 ({})", mc.m_debug.get()), 2, 2, 16777215);
         fontrenderer.drawStringWithShadow(&mc.getRenderChunkDebugInfo(), 2, 12, 16777215);
         fontrenderer.drawStringWithShadow(&mc.getRenderEntityDebugInfo(), 2, 22, 16777215);
@@ -264,10 +302,12 @@ impl GuiIngame
         self.m_gui.drawString(fontrenderer, &s, i - fontrenderer.getStringWidth(&s) - 2, 2, 14737632);
         s = format!("Allocated memory: {}% ({}MB)", j5 * 100 / k3, j5 / 1024 / 1024);
         self.m_gui.drawString(fontrenderer, &s, i - fontrenderer.getStringWidth(&s) - 2, 12, 14737632);
+
         let double: fn(f64) -> String = jvm::floating_decimal::doubleToString;
         self.m_gui.drawString(fontrenderer, &format!("x: {}", double(player.posX())), 2, shift + 64, 14737632);
         self.m_gui.drawString(fontrenderer, &format!("y: {}", double(player.posY())), 2, shift + 72, 14737632);
         self.m_gui.drawString(fontrenderer, &format!("z: {}", double(player.posZ())), 2, shift + 80, 14737632);
+
         let facing: i32 = floor_double((player.m_rotationYaw.get() * 4.0 / 360.0) as f64 + 0.5) & 3;
         self.m_gui.drawString(fontrenderer, &format!("f: {facing}"), 2, shift + 88, 14737632);
         GL11::glPopMatrix();
@@ -285,16 +325,20 @@ impl GuiIngame
         {
             return;
         }
+
         GL11::glPushMatrix();
         GL11::glTranslatef((i / 2) as f32, (j - 48) as f32, 0.0);
         GL11::glEnable(3042);
         GL11::glBlendFunc(770, 771);
+
         let mut k5: i32 = 16777215;
+
         if self.m_overlayMessageTinted.get()
         {
             // port hsbToRgb is java Color.HSBtoRGB
             k5 = awt::hsbToRgb(f1 / 50.0, 0.7, 0.6) & 16777215;
         }
+
         let recordPlaying: String = self.m_recordPlaying.get();
         fontrenderer.drawString(&recordPlaying, -fontrenderer.getStringWidth(&recordPlaying) / 2, -4, k5 + (j4 << 24));
         GL11::glDisable(3042);
@@ -305,30 +349,36 @@ impl GuiIngame
     {
         let mut b0: usize = 10;
         let mut flag1: bool = false;
+
         if self.m_mc.m_currentScreen.get().is_some_and(|screen| screen.instanceOf("GuiChat"))
         {
             b0 = 20;
             flag1 = true;
         }
+
         GL11::glEnable(3042);
         GL11::glBlendFunc(770, 771);
         GL11::glDisable(3008);
         GL11::glPushMatrix();
         GL11::glTranslatef(0.0, (j - 48) as f32, 0.0);
+
         for (l5, line) in self.m_chatMessageList.borrow().iter().enumerate().take(b0)
         {
             if line.m_updateCounter.get() >= 200 && !flag1
             {
                 continue;
             }
+
             let mut d0: f64 = line.m_updateCounter.get() as f64 / 200.0;
             d0 = ((1.0 - d0) * 10.0).clamp(0.0, 1.0);
             d0 *= d0;
             let mut j2: i32 = (255.0 * d0) as i32;
+
             if flag1
             {
                 j2 = 255;
             }
+
             if j2 > 0
             {
                 let b2: i32 = 2;
@@ -338,6 +388,7 @@ impl GuiIngame
                 fontrenderer.drawStringWithShadow(&line.m_message, b2, l2, 16777215 + (j2 << 24));
             }
         }
+
         GL11::glPopMatrix();
         GL11::glEnable(3008);
         GL11::glDisable(3042);
@@ -350,9 +401,10 @@ impl GuiIngame
         const ROW: i32 = 20;
         const MARGIN: i32 = 2;
         const TICKS_PER_SECOND: i32 = 20;
-        const BACKDROP: i32 = 0x80000000_u32 as i32;
-        const OPAQUE: i32 = 0xFF000000_u32 as i32;
+        const BACKDROP: i32 = 0x80000000u32 as i32;
+        const OPAQUE: i32 = 0xFF000000u32 as i32;
         const WHITE: i32 = 0xFFFFFF;
+
         let Some(living) = player.m_ext.living()
         else
         {
@@ -364,10 +416,12 @@ impl GuiIngame
         }
 
         let x: i32 = width - ICON - MARGIN;
+
         for (row, (kind, level, ticks)) in living.m_effects.list().into_iter().enumerate()
         {
             let y: i32 = MARGIN + row as i32 * ROW;
             self.m_gui.drawRect(x - 1, y - 1, x + ICON + 1, y + ICON + 1, BACKDROP);
+
             if kind.m_icon.is_empty()
             {
                 self.m_gui.drawRect(x, y, x + ICON, y + ICON, OPAQUE | kind.m_color);
@@ -378,10 +432,11 @@ impl GuiIngame
                 GL11::glBindTexture(3553, self.renderEngine().getTexture(&kind.m_icon));
                 GL11::glPushMatrix();
                 GL11::glTranslatef(x as f32, y as f32, 0.0);
-                GuiIngame::drawOverlayQuad(ICON, ICON, 0.0, 0.0, 1.0, 1.0);
+                Self::drawOverlayQuad(ICON, ICON, 0.0, 0.0, 1.0, 1.0);
                 GL11::glPopMatrix();
             }
             let seconds: i32 = ticks.max(0) / TICKS_PER_SECOND;
+
             let label: String = if level > 0
             {
                 format!("{} {}:{:02}", level + 1, seconds / 60, seconds % 60)
@@ -393,6 +448,7 @@ impl GuiIngame
             let textX: i32 = x - MARGIN - fontrenderer.getStringWidth(&label);
             fontrenderer.drawStringWithShadow(&label, textX, y + (ICON - 8) / 2, WHITE);
         }
+
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
     }
 
@@ -415,7 +471,7 @@ impl GuiIngame
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         GL11::glDisable(3008);
         GL11::glBindTexture(3553, self.renderEngine().getTexture("%blur%/misc/pumpkinblur.png"));
-        GuiIngame::drawOverlayQuad(width, height, 0.0, 0.0, 1.0, 1.0);
+        Self::drawOverlayQuad(width, height, 0.0, 0.0, 1.0, 1.0);
         GL11::glDepthMask(true);
         GL11::glEnable(2929);
         GL11::glEnable(3008);
@@ -427,13 +483,15 @@ impl GuiIngame
         let brightnessAtEyes: f32 = (1.0 - brightnessAtEyes).clamp(0.0, 1.0);
         let prev: f32 = self.m_prevVignetteBrightness.get();
         self.m_prevVignetteBrightness.set((prev as f64 + (brightnessAtEyes - prev) as f64 * 0.01) as f32);
+
         let brightness: f32 = self.m_prevVignetteBrightness.get();
+
         GL11::glDisable(2929);
         GL11::glDepthMask(false);
         GL11::glBlendFunc(0, 769);
         GL11::glColor4f(brightness, brightness, brightness, 1.0);
         GL11::glBindTexture(3553, self.renderEngine().getTexture("%blur%/misc/vignette.png"));
-        GuiIngame::drawOverlayQuad(width, height, 0.0, 0.0, 1.0, 1.0);
+        Self::drawOverlayQuad(width, height, 0.0, 0.0, 1.0, 1.0);
         GL11::glDepthMask(true);
         GL11::glEnable(2929);
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
@@ -448,18 +506,20 @@ impl GuiIngame
             portalTime *= portalTime;
             portalTime = portalTime * 0.8 + 0.2;
         }
+
         GL11::glDisable(3008);
         GL11::glDisable(2929);
         GL11::glDepthMask(false);
         GL11::glBlendFunc(770, 771);
         GL11::glColor4f(1.0, 1.0, 1.0, portalTime);
         GL11::glBindTexture(3553, self.renderEngine().getTexture("/terrain.png"));
+
         let sprite: i32 = Block::portal().m_blockIndexInTexture.get();
         let f: f32 = (sprite % 16) as f32 / 16.0;
         let f1: f32 = (sprite / 16) as f32 / 16.0;
         let f2: f32 = (sprite % 16 + 1) as f32 / 16.0;
         let f3: f32 = (sprite / 16 + 1) as f32 / 16.0;
-        GuiIngame::drawOverlayQuad(width, height, f as f64, f1 as f64, f2 as f64, f3 as f64);
+        Self::drawOverlayQuad(width, height, f as f64, f1 as f64, f2 as f64, f3 as f64);
         GL11::glDepthMask(true);
         GL11::glEnable(2929);
         GL11::glEnable(3008);
@@ -475,22 +535,28 @@ impl GuiIngame
         {
             return;
         };
+
         let fontRenderer: Rc<FontRenderer> = self.m_mc.m_fontRenderer.get().orNpe();
         let renderEngine: Rc<RenderEngine> = self.renderEngine();
         let f: f32 = itemStack.m_animationsToGo.get() as f32 - tickDelta;
         if f > 0.0
         {
             GL11::glPushMatrix();
+
             let f2: f32 = 1.0 + f / 5.0;
+
             GL11::glTranslatef((x + 8) as f32, (z + 12) as f32, 0.0);
             GL11::glScalef(1.0 / f2, (f2 + 1.0) / 2.0, 1.0);
             GL11::glTranslatef(-(x + 8) as f32, -(z + 12) as f32, 0.0);
         }
+
         itemRenderer().renderItemIntoGUI(&fontRenderer, &renderEngine, Some(&itemStack), x, z);
+
         if f > 0.0
         {
             GL11::glPopMatrix();
         }
+
         itemRenderer().renderItemOverlayIntoGUI(&fontRenderer, &renderEngine, Some(&itemStack), x, z);
     }
 
@@ -500,7 +566,9 @@ impl GuiIngame
         {
             self.m_recordPlayingUpFor.set(self.m_recordPlayingUpFor.get() - 1);
         }
+
         self.m_updateCounter.set(self.m_updateCounter.get() + 1);
+
         for line in self.m_chatMessageList.borrow().iter()
         {
             line.m_updateCounter.set(line.m_updateCounter.get() + 1);
@@ -521,11 +589,14 @@ impl GuiIngame
             {
                 i += 1;
             }
+
             self.addChatMessage(&String::from_utf16_lossy(&text[..i]));
             text = text[i..].to_vec();
         }
+
         let mut list: std::cell::RefMut<Vec<ChatLine>> = self.m_chatMessageList.borrow_mut();
         list.insert(0, ChatLine::new(String::from_utf16_lossy(&text)));
+
         while list.len() > 50
         {
             list.pop();
@@ -558,11 +629,11 @@ impl HeartRows
     const PER_ROW: i32 = 10;
     const MIN_ROW_HEIGHT: i32 = 3;
 
-    fn of(maxHealth: i32) -> HeartRows
+    fn of(maxHealth: i32) -> Self
     {
         let hearts: i32 = ((maxHealth + 1) / 2).max(Self::PER_ROW);
         let rows: i32 = (hearts + Self::PER_ROW - 1) / Self::PER_ROW;
-        HeartRows { m_hearts: hearts, m_rowHeight: (Self::PER_ROW - (rows - 2)).max(Self::MIN_ROW_HEIGHT) }
+        Self { m_hearts: hearts, m_rowHeight: (Self::PER_ROW - (rows - 2)).max(Self::MIN_ROW_HEIGHT) }
     }
 
     fn lift(&self, heart: i32) -> i32 { heart / Self::PER_ROW * self.m_rowHeight }

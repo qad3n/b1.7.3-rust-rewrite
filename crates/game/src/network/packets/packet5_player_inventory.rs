@@ -19,6 +19,7 @@ impl Packet5PlayerInventory
     pub fn new(id: i32, slot: i32, item: Option<&Rc<ItemStack>>) -> Self
     {
         let mut packet: Self = Self { m_entityID: id, m_slot: slot, ..Self::default() };
+
         match item
         {
             None =>
@@ -26,12 +27,14 @@ impl Packet5PlayerInventory
                 packet.m_itemID = -1;
                 packet.m_itemDamage = 0;
             }
+
             Some(item) =>
             {
                 packet.m_itemID = item.m_itemID.get();
                 packet.m_itemDamage = item.getItemDamage();
             }
         }
+
         packet
     }
 }

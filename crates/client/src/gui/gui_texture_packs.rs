@@ -46,6 +46,7 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, tessela
     tesselator.addVertexWithUV((x + 32) as f64, y as f64, 0.0, 1.0, 0.0);
     tesselator.addVertexWithUV(x as f64, y as f64, 0.0, 0.0, 0.0);
     tesselator.draw();
+
     let font: Rc<FontRenderer> = this.fontRenderer();
     let pack: &TexturePackFields = texturePackBase.pack();
     let lines: [(Option<String>, i32, i32); 3] = [
@@ -53,6 +54,7 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, tessela
         (pack.m_firstDescriptionLine.get(), 12, 0x808080),
         (pack.m_secondDescriptionLine.get(), 12 + 10, 0x808080),
     ];
+
     for (line, offset, color) in lines
     {
         if let Some(line) = line
@@ -62,18 +64,22 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, tessela
     }
 }
 
-const TEXTURE_PACK_SLOT: GuiSlotClass = GuiSlotClass {
+const TEXTURE_PACK_SLOT: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiTexturePackSlot",
     m_parent: Some(&GUI_SLOT),
     m_interfaces: &[],
     getSize: |slot| packs(slot).len() as i32,
-    elementClicked: |slot, index, _| {
+    elementClicked: |slot, index, _|
+    {
         let mc: Rc<Minecraft> = screen(slot).mc();
         let list: Vec<Rc<dyn TexturePackBase>> = packs(slot);
         texturePackList(&mc).setTexturePack(&list[index as usize]);
         mc.m_renderEngine.get().orNpe().refreshTextures();
     },
-    isSelected: |slot, index| {
+
+    isSelected: |slot, index|
+    {
         let list: Vec<Rc<dyn TexturePackBase>> = packs(slot);
         texturePackList(&screen(slot).mc())
             .m_selectedTexturePack
@@ -86,11 +92,13 @@ const TEXTURE_PACK_SLOT: GuiSlotClass = GuiSlotClass {
     ..GUI_SLOT
 };
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiTexturePacks",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let ext: &TexturePacksExt = fields(this);
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         let center: i32 = this.m_width.get() / 2;
@@ -104,11 +112,14 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         this.m_controlList.add(GuiButton::small(6, center + 4, height - 48, &stringTranslate.translateKey("gui.done")));
         // the mod list opens from the top right corner since this screen is titled mods and texture packs
         crate::modded::addModsButton(this, this.m_width.get() - 64, 6);
+
         let mc: Rc<Minecraft> = this.mc();
         texturePackList(&mc).updateAvaliableTexturePacks();
+
         let folder: std::path::PathBuf = Minecraft::getMinecraftDir().join("texturepacks");
         let absolute: std::path::PathBuf = std::path::absolute(&folder).unwrap_or(folder);
         ext.m_fileLocation.set(absolute.display().to_string());
+
         let slot: Rc<GuiSlot> = GuiSlot::construct(
             &TEXTURE_PACK_SLOT,
             Box::new(TexturePackSlotExt { m_screen: Rc::downgrade(&this.rc()) }),
@@ -122,18 +133,23 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         slot.registerScrollButtons(&this.m_controlList, 7, 8);
         ext.m_guiTexturePackSlot.set(Some(slot));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         let ext: &TexturePacksExt = fields(this);
+
         match button.m_id.get()
         {
             5 =>
             {
                 Sys::openURL(&format!("file://{}", ext.m_fileLocation.get()));
             }
+
             6 =>
             {
                 let mc: Rc<Minecraft> = this.mc();
@@ -147,14 +163,17 @@ const CLASS: GuiScreenClass = GuiScreenClass {
     },
     mouseClicked: |this, mouseX, mouseY, button| (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button),
     mouseMovedOrUp: |this, mouseX, mouseY, button| (GUI_SCREEN.mouseMovedOrUp)(this, mouseX, mouseY, button),
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         let ext: &TexturePacksExt = fields(this);
         ext.m_guiTexturePackSlot.get().orNpe().drawScreen(mouseX, mouseY, tickDelta);
+
         if ext.m_cooldown.get() <= 0
         {
             texturePackList(&this.mc()).updateAvaliableTexturePacks();
             ext.m_cooldown.set(ext.m_cooldown.get() + 20);
         }
+
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         let font: Rc<FontRenderer> = this.fontRenderer();
         let center: i32 = this.m_width.get() / 2;
@@ -168,8 +187,11 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         );
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
     },
-    updateScreen: |this| {
+
+    updateScreen: |this|
+    {
         (GUI_SCREEN.updateScreen)(this);
+
         let ext: &TexturePacksExt = fields(this);
         ext.m_cooldown.set(ext.m_cooldown.get() - 1);
     },
@@ -182,7 +204,8 @@ impl GuiTexturePacks
 {
     pub fn new(parent: &Rc<GuiScreen>) -> Rc<GuiScreen>
     {
-        let ext: TexturePacksExt = TexturePacksExt {
+        let ext: TexturePacksExt = TexturePacksExt
+        {
             m_guiScreen: Rc::clone(parent),
             m_cooldown: Cell::new(-1),
             m_fileLocation: Field::new(String::new()),

@@ -8,6 +8,7 @@ pub trait Component
 pub fn hsbToRgb(hue: f32, saturation: f32, brightness: f32) -> i32
 {
     let channel = |value: f32| (value * 255.0 + 0.5) as i32;
+
     let (r, g, b): (i32, i32, i32) = if saturation == 0.0
     {
         (channel(brightness), channel(brightness), channel(brightness))
@@ -19,6 +20,7 @@ pub fn hsbToRgb(hue: f32, saturation: f32, brightness: f32) -> i32
         let p: f32 = brightness * (1.0 - saturation);
         let q: f32 = brightness * (1.0 - saturation * f);
         let t: f32 = brightness * (1.0 - saturation * (1.0 - f));
+
         match h as i32
         {
             0 => (channel(brightness), channel(t), channel(p)),

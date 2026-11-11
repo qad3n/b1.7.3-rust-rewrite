@@ -12,13 +12,15 @@ pub struct ModelSquid
 
 impl ModelSquid
 {
-    pub fn new() -> ModelSquid
+    pub fn new() -> Self
     {
         let n: i32 = -16;
         let body: ModelRenderer = ModelRenderer::new(0, 0).withBox(-6.0, -8.0, -6.0, 12, 16, 12, 0.0);
         body.m_rotationPointY.set(body.m_rotationPointY.get() + (24 + n) as f32);
+
         let tentacles: Vec<ModelRenderer> = (0..TENTACLES)
-            .map(|i| {
+            .map(|i|
+            {
                 let mut d: f64 = i as f64 * PI * 2.0 / TENTACLES as f64;
                 let f: f32 = jvm::math::cos(d) as f32 * 5.0;
                 let f2: f32 = jvm::math::sin(d) as f32 * 5.0;
@@ -31,7 +33,7 @@ impl ModelSquid
                 tentacle
             })
             .collect();
-        ModelSquid { m_base: ModelBaseFields::default(), m_squidBody: body, m_squidTentacles: tentacles }
+        Self { m_base: ModelBaseFields::default(), m_squidBody: body, m_squidTentacles: tentacles }
     }
 }
 
@@ -51,6 +53,7 @@ impl ModelBase for ModelSquid
     {
         self.setRotationAngles(walk, walkSpeed, bob, yaw, pitch, scale);
         self.m_squidBody.render(scale);
+
         for tentacle in &self.m_squidTentacles
         {
             tentacle.render(scale);

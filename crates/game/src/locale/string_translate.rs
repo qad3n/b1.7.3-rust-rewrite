@@ -4,7 +4,8 @@ use jvm::throwable::OrNpe;
 use std::cell::OnceCell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INSTANCE: OnceCell<Rc<StringTranslate>> = const { OnceCell::new() };
 }
 
@@ -25,15 +26,17 @@ fn loadTable(table: &mut Properties, path: &str) -> jvm::io::IoResult<()>
 
 impl StringTranslate
 {
-    fn new() -> StringTranslate
+    fn new() -> Self
     {
         let mut table: Properties = Properties::new();
         let loaded: jvm::io::IoResult<()> =
             loadTable(&mut table, "/lang/en_US.lang").and_then(|()| loadTable(&mut table, "/lang/stats_US.lang"));
+
         if let Err(error) = loaded
         {
             error.printStackTrace();
         }
+
         for (key, text) in REWRITE_KEYS
         {
             if table.getPropertyOrNull(key).is_none()
@@ -41,12 +44,13 @@ impl StringTranslate
                 table.setProperty(key, text);
             }
         }
-        StringTranslate { m_translateTable: table }
+
+        Self { m_translateTable: table }
     }
 
-    pub fn getInstance() -> Rc<StringTranslate>
+    pub fn getInstance() -> Rc<Self>
     {
-        INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(StringTranslate::new()))))
+        INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(Self::new()))))
     }
 
     // mod lang files are consulted before the vanilla table

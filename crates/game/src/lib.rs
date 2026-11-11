@@ -1,6 +1,6 @@
+pub mod attribute;
 pub mod block;
 pub mod container;
-pub mod attribute;
 pub mod crafting;
 pub mod damage;
 pub mod effect;
@@ -18,8 +18,8 @@ pub mod port;
 pub mod stats;
 pub mod storage;
 pub mod tags;
-pub mod transfer;
 pub mod tileentity;
+pub mod transfer;
 mod vtable;
 pub mod world;
 pub mod worldgen;

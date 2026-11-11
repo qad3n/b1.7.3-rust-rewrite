@@ -2,13 +2,14 @@ use crate::gui::calendar::{DateFields, dateFields};
 use jvm::image::{BufferedImage, ImageIO};
 use jvm::throwable::{EXCEPTION, Throwable, catchThrowable};
 use lwjgl::BufferUtils;
-use lwjgl::buffers::ByteBuffer;
+use lwjgl::buffers::{Buffer, ByteBuffer};
 use lwjgl::opengl::GL11;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static BUFFER: RefCell<Option<Rc<ByteBuffer>>> = const { RefCell::new(None) };
     static PIXEL_DATA: RefCell<Vec<i8>> = const { RefCell::new(Vec::new()) };
     static IMAGE_DATA: RefCell<Vec<i32>> = const { RefCell::new(Vec::new()) };
@@ -34,9 +35,10 @@ impl ScreenShotHelper
 {
     pub fn saveScreenshot(gameDir: Option<&Path>, width: i32, height: i32) -> String
     {
-        match catchThrowable(&EXCEPTION, || ScreenShotHelper::save(gameDir, width, height))
+        match catchThrowable(&EXCEPTION, || Self::save(gameDir, width, height))
         {
             Ok(Ok(name)) => format!("Saved screenshot as {name}"),
+
             Ok(Err(exception)) | Err(exception) =>
             {
                 exception.printStackTrace();
@@ -49,23 +51,28 @@ impl ScreenShotHelper
     {
         let file1: PathBuf = gameDir.map_or_else(|| PathBuf::from("screenshots"), |dir| dir.join("screenshots"));
         let _ = std::fs::create_dir(&file1);
-        let buffer: Rc<ByteBuffer> = BUFFER.with(|cached| {
-            let mut cached = cached.borrow_mut();
+
+        let buffer: Rc<ByteBuffer> = BUFFER.with(|cached|
+        {
+            let mut cached: RefMut<Option<Rc<Buffer<i8>>>> = cached.borrow_mut();
             if cached.as_ref().is_none_or(|buffer| buffer.capacity() < width * height)
             {
                 *cached = Some(Rc::new(BufferUtils::createByteBuffer(width * height * 3)));
             }
+
             cached.clone().expect("the buffer was just allocated")
         });
+
         if IMAGE_DATA.with_borrow(|imageData| (imageData.len() as i32) < width * height * 3)
         {
             PIXEL_DATA.set(vec![0; (width * height * 3) as usize]);
             IMAGE_DATA.set(vec![0; (width * height) as usize]);
         }
+
         let mut pixelData: Vec<i8> = PIXEL_DATA.take();
         let mut imageData: Vec<i32> = IMAGE_DATA.take();
         let result: Result<String, Throwable> =
-            ScreenShotHelper::write(&buffer, &mut pixelData, &mut imageData, &file1, width, height);
+            Self::write(&buffer, &mut pixelData, &mut imageData, &file1, width, height);
         PIXEL_DATA.set(pixelData);
         IMAGE_DATA.set(imageData);
         result
@@ -85,9 +92,11 @@ impl ScreenShotHelper
         buffer.clear();
         GL11::glReadPixels(0, 0, width, height, 6407, 5121, buffer);
         buffer.clear();
+
         let s: String = formatDate(jvm::system::currentTimeMillis());
         let mut i: i32 = 1;
         let mut file2: PathBuf;
+
         loop
         {
             let suffix: String = if i == 1
@@ -103,9 +112,12 @@ impl ScreenShotHelper
             {
                 break;
             }
+
             i += 1;
         }
+
         buffer.getInto(pixelData);
+
         for j in 0..width
         {
             for k in 0..height
@@ -117,6 +129,7 @@ impl ScreenShotHelper
                 imageData[(j + k * width) as usize] = 0xFF000000u32 as i32 | i1 << 16 | j1 << 8 | k1;
             }
         }
+
         let bufferedimage: BufferedImage = BufferedImage::new(width, height, BufferedImage::TYPE_INT_RGB);
         bufferedimage.rasterData().copy_from_slice(&imageData[..(width * height) as usize]);
         ImageIO::write(&bufferedimage, "png", &file2)?;

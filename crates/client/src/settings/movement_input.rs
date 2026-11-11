@@ -3,10 +3,10 @@ use game::entity::Entity;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-pub(super) struct FromOptions
+pub(crate) struct FromOptions
 {
-    pub(super) m_movementKeyStates: RefCell<[bool; 10]>,
-    pub(super) m_gameSettings: Rc<GameSettings>,
+    pub(crate) m_movementKeyStates: RefCell<[bool; 10]>,
+    pub(crate) m_gameSettings: Rc<GameSettings>,
 }
 
 pub struct MovementInput
@@ -16,14 +16,15 @@ pub struct MovementInput
     pub m_wasJumping: Cell<bool>,
     pub m_jump: Cell<bool>,
     pub m_sneak: Cell<bool>,
-    pub(super) m_fromOptions: Option<FromOptions>,
+    pub(crate) m_fromOptions: Option<FromOptions>,
 }
 
 impl MovementInput
 {
-    pub(super) fn alloc(fromOptions: Option<FromOptions>) -> MovementInput
+    pub(crate) fn alloc(fromOptions: Option<FromOptions>) -> Self
     {
-        MovementInput {
+        Self
+        {
             m_moveStrafe: Cell::new(0.0),
             m_moveForward: Cell::new(0.0),
             m_wasJumping: Cell::new(false),
@@ -33,7 +34,7 @@ impl MovementInput
         }
     }
 
-    pub fn new() -> MovementInput { MovementInput::alloc(None) }
+    pub fn new() -> Self { Self::alloc(None) }
 
     pub fn updatePlayerMoveState(&self, player: &Rc<Entity>)
     {

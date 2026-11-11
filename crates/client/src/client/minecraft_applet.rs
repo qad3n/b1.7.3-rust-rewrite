@@ -26,9 +26,10 @@ impl MinecraftApplet
         documentPort: i32,
         width: i32,
         height: i32,
-    ) -> Rc<MinecraftApplet>
+    ) -> Rc<Self>
     {
-        Rc::new(MinecraftApplet {
+        Rc::new(Self
+        {
             m_mcCanvas: Field::new(None),
             m_mc: Field::new(None),
             m_mcThread: Cell::new(false),
@@ -49,19 +50,26 @@ impl MinecraftApplet
     {
         let canvas: Rc<Canvas> = Rc::new(Canvas::new(self.m_width, self.m_height));
         self.m_mcCanvas.set(Some(Rc::clone(&canvas)));
+
         let mut bl: bool = false;
+
         if let Some(fullscreen) = self.getParameter("fullscreen")
         {
             bl = fullscreen.eq_ignore_ascii_case("true");
         }
+
         let mc: Rc<Minecraft> = Minecraft::new(Some(canvas), Some(Rc::clone(self)), self.m_width, self.m_height, bl);
         self.m_mc.set(Some(Rc::clone(&mc)));
+
         let mut uri: String = self.m_documentHost.clone();
+
         if self.m_documentPort > 0
         {
             uri += &format!(":{}", self.m_documentPort);
         }
+
         mc.m_minecraftUri.set(Some(uri));
+
         match (self.getParameter("username"), self.getParameter("sessionid"))
         {
             (Some(username), Some(sessionId)) =>
@@ -72,20 +80,25 @@ impl MinecraftApplet
                     session.m_username.get().unwrap_or_default(),
                     session.m_sessionId.get().unwrap_or_default()
                 ));
+
                 if let Some(mpPass) = self.getParameter("mppass")
                 {
                     session.m_mpPassParameter.set(Some(mpPass));
                 }
+
                 mc.m_session.set(Some(Rc::new(session)));
             }
+
             _ => mc.m_session.set(Some(Rc::new(Session::new(Some("Player".to_owned()), Some(String::new()))))),
         }
+
         if let (Some(server), Some(port)) = (self.getParameter("server"), self.getParameter("port"))
         {
             let port: i32 = jvm::integer::parseInt(&jvm::string::JString::from(port.as_str()))
                 .unwrap_or_else(|e| jvm::throwable::rethrow(e));
             mc.setServer(&server, port);
         }
+
         mc.m_hideQuitButton.set(true);
     }
 
@@ -95,7 +108,9 @@ impl MinecraftApplet
         {
             return;
         }
+
         self.m_mcThread.set(true);
+
         if let Some(mc) = self.m_mc.get()
         {
             // the applet runs the game on the calling thread instead of starting one
@@ -107,6 +122,7 @@ impl MinecraftApplet
     pub fn start(&self)
     {
         self.m_active.set(true);
+
         if let Some(mc) = self.m_mc.get()
         {
             mc.m_isGamePaused.store(false, Ordering::Relaxed);
@@ -116,6 +132,7 @@ impl MinecraftApplet
     pub fn stop(&self)
     {
         self.m_active.set(false);
+
         if let Some(mc) = self.m_mc.get()
         {
             mc.m_isGamePaused.store(true, Ordering::Relaxed);
@@ -130,10 +147,12 @@ impl MinecraftApplet
         {
             return;
         }
+
         if let Some(mc) = self.m_mc.get()
         {
             mc.shutdown();
         }
+
         self.m_mcThread.set(false);
     }
 

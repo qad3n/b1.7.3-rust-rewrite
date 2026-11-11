@@ -18,9 +18,10 @@ pub struct RenderList
 
 impl RenderList
 {
-    pub fn new() -> RenderList
+    pub fn new() -> Self
     {
-        RenderList {
+        Self
+        {
             m_x: Cell::new(0),
             m_y: Cell::new(0),
             m_z: Cell::new(0),
@@ -51,12 +52,14 @@ impl RenderList
         {
             return false;
         }
+
         x == self.m_x.get() && y == self.m_y.get() && z == self.m_z.get()
     }
 
     pub fn addGlList(&self, glList: i32)
     {
         self.m_glListBuffer.put(glList);
+
         if self.m_glListBuffer.remaining() == 0
         {
             self.render();
@@ -69,11 +72,13 @@ impl RenderList
         {
             return;
         }
+
         if !self.m_rendered.get()
         {
             self.m_glListBuffer.flip();
             self.m_rendered.set(true);
         }
+
         if self.m_glListBuffer.remaining() > 0
         {
             GL11::glPushMatrix();

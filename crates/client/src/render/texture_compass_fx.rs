@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 use std::f64::consts::PI;
 use std::rc::Rc;
 
-pub(super) fn readTile(path: &str, x: i32, y: i32, pixels: &mut [i32]) -> IoResult<()>
+pub(crate) fn readTile(path: &str, x: i32, y: i32, pixels: &mut [i32]) -> IoResult<()>
 {
     let mut stream: Option<FileInputStream> = assets::getResourceAsStream(path);
     let image: BufferedImage = ImageIO::read(stream.as_mut())?.orNpe();
@@ -20,7 +20,7 @@ pub(super) fn readTile(path: &str, x: i32, y: i32, pixels: &mut [i32]) -> IoResu
     Ok(())
 }
 
-pub(super) fn readItemIcon(iconIndex: i32, pixels: &mut [i32])
+pub(crate) fn readItemIcon(iconIndex: i32, pixels: &mut [i32])
 {
     if let Err(error) = readTile("/gui/items.png", iconIndex % 16 * 16, iconIndex / 16 * 16, pixels)
     {
@@ -28,24 +28,26 @@ pub(super) fn readItemIcon(iconIndex: i32, pixels: &mut [i32])
     }
 }
 
-pub(super) fn swing(angle: &Cell<f64>, angleDelta: &Cell<f64>, target: f64)
+pub(crate) fn swing(angle: &Cell<f64>, angleDelta: &Cell<f64>, target: f64)
 {
     let mut d: f64 = target - angle.get();
     while d < -PI
     {
         d += PI * 2.0;
     }
+
     while d >= PI
     {
         d -= PI * 2.0;
     }
+
     d = d.clamp(-1.0, 1.0);
     angleDelta.set(angleDelta.get() + d * 0.1);
     angleDelta.set(angleDelta.get() * 0.8);
     angle.set(angle.get() + angleDelta.get());
 }
 
-pub(super) fn netherSpin() -> f64 { math::random() * 3.1415927410125732 * 2.0 }
+pub(crate) fn netherSpin() -> f64 { math::random() * 3.1415927410125732 * 2.0 }
 
 pub struct TextureCompassFX
 {
@@ -58,13 +60,16 @@ pub struct TextureCompassFX
 
 impl TextureCompassFX
 {
-    pub fn new(minecraft: &Rc<Minecraft>) -> TextureCompassFX
+    pub fn new(minecraft: &Rc<Minecraft>) -> Self
     {
         let fx: TextureFXFields = TextureFXFields::new(Item::compass().getIconFromDamage(0));
         fx.m_tileImage.set(1);
+
         let mut icon: Vec<i32> = vec![0; TILE_PIXELS];
         readItemIcon(fx.m_iconIndex.get(), &mut icon);
-        TextureCompassFX {
+
+        Self
+        {
             m_fx: fx,
             m_mc: Rc::clone(minecraft),
             m_compassIconImageData: RefCell::new(icon),
@@ -91,7 +96,9 @@ impl TextureFX for TextureCompassFX
             let (r, g, b): (i32, i32, i32) = self.m_fx.tint(pixel >> 16 & 0xFF, pixel >> 8 & 0xFF, pixel & 0xFF);
             self.m_fx.setPixel(i, r, g, b, pixel >> 24 & 0xFF);
         }
+
         let mut d2: f64 = 0.0;
+
         if let (Some(world), Some(player)) = (self.m_mc.m_theWorld.get(), self.m_mc.m_thePlayer.get())
         {
             let world: Rc<World> = world;
@@ -100,24 +107,30 @@ impl TextureFX for TextureCompassFX
             let d3: f64 = chunkCoordinates.m_x as f64 - player.posX();
             let d4: f64 = chunkCoordinates.m_z as f64 - player.posZ();
             d2 = (player.m_rotationYaw.get() - 90.0) as f64 * PI / 180.0 - math::atan2(d4, d3);
+
             if world.worldProvider().m_isNether.get()
             {
                 d2 = netherSpin();
             }
         }
+
         swing(&self.m_angle, &self.m_angleDelta, d2);
+
         let d5: f64 = math::sin(self.m_angle.get());
         let d6: f64 = math::cos(self.m_angle.get());
+
         for n11 in -4..=4
         {
             let n10: i32 = (8.5 + d6 * n11 as f64 * 0.3) as i32;
             let n9: i32 = (7.5 - d5 * n11 as f64 * 0.3 * 0.5) as i32;
             self.drawNeedlePixel(n10, n9, (100, 100, 100));
         }
+
         for n11 in -8..=16
         {
             let n10: i32 = (8.5 + d5 * n11 as f64 * 0.3) as i32;
             let n9: i32 = (7.5 + d6 * n11 as f64 * 0.3 * 0.5) as i32;
+
             let color: (i32, i32, i32) = if n11 >= 0
             {
                 (255, 20, 20)

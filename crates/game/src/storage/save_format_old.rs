@@ -21,13 +21,14 @@ pub struct SaveFormatOld
 
 impl SaveFormatOld
 {
-    pub fn new(dir: &Path) -> SaveFormatOld
+    pub fn new(dir: &Path) -> Self
     {
         if !file::exists(dir)
         {
             file::mkdirs(dir);
         }
-        SaveFormatOld { m_dir: dir.to_path_buf() }
+
+        Self { m_dir: dir.to_path_buf() }
     }
 
     pub fn deleteFilesAndDirs(files: &[PathBuf])
@@ -38,6 +39,7 @@ impl SaveFormatOld
             {
                 Self::deleteFilesAndDirs(&file::listFiles(path).orNpe());
             }
+
             file::delete(path);
         }
     }
@@ -55,6 +57,7 @@ impl ISaveFormat for SaveFormatOld
     fn getAll(&self) -> Vec<SaveFormatComparator>
     {
         let mut arraylist: Vec<SaveFormatComparator> = Vec::new();
+
         for i in 0..OLD_WORLD_SLOTS
         {
             let s: String = format!("World{}", i + 1);
@@ -69,6 +72,7 @@ impl ISaveFormat for SaveFormatOld
                 ));
             }
         }
+
         arraylist
     }
 
@@ -81,6 +85,7 @@ impl ISaveFormat for SaveFormatOld
         {
             return None;
         }
+
         readWorldInfo(&file1)
     }
 
@@ -91,6 +96,7 @@ impl ISaveFormat for SaveFormatOld
         {
             return;
         }
+
         Self::deleteFilesAndDirs(&file::listFiles(&path).orNpe());
         file::delete(&path);
     }
@@ -102,10 +108,12 @@ impl ISaveFormat for SaveFormatOld
         {
             return;
         }
+
         let file2: PathBuf = path.join("level.dat");
         if file::exists(&file2)
         {
-            catchException(|| {
+            catchException(||
+            {
                 let nbtTagCompound: Rc<NBTBase> =
                     CompressedStreamTools::readCompressed(FileInputStream::open(&file2)?)?;
                 let nbtTagCompound2: Rc<NBTBase> = nbtTagCompound.compound().getCompoundTag("Data");

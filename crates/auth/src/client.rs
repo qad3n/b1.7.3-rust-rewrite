@@ -1,7 +1,9 @@
 use crate::suite::{self, CONTEXT, Suite};
 use crate::{AuthResult, Keys, Message, PASSWORD_MIN, canonical};
-use opaque_ke::{
-    ClientLogin, ClientLoginFinishParameters, ClientRegistration, ClientRegistrationFinishParameters,
+use opaque_ke::
+{
+    ClientLogin, ClientLoginFinishParameters, ClientLoginFinishResult, ClientLoginStartResult, ClientRegistration,
+    ClientRegistrationFinishParameters, ClientRegistrationFinishResult, ClientRegistrationStartResult,
     CredentialResponse, RegistrationResponse,
 };
 use rand_core::OsRng;
@@ -36,11 +38,14 @@ pub struct ClientAuth
 
 impl ClientAuth
 {
-    fn new(name: &str, key: &[u8], password: &str) -> AuthResult<ClientAuth>
+    fn new(name: &str, key: &[u8], password: &str) -> AuthResult<Self>
     {
         let name: String = canonical(name).ok_or("This name cannot log in to an auth server")?;
+
         checkPassword(password)?;
-        Ok(ClientAuth {
+
+        Ok(Self
+        {
             m_name: name,
             m_key: key.to_vec(),
             m_password: Zeroizing::new(password.as_bytes().to_vec()),
@@ -50,40 +55,44 @@ impl ClientAuth
         })
     }
 
-    pub fn register(name: &str, key: &[u8], password: &str, invite: &str) -> AuthResult<(ClientAuth, Message)>
+    pub fn register(name: &str, key: &[u8], password: &str, invite: &str) -> AuthResult<(Self, Message)>
     {
-        let mut auth: ClientAuth = ClientAuth::new(name, key, password)?;
+        let mut auth: Self = Self::new(name, key, password)?;
         let message: Message = auth.startRegister(invite)?;
         Ok((auth, message))
     }
 
-    pub fn login(name: &str, key: &[u8], password: &str) -> AuthResult<(ClientAuth, Message)>
+    pub fn login(name: &str, key: &[u8], password: &str) -> AuthResult<(Self, Message)>
     {
-        let mut auth: ClientAuth = ClientAuth::new(name, key, password)?;
+        let mut auth: Self = Self::new(name, key, password)?;
         let message: Message = auth.startLogin()?;
         Ok((auth, message))
     }
 
-    pub fn change(name: &str, key: &[u8], old: &str, new: &str) -> AuthResult<(ClientAuth, Message)>
+    pub fn change(name: &str, key: &[u8], old: &str, new: &str) -> AuthResult<(Self, Message)>
     {
         checkPassword(new)?;
-        let mut auth: ClientAuth = ClientAuth::new(name, key, old)?;
+
+        let mut auth: Self = Self::new(name, key, old)?;
         auth.m_next = Some(Zeroizing::new(new.as_bytes().to_vec()));
         auth.m_change = true;
+
         let message: Message = auth.startLogin()?;
         Ok((auth, message))
     }
 
     fn startRegister(&mut self, invite: &str) -> AuthResult<Message>
     {
-        let started = ClientRegistration::<Suite>::start(&mut OsRng, &self.m_password).map_err(protocol)?;
+        let started: ClientRegistrationStartResult<Suite> =
+            ClientRegistration::<Suite>::start(&mut OsRng, &self.m_password).map_err(protocol)?;
         self.m_state = State::Register(Box::new(started.state));
         Ok(Message::RegisterRequest { invite: invite.to_string(), request: started.message.serialize().to_vec() })
     }
 
     fn startLogin(&mut self) -> AuthResult<Message>
     {
-        let started = ClientLogin::<Suite>::start(&mut OsRng, &self.m_password).map_err(protocol)?;
+        let started: ClientLoginStartResult<Suite> =
+            ClientLogin::<Suite>::start(&mut OsRng, &self.m_password).map_err(protocol)?;
         self.m_state = State::Login(Box::new(started.state));
         Ok(Message::Ke1(started.message.serialize().to_vec()))
     }
@@ -104,18 +113,22 @@ impl ClientAuth
         let response: RegistrationResponse<Suite> = RegistrationResponse::deserialize(body).map_err(protocol)?;
         let parameters: ClientRegistrationFinishParameters<'_, '_, Suite> =
             ClientRegistrationFinishParameters::new(suite::identifiers(&self.m_name), None);
-        let finished = registration.finish(&mut OsRng, &self.m_password, response, parameters).map_err(protocol)?;
+        let finished: ClientRegistrationFinishResult<Suite> =
+            registration.finish(&mut OsRng, &self.m_password, response, parameters).map_err(protocol)?;
+
         if finished.server_s_pk.serialize().as_slice() != self.m_key.as_slice()
         {
             return Err(String::from(KEY_MISMATCH));
         }
 
         let upload: Message = Message::RegisterUpload(finished.message.serialize().to_vec());
+
         if self.m_change
         {
             self.m_password = Zeroizing::new(Vec::new());
             return Ok(ClientStep::Send(vec![upload]));
         }
+
         let login: Message = self.startLogin()?;
         Ok(ClientStep::Send(vec![upload, login]))
     }
@@ -125,23 +138,27 @@ impl ClientAuth
         let response: CredentialResponse<Suite> = CredentialResponse::deserialize(body).map_err(protocol)?;
         let parameters: ClientLoginFinishParameters<'_, '_, '_, Suite> =
             ClientLoginFinishParameters::new(Some(CONTEXT), suite::identifiers(&self.m_name), None);
-        let finished = login
+        let finished: ClientLoginFinishResult<Suite> = login
             .finish(&mut OsRng, &self.m_password, response, parameters)
             .map_err(|_| String::from("Wrong password"))?;
+
         if finished.server_s_pk.serialize().as_slice() != self.m_key.as_slice()
         {
             return Err(String::from(KEY_MISMATCH));
         }
 
         let ke3: Message = Message::Ke3(finished.message.serialize().to_vec());
+
         match self.m_next.take()
         {
             Some(next) =>
             {
                 self.m_password = next;
+
                 let request: Message = self.startRegister("")?;
                 Ok(ClientStep::Send(vec![ke3, request]))
             }
+
             None =>
             {
                 self.m_password = Zeroizing::new(Vec::new());

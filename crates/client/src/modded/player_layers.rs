@@ -5,25 +5,28 @@ use game::entity::Entity;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 use modloader::mod_protocol::abi::{BipedPart, ModelOp, PlayerLayer};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
 const MODEL_SCALE: f32 = 0.0625;
 const CHANNEL: f32 = 255.0;
 
-thread_local! {
+thread_local!
+{
     // one biped per inflation a layer asks for, built once
     static MODELS: RefCell<Vec<(u32, Rc<ModelBiped>)>> = const { RefCell::new(Vec::new()) };
 }
 
 fn model(inflate: f32) -> Rc<ModelBiped>
 {
-    MODELS.with(|models| {
-        let mut models = models.borrow_mut();
+    MODELS.with(|models|
+    {
+        let mut models: RefMut<Vec<(u32, Rc<ModelBiped>)>> = models.borrow_mut();
         if let Some((_, found)) = models.iter().find(|(bits, _)| *bits == inflate.to_bits())
         {
             return Rc::clone(found);
         }
+
         let built: Rc<ModelBiped> = Rc::new(ModelBiped::new(inflate, 0.0));
         models.push((inflate.to_bits(), Rc::clone(&built)));
         built
@@ -59,6 +62,7 @@ fn bind(texture: &str)
     {
         return;
     };
+
     let engine: Rc<RenderEngine> = mc.m_renderEngine.get().orNpe();
     super::textures::bindFile(&engine, texture);
 }
@@ -70,20 +74,26 @@ fn drawLayer(main: &ModelBiped, layer: &PlayerLayer, cloak: &mut dyn FnMut(&Mode
     {
         copy(from, to);
     }
+
     bind(&layer.texture);
+
     let [red, green, blue] = [16, 8, 0].map(|shift| ((layer.color >> shift) & 0xFF) as f32 / CHANNEL);
     GL11::glColor4f(red, green, blue, 1.0);
+
     if layer.glow
     {
         GL11::glDisable(GL11::GL_LIGHTING);
     }
+
     if layer.blend
     {
         GL11::glEnable(GL11::GL_BLEND);
         GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
     }
+
     GL11::glPushMatrix();
     GL11::glScalef(layer.scale, layer.scale, layer.scale);
+
     for part in &layer.parts
     {
         match part
@@ -97,16 +107,20 @@ fn drawLayer(main: &ModelBiped, layer: &PlayerLayer, cloak: &mut dyn FnMut(&Mode
             BipedPart::Cloak => cloak(&biped),
         }
     }
+
     attachments(&layer.ops);
     GL11::glPopMatrix();
+
     if layer.blend
     {
         GL11::glDisable(GL11::GL_BLEND);
     }
+
     if layer.glow
     {
         GL11::glEnable(GL11::GL_LIGHTING);
     }
+
     GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
 }
 
@@ -117,6 +131,7 @@ pub fn render(main: &ModelBiped, player: &Rc<Entity>, mut cloak: impl FnMut(&Mod
     {
         return;
     }
+
     for layer in modloader::screens::playerLayers(player)
     {
         drawLayer(main, &layer, &mut cloak);

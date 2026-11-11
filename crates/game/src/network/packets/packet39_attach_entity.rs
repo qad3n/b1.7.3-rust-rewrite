@@ -16,7 +16,8 @@ impl Packet39AttachEntity
 {
     pub fn new(entity: &Entity, mount: Option<&Rc<Entity>>) -> Self
     {
-        Self {
+        Self
+        {
             m_entityId: entity.m_entityId.get(),
             m_vehicleEntityId: match mount
             {

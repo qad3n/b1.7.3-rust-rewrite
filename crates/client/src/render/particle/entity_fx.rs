@@ -7,7 +7,8 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INTERP_POS_X: Cell<f64> = const { Cell::new(0.0) };
     static INTERP_POS_Y: Cell<f64> = const { Cell::new(0.0) };
     static INTERP_POS_Z: Cell<f64> = const { Cell::new(0.0) };
@@ -78,6 +79,7 @@ pub fn construct(
     this.setSize(0.2, 0.2);
     this.m_yOffset.set(this.m_height.get() / 2.0);
     this.setPosition(x, y, z);
+
     let fields: &FXFields = fx(&this);
     fields.m_particleRed.set(1.0);
     fields.m_particleGreen.set(1.0);
@@ -85,6 +87,7 @@ pub fn construct(
     this.m_motionX.set(velocityX + randomJitter(0.4));
     this.m_motionY.set(velocityY + randomJitter(0.4));
     this.m_motionZ.set(velocityZ + randomJitter(0.4));
+
     let f: f32 = (math::random() + math::random() + 1.0) as f32 * 0.15;
     let f1: f32 = math_helper::sqrt_double(
         this.m_motionX.get() * this.m_motionX.get()
@@ -113,6 +116,7 @@ pub fn multiplyVelocity(this: &Rc<Entity>, value: f32) -> Rc<Entity>
 pub fn multiplySize(this: &Rc<Entity>, value: f32) -> Rc<Entity>
 {
     this.setSize(0.2 * value, 0.2 * value);
+
     let fields: &FXFields = fx(this);
     fields.m_particleScale.set(fields.m_particleScale.get() * value);
     Rc::clone(this)
@@ -130,6 +134,7 @@ pub fn ageParticle(this: &Rc<Entity>)
     let fields: &FXFields = fx(this);
     let age: i32 = fields.m_particleAge.get();
     fields.m_particleAge.set(age + 1);
+
     if age >= fields.m_particleMaxAge.get()
     {
         this.setEntityDead();
@@ -165,10 +170,12 @@ pub fn growScale(this: &Entity, initialSize: f32, tickDelta: f32)
     {
         f = 0.0;
     }
+
     if f > 1.0
     {
         f = 1.0;
     }
+
     fields.m_particleScale.set(initialSize * f);
 }
 
@@ -205,7 +212,9 @@ fn drawQuad(
     let [u0, u1, v0, v1]: [f32; 4] = uv;
     let f4: f32 = 0.1 * fx(this).m_particleScale.get();
     let (f5, f6, f7): (f32, f32, f32) = interpolated(this, tickDelta);
-    let vertex = |x: f32, y: f32, z: f32, u: f32, v: f32| {
+
+    let vertex = |x: f32, y: f32, z: f32, u: f32, v: f32|
+    {
         tessellator.addVertexWithUV(x as f64, y as f64, z as f64, u as f64, v as f64);
     };
     vertex(f5 - dx * f4 - forwards * f4, f6 - dy * f4, f7 - dz * f4 - sideways * f4, u0, v1);
@@ -280,7 +289,8 @@ fn onUpdate(this: &Rc<Entity>)
     groundFriction(this);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityFX",
     m_parent: Some(&ENTITY),
     canTriggerWalking: |_| false,

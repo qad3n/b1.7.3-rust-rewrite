@@ -1,5 +1,6 @@
 use game::crafting::{CraftingManager, FurnaceRecipes, IRecipe, Ingredient};
 use game::item::ItemStack;
+use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{IngredientSpec, RecipeSpec, StackSpec};
@@ -7,7 +8,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     // recipes and smelting inputs the loader added, removed again before a rebuild under new ids
     static ADDED: RefCell<Vec<Rc<dyn IRecipe>>> = const { RefCell::new(Vec::new()) };
     static SMELTED: RefCell<Vec<(i32, Identifier)>> = const { RefCell::new(Vec::new()) };
@@ -39,7 +41,7 @@ pub fn generation() -> i32 { GENERATION.with(Cell::get) }
 
 fn trackLast(id: &Identifier)
 {
-    let list = CraftingManager::getInstance().getRecipeList();
+    let list: Rc<JArrayList<Rc<dyn IRecipe>>> = CraftingManager::getInstance().getRecipeList();
     let last: Rc<dyn IRecipe> = list.get(list.size() - 1);
     nameRecipe(&last, id.clone());
     ADDED.with(|added| added.borrow_mut().push(last));
@@ -47,12 +49,14 @@ fn trackLast(id: &Identifier)
 
 pub fn removeModded()
 {
-    let list = CraftingManager::getInstance().getRecipeList();
+    let list: Rc<JArrayList<Rc<dyn IRecipe>>> = CraftingManager::getInstance().getRecipeList();
+
     for recipe in ADDED.with(|added| std::mem::take(&mut *added.borrow_mut()))
     {
         NAMES.with(|names| names.borrow_mut().remove(&address(&recipe)));
         list.removeIdentity(&recipe);
     }
+
     for (input, _) in SMELTED.with(|smelted| std::mem::take(&mut *smelted.borrow_mut()))
     {
         FurnaceRecipes::smelting().getSmeltingList().borrow_mut().remove(&input);
@@ -93,6 +97,7 @@ fn checkPattern(pattern: &[String], keyed: impl Fn(&str) -> bool) -> Result<(), 
     {
         return Err("every row of a shaped pattern has the same width".to_owned());
     }
+
     for symbol in pattern.iter().flat_map(|row| row.chars()).filter(|symbol| *symbol != ' ')
     {
         if !keyed(&symbol.to_string())
@@ -100,6 +105,7 @@ fn checkPattern(pattern: &[String], keyed: impl Fn(&str) -> bool) -> Result<(), 
             return Err(format!("pattern symbol '{symbol}' has no key"));
         }
     }
+
     Ok(())
 }
 
@@ -116,6 +122,7 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
                 .collect::<Result<_, _>>()?;
             addShaped(id, &shaped.pattern, keys, stackOf(&shaped.result)?)?;
         }
+
         RecipeSpec::ShapedTagged(shaped) =>
         {
             let keys: Vec<(&String, Ingredient)> = shaped
@@ -125,6 +132,7 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
                 .collect::<Result<_, _>>()?;
             addShaped(id, &shaped.pattern, keys, stackOf(&shaped.result)?)?;
         }
+
         RecipeSpec::Shapeless(shapeless) =>
         {
             let ingredients: Vec<Ingredient> = shapeless
@@ -135,6 +143,7 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
             CraftingManager::getInstance().addShapelessRecipe(stackOf(&shapeless.result)?, &ingredients);
             trackLast(id);
         }
+
         RecipeSpec::ShapelessTagged(shapeless) =>
         {
             let ingredients: Vec<Ingredient> =
@@ -142,6 +151,7 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
             CraftingManager::getInstance().addShapelessRecipe(stackOf(&shapeless.result)?, &ingredients);
             trackLast(id);
         }
+
         RecipeSpec::Smelting(smelting) =>
         {
             let input: i32 = itemId(&smelting.input)?;
@@ -152,11 +162,14 @@ pub fn apply(id: &Identifier, spec: &RecipeSpec) -> Result<(), String>
                     &format!("smelting {} already has a result, the later recipe replaces it", smelting.input),
                 );
             }
+
             FurnaceRecipes::smelting().addSmelting(input, stackOf(&smelting.result)?);
             SMELTED.with(|smelted| smelted.borrow_mut().push((input, id.clone())));
         }
+
         RecipeSpec::Fuel(fuel) => super::putFuel(itemId(&fuel.item)?, fuel.ticks),
     }
+
     Ok(())
 }
 
@@ -169,11 +182,13 @@ fn addShaped(
 {
     let pattern: Vec<&str> = pattern.iter().map(String::as_str).collect();
     let mut symbols: Vec<(char, Ingredient)> = Vec::new();
+
     for (symbol, ingredient) in keys
     {
         let symbol: char = symbol.chars().next().ok_or("a recipe key is one character")?;
         symbols.push((symbol, ingredient));
     }
+
     CraftingManager::getInstance().addRecipe(result, &pattern, &symbols);
     trackLast(id);
     Ok(())
@@ -185,6 +200,7 @@ fn ingredientOf(spec: &IngredientSpec) -> Result<Ingredient, String>
     match (&spec.item, &spec.tag)
     {
         (Some(item), None) => Ok(Ingredient::Stack(ItemStack::withDamage(itemId(item)?, 1, spec.meta))),
+
         (None, Some(tag)) =>
         {
             let members: Vec<Identifier> = super::tags::values(RegistryKind::Item, tag);
@@ -193,12 +209,15 @@ fn ingredientOf(spec: &IngredientSpec) -> Result<Ingredient, String>
                 .filter_map(|member| crate::registry::with(|registries| registries.itemId(member)))
                 .map(|item| ItemStack::withDamage(item, 1, ANY_DAMAGE))
                 .collect();
+
             if stacks.is_empty()
             {
                 return Err(format!("item tag #{tag} has no registered items"));
             }
+
             Ok(Ingredient::Choice(stacks))
         }
+
         _ => Err("an ingredient names either an item or a tag".to_owned()),
     }
 }
@@ -207,7 +226,9 @@ fn ingredientOf(spec: &IngredientSpec) -> Result<Ingredient, String>
 pub fn removeVanilla(indices: &mut [i32])
 {
     indices.sort_unstable();
+
     let manager: Rc<CraftingManager> = CraftingManager::getInstance();
+
     for index in indices.iter().rev()
     {
         if *index < manager.getRecipeList().size()

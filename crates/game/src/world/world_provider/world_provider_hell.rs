@@ -8,7 +8,9 @@ use std::rc::Rc;
 fn generateLightBrightnessTable(this: &Rc<WorldProvider>)
 {
     let f: f32 = 0.1;
-    this.m_lightBrightnessTable.update(|table| {
+
+    this.m_lightBrightnessTable.update(|table|
+    {
         for i in 0..=15
         {
             let f2: f32 = 1.0 - i as f32 / 15.0;
@@ -24,13 +26,16 @@ fn canCoordinateBeSpawn(this: &Rc<WorldProvider>, x: i32, z: i32) -> bool
     {
         return false;
     }
+
     Block::opaqueCubeLookup(n)
 }
 
-pub const WORLD_PROVIDER_HELL: WorldProviderClass = WorldProviderClass {
+pub const WORLD_PROVIDER_HELL: WorldProviderClass = WorldProviderClass
+{
     m_name: "WorldProviderHell",
     m_parent: Some(&WORLD_PROVIDER),
-    registerWorldChunkManager: |this| {
+    registerWorldChunkManager: |this|
+    {
         this.m_worldChunkMgr.set(Some(WorldChunkManager::newHell(BiomeGenBase::hell(), 1.0, 0.0)));
         this.m_isNether.set(true);
         this.m_isHellWorld.set(true);
@@ -39,7 +44,8 @@ pub const WORLD_PROVIDER_HELL: WorldProviderClass = WorldProviderClass {
     },
     getFogColor: |_, _, _| Vec3D::createVector(0.2f32 as f64, 0.03f32 as f64, 0.03f32 as f64),
     generateLightBrightnessTable,
-    getChunkProvider: |this| {
+    getChunkProvider: |this|
+    {
         let world: Rc<World> = this.world();
         ChunkProviderHell::new(&world, world.getRandomSeed())
     },

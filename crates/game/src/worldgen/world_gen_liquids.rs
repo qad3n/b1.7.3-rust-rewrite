@@ -12,7 +12,7 @@ pub struct WorldGenLiquids
 
 impl WorldGenLiquids
 {
-    pub fn new(liquid: i32) -> WorldGenLiquids { WorldGenLiquids { m_liquidBlockId: liquid } }
+    pub fn new(liquid: i32) -> Self { Self { m_liquidBlockId: liquid } }
 }
 
 impl WorldGenerator for WorldGenLiquids
@@ -32,40 +32,51 @@ impl WorldGenerator for WorldGenLiquids
         {
             return false;
         }
+
         let mut n: i32 = 0;
+
         if world.getBlockId(x - 1, y, z) == stone
         {
             n += 1;
         }
+
         if world.getBlockId(x + 1, y, z) == stone
         {
             n += 1;
         }
+
         if world.getBlockId(x, y, z - 1) == stone
         {
             n += 1;
         }
+
         if world.getBlockId(x, y, z + 1) == stone
         {
             n += 1;
         }
+
         let mut n2: i32 = 0;
+
         if world.isAirBlock(x - 1, y, z)
         {
             n2 += 1;
         }
+
         if world.isAirBlock(x + 1, y, z)
         {
             n2 += 1;
         }
+
         if world.isAirBlock(x, y, z - 1)
         {
             n2 += 1;
         }
+
         if world.isAirBlock(x, y, z + 1)
         {
             n2 += 1;
         }
+
         if n == 3 && n2 == 1
         {
             world.setBlockWithNotify(x, y, z, self.m_liquidBlockId);
@@ -73,6 +84,7 @@ impl WorldGenerator for WorldGenLiquids
             Block::byId(self.m_liquidBlockId).orNpe().updateTick(world, x, y, z, random);
             world.m_scheduledUpdatesAreImmediate.set(false);
         }
+
         true
     }
 }

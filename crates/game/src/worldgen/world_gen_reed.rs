@@ -12,6 +12,7 @@ impl WorldGenerator for WorldGenReed
     {
         let isWater =
             |i: i32, j: i32, k: i32| -> bool { Rc::ptr_eq(&world.getBlockMaterial(i, j, k), &Material::water()) };
+
         for _ in 0..20
         {
             let j: i32 = x + random.nextIntBounded(4) - random.nextIntBounded(4);
@@ -33,6 +34,7 @@ impl WorldGenerator for WorldGenReed
                 }
             }
         }
+
         true
     }
 }

@@ -13,15 +13,20 @@ pub struct RecordPlayerExt
     pub m_record: Cell<i32>,
 }
 
-pub const TILE_ENTITY_RECORD_PLAYER: TileEntityClass = TileEntityClass {
+pub const TILE_ENTITY_RECORD_PLAYER: TileEntityClass = TileEntityClass
+{
     m_name: "BlockJukeBox$TileEntityRecordPlayer",
     m_parent: Some(&TILE_ENTITY),
-    readFromNBT: |this, nbt| {
+    readFromNBT: |this, nbt|
+    {
         (TILE_ENTITY.readFromNBT)(this, nbt);
         this.ext::<RecordPlayerExt>().m_record.set(nbt.getInteger("Record"));
     },
-    writeToNBT: |this, nbt| {
+
+    writeToNBT: |this, nbt|
+    {
         (TILE_ENTITY.writeToNBT)(this, nbt);
+
         let record: i32 = this.ext::<RecordPlayerExt>().m_record.get();
         if record > 0
         {
@@ -48,6 +53,7 @@ pub fn ejectRecord(world: &Rc<World>, x: i32, y: i32, z: i32, record: i32)
     {
         return;
     }
+
     let tileEntityRecordPlayer: Rc<TileEntity> = recordPlayerAt(world, x, y, z);
     tileEntityRecordPlayer.ext::<RecordPlayerExt>().m_record.set(record);
     tileEntityRecordPlayer.onInventoryChanged();
@@ -66,11 +72,13 @@ pub fn removeRecord(world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return;
     }
+
     world.doEvent(1005, x, y, z, 0);
     world.playRecord(None, x, y, z);
     tileEntityRecordPlayer.ext::<RecordPlayerExt>().m_record.set(0);
     tileEntityRecordPlayer.onInventoryChanged();
     world.setBlockMetadataWithNotify(x, y, z, 0);
+
     let n2: i32 = n;
     let f: f32 = 0.7;
     let d: f64 = (world.m_rand.nextFloat() * f) as f64 + (1.0 - f) as f64 * 0.5;
@@ -82,27 +90,35 @@ pub fn removeRecord(world: &Rc<World>, x: i32, y: i32, z: i32)
     world.entityJoinedWorld(&entityItem);
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockJukeBox",
     m_parent: Some(&block_container::CLASS),
     getBlockTextureFromSide: |this, face| this.m_blockIndexInTexture.get() + if face == 1 { 1 } else { 0 },
-    blockActivated: |_, world, x, y, z, _| {
+    blockActivated: |_, world, x, y, z, _|
+    {
         if world.getBlockMetadata(x, y, z) == 0
         {
             return false;
         }
+
         removeRecord(world, x, y, z);
         true
     },
-    onBlockRemoval: |this, world, x, y, z| {
+
+    onBlockRemoval: |this, world, x, y, z|
+    {
         removeRecord(world, x, y, z);
         (block_container::CLASS.onBlockRemoval)(this, world, x, y, z);
     },
-    dropBlockAsItemWithChance: |this, world, x, y, z, metadata, luck| {
+
+    dropBlockAsItemWithChance: |this, world, x, y, z, metadata, luck|
+    {
         if world.m_multiplayerWorld.get()
         {
             return;
         }
+
         (block_container::CLASS.dropBlockAsItemWithChance)(this, world, x, y, z, metadata, luck);
     },
     getBlockEntity: |_| newRecordPlayer(),

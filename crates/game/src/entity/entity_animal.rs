@@ -7,21 +7,25 @@ use std::rc::Rc;
 
 pub fn init(this: &Rc<Entity>, world: Option<Rc<World>>) { entity_creature::init(this, world); }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityAnimal",
     m_parent: Some(&entity_creature::CLASS),
     m_interfaces: &["IAnimals"],
-    getBlockPathWeight: |this, x, y, z| {
+    getBlockPathWeight: |this, x, y, z|
+    {
         let world: Rc<World> = this.world();
         if world.getBlockId(x, y - 1, z) == Block::GRASS
         {
             return 10.0;
         }
+
         world.getLightBrightness(x, y, z) - 0.5
     },
     writeEntityToNBT: |this, nbt| (entity_creature::CLASS.writeEntityToNBT)(this, nbt),
     readEntityFromNBT: |this, nbt| (entity_creature::CLASS.readEntityFromNBT)(this, nbt),
-    getCanSpawnHere: |this| {
+    getCanSpawnHere: |this|
+    {
         let world: Rc<World> = this.world();
         let x: i32 = math_helper::floor_double(this.posX());
         let y: i32 = math_helper::floor_double(this.m_boundingBox.minY());

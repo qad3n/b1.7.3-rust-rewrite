@@ -15,7 +15,8 @@ use lwjgl::opengl::GL11;
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
-thread_local! {
+thread_local!
+{
     static ITEM_RENDERER: RenderItem = RenderItem::new();
 }
 
@@ -38,11 +39,14 @@ fn renderSlot(this: &GuiScreen, x: i32, y: i32, u: i32, v: i32)
 {
     let renderEngine: Rc<RenderEngine> = this.mc().m_renderEngine.get().orNpe();
     let i: i32 = renderEngine.getTexture("/gui/slot.png");
+
     GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
     renderEngine.bindTexture(i);
+
     let tessellator: Rc<Tessellator> = Tessellator::instance();
     let z: f64 = this.m_gui.m_zLevel.get() as f64;
     let uv = |value: i32| (value as f32 * 0.0078125) as f64;
+
     tessellator.startDrawingQuads();
     tessellator.addVertexWithUV((x + 0) as f64, (y + 18) as f64, z, uv(u + 0), uv(v + 18));
     tessellator.addVertexWithUV((x + 18) as f64, (y + 18) as f64, z, uv(u + 18), uv(v + 18));
@@ -59,9 +63,12 @@ fn renderStatIcon(this: &GuiScreen, x: i32, y: i32, icon: i32)
     GL11::glRotatef(180.0, 1.0, 0.0, 0.0);
     RenderHelper::enableStandardItemLighting();
     GL11::glPopMatrix();
+
     let mc: Rc<Minecraft> = this.mc();
     let iconIndex: i32 = Item::byIdOrNpe(icon).getIconFromDamage(0);
-    ITEM_RENDERER.with(|renderer| {
+
+    ITEM_RENDERER.with(|renderer|
+    {
         renderer.drawItemIntoGui(
             &this.fontRenderer(),
             &mc.m_renderEngine.get().orNpe(),
@@ -72,6 +79,7 @@ fn renderStatIcon(this: &GuiScreen, x: i32, y: i32, icon: i32)
             y + 2,
         );
     });
+
     RenderHelper::disableStandardItemLighting();
     GL11::glDisable(32826);
 }
@@ -91,6 +99,7 @@ enum StatColumn
 fn columnStat(column: StatColumn, entry: &Rc<StatBase>) -> Option<Rc<StatBase>>
 {
     let item: i32 = entry.getItem();
+
     match column
     {
         StatColumn::Mined => StatList::mineBlockStat(item),
@@ -112,7 +121,8 @@ struct StatsListKind
     m_headers: [&'static str; 3],
 }
 
-const BLOCK_STATS: StatsListKind = StatsListKind {
+const BLOCK_STATS: StatsListKind = StatsListKind
+{
     m_class: &SLOT_STATS_BLOCK,
     m_source: || StatList::mined().toVec(),
     m_filter: [StatColumn::Used, StatColumn::Crafted],
@@ -122,7 +132,8 @@ const BLOCK_STATS: StatsListKind = StatsListKind {
     m_headers: ["stat.crafted", "stat.used", "stat.mined"],
 };
 
-const ITEM_STATS: StatsListKind = StatsListKind {
+const ITEM_STATS: StatsListKind = StatsListKind
+{
     m_class: &SLOT_STATS_ITEM,
     m_source: || StatList::used().toVec(),
     m_filter: [StatColumn::Broken, StatColumn::Crafted],
@@ -171,6 +182,7 @@ fn compareEntries(slot: &GuiSlot, var1: &Rc<StatBase>, var2: &Rc<StatBase>) -> i
                     -1
                 };
             };
+
             let screen: Rc<GuiScreen> = slotScreen(slot);
             let stats: &StatFileWriter = &fields(&screen).m_stats;
             let l: i32 = stats.writeStat(&statbase);
@@ -181,6 +193,7 @@ fn compareEntries(slot: &GuiSlot, var1: &Rc<StatBase>, var2: &Rc<StatBase>) -> i
             }
         }
     }
+
     j - k
 }
 
@@ -210,6 +223,7 @@ fn renderColumnStat(slot: &GuiSlot, stat: Option<&Rc<StatBase>>, x: i32, y: i32,
 {
     let this: Rc<GuiScreen> = slotScreen(slot);
     let font: Rc<FontRenderer> = this.fontRenderer();
+
     let s: String = match stat
     {
         Some(stat) => stat.format(fields(&this).m_stats.writeStat(stat)),
@@ -224,6 +238,7 @@ fn drawTooltip(this: &GuiScreen, s: &str, mouseX: i32, mouseY: i32)
     {
         return;
     }
+
     let font: Rc<FontRenderer> = this.fontRenderer();
     let k: i32 = mouseX + 12;
     let l: i32 = mouseY - 12;
@@ -247,19 +262,23 @@ fn renderDecorations(slot: &Rc<GuiSlot>, mouseX: i32, mouseY: i32)
     {
         return;
     }
+
     let this: Rc<GuiScreen> = slotScreen(slot);
     let i: i32 = slot.getEntryAt(mouseX, mouseY);
     let j: i32 = this.m_width.get() / 2 - 92 - 16;
+
     if i >= 0
     {
         if mouseX < j + 40 || mouseX > j + 40 + 20
         {
             return;
         }
+
         let statcrafting: Rc<StatBase> = Rc::clone(&slotFields(slot).m_entries.borrow()[i as usize]);
         renderItemName(slot, &statcrafting, mouseX, mouseY);
         return;
     }
+
     let column: i32 = if mouseX >= j + 115 - 18 && mouseX <= j + 115
     {
         0
@@ -276,6 +295,7 @@ fn renderDecorations(slot: &Rc<GuiSlot>, mouseX: i32, mouseY: i32)
     {
         return;
     };
+
     let header: Option<String> = slot.getColumnHeader(column);
     let s: String = StringTranslate::getInstance().translateKey(header.as_deref().unwrap_or("null"));
     // port trim strips chars up to space like java String.trim
@@ -286,10 +306,12 @@ fn renderHeader(slot: &Rc<GuiSlot>, x: i32, y: i32, _tesselator: &Rc<Tessellator
 {
     let ext: &SlotStatsExt = slotFields(slot);
     let this: Rc<GuiScreen> = slotScreen(slot);
+
     if !Mouse::isButtonDown(0)
     {
         ext.m_clickedIconId.set(-1);
     }
+
     for (column, offset) in HEADER_OFFSETS.iter().enumerate()
     {
         let v: i32 = if ext.m_clickedIconId.get() == column as i32
@@ -302,6 +324,7 @@ fn renderHeader(slot: &Rc<GuiSlot>, x: i32, y: i32, _tesselator: &Rc<Tessellator
         };
         renderSlot(&this, x + offset - 18, y + 1, 0, v);
     }
+
     if ext.m_selectedTab.get() != -1
     {
         let short1: i32 = match ext.m_selectedTab.get()
@@ -310,6 +333,7 @@ fn renderHeader(slot: &Rc<GuiSlot>, x: i32, y: i32, _tesselator: &Rc<Tessellator
             2 => 179,
             _ => 79,
         };
+
         let b0: i32 = if ext.m_statSortOrder.get() == 1
         {
             36
@@ -325,11 +349,14 @@ fn renderHeader(slot: &Rc<GuiSlot>, x: i32, y: i32, _tesselator: &Rc<Tessellator
 fn renderKindHeader(slot: &Rc<GuiSlot>, x: i32, y: i32, tesselator: &Rc<Tessellator>)
 {
     (SLOT_STATS.renderHeader)(slot, x, y, tesselator);
+
     let ext: &SlotStatsExt = slotFields(slot);
     let this: Rc<GuiScreen> = slotScreen(slot);
+
     for (column, offset) in HEADER_OFFSETS.iter().enumerate()
     {
         let u: i32 = ext.m_kind.m_headerIcons[column];
+
         if ext.m_clickedIconId.get() == column as i32
         {
             renderSlot(&this, x + offset - 18 + 1, y + 1 + 1, u, 18);
@@ -352,13 +379,15 @@ fn drawStatsSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, _height: i32, _
     let ext: &SlotStatsExt = slotFields(slot);
     let statcrafting: Rc<StatBase> = Rc::clone(&ext.m_entries.borrow()[index as usize]);
     renderStatIcon(&slotScreen(slot), x + 40, y, statcrafting.getItem());
+
     for (column, offset) in ext.m_kind.m_columns.iter().zip(HEADER_OFFSETS)
     {
         renderColumnStat(slot, columnStat(*column, &statcrafting).as_ref(), x + offset, y, index % 2 == 0);
     }
 }
 
-const SLOT_STATS: GuiSlotClass = GuiSlotClass {
+const SLOT_STATS: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiStats$GuiSlotStats",
     m_parent: Some(&GUI_SLOT),
     m_interfaces: &[],
@@ -366,8 +395,10 @@ const SLOT_STATS: GuiSlotClass = GuiSlotClass {
     isSelected: |_, _| false,
     drawBackground: |slot| slotScreen(slot).drawDefaultBackground(),
     renderHeader,
-    headerClicked: |slot, x, _y| {
+    headerClicked: |slot, x, _y|
+    {
         let ext: &SlotStatsExt = slotFields(slot);
+
         let clicked: i32 = match x
         {
             79..=114 => 0,
@@ -376,6 +407,7 @@ const SLOT_STATS: GuiSlotClass = GuiSlotClass {
             _ => -1,
         };
         ext.m_clickedIconId.set(clicked);
+
         if clicked >= 0
         {
             click(slot, clicked);
@@ -387,7 +419,8 @@ const SLOT_STATS: GuiSlotClass = GuiSlotClass {
     ..GUI_SLOT
 };
 
-const SLOT_STATS_BLOCK: GuiSlotClass = GuiSlotClass {
+const SLOT_STATS_BLOCK: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiSlotStatsBlock",
     m_parent: Some(&SLOT_STATS),
     m_interfaces: &[],
@@ -397,7 +430,8 @@ const SLOT_STATS_BLOCK: GuiSlotClass = GuiSlotClass {
     ..SLOT_STATS
 };
 
-const SLOT_STATS_ITEM: GuiSlotClass = GuiSlotClass {
+const SLOT_STATS_ITEM: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiSlotStatsItem",
     m_parent: Some(&SLOT_STATS),
     m_interfaces: &[],
@@ -411,6 +445,7 @@ fn newSlotStats(this: &GuiScreen, kind: &'static StatsListKind) -> Rc<GuiSlot>
 {
     let stats: &StatFileWriter = &fields(this).m_stats;
     let mut entries: Vec<Rc<StatBase>> = Vec::new();
+
     for statcrafting in (kind.m_source)()
     {
         let flag: bool = stats.writeStat(&statcrafting) > 0
@@ -418,12 +453,15 @@ fn newSlotStats(this: &GuiScreen, kind: &'static StatsListKind) -> Rc<GuiSlot>
                 .m_filter
                 .iter()
                 .any(|column| columnStat(*column, &statcrafting).is_some_and(|stat| stats.writeStat(&stat) > 0));
+
         if flag
         {
             entries.push(statcrafting);
         }
     }
-    let ext: SlotStatsExt = SlotStatsExt {
+
+    let ext: SlotStatsExt = SlotStatsExt
+    {
         m_screen: Rc::downgrade(&this.rc()),
         m_kind: kind,
         m_clickedIconId: Cell::new(-1),
@@ -453,7 +491,8 @@ struct SlotGeneralExt
 
 fn generalScreen(slot: &GuiSlot) -> Rc<GuiScreen> { slot.ext::<SlotGeneralExt>().m_screen.upgrade().orNpe() }
 
-const SLOT_STATS_GENERAL: GuiSlotClass = GuiSlotClass {
+const SLOT_STATS_GENERAL: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiSlotStatsGeneral",
     m_parent: Some(&GUI_SLOT),
     m_interfaces: &[],
@@ -462,11 +501,13 @@ const SLOT_STATS_GENERAL: GuiSlotClass = GuiSlotClass {
     isSelected: |_, _| false,
     getContentHeight: |slot| slot.getSize() * 10,
     drawBackground: |slot| generalScreen(slot).drawDefaultBackground(),
-    drawSlot: |slot, index, x, y, _, _| {
+    drawSlot: |slot, index, x, y, _, _|
+    {
         let this: Rc<GuiScreen> = generalScreen(slot);
         let font: Rc<FontRenderer> = this.fontRenderer();
         let statbase: Rc<StatBase> = StatList::general().get(index);
         this.m_gui.drawString(&font, &statbase.m_statName, x + 2, y + 1, rowColor(index));
+
         let s: String = statbase.format(fields(&this).m_stats.writeStat(&statbase));
         this.m_gui.drawString(&font, &s, x + 2 + 213 - font.getStringWidth(&s), y + 1, rowColor(index));
     },
@@ -475,13 +516,16 @@ const SLOT_STATS_GENERAL: GuiSlotClass = GuiSlotClass {
 
 fn selectedList(this: &GuiScreen) -> Rc<GuiSlot> { fields(this).m_selectedStatsList.get().orNpe() }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiStats",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let ext: &StatsExt = fields(this);
         ext.m_title.set(StatCollector::translateToLocal("gui.stats"));
+
         let general: Rc<GuiSlot> = GuiSlot::construct(
             &SLOT_STATS_GENERAL,
             Box::new(SlotGeneralExt { m_screen: Rc::downgrade(&this.rc()) }),
@@ -495,21 +539,27 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         general.setRenderSelectionHighlight(false);
         general.registerScrollButtons(&this.m_controlList, 1, 1);
         ext.m_generalStats.set(Some(Rc::clone(&general)));
+
         let items: Rc<GuiSlot> = newSlotStats(this, &ITEM_STATS);
         items.registerScrollButtons(&this.m_controlList, 1, 1);
         ext.m_itemStats.set(Some(items));
+
         let blocks: Rc<GuiSlot> = newSlotStats(this, &BLOCK_STATS);
         blocks.registerScrollButtons(&this.m_controlList, 1, 1);
         ext.m_blockStats.set(Some(blocks));
         ext.m_selectedStatsList.set(Some(general));
         createButtons(this);
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         let ext: &StatsExt = fields(this);
+
         match button.m_id.get()
         {
             0 => this.mc().displayGuiScreen(Some(Rc::clone(&ext.m_parent))),
@@ -519,7 +569,9 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             _ => selectedList(this).actionPerformed(button),
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         selectedList(this).drawScreen(mouseX, mouseY, tickDelta);
         this.m_gui.drawCenteredString(
             &this.fontRenderer(),
@@ -533,7 +585,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
     ..GUI_SCREEN
 };
 
-pub fn createButtons(this: &GuiScreen)
+pub(crate) fn createButtons(this: &GuiScreen)
 {
     let ext: &StatsExt = fields(this);
     let stringtranslate: Rc<StringTranslate> = StringTranslate::getInstance();
@@ -555,16 +607,20 @@ pub fn createButtons(this: &GuiScreen)
         20,
         &stringtranslate.translateKey("stat.generalButton"),
     ));
+
     let guibutton: Rc<GuiButton> =
         GuiButton::withSize(2, center - 46, height - 52, 100, 20, &stringtranslate.translateKey("stat.blocksButton"));
     this.m_controlList.add(Rc::clone(&guibutton));
+
     let guibutton1: Rc<GuiButton> =
         GuiButton::withSize(3, center + 62, height - 52, 100, 20, &stringtranslate.translateKey("stat.itemsButton"));
     this.m_controlList.add(Rc::clone(&guibutton1));
+
     if ext.m_blockStats.get().orNpe().getSize() == 0
     {
         guibutton.m_enabled.set(false);
     }
+
     if ext.m_itemStats.get().orNpe().getSize() == 0
     {
         guibutton1.m_enabled.set(false);
@@ -577,7 +633,8 @@ impl GuiStats
 {
     pub fn new(parent: Rc<GuiScreen>, stats: Rc<StatFileWriter>) -> Rc<GuiScreen>
     {
-        let ext: StatsExt = StatsExt {
+        let ext: StatsExt = StatsExt
+        {
             m_parent: parent,
             m_title: Field::new("Select world".to_string()),
             m_generalStats: Field::new(None),

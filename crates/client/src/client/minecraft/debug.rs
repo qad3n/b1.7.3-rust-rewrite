@@ -11,13 +11,14 @@ impl Minecraft
 {
     pub fn getMinecraftDir() -> PathBuf
     {
-        if let Some(dir) = Minecraft::minecraftDir()
+        if let Some(dir) = Self::minecraftDir()
         {
             return dir;
         }
+
         // rewrite: the per-user beta173 data folder replaces .minecraft
-        let dir: PathBuf = Minecraft::makeDirs(jvm::data_dir::root());
-        Minecraft::setMinecraftDir(dir.clone());
+        let dir: PathBuf = Self::makeDirs(jvm::data_dir::root());
+        Self::setMinecraftDir(dir.clone());
         dir
     }
 
@@ -30,6 +31,7 @@ impl Minecraft
                 &format!("The working directory could not be created: {}", file.display()),
             );
         }
+
         file
     }
 
@@ -44,6 +46,7 @@ impl Minecraft
         };
         let string: &str = &path[..n];
         let path: &str = &path[n + 1..];
+
         if string.eq_ignore_ascii_case("sound") || string.eq_ignore_ascii_case("newsound")
         {
             self.sndManager().addSound(path, file);
@@ -80,22 +83,22 @@ impl Minecraft
 
     pub fn isGuiEnabled() -> bool
     {
-        Minecraft::theMinecraft().is_none_or(|minecraft| !minecraft.gameSettings().m_hideGUI.get())
+        Self::theMinecraft().is_none_or(|minecraft| !minecraft.gameSettings().m_hideGUI.get())
     }
 
     pub fn isFancyGraphicsEnabled() -> bool
     {
-        Minecraft::theMinecraft().is_some_and(|minecraft| minecraft.gameSettings().m_fancyGraphics.get())
+        Self::theMinecraft().is_some_and(|minecraft| minecraft.gameSettings().m_fancyGraphics.get())
     }
 
     pub fn isAmbientOcclusionEnabled() -> bool
     {
-        Minecraft::theMinecraft().is_some_and(|minecraft| minecraft.gameSettings().m_ambientOcclusion.get())
+        Self::theMinecraft().is_some_and(|minecraft| minecraft.gameSettings().m_ambientOcclusion.get())
     }
 
     pub fn isDebugInfoEnabled() -> bool
     {
-        Minecraft::theMinecraft().is_some_and(|minecraft| minecraft.gameSettings().m_showDebugInfo.get())
+        Self::theMinecraft().is_some_and(|minecraft| minecraft.gameSettings().m_showDebugInfo.get())
     }
 
     // single player has no server, so mod commands typed in chat run here
@@ -110,6 +113,7 @@ impl Minecraft
         {
             return false;
         };
+
         let player: Option<Rc<game::entity::Entity>> = self.m_thePlayer.get();
         match modloader::play::command(line, player.as_ref(), true)
         {
@@ -119,8 +123,10 @@ impl Minecraft
                 {
                     player.addChatMessage(&reply);
                 }
+
                 true
             }
+
             None => false,
         }
     }

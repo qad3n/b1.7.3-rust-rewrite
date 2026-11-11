@@ -15,18 +15,22 @@ fn getBlockTextureFromSide(this: &Rc<Block>, face: i32) -> i32
     {
         return this.m_blockIndexInTexture.get() + 1;
     }
+
     this.m_blockIndexInTexture.get()
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockWorkbench",
     m_parent: Some(&BLOCK),
     getBlockTextureFromSide,
-    blockActivated: |_, world, x, y, z, player| {
+    blockActivated: |_, world, x, y, z, player|
+    {
         if world.m_multiplayerWorld.get()
         {
             return true;
         }
+
         player.displayWorkbenchGUI(x, y, z);
         true
     },

@@ -59,6 +59,7 @@ pub fn bucketInt(a: i32, b: i32) -> i32
     {
         return -((-a - 1).wrapping_div(b)) - 1;
     }
+
     a.wrapping_div(b)
 }
 

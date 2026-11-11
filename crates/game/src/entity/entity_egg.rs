@@ -37,11 +37,14 @@ fn hatchChickens(this: &Rc<Entity>)
     {
         return;
     }
+
     let mut b0: i32 = 1;
+
     if this.m_rand.nextIntBounded(32) == 0
     {
         b0 = 4;
     }
+
     for _ in 0..b0
     {
         let entitychicken: Rc<Entity> = crate::entity::entity_chicken::new(Some(Rc::clone(&world)));
@@ -50,7 +53,8 @@ fn hatchChickens(this: &Rc<Entity>)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityEgg",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],

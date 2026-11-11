@@ -82,6 +82,7 @@ pub fn insert(world: &Rc<World>, x: i32, y: i32, z: i32, face: i32, stack: &Rc<I
         .filter(|slot| accepts(world, x, y, z, *slot, stack))
         .collect();
     let mut left: i32 = stack.m_stackSize.get();
+
     for joining in [true, false]
     {
         for slot in &targets
@@ -101,28 +102,35 @@ pub fn insert(world: &Rc<World>, x: i32, y: i32, z: i32, face: i32, stack: &Rc<I
                     {
                         held.m_stackSize.set(held.m_stackSize.get() + moved);
                     }
+
                     moved
                 }
+
                 (None, false) =>
                 {
                     let moved: i32 = limit.min(left);
+
                     if !simulate
                     {
                         let placed: Rc<ItemStack> = stack.copy();
                         placed.m_stackSize.set(moved);
                         inventory.setInventorySlotContents(*slot, Some(placed));
                     }
+
                     moved
                 }
+
                 _ => 0,
             };
             left -= moved;
         }
     }
+
     if !simulate && left != stack.m_stackSize.get()
     {
         inventory.onInventoryChanged();
     }
+
     left
 }
 
@@ -151,9 +159,12 @@ pub fn extract(world: &Rc<World>, x: i32, y: i32, z: i32, face: i32, max: i32, s
             copy.m_stackSize.set(count);
             return Some(copy);
         }
+
         let taken: Option<Rc<ItemStack>> = inventory.decrStackSize(slot, count);
+
         inventory.onInventoryChanged();
         return taken;
     }
+
     None
 }

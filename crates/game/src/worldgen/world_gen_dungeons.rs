@@ -25,14 +25,17 @@ impl WorldGenDungeons
             5 => Some(ItemStack::withItemCount(&Item::silk(), random.nextIntBounded(4) + 1)),
             6 => Some(ItemStack::withItem(&Item::bucketEmpty())),
             7 if random.nextIntBounded(100) == 0 => Some(ItemStack::withItem(&Item::appleGold())),
+
             8 if random.nextIntBounded(2) == 0 =>
             {
                 Some(ItemStack::withItemCount(&Item::redstone(), random.nextIntBounded(4) + 1))
             }
+
             9 if random.nextIntBounded(10) == 0 =>
             {
                 Some(ItemStack::withItem(&Item::byIdOrNpe(Item::record13().m_shiftedIndex + random.nextIntBounded(2))))
             }
+
             10 => Some(ItemStack::withItemDamage(&Item::dyePowder(), 1, 3)),
             _ => None,
         }
@@ -58,6 +61,7 @@ impl WorldGenerator for WorldGenDungeons
         let n5: i32 = random.nextIntBounded(2) + 2;
         let n6: i32 = random.nextIntBounded(2) + 2;
         let mut n7: i32 = 0;
+
         for n3 in x - n5 - 1..=x + n5 + 1
         {
             for n2 in y - 1..=y + n4 + 1
@@ -73,6 +77,7 @@ impl WorldGenerator for WorldGenDungeons
                     {
                         return false;
                     }
+
                     if (n3 == x - n5 - 1 || n3 == x + n5 + 1 || n == z - n6 - 1 || n == z + n6 + 1)
                         && n2 == y
                         && world.isAirBlock(n3, n2, n)
@@ -83,10 +88,12 @@ impl WorldGenerator for WorldGenDungeons
                 }
             }
         }
+
         if !(1..=5).contains(&n7)
         {
             return false;
         }
+
         for n3 in x - n5 - 1..=x + n5 + 1
         {
             for n2 in (y - 1..=y + n4).rev()
@@ -105,22 +112,27 @@ impl WorldGenerator for WorldGenDungeons
                             world.setBlockWithNotify(n3, n2, n, 0);
                             continue;
                         }
+
                         if !world.getBlockMaterial(n3, n2, n).isSolid()
                         {
                             continue;
                         }
+
                         if n2 == y - 1 && random.nextIntBounded(4) != 0
                         {
                             world.setBlockWithNotify(n3, n2, n, Block::COBBLESTONE_MOSSY);
                             continue;
                         }
+
                         world.setBlockWithNotify(n3, n2, n, Block::COBBLESTONE);
                         continue;
                     }
+
                     world.setBlockWithNotify(n3, n2, n, 0);
                 }
             }
         }
+
         'chests: for _ in 0..2
         {
             for _ in 0..3
@@ -132,29 +144,38 @@ impl WorldGenerator for WorldGenDungeons
                 {
                     continue;
                 }
+
                 let mut n10: i32 = 0;
+
                 if world.getBlockMaterial(n - 1, n9, n8).isSolid()
                 {
                     n10 += 1;
                 }
+
                 if world.getBlockMaterial(n + 1, n9, n8).isSolid()
                 {
                     n10 += 1;
                 }
+
                 if world.getBlockMaterial(n, n9, n8 - 1).isSolid()
                 {
                     n10 += 1;
                 }
+
                 if world.getBlockMaterial(n, n9, n8 + 1).isSolid()
                 {
                     n10 += 1;
                 }
+
                 if n10 != 1
                 {
                     continue;
                 }
+
                 world.setBlockWithNotify(n, n9, n8, Block::CHEST);
+
                 let chest: Rc<TileEntity> = world.getBlockTileEntity(n, n9, n8).orNpe();
+
                 for _ in 0..8
                 {
                     let itemStack: Option<Rc<ItemStack>> = self.pickCheckLootItem(random);
@@ -162,12 +183,16 @@ impl WorldGenerator for WorldGenDungeons
                     {
                         continue;
                     }
+
                     chest.setInventorySlotContents(random.nextIntBounded(chest.getSizeInventory()), itemStack);
                 }
+
                 continue 'chests;
             }
         }
+
         world.setBlockWithNotify(x, y, z, Block::MOB_SPAWNER);
+
         let spawner: Rc<TileEntity> = world.getBlockTileEntity(x, y, z).orNpe();
         tile_entity_mob_spawner::setMobID(&spawner, Some(JString::from(self.pickMobSpawner(random))));
         crate::hooks::structure(

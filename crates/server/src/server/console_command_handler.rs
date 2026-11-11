@@ -22,10 +22,7 @@ pub struct ConsoleCommandHandler
 
 impl ConsoleCommandHandler
 {
-    pub fn new(server: &Rc<MinecraftServer>) -> ConsoleCommandHandler
-    {
-        ConsoleCommandHandler { m_minecraftServer: Rc::clone(server) }
-    }
+    pub fn new(server: &Rc<MinecraftServer>) -> Self { Self { m_minecraftServer: Rc::clone(server) } }
 
     fn worlds(&self) -> Vec<Rc<World>> { self.m_minecraftServer.worldMngr() }
 
@@ -37,6 +34,7 @@ impl ConsoleCommandHandler
             command.m_commandListener.log(&reply);
             return;
         }
+
         let mut string: JString = JString::from(command.m_command.as_str());
         let iCommandListener: &Rc<dyn ICommandListener> = &command.m_commandListener;
         let string2: String = iCommandListener.getUsername();
@@ -59,15 +57,18 @@ impl ConsoleCommandHandler
         {
             self.sendNoticeToOps(&string2, "Forcing save..");
             serverConfigurationManager.savePlayerStates();
+
             for worldServer in self.worlds()
             {
                 worldServer.saveWorld(true, None);
             }
+
             self.sendNoticeToOps(&string2, "Save complete.");
         }
         else if lower.startsWith("save-off")
         {
             self.sendNoticeToOps(&string2, "Disabling level saving..");
+
             for worldServer in self.worlds()
             {
                 world_server::fields(&worldServer).m_levelSaving.set(true);
@@ -76,6 +77,7 @@ impl ConsoleCommandHandler
         else if lower.startsWith("save-on")
         {
             self.sendNoticeToOps(&string2, "Enabling level saving..");
+
             for worldServer in self.worlds()
             {
                 world_server::fields(&worldServer).m_levelSaving.set(false);
@@ -118,6 +120,7 @@ impl ConsoleCommandHandler
             let string7: JString = string.substringFrom(string.indexOf(b' ' as u16)).trim();
             serverConfigurationManager.banPlayer(&string7);
             self.sendNoticeToOps(&string2, &format!("Banning {string7}"));
+
             if let Some(entityPlayerMP) = serverConfigurationManager.getPlayerEntity(&string7)
             {
                 entity_player_mp::netServerHandler(&entityPlayerMP).kickPlayer("Banned by admin");
@@ -137,13 +140,17 @@ impl ConsoleCommandHandler
             while i < serverConfigurationManager.m_playerEntities.size()
             {
                 let entityPlayerMP2: Rc<Entity> = serverConfigurationManager.m_playerEntities.get(i);
+
                 i += 1;
+
                 if !entity_player::fields(&entityPlayerMP2).m_username.get().orNpe().equalsIgnoreCase(Some(&string9))
                 {
                     continue;
                 }
+
                 entityPlayerMP = Some(entityPlayerMP2);
             }
+
             match entityPlayerMP
             {
                 Some(entityPlayerMP) =>
@@ -157,6 +164,7 @@ impl ConsoleCommandHandler
                         ),
                     );
                 }
+
                 None => iCommandListener.log(&format!("Can't find user {string9}. No kick.")),
             }
         }
@@ -208,6 +216,7 @@ impl ConsoleCommandHandler
             {
                 return;
             }
+
             let string10: &JString = &stringArray[1];
             match serverConfigurationManager.getPlayerEntity(string10)
             {
@@ -224,28 +233,36 @@ impl ConsoleCommandHandler
                                     JString::display(entity_player::fields(&entityPlayerMP).m_username.get().as_ref())
                                 ),
                             );
+
                             let mut n2: i32 = 1;
+
                             if stringArray.len() > 3
                             {
                                 n2 = self.tryParse(&stringArray[3], 1);
                             }
+
                             if n2 < 1
                             {
                                 n2 = 1;
                             }
+
                             if n2 > 64
                             {
                                 n2 = 64;
                             }
+
                             entity_player::dropPlayerItem(&entityPlayerMP, Some(ItemStack::withDamage(n, n2, 0)));
                             return;
                         }
+
                         iCommandListener.log(&format!("There's no item with id {n}"));
                     }
+
                     Err(exception) if exception.instanceOf(&NUMBER_FORMAT) =>
                     {
                         iCommandListener.log(&format!("There's no item with id {}", stringArray[2]));
                     }
+
                     Err(exception) => jvm::throwable::rethrow(exception),
                 },
                 None => iCommandListener.log(&format!("Can't find user {string10}")),
@@ -258,7 +275,9 @@ impl ConsoleCommandHandler
             {
                 return;
             }
+
             let string11: &JString = &stringArray[1];
+
             match jvm::integer::parseInt(&stringArray[2])
             {
                 Ok(n) =>
@@ -269,24 +288,30 @@ impl ConsoleCommandHandler
                         {
                             worldServer.changeTime(worldServer.getWorldTime() + n as i64);
                         }
+
                         self.sendNoticeToOps(&string2, &format!("Added {n} to time"));
                         return;
                     }
+
                     if JString::from("set").equalsIgnoreCase(Some(string11))
                     {
                         for worldServer in self.worlds()
                         {
                             worldServer.changeTime(n as i64);
                         }
+
                         self.sendNoticeToOps(&string2, &format!("Set time to {n}"));
                         return;
                     }
+
                     iCommandListener.log("Unknown method, use either \"add\" or \"set\"");
                 }
+
                 Err(exception) if exception.instanceOf(&NUMBER_FORMAT) =>
                 {
                     iCommandListener.log(&format!("Unable to convert time value, {}", stringArray[2]));
                 }
+
                 Err(exception) => jvm::throwable::rethrow(exception),
             }
         }
@@ -308,6 +333,7 @@ impl ConsoleCommandHandler
                 info!("[{string2}->{}] {string}", stringArray[1]);
                 string = JString::from(format!("\u{a7}7{string2} whispers {string}").as_str());
                 info!("{}", string.to_string());
+
                 if !serverConfigurationManager.sendPacketToPlayer(&stringArray[1], Box::new(Packet3Chat::new(string)))
                 {
                     iCommandListener.log("There's no player by that name online.");
@@ -331,6 +357,7 @@ impl ConsoleCommandHandler
         {
             return;
         }
+
         let string: String = stringArray[1].toLowerCase().to_string();
         if "on" == string
         {
@@ -346,10 +373,12 @@ impl ConsoleCommandHandler
         {
             let set: Vec<JString> = self.m_minecraftServer.configManager().getWhiteListedIPs();
             let mut string2: String = String::new();
+
             for string3 in &set
             {
                 string2 = format!("{string2}{string3} ");
             }
+
             source.log(&format!("White-listed players: {string2}"));
         }
         else if "add" == string && stringArray.len() == 3
@@ -452,7 +481,9 @@ impl ConsoleCommandHandler
             Ok(code) =>
             {
                 info!("{} created an invite for {target}", source.getUsername());
+
                 let line: String = format!("Invite code for {target}: {code} (one use, 24 hours)");
+
                 // the code is a secret so it skips the logger and server.log
                 if source.console()
                 {
@@ -463,6 +494,7 @@ impl ConsoleCommandHandler
                     source.log(&line);
                 }
             }
+
             Err(error) =>
             {
                 severe!("Could not save an invite for {target}: {error}");
@@ -479,6 +511,7 @@ impl ConsoleCommandHandler
             Ok(true) =>
             {
                 self.sendNoticeToOps(&source.getUsername(), &format!("Reset the account of {target}"));
+
                 let manager: Rc<ServerConfigurationManager> = self.m_minecraftServer.configManager();
                 if let Some(player) = manager.getPlayerEntity(&JString::from(target))
                 {
@@ -486,7 +519,9 @@ impl ConsoleCommandHandler
                         .kickPlayer("Your account was reset, join again to register");
                 }
             }
+
             Ok(false) => source.log(&format!("{target} has no account")),
+
             Err(error) =>
             {
                 severe!("Could not reset the account of {target}: {error}");

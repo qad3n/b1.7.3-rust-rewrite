@@ -14,15 +14,15 @@ pub struct PropertyManager
 
 impl PropertyManager
 {
-    pub fn new(file: &Path) -> PropertyManager
+    pub fn new(file: &Path) -> Self
     {
-        let manager: PropertyManager = PropertyManager {
-            m_serverProperties: RefCell::new(Properties::new()),
-            m_serverPropertiesFile: file.to_path_buf(),
-        };
+        let manager: Self =
+            Self { m_serverProperties: RefCell::new(Properties::new()), m_serverPropertiesFile: file.to_path_buf() };
+
         if game::port::file::exists(file)
         {
-            let result: Result<IoResult<()>, Throwable> = throwable::catchThrowable(&throwable::EXCEPTION, || {
+            let result: Result<IoResult<()>, Throwable> = throwable::catchThrowable(&throwable::EXCEPTION, ||
+            {
                 manager.m_serverProperties.borrow_mut().load(&mut FileInputStream::open(file)?)
             });
             if let Err(exception) = result.and_then(|inner| inner)
@@ -47,7 +47,8 @@ impl PropertyManager
 
     pub fn saveProperties(&self)
     {
-        let result: Result<IoResult<()>, Throwable> = throwable::catchThrowable(&throwable::EXCEPTION, || {
+        let result: Result<IoResult<()>, Throwable> = throwable::catchThrowable(&throwable::EXCEPTION, ||
+        {
             self.m_serverProperties.borrow().store(
                 &mut FileOutputStream::create(&self.m_serverPropertiesFile, false)?,
                 "Minecraft server properties",
@@ -67,6 +68,7 @@ impl PropertyManager
             self.m_serverProperties.borrow_mut().setProperty(key, defaultValue);
             self.saveProperties();
         }
+
         self.m_serverProperties.borrow().getProperty(key, defaultValue)
     }
 
@@ -76,6 +78,7 @@ impl PropertyManager
         match game::port::parseInt(&value)
         {
             Ok(value) => value,
+
             Err(_) =>
             {
                 self.m_serverProperties.borrow_mut().setProperty(key, &defaultValue.to_string());

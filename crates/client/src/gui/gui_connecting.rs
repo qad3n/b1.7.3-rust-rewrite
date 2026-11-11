@@ -39,21 +39,27 @@ fn finishConnecting(ext: &ConnectingExt, connection: Connection)
         {
             ext.m_clientHandler.set(Some(Rc::clone(&handler)));
             handler.setServer(&format!("{}:{}", ext.m_address, ext.m_port));
+
             if ext.m_cancelled.load(Ordering::SeqCst)
             {
                 return;
             }
+
             debug!("Connected to {}, sending handshake", ext.m_address);
+
             let username: Option<String> = minecraft.m_session.get().orNpe().m_username.get();
             handler.addToSendQueue(Box::new(Packet2Handshake::new(JString::from(username.orNpe().as_str()))));
             return;
         }
+
         Err(error) => error,
     };
+
     if ext.m_cancelled.load(Ordering::SeqCst)
     {
         return;
     }
+
     let detail: String = if error.instanceOf(&UNKNOWN_HOST)
     {
         format!("Unknown host '{}'", ext.m_address)
@@ -75,11 +81,13 @@ fn finishConnecting(ext: &ConnectingExt, connection: Connection)
     )));
 }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiConnecting",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    updateScreen: |this| {
+    updateScreen: |this|
+    {
         let ext: &ConnectingExt = fields(this);
         let connection: Option<Connection> = ext.m_connection.lock().unwrap_or_else(PoisonError::into_inner).take();
         if let Some(connection) = connection
@@ -87,14 +95,17 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             // builds the handler on the main thread where java builds it on the connect thread
             finishConnecting(ext, connection);
         }
+
         if let Some(handler) = ext.m_clientHandler.get()
         {
             handler.processReadPackets();
         }
     },
     keyTyped: |_, _, _| {},
-    initGui: |this| {
+    initGui: |this|
+    {
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
+
         this.m_controlList.clear();
         this.m_controlList.add(GuiButton::new(
             0,
@@ -103,24 +114,32 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             &stringTranslate.translateKey("gui.cancel"),
         ));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if button.m_id.get() == 0
         {
             let ext: &ConnectingExt = fields(this);
             ext.m_cancelled.store(true, Ordering::SeqCst);
+
             if let Some(handler) = ext.m_clientHandler.get()
             {
                 handler.disconnect();
             }
+
             this.mc().displayGuiScreen(Some(GuiMainMenu::new()));
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         this.drawDefaultBackground();
+
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         let font: Rc<FontRenderer> = this.fontRenderer();
         let center: i32 = this.m_width.get() / 2;
         let y: i32 = this.m_height.get() / 2;
+
         match fields(this).m_clientHandler.get()
         {
             None =>
@@ -134,6 +153,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 );
                 this.m_gui.drawCenteredString(&font, "", center, y - 10, 0xFFFFFF);
             }
+
             Some(handler) =>
             {
                 this.m_gui.drawCenteredString(
@@ -143,12 +163,14 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                     y - 50,
                     0xFFFFFF,
                 );
+
                 if let Some(message) = handler.m_message.get()
                 {
                     this.m_gui.drawCenteredString(&font, &message.to_string(), center, y - 10, 0xFFFFFF);
                 }
             }
         }
+
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
     },
     ..GUI_SCREEN
@@ -162,7 +184,9 @@ impl GuiConnecting
     {
         info!("Connecting to {address}:{port}");
         minecraft.changeWorld1(None);
-        let ext: ConnectingExt = ConnectingExt {
+
+        let ext: ConnectingExt = ConnectingExt
+        {
             m_clientHandler: Field::new(None),
             m_cancelled: Arc::new(AtomicBool::new(false)),
             m_connection: Arc::new(Mutex::new(None)),
@@ -172,8 +196,10 @@ impl GuiConnecting
         };
         let connection: Arc<Mutex<Option<Connection>>> = Arc::clone(&ext.m_connection);
         let host: String = address.to_string();
+
         // the thread only opens the socket since Rc game state cannot cross threads
-        let started: std::io::Result<JoinHandle<()>> = jvm::thread::start(jvm::thread::nextName(), move || {
+        let started: std::io::Result<JoinHandle<()>> = jvm::thread::start(jvm::thread::nextName(), move ||
+        {
             let result: Connection = NetClientHandler::connect(&host, port);
             *connection.lock().unwrap_or_else(PoisonError::into_inner) = Some(result);
         });
@@ -181,6 +207,7 @@ impl GuiConnecting
         {
             severe!("Could not start the connect thread: {error}");
         }
+
         GuiScreen::construct(&CLASS, Box::new(ext))
     }
 }

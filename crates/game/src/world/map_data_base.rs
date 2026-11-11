@@ -18,16 +18,16 @@ pub struct MapDataBase
 
 impl MapDataBase
 {
-    pub fn newMap(id: &str) -> Rc<MapDataBase>
+    pub fn newMap(id: &str) -> Rc<Self>
     {
-        Rc::new(MapDataBase { m_id: id.to_string(), m_dirty: Cell::new(false), m_map: MapData::new() })
+        Rc::new(Self { m_id: id.to_string(), m_dirty: Cell::new(false), m_map: MapData::new() })
     }
 
-    pub fn newInstance(kind: MapDataKind, id: &str) -> Rc<MapDataBase>
+    pub fn newInstance(kind: MapDataKind, id: &str) -> Rc<Self>
     {
         match kind
         {
-            MapDataKind::MapData => MapDataBase::newMap(id),
+            MapDataKind::MapData => Self::newMap(id),
         }
     }
 

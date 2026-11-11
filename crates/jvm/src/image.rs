@@ -33,7 +33,7 @@ impl BufferedImage
     pub const TYPE_INT_RGB: i32 = 1;
     pub const TYPE_INT_ARGB: i32 = 2;
 
-    pub fn new(width: i32, height: i32, kind: i32) -> BufferedImage
+    pub fn new(width: i32, height: i32, kind: i32) -> Self
     {
         if width <= 0 || height <= 0
         {
@@ -42,7 +42,9 @@ impl BufferedImage
                 &format!("Width ({width}) and height ({height}) cannot be <= 0"),
             );
         }
-        BufferedImage {
+
+        Self
+        {
             m_width: width,
             m_height: height,
             m_type: kind,
@@ -50,9 +52,9 @@ impl BufferedImage
         }
     }
 
-    fn fromPixels(width: i32, height: i32, pixels: Vec<i32>) -> BufferedImage
+    fn fromPixels(width: i32, height: i32, pixels: Vec<i32>) -> Self
     {
-        BufferedImage { m_width: width, m_height: height, m_type: Self::TYPE_INT_ARGB, m_pixels: RefCell::new(pixels) }
+        Self { m_width: width, m_height: height, m_type: Self::TYPE_INT_ARGB, m_pixels: RefCell::new(pixels) }
     }
 
     pub fn getWidth(&self) -> i32 { self.m_width }
@@ -67,6 +69,7 @@ impl BufferedImage
         {
             throwable::throw(&throwable::ARRAY_INDEX, "Coordinate out of bounds!");
         }
+
         (x + y * self.m_width) as usize
     }
 
@@ -115,29 +118,36 @@ struct AlphaTables
 fn alphaTables() -> &'static AlphaTables
 {
     static TABLES: OnceLock<AlphaTables> = OnceLock::new();
-    TABLES.get_or_init(|| {
+
+    TABLES.get_or_init(||
+    {
         let mut mul8: Vec<[u8; 256]> = vec![[0; 256]; 256];
         let mut div8: Vec<[u8; 256]> = vec![[0; 256]; 256];
+
         for i in 1..256u32
         {
             let inc: u32 = (i << 16) + (i << 8) + i;
             let mut val: u32 = inc + (1 << 23);
+
             for j in 1..256usize
             {
                 mul8[i as usize][j] = (val >> 24) as u8;
                 val = val.wrapping_add(inc);
             }
         }
+
         for i in 1..256u32
         {
             let inc: u32 = ((0xFFu32 << 24) + i / 2) / i;
             let mut val: u32 = 1 << 23;
+
             for j in 0..256u32
             {
                 div8[i as usize][j as usize] = if j < i { (val >> 24) as u8 } else { 255 };
                 val = val.wrapping_add(inc);
             }
         }
+
         AlphaTables { m_mul8: mul8, m_div8: div8 }
     })
 }
@@ -158,15 +168,18 @@ fn srcOver(src: i32, dst: i32) -> i32
     {
         return src as i32;
     }
+
     let tables: &AlphaTables = alphaTables();
     let mul8 = |a: u32, v: u32| -> u32 { tables.m_mul8[a as usize][v as usize] as u32 };
     let dstF: u32 = 0xFF - srcA;
     let dstA: u32 = mul8(dstF, channel(dst, 24));
     let mut res: [u32; 3] = [0; 3];
+
     for (i, shift) in [16u32, 8, 0].into_iter().enumerate()
     {
         res[i] = mul8(srcA, channel(src, shift)) + mul8(dstA, channel(dst, shift));
     }
+
     let resA: u32 = srcA + dstA;
     if resA < 0xFF
     {
@@ -175,6 +188,7 @@ fn srcOver(src: i32, dst: i32) -> i32
             *value = tables.m_div8[resA as usize][*value as usize] as u32;
         }
     }
+
     ((resA << 24) | (res[0] << 16) | (res[1] << 8) | res[2]) as i32
 }
 
@@ -207,6 +221,7 @@ impl Graphics<'_>
     pub fn drawImage(&self, image: &BufferedImage, x: i32, y: i32) -> bool
     {
         let target: &BufferedImage = self.m_target;
+
         for sy in 0..image.m_height
         {
             let ty: i32 = y + sy;
@@ -214,6 +229,7 @@ impl Graphics<'_>
             {
                 continue;
             }
+
             for sx in 0..image.m_width
             {
                 let tx: i32 = x + sx;
@@ -221,10 +237,12 @@ impl Graphics<'_>
                 {
                     continue;
                 }
+
                 let src: i32 = image.getRGB(sx, sy);
                 target.setRGB(tx, ty, srcOver(src, target.getRGB(tx, ty)));
             }
         }
+
         true
     }
 
@@ -243,8 +261,10 @@ impl ImageIO
         {
             throwable::throw(&throwable::ILLEGAL_ARGUMENT, "input == null!");
         };
+
         let mut bytes: Vec<u8> = Vec::new();
         let mut chunk: [u8; READ_CHUNK] = [0; READ_CHUNK];
+
         loop
         {
             let count: i32 = input.readInto(&mut chunk, 0, READ_CHUNK as i32)?;
@@ -252,12 +272,15 @@ impl ImageIO
             {
                 break;
             }
+
             bytes.extend_from_slice(&chunk[..count as usize]);
         }
+
         if !bytes.starts_with(&PNG_SIGNATURE)
         {
             return Ok(None);
         }
+
         Self::decodePng(&bytes)
             .map(Some)
             .map_err(|error| io::ioError(&IIO, &format!("Error reading PNG image data: {error}")))
@@ -268,13 +291,15 @@ impl ImageIO
     {
         let mut decoder: png::Decoder<&[u8]> = png::Decoder::new(bytes);
         decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+
         let mut reader: png::Reader<&[u8]> = decoder.read_info()?;
         let mut buffer: Vec<u8> = vec![0; reader.output_buffer_size()];
         let frame: png::OutputInfo = reader.next_frame(&mut buffer)?;
         let channels: usize = frame.color_type.samples();
         let pixels: Vec<i32> = buffer[..frame.buffer_size()]
             .chunks_exact(channels)
-            .map(|sample| {
+            .map(|sample|
+            {
                 let (r, g, b, a): (u8, u8, u8, u8) = match sample.len()
                 {
                     1 => (sample[0], sample[0], sample[0], 0xFF),
@@ -295,6 +320,7 @@ impl ImageIO
         {
             return Ok(false);
         }
+
         let file: std::fs::File = std::fs::File::create(output).map_err(|error| io::fromStd(&error))?;
         Self::encodePng(image, std::io::BufWriter::new(file))
             .map_err(|error| io::ioError(&IIO, &format!("Error writing PNG image data: {error}")))?;
@@ -316,13 +342,16 @@ impl ImageIO
             },
         );
         encoder.set_depth(png::BitDepth::Eight);
+
         let mut writer: png::Writer<_> = encoder.write_header()?;
         let data: Vec<u8> = image
             .m_pixels
             .borrow()
             .iter()
-            .flat_map(|pixel| {
+            .flat_map(|pixel|
+            {
                 let [a, r, g, b]: [u8; 4] = pixel.to_be_bytes();
+
                 if alpha
                 {
                     vec![r, g, b, a]

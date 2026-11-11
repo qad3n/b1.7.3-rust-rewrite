@@ -1,3 +1,4 @@
+use game::block::map_color::MapColors;
 use game::block::{MapColor, Material};
 use game::fluid::{self, Fluid, FluidStyle};
 use mod_protocol::Identifier;
@@ -16,7 +17,8 @@ mod defaults
     pub const NETHER_DECAY: i32 = 1;
 }
 
-thread_local! {
+thread_local!
+{
     // mod fluids by identifier, their blocks and bucket resolved to numbers on every content build
     static SPECS: RefCell<BTreeMap<Identifier, FluidSpec>> = const { RefCell::new(BTreeMap::new()) };
 }
@@ -35,7 +37,8 @@ pub fn register(id: Identifier, spec: FluidSpec) -> Result<(), String>
         SpecStyle::Lava => FluidStyle::Lava,
     };
     let lava: bool = style == FluidStyle::Lava;
-    let colors = MapColor::colors();
+    let colors: Rc<MapColors> = MapColor::colors();
+
     let color: &Rc<MapColor> = if lava
     {
         &colors.m_tntColor
@@ -44,7 +47,9 @@ pub fn register(id: Identifier, spec: FluidSpec) -> Result<(), String>
     {
         &colors.m_waterColor
     };
-    fluid::add(Fluid {
+
+    fluid::add(Fluid
+    {
         m_name: id.to_string(),
         m_material: Material::liquid(color),
         m_style: style,
@@ -75,6 +80,7 @@ pub fn register(id: Identifier, spec: FluidSpec) -> Result<(), String>
         m_infinite: spec.infinite.unwrap_or(!lava),
         m_sprite: fluid::sprite(&Material::water()),
     });
+
     SPECS.with(|specs| specs.borrow_mut().insert(id, spec));
     Ok(())
 }
@@ -93,7 +99,8 @@ pub fn material(name: &str) -> Option<Rc<Material>>
 // the flowing block a fluid bucket item places
 pub fn bucketFlowing(bucket: &Identifier) -> Option<i32>
 {
-    let flowing: Identifier = SPECS.with(|specs| {
+    let flowing: Identifier = SPECS.with(|specs|
+    {
         specs.borrow().values().find(|spec| spec.bucket.as_ref() == Some(bucket)).map(|spec| spec.flowing.clone())
     })?;
     crate::registry::with(|registries| registries.m_blocks.numeric(&flowing))
@@ -104,6 +111,7 @@ pub fn push()
 {
     let specs: Vec<(Identifier, FluidSpec)> =
         SPECS.with(|specs| specs.borrow().iter().map(|(id, spec)| (id.clone(), spec.clone())).collect());
+
     for (id, spec) in specs
     {
         let Some(row) = fluid::byName(&id.to_string())
@@ -111,7 +119,9 @@ pub fn push()
         {
             continue;
         };
-        let (flowing, still, bucket): (Option<i32>, Option<i32>, Option<i32>) = crate::registry::with(|registries| {
+
+        let (flowing, still, bucket): (Option<i32>, Option<i32>, Option<i32>) = crate::registry::with(|registries|
+        {
             (
                 registries.m_blocks.numeric(&spec.flowing),
                 registries.m_blocks.numeric(&spec.still),

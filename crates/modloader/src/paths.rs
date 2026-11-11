@@ -15,9 +15,10 @@ pub struct LoaderPaths
 
 impl LoaderPaths
 {
-    pub fn under(root: &Path) -> LoaderPaths
+    pub fn under(root: &Path) -> Self
     {
-        LoaderPaths {
+        Self
+        {
             m_root: root.to_path_buf(),
             m_mods: root.join(MODS_DIR),
             m_config: root.join(CONFIG_DIR),

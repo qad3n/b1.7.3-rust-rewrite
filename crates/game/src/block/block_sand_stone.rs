@@ -11,6 +11,7 @@ fn getBlockTextureFromSide(this: &Rc<Block>, face: i32) -> i32
     {
         return this.m_blockIndexInTexture.get() + 16;
     }
+
     this.m_blockIndexInTexture.get()
 }
 

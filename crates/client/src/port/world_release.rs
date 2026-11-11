@@ -13,6 +13,7 @@ pub fn releaseDiscardedWorld(previous: Option<Rc<World>>, current: Option<Rc<Wor
     {
         return;
     }
+
     if let Some(ext) = previous.m_ext.downcast_ref::<WorldClientExt>()
     {
         ext.m_blockResets.clear();
@@ -20,5 +21,6 @@ pub fn releaseDiscardedWorld(previous: Option<Rc<World>>, current: Option<Rc<Wor
         ext.m_forcedEntities.update(|set| set.clear());
         ext.m_pendingEntities.update(|set| set.clear());
     }
+
     game::port::releaseWorld(&previous);
 }

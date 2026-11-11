@@ -9,14 +9,14 @@ use game::math::{AxisAlignedBB, math_helper};
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::{GL11, GL12};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::rc::Rc;
 
 const ITEM_SEED: i64 = 187;
 const TEXTURE_SIZE: f32 = 256.0;
 const PISTON_RENDER_TYPE: i32 = 16;
 
-pub struct RenderItemExt
+pub(crate) struct RenderItemExt
 {
     m_renderBlocks: RefCell<RenderBlocks>,
     m_random: Random,
@@ -32,7 +32,7 @@ pub struct RenderItem
 
 impl RenderItem
 {
-    pub fn new() -> RenderItem { RenderItem { m_render: Self::createRender() } }
+    pub fn new() -> Self { Self { m_render: Self::createRender() } }
 
     pub fn render(&self) -> &Rc<Render> { &self.m_render }
 
@@ -40,7 +40,8 @@ impl RenderItem
 
     pub(crate) fn createRender() -> Rc<Render>
     {
-        let itemExt: RenderItemExt = RenderItemExt {
+        let itemExt: RenderItemExt = RenderItemExt
+        {
             m_renderBlocks: RefCell::new(RenderBlocks::empty()),
             m_random: Random::new(),
             m_useCustomDisplayColor: Cell::new(true),
@@ -65,10 +66,13 @@ impl RenderItem
     )
     {
         let itemExt: &RenderItemExt = ext(&self.m_render);
+
         if rendersAsBlock(item)
         {
             textureManager.bindTexture(textureManager.getTexture("/terrain.png"));
+
             let block: Rc<Block> = Block::byId(item).orNpe();
+
             GL11::glPushMatrix();
             GL11::glTranslatef((x - 2) as f32, (y + 3) as f32, -3.0);
             GL11::glScalef(10.0, 10.0, 10.0);
@@ -76,13 +80,17 @@ impl RenderItem
             GL11::glScalef(1.0, 1.0, -1.0);
             GL11::glRotatef(210.0, 1.0, 0.0, 0.0);
             GL11::glRotatef(45.0, 0.0, 1.0, 0.0);
+
             let n2: i32 = Item::byIdOrNpe(item).getColorFromDamage(metadata);
+
             if itemExt.m_useCustomDisplayColor.get()
             {
                 GL11::glColor4f(channel(n2, 16), channel(n2, 8), channel(n2, 0), 1.0);
             }
+
             GL11::glRotatef(-90.0, 0.0, 1.0, 0.0);
-            let mut renderBlocks = itemExt.m_renderBlocks.borrow_mut();
+
+            let mut renderBlocks: RefMut<RenderBlocks> = itemExt.m_renderBlocks.borrow_mut();
             renderBlocks.m_updateColor = itemExt.m_useCustomDisplayColor.get();
             renderBlocks.renderBlockOnInventory(&block, metadata, 1.0);
             renderBlocks.m_updateColor = true;
@@ -91,6 +99,7 @@ impl RenderItem
         else if sprite >= 0
         {
             GL11::glDisable(GL11::GL_LIGHTING);
+
             let sheet: &str = if Block::isBlockItem(item)
             {
                 "/terrain.png"
@@ -100,11 +109,14 @@ impl RenderItem
                 "/gui/items.png"
             };
             textureManager.bindTexture(textureManager.getTexture(sheet));
+
             let n: i32 = Item::byIdOrNpe(item).getColorFromDamage(metadata);
+
             if itemExt.m_useCustomDisplayColor.get()
             {
                 GL11::glColor4f(channel(n, 16), channel(n, 8), channel(n, 0), 1.0);
             }
+
             Self::renderTexturedQuad(x, y, sprite % 16 * 16, sprite / 16 * 16, 16, 16);
             GL11::glEnable(GL11::GL_LIGHTING);
         }
@@ -125,6 +137,7 @@ impl RenderItem
         {
             return;
         };
+
         self.drawItemIntoGui(
             textRenderer,
             textureManager,
@@ -150,9 +163,11 @@ impl RenderItem
         {
             return;
         };
+
         if item.m_stackSize.get() > 1
         {
             let string: String = item.m_stackSize.get().to_string();
+
             GL11::glDisable(GL11::GL_LIGHTING);
             GL11::glDisable(GL11::GL_DEPTH_TEST);
             textRenderer.drawStringWithShadow(
@@ -164,18 +179,22 @@ impl RenderItem
             GL11::glEnable(GL11::GL_LIGHTING);
             GL11::glEnable(GL11::GL_DEPTH_TEST);
         }
+
         if item.isItemDamaged()
         {
             let damage: f64 = item.getItemDamageForDisplay() as f64;
             let maxDamage: f64 = item.getMaxDamage() as f64;
             let n: i32 = jvm::math::roundDouble(13.0 - damage * 13.0 / maxDamage) as i32;
             let n2: i32 = jvm::math::roundDouble(255.0 - damage * 255.0 / maxDamage) as i32;
+
             GL11::glDisable(GL11::GL_LIGHTING);
             GL11::glDisable(GL11::GL_DEPTH_TEST);
             GL11::glDisable(GL11::GL_TEXTURE_2D);
+
             let tessellator: Rc<Tessellator> = Tessellator::instance();
             let n3: i32 = (255 - n2) << 16 | n2 << 8;
             let n4: i32 = (255 - n2) / 4 << 16 | 0x3F00;
+
             Self::renderQuad(&tessellator, x + 2, y + 13, 13, 2, 0);
             Self::renderQuad(&tessellator, x + 2, y + 13, 12, 1, n4);
             Self::renderQuad(&tessellator, x + 2, y + 13, n, 1, n3);
@@ -204,7 +223,9 @@ impl RenderItem
         let f3: f32 = 0.00390625;
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         tessellator.startDrawingQuads();
-        let vertex = |px: i32, py: i32, tu: i32, tv: i32| {
+
+        let vertex = |px: i32, py: i32, tu: i32, tv: i32|
+        {
             tessellator.addVertexWithUV(px as f64, py as f64, f, (tu as f32 * f2) as f64, (tv as f32 * f3) as f64);
         };
         vertex(x, y + height, u, v + height);
@@ -222,9 +243,12 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
     let itemExt: &RenderItemExt = ext(this);
     let random: &Random = &itemExt.m_random;
     random.setSeed(ITEM_SEED);
+
     let fields: &entity_item::ItemFields = entity_item::fields(entity);
     let itemStack: Rc<ItemStack> = fields.m_item.get().orNpe();
+
     GL11::glPushMatrix();
+
     let age: f32 = fields.m_age.get() as f32 + f2;
     let f3: f32 = math_helper::sin(age / 10.0 + fields.m_bobOffset.get()) * 0.1 + 0.1;
     let f4: f32 = (age / 20.0 + fields.m_bobOffset.get()) * 57.295776;
@@ -236,23 +260,30 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
         size if size > 1 => 2,
         _ => 1,
     };
+
     GL11::glTranslatef(d as f32, d2 as f32 + f3, d3 as f32);
     GL11::glEnable(GL12::GL_RESCALE_NORMAL);
+
     let itemID: i32 = itemStack.m_itemID.get();
     if rendersAsBlock(itemID)
     {
         GL11::glRotatef(f4, 0.0, 1.0, 0.0);
         this.loadTexture("/terrain.png");
+
         let block: Rc<Block> = Block::byId(itemID).orNpe();
         let mut f5: f32 = 0.25;
+
         if !block.renderAsNormalBlock() && itemID != Block::STAIR_SINGLE && block.getRenderType() != PISTON_RENDER_TYPE
         {
             f5 = 0.5;
         }
+
         GL11::glScalef(f5, f5, f5);
+
         for i in 0..n
         {
             GL11::glPushMatrix();
+
             if i > 0
             {
                 let f6: f32 = (random.nextFloat() * 2.0 - 1.0) * 0.2 / f5;
@@ -260,6 +291,7 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
                 let f8: f32 = (random.nextFloat() * 2.0 - 1.0) * 0.2 / f5;
                 GL11::glTranslatef(f6, f7, f8);
             }
+
             itemExt.m_renderBlocks.borrow_mut().renderBlockOnInventory(
                 &block,
                 itemStack.getItemDamage(),
@@ -271,17 +303,19 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
     else
     {
         GL11::glScalef(0.5, 0.5, 0.5);
+
         let n3: i32 = itemStack.getIconIndex();
-        this.loadTexture(
-            if Block::isBlockItem(itemID)
-            {
-                "/terrain.png"
-            }
-            else
-            {
-                "/gui/items.png"
-            },
-        );
+
+        let path: &str = if Block::isBlockItem(itemID)
+        {
+            "/terrain.png"
+        }
+        else
+        {
+            "/gui/items.png"
+        };
+        this.loadTexture(path);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let f12: f64 = ((n3 % 16 * 16 + 0) as f32 / TEXTURE_SIZE) as f64;
         let f13: f64 = ((n3 % 16 * 16 + 16) as f32 / TEXTURE_SIZE) as f64;
@@ -290,15 +324,18 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
         let f16: f32 = 1.0;
         let f17: f32 = 0.5;
         let f18: f32 = 0.25;
+
         if itemExt.m_useCustomDisplayColor.get()
         {
             let n2: i32 = Item::byIdOrNpe(itemID).getColorFromDamage(itemStack.getItemDamage());
             let f19: f32 = entity.getEntityBrightness(f2);
             GL11::glColor4f(channel(n2, 16) * f19, channel(n2, 8) * f19, channel(n2, 0) * f19, 1.0);
         }
+
         for n2 in 0..n
         {
             GL11::glPushMatrix();
+
             if n2 > 0
             {
                 let f11: f32 = (random.nextFloat() * 2.0 - 1.0) * 0.3;
@@ -306,6 +343,7 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
                 let f9: f32 = (random.nextFloat() * 2.0 - 1.0) * 0.3;
                 GL11::glTranslatef(f11, f10, f9);
             }
+
             GL11::glRotatef(180.0 - this.renderManager().m_playerViewY.get(), 0.0, 1.0, 0.0);
             tessellator.startDrawingQuads();
             tessellator.setNormal(0.0, 1.0, 0.0);
@@ -321,4 +359,5 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f
     GL11::glPopMatrix();
 }
 
-pub const RENDER_ITEM: RenderClass = RenderClass { m_name: "RenderItem", m_parent: Some(&RENDER), doRender, ..RENDER };
+pub(crate) const RENDER_ITEM: RenderClass =
+    RenderClass { m_name: "RenderItem", m_parent: Some(&RENDER), doRender, ..RENDER };

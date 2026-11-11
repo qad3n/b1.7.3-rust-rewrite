@@ -1,9 +1,10 @@
 use crate::log;
 use game::block::Block;
 use game::worldgen::{BiomeGenBase, SpawnListEntry};
+use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
 use mod_protocol::spec::{BlockModifySpec, SpawnModifySpec, ToolSpec};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
@@ -34,7 +35,8 @@ struct State
     m_conflicts: Vec<String>,
 }
 
-thread_local! {
+thread_local!
+{
     static STATE: RefCell<State> = RefCell::new(State::default());
 }
 
@@ -49,7 +51,8 @@ pub fn queueSpawn(owner: &str, spec: SpawnModifySpec)
 }
 
 // the class name natural spawning keys entries by, vanilla mobs use their java class and mod mobs their identifier
-thread_local! {
+thread_local!
+{
     // spawn entries hold their entity class as a static name, built once per entity
     static CLASSES: RefCell<HashMap<Identifier, &'static str>> = RefCell::new(HashMap::new());
 }
@@ -63,6 +66,7 @@ pub fn spawnEntries(entries: &[mod_protocol::abi::SpawnEntry]) -> Vec<SpawnListE
         .filter_map(|entry| match cachedClass(&entry.entity)
         {
             Some(class) => Some(SpawnListEntry::new(class, entry.weight)),
+
             None =>
             {
                 crate::log::warn(crate::log::LOADER, &format!("spawn list names unknown entity {}", entry.entity));
@@ -78,6 +82,7 @@ fn cachedClass(entity: &Identifier) -> Option<&'static str>
     {
         return Some(class);
     }
+
     let class: &'static str = spawnClass(entity)?;
     CLASSES.with(|classes| classes.borrow_mut().insert(entity.clone(), class));
     Some(class)
@@ -87,6 +92,7 @@ fn spawnClass(entity: &Identifier) -> Option<&'static str>
 {
     let saveKey: String =
         crate::registry::with(|registries| registries.m_entities.get(entity).map(|row| row.m_value.m_saveKey.clone()))?;
+
     let name: String = if entity.isVanilla()
     {
         format!("Entity{saveKey}")
@@ -100,7 +106,7 @@ fn spawnClass(entity: &Identifier) -> Option<&'static str>
 
 fn applySpawn(biome: &BiomeGenBase, class: &'static str, spec: &SpawnModifySpec)
 {
-    let list = crate::entities::spawnList(biome, spec.spawn.kind);
+    let list: &Rc<JArrayList<SpawnListEntry>> = crate::entities::spawnList(biome, spec.spawn.kind);
     for index in (0..list.size()).rev()
     {
         if list.get(index).m_entityClass == class
@@ -108,6 +114,7 @@ fn applySpawn(biome: &BiomeGenBase, class: &'static str, spec: &SpawnModifySpec)
             list.removeAt(index);
         }
     }
+
     if spec.spawn.weight > 0
     {
         list.add(SpawnListEntry::new(class, spec.spawn.weight));
@@ -117,7 +124,8 @@ fn applySpawn(biome: &BiomeGenBase, class: &'static str, spec: &SpawnModifySpec)
 // vanilla biomes after the loader adds mod mobs, in load order so a later mod overrides an earlier one
 pub fn applySpawns()
 {
-    STATE.with(|state| {
+    STATE.with(|state|
+    {
         for (owner, spec) in &state.borrow().m_spawns
         {
             let Some(class) = spawnClass(&spec.entity)
@@ -126,11 +134,13 @@ pub fn applySpawns()
                 log::warn(owner, &format!("spawn change names unknown entity {}", spec.entity));
                 continue;
             };
+
             let biomes: Vec<Rc<BiomeGenBase>> = crate::entities::biomesFor(&spec.spawn);
             log::debug(
                 owner,
                 &format!("spawn change {} weight {} in {} biomes", spec.entity, spec.spawn.weight, biomes.len()),
             );
+
             for biome in biomes
             {
                 applySpawn(&biome, class, spec);
@@ -142,7 +152,8 @@ pub fn applySpawns()
 // a mod biome gets the changes that name it when its biome object is built
 pub fn applySpawnsTo(biome: &BiomeGenBase, id: &Identifier)
 {
-    STATE.with(|state| {
+    STATE.with(|state|
+    {
         for (_, spec) in state.borrow().m_spawns.iter().filter(|(_, spec)| spec.spawn.biomes.contains(id))
         {
             if let Some(class) = spawnClass(&spec.entity)
@@ -157,30 +168,37 @@ fn applyBlock(block: Rc<Block>, spec: &BlockModifySpec, tools: &mut HashMap<i32,
 {
     let numeric: i32 = block.m_blockID;
     let mut block: Rc<Block> = block;
+
     if let Some(hardness) = spec.hardness
     {
         block = block.setHardness(hardness);
     }
+
     if let Some(resistance) = spec.resistance
     {
         block = block.setResistance(resistance);
     }
+
     if let Some(light) = spec.light
     {
         block = block.setLightValue(light);
     }
+
     if let Some(opacity) = spec.opacity
     {
         block = block.setLightOpacity(opacity);
     }
+
     if let Some(slipperiness) = spec.slipperiness
     {
         block.m_slipperiness.set(slipperiness);
     }
+
     if let Some(flammability) = spec.flammability
     {
         game::block::block_fire::setFlammable(numeric, flammability.encouragement, flammability.flammability);
     }
+
     if let Some(tool) = &spec.tool
     {
         tools.insert(numeric, tool.clone());
@@ -190,12 +208,15 @@ fn applyBlock(block: Rc<Block>, spec: &BlockModifySpec, tools: &mut HashMap<i32,
 // runs after every content build, so modded targets rebuilt at new ids get their changes again
 pub fn apply()
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::modify::State> = state.borrow_mut();
         let state: &mut State = &mut state;
         state.m_tools.clear();
         state.m_conflicts.clear();
+
         let mut writers: BTreeMap<(Identifier, &str), String> = BTreeMap::new();
+
         for (owner, spec) in &state.m_blocks
         {
             let Some(block) =
@@ -205,6 +226,7 @@ pub fn apply()
                 log::warn(owner, &format!("modify names unknown block {}", spec.target));
                 continue;
             };
+
             for field in FIELDS.iter().filter(|row| (row.m_present)(spec)).map(|row| row.m_name)
             {
                 if let Some(previous) = writers.insert((spec.target.clone(), field), owner.clone())
@@ -213,8 +235,10 @@ pub fn apply()
                     state.m_conflicts.push(format!("{} {field}: {previous} then {owner}, {owner} wins", spec.target));
                 }
             }
+
             applyBlock(block, spec, &mut state.m_tools);
         }
+
         for conflict in &state.m_conflicts
         {
             log::warn(log::LOADER, &format!("modify conflict {conflict}"));

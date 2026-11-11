@@ -12,6 +12,7 @@ fn digits(chars: &[u16], mut index: usize) -> usize
     {
         index += 1;
     }
+
     index
 }
 
@@ -22,12 +23,14 @@ fn matchesNumber(chars: &[u16]) -> bool
     {
         index += 1;
     }
+
     match chars.get(index)
     {
         Some(0x30) => index += 1,
         Some(0x31..=0x39) => index = digits(chars, index + 1),
         _ => return false,
     }
+
     if chars.get(index) == Some(&0x2E)
     {
         let end: usize = digits(chars, index + 1);
@@ -35,8 +38,10 @@ fn matchesNumber(chars: &[u16]) -> bool
         {
             return false;
         }
+
         index = end;
     }
+
     if matches!(chars.get(index), Some(0x65 | 0x45))
     {
         index += 1;
@@ -44,19 +49,22 @@ fn matchesNumber(chars: &[u16]) -> bool
         {
             index += 1;
         }
+
         let end: usize = digits(chars, index);
         if end == index
         {
             return false;
         }
+
         index = end;
     }
+
     index == chars.len()
 }
 
 impl JsonNumberNode
 {
-    pub fn new(value: JString) -> JsonNumberNode
+    pub fn new(value: JString) -> Self
     {
         if !matchesNumber(value.chars())
         {
@@ -67,7 +75,8 @@ impl JsonNumberNode
                 ),
             );
         }
-        JsonNumberNode { m_value: value }
+
+        Self { m_value: value }
     }
 
     pub fn getText(&self) -> JString { self.m_value.clone() }
@@ -77,7 +86,7 @@ impl JsonNumberNode
 
 impl JsonNumberNode
 {
-    pub fn equals(&self, other: &JsonNumberNode) -> bool { self.m_value == other.m_value }
+    pub fn equals(&self, other: &Self) -> bool { self.m_value == other.m_value }
 
     pub fn hashCode(&self) -> i32 { self.m_value.hashCode() }
 }

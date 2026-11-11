@@ -15,19 +15,24 @@ impl RenderBlocks
         let mut f2: f32 = (n >> 16 & 0xFF) as f32 / 255.0;
         let mut f3: f32 = (n >> 8 & 0xFF) as f32 / 255.0;
         let mut f4: f32 = (n & 0xFF) as f32 / 255.0;
+
         if EntityRenderer::anaglyphEnabled()
         {
             let f5: f32 = (f2 * 30.0 + f3 * 59.0 + f4 * 11.0) / 100.0;
             let f6: f32 = (f2 * 30.0 + f3 * 70.0) / 100.0;
             let f7: f32 = (f2 * 30.0 + f4 * 70.0) / 100.0;
+
             f2 = f5;
             f3 = f6;
             f4 = f7;
         }
+
         tessellator.setColorOpaque_F(f * f2, f * f3, f * f4);
+
         let mut d: f64 = x as f64;
         let mut d2: f64 = y as f64;
         let mut d3: f64 = z as f64;
+
         if Rc::ptr_eq(block, &Block::tallGrass())
         {
             let mut l: i64 = x.wrapping_mul(3129871) as i64 ^ (z as i64).wrapping_mul(116129781) ^ y as i64;
@@ -36,6 +41,7 @@ impl RenderBlocks
             d2 += (((l >> 20 & 0xF) as f32 / 15.0) as f64 - 1.0) * 0.2;
             d3 += (((l >> 24 & 0xF) as f32 / 15.0) as f64 - 0.5) * 0.5;
         }
+
         self.renderCrossedSquares(block, world.getBlockMetadata(x, y, z), d, d2, d3);
         true
     }
@@ -53,10 +59,12 @@ impl RenderBlocks
     fn plantSprite(&self, block: &Rc<Block>, metadata: i32) -> (f64, f64, f64, f64)
     {
         let mut n: i32 = block.getBlockTextureFromSideAndMetadata(0, metadata);
+
         if self.m_overrideBlockTexture >= 0
         {
             n = self.m_overrideBlockTexture;
         }
+
         let (n2, n3): (i32, i32) = spriteOrigin(n);
         (
             (n2 as f32 / 256.0) as f64,
@@ -102,6 +110,7 @@ impl RenderBlocks
         let mut d6: f64 = x + 0.5 + 0.25;
         let mut d7: f64 = z + 0.5 - 0.5;
         let mut d8: f64 = z + 0.5 + 0.5;
+
         v(d5, y + 1.0, d7, d, d3);
         v(d5, y + 0.0, d7, d, d4);
         v(d5, y + 0.0, d8, d2, d4);

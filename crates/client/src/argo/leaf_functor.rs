@@ -40,6 +40,7 @@ impl<T, V> Functor<T, V> for LeafFunctor<T, V>
             let failed: FailedNode = FailedNode { m_shortForm: self.shortForm(), m_toString: self.describe() };
             return Err(ChainedMismatch::createJsonNodeDoesNotMatchJsonNodeSelectorException(Rc::new(failed)));
         }
+
         Ok((self.m_typeSafeApplyTo)(node))
     }
 }

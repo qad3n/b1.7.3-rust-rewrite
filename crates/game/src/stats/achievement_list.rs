@@ -6,7 +6,8 @@ use jvm::debug;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INIT: Cell<u8> = const { Cell::new(0) };
     static MIN_DISPLAY_COLUMN: Cell<i32> = const { Cell::new(0) };
     static MIN_DISPLAY_ROW: Cell<i32> = const { Cell::new(0) };
@@ -18,8 +19,10 @@ thread_local! {
 
 pub struct AchievementList;
 
-macro_rules! named_achievements {
-    ($($name:ident = $id:expr,)*) => {
+macro_rules! named_achievements
+{
+    ($($name:ident = $id:expr,)*) =>
+    {
         impl AchievementList
         {
             $(pub fn $name() -> Option<Rc<StatBase>> { AchievementList::named($id) })*
@@ -27,7 +30,8 @@ macro_rules! named_achievements {
     };
 }
 
-named_achievements! {
+named_achievements!
+{
     openInventory = 0,
     mineWood = 1,
     buildWorkBench = 2,
@@ -52,6 +56,7 @@ fn ensureInit()
     {
         return;
     }
+
     INIT.with(|state| state.set(1));
     initAchievements();
     INIT.with(|state| state.set(2));
@@ -266,21 +271,25 @@ impl AchievementList
         MAX_DISPLAY_ROW.with(Cell::get)
     }
 
-    pub(super) fn updateDisplayBounds(column: i32, row: i32)
+    pub(crate) fn updateDisplayBounds(column: i32, row: i32)
     {
         ensureInit();
+
         if column < MIN_DISPLAY_COLUMN.with(Cell::get)
         {
             MIN_DISPLAY_COLUMN.with(|value| value.set(column));
         }
+
         if row < MIN_DISPLAY_ROW.with(Cell::get)
         {
             MIN_DISPLAY_ROW.with(|value| value.set(row));
         }
+
         if column > MAX_DISPLAY_COLUMN.with(Cell::get)
         {
             MAX_DISPLAY_COLUMN.with(|value| value.set(column));
         }
+
         if row > MAX_DISPLAY_ROW.with(Cell::get)
         {
             MAX_DISPLAY_ROW.with(|value| value.set(row));

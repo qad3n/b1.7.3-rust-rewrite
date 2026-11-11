@@ -19,7 +19,8 @@ impl Default for Packet53BlockChange
 {
     fn default() -> Self
     {
-        Self {
+        Self
+        {
             m_base: PacketBase::chunkData(),
             m_xPosition: Default::default(),
             m_yPosition: Default::default(),
@@ -34,7 +35,8 @@ impl Packet53BlockChange
 {
     pub fn new(x: i32, y: i32, z: i32, world: &Rc<World>) -> Self
     {
-        Self {
+        Self
+        {
             m_xPosition: x,
             m_yPosition: y,
             m_zPosition: z,

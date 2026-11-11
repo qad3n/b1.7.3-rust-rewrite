@@ -3,7 +3,8 @@ use crate::argo::{EnumJsonNodeType, JsonArray, JsonNode, JsonNumberNode, JsonObj
 use jvm::string::JString;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static NULL: Rc<JsonNode> = Rc::new(JsonNode::Constant(EnumJsonNodeType::Null));
     static TRUE: Rc<JsonNode> = Rc::new(JsonNode::Constant(EnumJsonNodeType::True));
     static FALSE: Rc<JsonNode> = Rc::new(JsonNode::Constant(EnumJsonNodeType::False));

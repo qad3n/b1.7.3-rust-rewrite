@@ -8,7 +8,8 @@ use std::cell::{Cell, RefCell};
 // the first mod track starts soon after arriving rather than after vanilla's long wait
 const FIRST_DELAY: i32 = 100;
 
-thread_local! {
+thread_local!
+{
     static DIMENSION: Cell<Option<i32>> = const { Cell::new(None) };
     static UNTIL_NEXT: Cell<i32> = const { Cell::new(FIRST_DELAY) };
     static RANDOM: RefCell<Random> = RefCell::new(Random::new());
@@ -26,6 +27,7 @@ pub fn tick(manager: &SoundManager) -> bool
     {
         return false;
     };
+
     let previous: Option<i32> = DIMENSION.replace(Some(dimension));
     let music: Option<MusicSpec> = musicOf(dimension);
     if previous.is_some_and(|previous| previous != dimension && (music.is_some() || musicOf(previous).is_some()))
@@ -33,6 +35,7 @@ pub fn tick(manager: &SoundManager) -> bool
         manager.stopMusic();
         UNTIL_NEXT.set(FIRST_DELAY);
     }
+
     let Some(music) = music
     else
     {
@@ -42,16 +45,19 @@ pub fn tick(manager: &SoundManager) -> bool
     {
         return true;
     }
+
     if UNTIL_NEXT.get() > 0
     {
         UNTIL_NEXT.set(UNTIL_NEXT.get() - 1);
         return true;
     }
+
     if manager.playMusicNamed(&music.sound)
     {
         let [low, high] = music.delay;
         let spread: i32 = (high - low + 1).max(1);
         UNTIL_NEXT.set(low + RANDOM.with(|random| random.borrow().nextIntBounded(spread)));
     }
+
     true
 }

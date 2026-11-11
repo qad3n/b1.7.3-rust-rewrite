@@ -43,6 +43,7 @@ fn create(dir: PathBuf, names: &[&str]) -> std::io::Result<PathBuf>
     {
         std::fs::create_dir_all(dir.join(name))?;
     }
+
     Ok(dir)
 }
 
@@ -65,6 +66,7 @@ fn osDataDir() -> PathBuf
         {
             nonEmpty("APPDATA").map_or_else(|| required("USERPROFILE").join("AppData").join("Roaming"), PathBuf::from)
         }
+
         "macos" => required("HOME").join("Library").join("Application Support"),
         // the XDG spec says to ignore a relative XDG_DATA_HOME
         _ => nonEmpty("XDG_DATA_HOME")

@@ -35,15 +35,19 @@ pub fn create(world: &Rc<World>, x: f64, y: f64, z: f64) -> Rc<Entity>
         Box::new(LightningFields { m_stage: Cell::new(0), m_seed: Cell::new(0), m_fireAttempts: Cell::new(0) }),
     );
     entity_weather_effect::init(&entity, Some(Rc::clone(world)));
+
     let bolt: &LightningFields = fields(&entity);
+
     entity.setLocationAndAngles(x, y, z, 0.0, 0.0);
     bolt.m_stage.set(2);
     bolt.m_seed.set(entity.m_rand.nextLong());
     bolt.m_fireAttempts.set(entity.m_rand.nextIntBounded(3) + 1);
+
     if world.m_difficultySetting.get() >= 2
         && world.doChunksNearChunkExist(floor_double(x), floor_double(y), floor_double(z), 10)
     {
         igniteAt(world, floor_double(x), floor_double(y), floor_double(z));
+
         for _ in 0..4
         {
             let j: i32 = floor_double(x) + entity.m_rand.nextIntBounded(3) - 1;
@@ -52,14 +56,17 @@ pub fn create(world: &Rc<World>, x: f64, y: f64, z: f64) -> Rc<Entity>
             igniteAt(world, j, k, l);
         }
     }
+
     entity
 }
 
 fn onUpdate(this: &Rc<Entity>)
 {
     (entity_weather_effect::CLASS.onUpdate)(this);
+
     let bolt: &LightningFields = fields(this);
     let world: Rc<World> = this.world();
+
     if bolt.m_stage.get() == 2
     {
         world.playSoundEffect(
@@ -79,7 +86,9 @@ fn onUpdate(this: &Rc<Entity>)
             0.5 + this.m_rand.nextFloat() * 0.2,
         );
     }
+
     bolt.m_stage.set(bolt.m_stage.get() - 1);
+
     if bolt.m_stage.get() < 0
     {
         if bolt.m_fireAttempts.get() == 0
@@ -102,6 +111,7 @@ fn onUpdate(this: &Rc<Entity>)
             }
         }
     }
+
     if bolt.m_stage.get() >= 0
     {
         let d0: f64 = 3.0;
@@ -116,6 +126,7 @@ fn onUpdate(this: &Rc<Entity>)
                 this.posZ() + d0,
             ),
         );
+
         let mut l: i32 = 0;
         while l < list.size()
         {
@@ -123,11 +134,13 @@ fn onUpdate(this: &Rc<Entity>)
             entity.onStruckByLightning(this);
             l += 1;
         }
+
         world.m_lightningCooldown.set(2);
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityLightningBolt",
     m_parent: Some(&entity_weather_effect::CLASS),
     m_interfaces: &[],

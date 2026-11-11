@@ -27,6 +27,7 @@ fn main() -> ExitCode
     match run()
     {
         Ok(code) => code,
+
         Err(error) =>
         {
             severe!("{error:#}");
@@ -43,16 +44,21 @@ fn run() -> Result<ExitCode>
         println!("{USAGE}");
         return Ok(ExitCode::SUCCESS);
     }
+
     let dataDir: PathBuf = jvm::data_dir::root();
     log_files::install(logger(), &dataDir.join("logs"), "launcher", LogFormatter::boxed);
+
     let name: String = askName(&dataDir)?;
+
     assets::install(&jvm::data_dir::assets(), &dataDir, options.m_clientJar)?;
+
     let game: PathBuf = match options.m_game
     {
         Some(path) => path,
         None => gameNextToLauncher()?,
     };
     info!("Starting the game as {name}");
+
     let mut command: Command = Command::new(&game);
     command.arg(&name).arg(NO_SESSION);
     // a launcher in a terminal keeps the game attached so its log stays in that window
@@ -66,10 +72,12 @@ fn run() -> Result<ExitCode>
 
     let status: std::process::ExitStatus = command.status().with_context(|| format!("starting {}", game.display()))?;
     info!("Game exited with {status}");
+
     if console && !status.success()
     {
         holdWindow();
     }
+
     Ok(status.code().map_or(ExitCode::FAILURE, |code| ExitCode::from(code as u8)))
 }
 
@@ -77,6 +85,7 @@ fn run() -> Result<ExitCode>
 fn holdWindow()
 {
     print!("Press Enter to close");
+
     if let Err(error) = std::io::stdout().flush().and_then(|()| std::io::stdin().lock().read_line(&mut String::new()))
     {
         warning!("could not wait for Enter: {error}");
@@ -87,12 +96,13 @@ fn holdWindow()
 fn detach(command: &mut Command)
 {
     command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+
     #[cfg(unix)]
     std::os::unix::process::CommandExt::process_group(command, 0);
     #[cfg(windows)]
     {
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const DETACHED_PROCESS: u32 = 0x00000008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
         std::os::windows::process::CommandExt::creation_flags(command, DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
     }
 }
@@ -100,6 +110,7 @@ fn detach(command: &mut Command)
 fn parseArgs(mut args: impl Iterator<Item = String>) -> Result<Options>
 {
     let mut options: Options = Options { m_clientJar: None, m_game: None, m_help: false, m_dev: false };
+
     while let Some(arg) = args.next()
     {
         match arg.as_str()
@@ -111,6 +122,7 @@ fn parseArgs(mut args: impl Iterator<Item = String>) -> Result<Options>
             _ => bail!("unknown argument {arg}\n{USAGE}"),
         }
     }
+
     Ok(options)
 }
 
@@ -131,6 +143,7 @@ fn askName(dataDir: &Path) -> Result<String>
     {
         println!("  1. Play as {last}");
         println!("  2. Change name");
+
         loop
         {
             match ask("Choose 1 or 2 [1]: ")?.as_str()
@@ -141,7 +154,9 @@ fn askName(dataDir: &Path) -> Result<String>
             }
         }
     }
+
     let name: String = askNewName()?;
+
     std::fs::create_dir_all(dataDir).with_context(|| format!("creating {}", dataDir.display()))?;
     std::fs::write(&path, &name).with_context(|| format!("writing {}", path.display()))?;
     Ok(name)
@@ -156,6 +171,7 @@ fn askNewName() -> Result<String>
         {
             return Ok(name);
         }
+
         println!("Use 3 to 16 letters, digits or underscores");
     }
 }
@@ -170,11 +186,13 @@ fn ask(question: &str) -> Result<String>
 {
     print!("{question}");
     std::io::stdout().flush().context("writing the prompt")?;
+
     let mut line: String = String::new();
     if std::io::stdin().lock().read_line(&mut line).context("reading the answer")? == 0
     {
         bail!("no answer was entered");
     }
+
     Ok(line.trim().to_owned())
 }
 

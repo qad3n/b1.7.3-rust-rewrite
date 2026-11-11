@@ -1,6 +1,7 @@
 use crate::gui::FontRenderer;
 use crate::render::RenderEngine;
-use crate::render::tile::{
+use crate::render::tile::
+{
     TileEntityMobSpawnerRenderer, TileEntityRendererPiston, TileEntitySignRenderer, TileEntitySpecialRenderer,
 };
 use game::entity::Entity;
@@ -13,7 +14,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INSTANCE: Rc<TileEntityRenderer> = Rc::new(TileEntityRenderer::new());
     static STATIC_PLAYER_POS: Cell<(f64, f64, f64)> = const { Cell::new((0.0, 0.0, 0.0)) };
 }
@@ -37,14 +39,16 @@ pub struct TileEntityRenderer
 
 impl TileEntityRenderer
 {
-    fn new() -> TileEntityRenderer
+    fn new() -> Self
     {
         let renderers: [(&'static str, Rc<dyn TileEntitySpecialRenderer>); 3] = [
             ("TileEntitySign", Rc::new(TileEntitySignRenderer::new())),
             ("TileEntityMobSpawner", Rc::new(TileEntityMobSpawnerRenderer::new())),
             ("TileEntityPiston", Rc::new(TileEntityRendererPiston::new())),
         ];
-        TileEntityRenderer {
+
+        Self
+        {
             m_specialRendererMap: RefCell::new(
                 renderers.into_iter().map(|(name, renderer)| (name, Some(renderer))).collect(),
             ),
@@ -60,7 +64,7 @@ impl TileEntityRenderer
         }
     }
 
-    pub fn instance() -> Rc<TileEntityRenderer> { INSTANCE.with(Rc::clone) }
+    pub fn instance() -> Rc<Self> { INSTANCE.with(Rc::clone) }
 
     pub fn staticPlayerPos() -> (f64, f64, f64) { STATIC_PLAYER_POS.with(Cell::get) }
 
@@ -75,16 +79,19 @@ impl TileEntityRenderer
         {
             return renderer.clone();
         }
+
         // rewrite: a mod tile entity type with a model draws through the loader's tile renderer
         if let Some(renderer) = crate::modded::entity_model::tileRendererFor(class.m_name)
         {
             self.m_specialRendererMap.borrow_mut().insert(class.m_name, Some(Rc::clone(&renderer)));
             return Some(renderer);
         }
+
         if class.m_name == ROOT_CLASS
         {
             return None;
         }
+
         let renderer: Option<Rc<dyn TileEntitySpecialRenderer>> =
             class.m_parent.and_then(|parent| self.getSpecialRendererForClass(parent));
         self.m_specialRendererMap.borrow_mut().insert(class.m_name, renderer.clone());
@@ -117,13 +124,16 @@ impl TileEntityRenderer
         {
             self.setWorld(Some(Rc::clone(world)));
         }
+
         self.m_renderEngine.set(Some(Rc::clone(textureManager)));
         self.m_entityLivingPlayer.set(camera.clone());
         self.m_fontRenderer.set(fontRenderer);
+
         let camera: Rc<Entity> = camera.orNpe();
         let lerp = |previous: f32, current: f32| -> f32 { previous + (current - previous) * tickDelta };
         self.m_playerYaw.set(lerp(camera.m_prevRotationYaw.get(), camera.m_rotationYaw.get()));
         self.m_playerPitch.set(lerp(camera.m_prevRotationPitch.get(), camera.m_rotationPitch.get()));
+
         let tick: f64 = tickDelta as f64;
         self.m_playerX.set(camera.m_lastTickPosX.get() + (camera.posX() - camera.m_lastTickPosX.get()) * tick);
         self.m_playerY.set(camera.m_lastTickPosY.get() + (camera.posY() - camera.m_lastTickPosY.get()) * tick);
@@ -139,6 +149,7 @@ impl TileEntityRenderer
                 (tileEntity.m_xCoord.get(), tileEntity.m_yCoord.get(), tileEntity.m_zCoord.get());
             let f: f32 = self.m_worldObj.get().orNpe().getLightBrightness(x, y, z);
             GL11::glColor3f(f, f, f);
+
             let (px, py, pz): (f64, f64, f64) = Self::staticPlayerPos();
             self.renderTileEntityAt(tileEntity, x as f64 - px, y as f64 - py, z as f64 - pz, tickDelta);
         }
@@ -155,8 +166,10 @@ impl TileEntityRenderer
     pub fn setWorld(&self, world: Option<Rc<World>>)
     {
         self.m_worldObj.set(world.clone());
+
         let renderers: Vec<Rc<dyn TileEntitySpecialRenderer>> =
             self.m_specialRendererMap.borrow().values().flatten().cloned().collect();
+
         for renderer in renderers
         {
             renderer.setWorld(world.clone());

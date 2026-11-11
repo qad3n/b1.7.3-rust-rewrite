@@ -6,6 +6,7 @@ use std::rc::Rc;
 fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32, y: i32, z: i32, metadata: i32)
 {
     (block_breakable::CLASS.harvestBlock)(this, world, player, x, y, z, metadata);
+
     let material: Rc<Material> = world.getBlockMaterial(x, y - 1, z);
     if material.getIsSolid() || material.getIsLiquid()
     {
@@ -22,11 +23,13 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockIce",
     m_parent: Some(&block_breakable::CLASS),
     getRenderBlockPass: |_| 1,
-    shouldSideBeRendered: |this, world, x, y, z, face| {
+    shouldSideBeRendered: |this, world, x, y, z, face|
+    {
         (block_breakable::CLASS.shouldSideBeRendered)(this, world, x, y, z, 1 - face)
     },
     harvestBlock,

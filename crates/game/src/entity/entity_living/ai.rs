@@ -23,6 +23,7 @@ pub fn checkDespawn(this: &Rc<Entity>)
         {
             this.setEntityDead();
         }
+
         if living.m_entityAge.get() > 600 && this.m_rand.nextIntBounded(800) == 0
         {
             if d3 < 1024.0
@@ -37,16 +38,21 @@ pub fn checkDespawn(this: &Rc<Entity>)
     }
 }
 
-pub fn updatePlayerActionState(this: &Rc<Entity>)
+pub(crate) fn updatePlayerActionState(this: &Rc<Entity>)
 {
     let living: &LivingFields = fields(this);
     let world: Rc<World> = this.world();
+
     living.m_entityAge.set(living.m_entityAge.get() + 1);
+
     let mut entityPlayer: Option<Rc<Entity>> = world.getClosestPlayerToEntity(this, -1.0);
+
     checkDespawn(this);
     living.m_moveStrafing.set(0.0);
     living.m_moveForward.set(0.0);
+
     let f: f32 = 8.0;
+
     if this.m_rand.nextFloat() < 0.02
     {
         entityPlayer = world.getClosestPlayerToEntity(this, f as f64);
@@ -60,11 +66,14 @@ pub fn updatePlayerActionState(this: &Rc<Entity>)
             living.m_randomYawVelocity.set((this.m_rand.nextFloat() - 0.5) * 20.0);
         }
     }
+
     if let Some(target) = living.m_currentTarget.get()
     {
         faceEntity(this, &target, 10.0, this.verticleLookSpeed() as f32);
+
         let ticks: i32 = living.m_numTicksToChaseTarget.get();
         living.m_numTicksToChaseTarget.set(ticks - 1);
+
         if ticks <= 0 || target.m_isDead.get() || target.getDistanceSqToEntity(this) > (f * f) as f64
         {
             living.m_currentTarget.set(None);
@@ -76,6 +85,7 @@ pub fn updatePlayerActionState(this: &Rc<Entity>)
         {
             living.m_randomYawVelocity.set((this.m_rand.nextFloat() - 0.5) * 20.0);
         }
+
         this.m_rotationYaw.set(this.m_rotationYaw.get() + living.m_randomYawVelocity.get());
         this.m_rotationPitch.set(living.m_defaultPitch.get());
     }
@@ -91,6 +101,7 @@ pub fn faceEntity(this: &Rc<Entity>, target: &Rc<Entity>, maxPitch: f32, maxYaw:
 {
     let d0: f64 = target.posX() - this.posX();
     let d2: f64 = target.posZ() - this.posZ();
+
     let d1: f64 = if target.instanceOf("EntityLiving")
     {
         this.posY() + this.getEyeHeight() as f64 - (target.posY() + target.getEyeHeight() as f64)
@@ -117,18 +128,22 @@ fn updateRotation(from: f32, to: f32, maxChange: f32) -> f32
     {
         f += 360.0;
     }
+
     while f >= 180.0
     {
         f -= 360.0;
     }
+
     if f > maxChange
     {
         f = maxChange;
     }
+
     if f < -maxChange
     {
         f = -maxChange;
     }
+
     from + f
 }
 
@@ -138,6 +153,7 @@ pub fn getPosition(this: &Entity, tickDelta: f32) -> Rc<Vec3D>
     {
         return Vec3D::createVector(this.posX(), this.posY(), this.posZ());
     }
+
     let d0: f64 = this.m_prevPosX.get() + (this.posX() - this.m_prevPosX.get()) * tickDelta as f64;
     let d1: f64 = this.m_prevPosY.get() + (this.posY() - this.m_prevPosY.get()) * tickDelta as f64;
     let d2: f64 = this.m_prevPosZ.get() + (this.posZ() - this.m_prevPosZ.get()) * tickDelta as f64;
@@ -154,6 +170,7 @@ pub fn getLook(this: &Entity, tickDelta: f32) -> Rc<Vec3D>
         let f9: f32 = math_helper::sin(-this.m_rotationPitch.get() * DEG_TO_RAD);
         return Vec3D::createVector((f7 * f8) as f64, f9 as f64, (f6 * f8) as f64);
     }
+
     let f: f32 =
         this.m_prevRotationPitch.get() + (this.m_rotationPitch.get() - this.m_prevRotationPitch.get()) * tickDelta;
     let f1: f32 = this.m_prevRotationYaw.get() + (this.m_rotationYaw.get() - this.m_prevRotationYaw.get()) * tickDelta;

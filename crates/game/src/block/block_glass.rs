@@ -1,7 +1,8 @@
 use crate::block::{Block, BlockClass, Material, block_breakable};
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockGlass",
     m_parent: Some(&block_breakable::CLASS),
     quantityDropped: |_, _| 0,

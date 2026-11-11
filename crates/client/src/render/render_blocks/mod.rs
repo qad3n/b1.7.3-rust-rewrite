@@ -47,64 +47,65 @@ const SHAPES: [ShapeRow; 18] = [
     ShapeRow { m_draw: |renderer, block, x, y, z| renderer.tesselatePistonHead(block, x, y, z, true), m_item3d: false },
 ];
 
-thread_local! {
+thread_local!
+{
     static FANCY_GRASS: Cell<bool> = const { Cell::new(true) };
 }
 
 #[derive(Default)]
-pub(super) struct AoState
+pub(crate) struct AoState
 {
-    pub(super) m_lightValueOwn: f32,
-    pub(super) m_aoLightValueXNeg: f32,
-    pub(super) m_aoLightValueYNeg: f32,
-    pub(super) m_aoLightValueZNeg: f32,
-    pub(super) m_aoLightValueXPos: f32,
-    pub(super) m_aoLightValueYPos: f32,
-    pub(super) m_aoLightValueZPos: f32,
-    pub(super) m_bottomNorthWestVertexAmbientOcclusionLight: f32,
-    pub(super) m_bottomWestEdgeAmbientOcclusionLight: f32,
-    pub(super) m_bottomSouthWestVertexAmbientOcclusionLight: f32,
-    pub(super) m_bottomNorthEdgeAmbientOcclusionLight: f32,
-    pub(super) m_bottomSouthEdgeAmbientOcclusionLight: f32,
-    pub(super) m_bottomNorthEastVertexAmbientOcclusionLight: f32,
-    pub(super) m_bottomEastEdgeAmbientOcclusionLight: f32,
-    pub(super) m_bottomSouthEastVertexAmbientOcclusionLight: f32,
-    pub(super) m_topNorthWestVertexAmbientOcclusionLight: f32,
-    pub(super) m_topWestEdgeAmbientOcclusionLight: f32,
-    pub(super) m_topSouthWestVertexAmbientOcclusionLight: f32,
-    pub(super) m_topNorthEdgeAmbientOcclusionLight: f32,
-    pub(super) m_topNorthEastVertexAmbientOcclusionLight: f32,
-    pub(super) m_topEastEdgeAmbientOcclusionLight: f32,
-    pub(super) m_topSouthEdgeAmbientOcclusionLight: f32,
-    pub(super) m_topSouthEastVertexAmbientOcclusionLight: f32,
-    pub(super) m_northWestEdgeAmbientOcclusionLight: f32,
-    pub(super) m_northEastEdgeAmbientOcclusionLight: f32,
-    pub(super) m_southWestEdgeAmbientOcclusionLight: f32,
-    pub(super) m_southEastEdgeAmbientOcclusionLight: f32,
-    pub(super) m_colorRedTopLeft: f32,
-    pub(super) m_colorRedBottomLeft: f32,
-    pub(super) m_colorRedBottomRight: f32,
-    pub(super) m_colorRedTopRight: f32,
-    pub(super) m_colorGreenTopLeft: f32,
-    pub(super) m_colorGreenBottomLeft: f32,
-    pub(super) m_colorGreenBottomRight: f32,
-    pub(super) m_colorGreenTopRight: f32,
-    pub(super) m_colorBlueTopLeft: f32,
-    pub(super) m_colorBlueBottomLeft: f32,
-    pub(super) m_colorBlueBottomRight: f32,
-    pub(super) m_colorBlueTopRight: f32,
-    pub(super) m_topNorthEdgeTranslucent: bool,
-    pub(super) m_topEastEdgeTranslucent: bool,
-    pub(super) m_topWestEdgeTranslucent: bool,
-    pub(super) m_topSouthEdgeTranslucent: bool,
-    pub(super) m_northWestEdgeTranslucent: bool,
-    pub(super) m_southEastEdgeTranslucent: bool,
-    pub(super) m_southWestEdgeTranslucent: bool,
-    pub(super) m_northEastEdgeTranslucent: bool,
-    pub(super) m_bottomNorthEdgeTranslucent: bool,
-    pub(super) m_bottomEastEdgeTranslucent: bool,
-    pub(super) m_bottomWestEdgeTranslucent: bool,
-    pub(super) m_bottomSouthEdgeTranslucent: bool,
+    pub(crate) m_lightValueOwn: f32,
+    pub(crate) m_aoLightValueXNeg: f32,
+    pub(crate) m_aoLightValueYNeg: f32,
+    pub(crate) m_aoLightValueZNeg: f32,
+    pub(crate) m_aoLightValueXPos: f32,
+    pub(crate) m_aoLightValueYPos: f32,
+    pub(crate) m_aoLightValueZPos: f32,
+    pub(crate) m_bottomNorthWestVertexAmbientOcclusionLight: f32,
+    pub(crate) m_bottomWestEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_bottomSouthWestVertexAmbientOcclusionLight: f32,
+    pub(crate) m_bottomNorthEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_bottomSouthEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_bottomNorthEastVertexAmbientOcclusionLight: f32,
+    pub(crate) m_bottomEastEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_bottomSouthEastVertexAmbientOcclusionLight: f32,
+    pub(crate) m_topNorthWestVertexAmbientOcclusionLight: f32,
+    pub(crate) m_topWestEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_topSouthWestVertexAmbientOcclusionLight: f32,
+    pub(crate) m_topNorthEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_topNorthEastVertexAmbientOcclusionLight: f32,
+    pub(crate) m_topEastEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_topSouthEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_topSouthEastVertexAmbientOcclusionLight: f32,
+    pub(crate) m_northWestEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_northEastEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_southWestEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_southEastEdgeAmbientOcclusionLight: f32,
+    pub(crate) m_colorRedTopLeft: f32,
+    pub(crate) m_colorRedBottomLeft: f32,
+    pub(crate) m_colorRedBottomRight: f32,
+    pub(crate) m_colorRedTopRight: f32,
+    pub(crate) m_colorGreenTopLeft: f32,
+    pub(crate) m_colorGreenBottomLeft: f32,
+    pub(crate) m_colorGreenBottomRight: f32,
+    pub(crate) m_colorGreenTopRight: f32,
+    pub(crate) m_colorBlueTopLeft: f32,
+    pub(crate) m_colorBlueBottomLeft: f32,
+    pub(crate) m_colorBlueBottomRight: f32,
+    pub(crate) m_colorBlueTopRight: f32,
+    pub(crate) m_topNorthEdgeTranslucent: bool,
+    pub(crate) m_topEastEdgeTranslucent: bool,
+    pub(crate) m_topWestEdgeTranslucent: bool,
+    pub(crate) m_topSouthEdgeTranslucent: bool,
+    pub(crate) m_northWestEdgeTranslucent: bool,
+    pub(crate) m_southEastEdgeTranslucent: bool,
+    pub(crate) m_southWestEdgeTranslucent: bool,
+    pub(crate) m_northEastEdgeTranslucent: bool,
+    pub(crate) m_bottomNorthEdgeTranslucent: bool,
+    pub(crate) m_bottomEastEdgeTranslucent: bool,
+    pub(crate) m_bottomWestEdgeTranslucent: bool,
+    pub(crate) m_bottomSouthEdgeTranslucent: bool,
 }
 
 pub struct RenderBlocks
@@ -126,13 +127,14 @@ pub struct RenderBlocks
 }
 
 // rewrite: the row keeps every bit so sprites past slot 255 land in the grown terrain sheet
-pub(super) fn spriteOrigin(sprite: i32) -> (i32, i32) { ((sprite & 0xF) << 4, sprite & !0xF) }
+pub(crate) fn spriteOrigin(sprite: i32) -> (i32, i32) { ((sprite & 0xF) << 4, sprite & !0xF) }
 
 impl RenderBlocks
 {
-    fn alloc(world: Option<Rc<dyn IBlockAccess>>) -> RenderBlocks
+    fn alloc(world: Option<Rc<dyn IBlockAccess>>) -> Self
     {
-        RenderBlocks {
+        Self
+        {
             m_blockAccess: world,
             m_overrideBlockTexture: -1,
             m_flipTexture: false,
@@ -150,9 +152,9 @@ impl RenderBlocks
         }
     }
 
-    pub fn new(world: Rc<dyn IBlockAccess>) -> RenderBlocks { RenderBlocks::alloc(Some(world)) }
+    pub fn new(world: Rc<dyn IBlockAccess>) -> Self { Self::alloc(Some(world)) }
 
-    pub fn empty() -> RenderBlocks { RenderBlocks::alloc(None) }
+    pub fn empty() -> Self { Self::alloc(None) }
 
     pub fn fancyGrass() -> bool { FANCY_GRASS.with(Cell::get) }
 
@@ -177,6 +179,7 @@ impl RenderBlocks
     pub fn renderBlockByRenderType(&mut self, block: &Rc<Block>, x: i32, y: i32, z: i32) -> bool
     {
         let n: i32 = block.getRenderType();
+
         block.setBlockBoundsBasedOnState(&*self.world(), x, y, z);
         // rewrite: a mod block may turn the sprites of its faces where it stands
         let turns: Option<[i32; 6]> = modloader::behavior::faceRotations(block, &*self.world(), x, y, z);
@@ -184,6 +187,7 @@ impl RenderBlocks
         {
             self.setFaceRotations(turns);
         }
+
         let drawn: bool = match n
         {
             // mod block models are lists of cuboids
@@ -193,6 +197,7 @@ impl RenderBlocks
                 .and_then(|index| SHAPES.get(index))
                 .is_some_and(|row| (row.m_draw)(self, block, x, y, z)),
         };
+
         if turns.is_some()
         {
             self.setFaceRotations([0; 6]);

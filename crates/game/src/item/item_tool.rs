@@ -12,21 +12,28 @@ pub struct ToolExt
 
 pub fn fields(this: &Item) -> &ToolExt { this.ext::<ToolExt>() }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemTool",
     m_parent: Some(&ITEM),
-    getStrVsBlock: |this, _, block| {
+    getStrVsBlock: |this, _, block|
+    {
         if tags::has(fields(this).m_mineable, block.m_blockID)
         {
             return fields(this).m_efficiencyOnProperMaterial;
         }
+
         1.0
     },
-    hitEntity: |_, stack, _, attacker| {
+
+    hitEntity: |_, stack, _, attacker|
+    {
         stack.damageItem(2, attacker);
         true
     },
-    onBlockDestroyed: |_, stack, _, _, _, _, entity| {
+
+    onBlockDestroyed: |_, stack, _, _, _, _, entity|
+    {
         stack.damageItem(1, entity);
         true
     },
@@ -43,7 +50,8 @@ pub fn construct(
     mineable: Tag,
 ) -> Rc<Item>
 {
-    let ext: ToolExt = ToolExt {
+    let ext: ToolExt = ToolExt
+    {
         m_mineable: mineable,
         m_efficiencyOnProperMaterial: tier.getEfficiencyOnProperMaterial(),
         m_damageVsEntity: attackDamage + tier.getDamageVsEntity(),

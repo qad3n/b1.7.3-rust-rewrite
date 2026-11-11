@@ -6,18 +6,20 @@ use jvm::throwable::OrNpe;
 use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INIT: Cell<u8> = const { Cell::new(0) };
     static ITEM_RAND: OnceCell<Rc<Random>> = const { OnceCell::new() };
     static ITEMS_LIST: RefCell<Vec<Option<Rc<Item>>>> = RefCell::new(vec![None; 32000]);
 }
 
-pub fn ensureInit()
+pub(crate) fn ensureInit()
 {
     if INIT.with(Cell::get) != 0
     {
         return;
     }
+
     INIT.with(|state| state.set(1));
     initItems();
     INIT.with(|state| state.set(2));
@@ -29,16 +31,19 @@ fn index(id: i32) -> usize
     {
         jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &id.to_string());
     }
+
     id as usize
 }
 
-pub(super) fn register(id: i32, item: &Rc<Item>)
+pub(crate) fn register(id: i32, item: &Rc<Item>)
 {
     ITEMS_LIST.with(|list| list.borrow_mut()[index(id)] = Some(Rc::clone(item)));
 }
 
-macro_rules! named_items {
-    ($($name:ident = $id:expr,)*) => {
+macro_rules! named_items
+{
+    ($($name:ident = $id:expr,)*) =>
+    {
         impl Item
         {
             $(pub fn $name() -> Rc<Item> { Item::byId(256 + $id).orNpe() })*
@@ -46,7 +51,8 @@ macro_rules! named_items {
     };
 }
 
-named_items! {
+named_items!
+{
     shovelSteel = 0,
     pickaxeSteel = 1,
     axeSteel = 2,
@@ -157,15 +163,15 @@ named_items! {
 
 impl Item
 {
-    pub fn basic(id: i32) -> Rc<Item> { Item::construct(&ITEM, Box::new(()), id) }
+    pub fn basic(id: i32) -> Rc<Self> { Self::construct(&ITEM, Box::new(()), id) }
 
-    pub fn byId(id: i32) -> Option<Rc<Item>>
+    pub fn byId(id: i32) -> Option<Rc<Self>>
     {
         ensureInit();
         ITEMS_LIST.with(|list| list.borrow()[index(id)].clone())
     }
 
-    pub fn byIdOrNpe(id: i32) -> Rc<Item> { Item::byId(id).orNpe() }
+    pub fn byIdOrNpe(id: i32) -> Rc<Self> { Self::byId(id).orNpe() }
 
     // the mod loader rebuilds mod items when a world or server maps them to other ids
     pub fn unregister(id: i32) { ITEMS_LIST.with(|list| list.borrow_mut()[index(id)] = None); }
@@ -178,7 +184,8 @@ impl Item
 
     pub fn registerBlockItems()
     {
-        let set = |id: i32, item: Rc<Item>| register(id, &item);
+        let set = |id: i32, item: Rc<Self>| register(id, &item);
+
         ensureInit();
         set(Block::CLOTH, crate::item::item_cloth::create(Block::CLOTH - 256).setItemName("cloth"));
         set(Block::WOOD, crate::item::item_log::create(Block::WOOD - 256).setItemName("log"));
@@ -187,6 +194,7 @@ impl Item
         set(Block::LEAVES, crate::item::item_leaves::create(Block::LEAVES - 256).setItemName("leaves"));
         set(Block::PISTON_BASE, crate::item::item_piston::create(Block::PISTON_BASE - 256));
         set(Block::PISTON_STICKY_BASE, crate::item::item_piston::create(Block::PISTON_STICKY_BASE - 256));
+
         for i in 0..256
         {
             let Some(block) = Block::byId(i)
@@ -194,10 +202,11 @@ impl Item
             {
                 continue;
             };
-            if Item::byId(i).is_some()
+            if Self::byId(i).is_some()
             {
                 continue;
             }
+
             set(i, crate::item::item_block::create(i - 256));
             block.initializeBlock();
         }

@@ -2,34 +2,42 @@ use crate::block::Block;
 use crate::item::{ITEM, Item, ItemClass};
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemFlintAndSteel",
     m_parent: Some(&ITEM),
-    onItemUse: |_, stack, player, world, mut x, mut y, mut z, face| {
+    onItemUse: |_, stack, player, world, mut x, mut y, mut z, face|
+    {
         if face == 0
         {
             y -= 1;
         }
+
         if face == 1
         {
             y += 1;
         }
+
         if face == 2
         {
             z -= 1;
         }
+
         if face == 3
         {
             z += 1;
         }
+
         if face == 4
         {
             x -= 1;
         }
+
         if face == 5
         {
             x += 1;
         }
+
         let i: i32 = world.getBlockId(x, y, z);
         if i == 0
         {
@@ -43,6 +51,7 @@ pub const CLASS: ItemClass = ItemClass {
             );
             world.setBlockWithNotify(x, y, z, Block::FIRE);
         }
+
         stack.damageItem(1, player);
         true
     },

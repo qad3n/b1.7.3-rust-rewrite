@@ -1,5 +1,5 @@
 use crate::block::{Block, Material};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::rc::Rc;
 
 // which beta liquid a fluid behaves like for sounds, particles, render pass, hardening, fire and slow spreading
@@ -40,14 +40,16 @@ mod beta
     pub const BUCKET_LAVA: i32 = 256 + 71;
 }
 
-thread_local! {
+thread_local!
+{
     static FLUIDS: RefCell<Vec<Rc<Fluid>>> = RefCell::new(vanilla());
 }
 
 fn vanilla() -> Vec<Rc<Fluid>>
 {
     vec![
-        Rc::new(Fluid {
+        Rc::new(Fluid
+        {
             m_name: "minecraft:water".to_owned(),
             m_material: Material::water(),
             m_style: FluidStyle::Water,
@@ -60,7 +62,8 @@ fn vanilla() -> Vec<Rc<Fluid>>
             m_infinite: true,
             m_sprite: beta::WATER_SPRITE,
         }),
-        Rc::new(Fluid {
+        Rc::new(Fluid
+        {
             m_name: "minecraft:lava".to_owned(),
             m_material: Material::lava(),
             m_style: FluidStyle::Lava,
@@ -105,8 +108,9 @@ pub fn alike(material: &Rc<Material>, liquid: &Rc<Material>) -> bool
 
 pub fn add(fluid: Fluid)
 {
-    FLUIDS.with(|fluids| {
-        let mut fluids = fluids.borrow_mut();
+    FLUIDS.with(|fluids|
+    {
+        let mut fluids: RefMut<Vec<Rc<Fluid>>> = fluids.borrow_mut();
         fluids.retain(|old| old.m_name != fluid.m_name);
         fluids.push(Rc::new(fluid));
     });
@@ -118,7 +122,8 @@ pub fn sprite(material: &Rc<Material>) -> i32 { of(material).map_or(beta::WATER_
 // runs for each mod fluid of a style without collecting them, entity movement asks this every tick
 pub fn eachModded(style: FluidStyle, mut body: impl FnMut(&Fluid))
 {
-    FLUIDS.with(|fluids| {
+    FLUIDS.with(|fluids|
+    {
         for fluid in fluids.borrow().iter().filter(|fluid| fluid.m_style == style && !fluid.vanilla())
         {
             body(fluid);

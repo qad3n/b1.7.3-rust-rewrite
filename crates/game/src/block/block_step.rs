@@ -27,6 +27,7 @@ fn getBlockTextureFromSideAndMetadata(_this: &Rc<Block>, face: i32, metadata: i3
                 5
             }
         }
+
         1 => match face
         {
             0 => 208,
@@ -39,17 +40,20 @@ fn getBlockTextureFromSideAndMetadata(_this: &Rc<Block>, face: i32, metadata: i3
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockStep",
     m_parent: Some(&BLOCK),
     getBlockTextureFromSideAndMetadata,
     getBlockTextureFromSide: |this, face| this.getBlockTextureFromSideAndMetadata(face, 0),
     isOpaqueCube: |this| blockType(this),
-    onBlockAdded: |this, world, x, y, z| {
+    onBlockAdded: |this, world, x, y, z|
+    {
         if !Rc::ptr_eq(this, &Block::stairSingle())
         {
             (BLOCK.onBlockAdded)(this, world, x, y, z);
         }
+
         let n2: i32 = world.getBlockId(x, y - 1, z);
         let n3: i32 = world.getBlockMetadata(x, y, z);
         let n: i32 = world.getBlockMetadata(x, y - 1, z);
@@ -57,6 +61,7 @@ pub const CLASS: BlockClass = BlockClass {
         {
             return;
         }
+
         if n2 == Block::STAIR_SINGLE
         {
             world.setBlockWithNotify(x, y, z, 0);
@@ -67,11 +72,13 @@ pub const CLASS: BlockClass = BlockClass {
     quantityDropped: |this, _| if blockType(this) { 2 } else { 1 },
     damageDropped: |_, metadata| metadata,
     renderAsNormalBlock: |this| blockType(this),
-    shouldSideBeRendered: |this, world, x, y, z, face| {
+    shouldSideBeRendered: |this, world, x, y, z, face|
+    {
         if !Rc::ptr_eq(this, &Block::stairSingle())
         {
             (BLOCK.shouldSideBeRendered)(this, world, x, y, z, face);
         }
+
         if face == 1
         {
             return true;
@@ -84,6 +91,7 @@ pub const CLASS: BlockClass = BlockClass {
         {
             return true;
         }
+
         world.getBlockId(x, y, z) != this.m_blockID
     },
     ..BLOCK
@@ -93,9 +101,11 @@ pub fn create(id: i32, doubleSlab: bool) -> Rc<Block>
 {
     let block: Rc<Block> = Block::constructWithSprite(&CLASS, Box::new(StepExt::default()), id, 6, Material::rock());
     block.ext::<StepExt>().m_blockType.set(doubleSlab);
+
     if !doubleSlab
     {
         block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 0.5, 1.0);
     }
+
     block.setLightOpacity(255)
 }

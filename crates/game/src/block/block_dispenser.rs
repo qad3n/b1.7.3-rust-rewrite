@@ -19,34 +19,41 @@ fn setDispenserDefaultDirection(world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return;
     }
+
     let n: i32 = world.getBlockId(x, y, z - 1);
     let n2: i32 = world.getBlockId(x, y, z + 1);
     let n3: i32 = world.getBlockId(x - 1, y, z);
     let n4: i32 = world.getBlockId(x + 1, y, z);
     let opaque = Block::opaqueCubeLookup;
     let mut n5: i32 = 3;
+
     if opaque(n) && !opaque(n2)
     {
         n5 = 3;
     }
+
     if opaque(n2) && !opaque(n)
     {
         n5 = 2;
     }
+
     if opaque(n3) && !opaque(n4)
     {
         n5 = 5;
     }
+
     if opaque(n4) && !opaque(n3)
     {
         n5 = 4;
     }
+
     world.setBlockMetadataWithNotify(x, y, z, n5);
 }
 
 fn getBlockTexture(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, face: i32) -> i32
 {
     let index: i32 = this.m_blockIndexInTexture.get();
+
     if face == 1
     {
         return index + 17;
@@ -60,12 +67,14 @@ fn getBlockTexture(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z
     {
         return index;
     }
+
     index + 1
 }
 
 fn getBlockTextureFromSide(this: &Rc<Block>, face: i32) -> i32
 {
     let index: i32 = this.m_blockIndexInTexture.get();
+
     if face == 1
     {
         return index + 17;
@@ -78,6 +87,7 @@ fn getBlockTextureFromSide(this: &Rc<Block>, face: i32) -> i32
     {
         return index + 1;
     }
+
     index
 }
 
@@ -86,6 +96,7 @@ fn dispenseItem(world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
     let n: i32 = world.getBlockMetadata(x, y, z);
     let mut n2: i32 = 0;
     let mut n3: i32 = 0;
+
     if n == 3
     {
         n3 = 1;
@@ -105,6 +116,7 @@ fn dispenseItem(world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
     let d: f64 = x as f64 + n2 as f64 * 0.6 + 0.5;
     let d2: f64 = y as f64 + 0.5;
     let d3: f64 = z as f64 + n3 as f64 * 0.6 + 0.5;
+
     let Some(itemStack) = itemStack
     else
     {
@@ -141,10 +153,13 @@ fn dispenseItem(world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
         entityItem.m_motionX.set(n2 as f64 * d4);
         entityItem.m_motionY.set(0.2f32 as f64);
         entityItem.m_motionZ.set(n3 as f64 * d4);
+
         let motionX: f64 = entityItem.m_motionX.get();
         entityItem.m_motionX.set(motionX + random.nextGaussian() * 0.0075f32 as f64 * 6.0);
+
         let motionY: f64 = entityItem.m_motionY.get();
         entityItem.m_motionY.set(motionY + random.nextGaussian() * 0.0075f32 as f64 * 6.0);
+
         let motionZ: f64 = entityItem.m_motionZ.get();
         entityItem.m_motionZ.set(motionZ + random.nextGaussian() * 0.0075f32 as f64 * 6.0);
         world.entityJoinedWorld(&entityItem);
@@ -153,40 +168,49 @@ fn dispenseItem(world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
     world.doEvent(2000, x, y, z, n2 + 1 + (n3 + 1) * 3);
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockDispenser",
     m_parent: Some(&block_container::CLASS),
     tickRate: |_| 4,
     idDropped: |_, _, _| Block::DISPENSER,
-    onBlockAdded: |this, world, x, y, z| {
+    onBlockAdded: |this, world, x, y, z|
+    {
         (block_container::CLASS.onBlockAdded)(this, world, x, y, z);
         setDispenserDefaultDirection(world, x, y, z);
     },
     getBlockTexture,
     getBlockTextureFromSide,
-    blockActivated: |_, world, x, y, z, player| {
+    blockActivated: |_, world, x, y, z, player|
+    {
         if world.m_multiplayerWorld.get()
         {
             return true;
         }
+
         // port castNullable is the java tile entity cast that lets null through
         let tileEntityDispenser: Option<Rc<TileEntity>> =
             tile_entity::castNullable(world.getBlockTileEntity(x, y, z), "TileEntityDispenser");
         player.displayGUIDispenser(tileEntityDispenser.as_ref());
         true
     },
-    onNeighborBlockChange: |this, world, x, y, z, neighborBlock| {
+
+    onNeighborBlockChange: |this, world, x, y, z, neighborBlock|
+    {
         if neighborBlock > 0 && Block::byId(neighborBlock).orNpe().canProvidePower()
         {
             let flag: bool =
                 world.isBlockIndirectlyGettingPowered(x, y, z) || world.isBlockIndirectlyGettingPowered(x, y + 1, z);
+
             if flag
             {
                 world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());
             }
         }
     },
-    updateTick: |_, world, x, y, z, random| {
+
+    updateTick: |_, world, x, y, z, random|
+    {
         if world.isBlockIndirectlyGettingPowered(x, y, z) || world.isBlockIndirectlyGettingPowered(x, y + 1, z)
         {
             dispenseItem(world, x, y, z, random);
@@ -194,7 +218,8 @@ pub const CLASS: BlockClass = BlockClass {
     },
     getBlockEntity: |_| tile_entity_dispenser::create(),
     onBlockPlacedBy: block_furnace::onBlockPlacedBy,
-    onBlockRemoval: |this, world, x, y, z| {
+    onBlockRemoval: |this, world, x, y, z|
+    {
         // port cast is the java tile entity cast and throws ClassCastException on a wrong class
         let tileEntityDispenser: Rc<TileEntity> =
             tile_entity::cast(world.getBlockTileEntity(x, y, z), "TileEntityDispenser");

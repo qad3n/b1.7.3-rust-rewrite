@@ -44,12 +44,15 @@ fn isCourseTraversable(this: &Rc<Entity>, _targetX: f64, _targetY: f64, _targetZ
     while (i as f64) < distance
     {
         axisalignedbb.offset(d0, d1, d2);
+
         if world.getCollidingBoundingBoxes(this, &axisalignedbb).size() > 0
         {
             return false;
         }
+
         i += 1;
     }
+
     true
 }
 
@@ -73,8 +76,10 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     {
         this.setEntityDead();
     }
+
     entity_living::checkDespawn(this);
     ghast.m_prevAttackCounter.set(ghast.m_attackCounter.get());
+
     let d0: f64 = ghast.m_waypointX.get() - this.posX();
     let d1: f64 = ghast.m_waypointY.get() - this.posY();
     let d2: f64 = ghast.m_waypointZ.get() - this.posZ();
@@ -85,11 +90,14 @@ fn updatePlayerActionState(this: &Rc<Entity>)
         ghast.m_waypointY.set(randomWaypoint(this, this.posY()));
         ghast.m_waypointZ.set(randomWaypoint(this, this.posZ()));
     }
+
     let cooldown: i32 = ghast.m_courseChangeCooldown.get();
     ghast.m_courseChangeCooldown.set(cooldown - 1);
+
     if cooldown <= 0
     {
         ghast.m_courseChangeCooldown.set(ghast.m_courseChangeCooldown.get() + this.m_rand.nextIntBounded(5) + 2);
+
         if isCourseTraversable(this, ghast.m_waypointX.get(), ghast.m_waypointY.get(), ghast.m_waypointZ.get(), d3)
         {
             this.m_motionX.set(this.m_motionX.get() + d0 / d3 * 0.1);
@@ -103,11 +111,14 @@ fn updatePlayerActionState(this: &Rc<Entity>)
             ghast.m_waypointZ.set(this.posZ());
         }
     }
+
     if ghast.m_targetedEntity.with(|target| target.as_ref().is_some_and(|target| target.m_isDead.get()))
     {
         ghast.m_targetedEntity.set(None);
     }
-    let retarget: bool = ghast.m_targetedEntity.with(Option::is_none) || {
+
+    let retarget: bool = ghast.m_targetedEntity.with(Option::is_none) ||
+    {
         let aggro: i32 = ghast.m_aggroCooldown.get();
         ghast.m_aggroCooldown.set(aggro - 1);
         aggro <= 0
@@ -115,11 +126,13 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     if retarget
     {
         ghast.m_targetedEntity.set(world.getClosestPlayerToEntity(this, 100.0));
+
         if ghast.m_targetedEntity.with(Option::is_some)
         {
             ghast.m_aggroCooldown.set(20);
         }
     }
+
     let d4: f64 = 64.0;
     match ghast.m_targetedEntity.get().filter(|target| target.getDistanceSqToEntity(this) < d4 * d4)
     {
@@ -130,6 +143,7 @@ fn updatePlayerActionState(this: &Rc<Entity>)
                 - (this.posY() + (this.m_height.get() / 2.0) as f64);
             let d7: f64 = target.posZ() - this.posZ();
             faceYaw(this, d5, d7);
+
             if entity_living::canEntityBeSeen(this, &target)
             {
                 if ghast.m_attackCounter.get() == 10
@@ -137,11 +151,14 @@ fn updatePlayerActionState(this: &Rc<Entity>)
                     let pitch: f32 = (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0;
                     world.playSoundAtEntity(this, "mob.ghast.charge", this.getSoundVolume(), pitch);
                 }
+
                 ghast.m_attackCounter.set(ghast.m_attackCounter.get() + 1);
+
                 if ghast.m_attackCounter.get() == 20
                 {
                     let pitch: f32 = (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0;
                     world.playSoundAtEntity(this, "mob.ghast.fireball", this.getSoundVolume(), pitch);
+
                     let entityfireball: Rc<Entity> = entity_fireball::createFromShooter(&world, this, d5, d6, d7);
                     let d8: f64 = 4.0;
                     let vec3d: Rc<Vec3D> = entity_living::getLook(this, 1.0);
@@ -157,18 +174,22 @@ fn updatePlayerActionState(this: &Rc<Entity>)
                 ghast.m_attackCounter.set(ghast.m_attackCounter.get() - 1);
             }
         }
+
         None =>
         {
             faceYaw(this, this.m_motionX.get(), this.m_motionZ.get());
+
             if ghast.m_attackCounter.get() > 0
             {
                 ghast.m_attackCounter.set(ghast.m_attackCounter.get() - 1);
             }
         }
     }
+
     if !world.m_multiplayerWorld.get()
     {
         let b1: i8 = this.m_dataWatcher.getWatchableObjectByte(16);
+
         let b0: i8 = if ghast.m_attackCounter.get() > 10
         {
             1
@@ -177,6 +198,7 @@ fn updatePlayerActionState(this: &Rc<Entity>)
         {
             0
         };
+
         if b1 != b0
         {
             this.m_dataWatcher.updateObject(16, WatchedValue::Byte(b0));
@@ -184,16 +206,21 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityGhast",
     m_parent: Some(&entity_flying::CLASS),
     m_interfaces: &["IMob", "IAnimals"],
-    entityInit: |this| {
+    entityInit: |this|
+    {
         (entity_flying::CLASS.entityInit)(this);
         this.m_dataWatcher.addObject(16, WatchedValue::Byte(0));
     },
-    onUpdate: |this| {
+
+    onUpdate: |this|
+    {
         (entity_flying::CLASS.onUpdate)(this);
+
         let b0: i8 = this.m_dataWatcher.getWatchableObjectByte(16);
         let texture: &str = if b0 == 1
         {
@@ -211,7 +238,8 @@ pub const CLASS: EntityClass = EntityClass {
     getDeathSound: |_| Some("mob.ghast.death".to_string()),
     getDropItemId: |_| Item::gunpowder().m_shiftedIndex,
     getSoundVolume: |_| 10.0,
-    getCanSpawnHere: |this| {
+    getCanSpawnHere: |this|
+    {
         this.m_rand.nextIntBounded(20) == 0
             && (entity_flying::CLASS.getCanSpawnHere)(this)
             && this.world().m_difficultySetting.get() > 0

@@ -1,5 +1,6 @@
 use crate::damage::{DamageKind, DamageSource};
-use crate::entity::entity_arrow::{
+use crate::entity::entity_arrow::
+{
     applyHeading, faceVelocity, findEntityHit, launchFrom, movePosition, rotateTowardsMotion, scaleMotion, shakeLoose,
     spawnBubbles,
 };
@@ -27,9 +28,10 @@ pub struct ThrowableFields
 
 impl ThrowableFields
 {
-    pub(crate) fn new() -> ThrowableFields
+    pub(crate) fn new() -> Self
     {
-        ThrowableFields {
+        Self
+        {
             m_xTile: Cell::new(0),
             m_yTile: Cell::new(0),
             m_zTile: Cell::new(0),
@@ -63,6 +65,7 @@ pub fn throwable(this: &Entity) -> &ThrowableFields
     {
         return fields;
     }
+
     match this.className()
     {
         "EntityFireball" => &crate::entity::entity_fireball::fields(this).m_throwable,
@@ -76,21 +79,26 @@ pub(crate) fn tickInGround(this: &Rc<Entity>, fields: &ThrowableFields) -> bool
     {
         fields.m_shake.set(fields.m_shake.get() - 1);
     }
+
     if !fields.m_inGround.get()
     {
         fields.m_ticksInAir.set(fields.m_ticksInAir.get() + 1);
         return false;
     }
+
     let i: i32 = this.world().getBlockId(fields.m_xTile.get(), fields.m_yTile.get(), fields.m_zTile.get());
     if i == fields.m_inTile.get()
     {
         fields.m_ticksInGround.set(fields.m_ticksInGround.get() + 1);
+
         if fields.m_ticksInGround.get() == 1200
         {
             this.setEntityDead();
         }
+
         return true;
     }
+
     fields.m_inGround.set(false);
     shakeLoose(this);
     fields.m_ticksInGround.set(0);
@@ -112,17 +120,21 @@ pub(crate) fn traceHit(
         this.posY() + this.m_motionY.get(),
         this.posZ() + this.m_motionZ.get(),
     );
+
     let mut movingobjectposition: Option<MovingObjectPosition> = world.rayTraceBlocks(&vec3d1, &vec3d);
+
     vec3d1 = Vec3D::createVector(this.posX(), this.posY(), this.posZ());
     vec3d = Vec3D::createVector(
         this.posX() + this.m_motionX.get(),
         this.posY() + this.m_motionY.get(),
         this.posZ() + this.m_motionZ.get(),
     );
+
     if let Some(hit) = &movingobjectposition
     {
         vec3d = Vec3D::createVector(hit.m_hitVec.x(), hit.m_hitVec.y(), hit.m_hitVec.z());
     }
+
     if searchEntities
     {
         let thrower: Option<Rc<Entity>> = fields.m_thrower.get();
@@ -132,6 +144,7 @@ pub(crate) fn traceHit(
             movingobjectposition = Some(MovingObjectPosition::newEntity(&entity));
         }
     }
+
     movingobjectposition
 }
 
@@ -192,11 +205,13 @@ pub(crate) fn updateThrown(this: &Rc<Entity>, onImpact: fn(&Rc<Entity>))
     this.m_lastTickPosY.set(this.posY());
     this.m_lastTickPosZ.set(this.posZ());
     (ENTITY.onUpdate)(this);
+
     let fields: &ThrowableFields = throwable(this);
     if tickInGround(this, fields)
     {
         return;
     }
+
     let world: Rc<World> = this.world();
     let movingobjectposition: Option<MovingObjectPosition> = traceHit(this, fields, 5, !world.m_multiplayerWorld.get());
     if let Some(hit) = movingobjectposition
@@ -206,23 +221,29 @@ pub(crate) fn updateThrown(this: &Rc<Entity>, onImpact: fn(&Rc<Entity>))
             let thrower: Option<Rc<Entity>> = fields.m_thrower.get();
             entityHit.attackEntityFrom(&DamageSource::withProjectile(DamageKind::Thrown, this, thrower.as_ref()), 0);
         }
+
         onImpact(this);
+
         for _ in 0..8
         {
             world.spawnParticle("snowballpoof", this.posX(), this.posY(), this.posZ(), 0.0, 0.0, 0.0);
         }
+
         this.setEntityDead();
     }
 
     movePosition(this);
     rotateTowardsMotion(this);
+
     let mut f2: f32 = 0.99;
     let f3: f32 = 0.03;
+
     if this.isInWater()
     {
         spawnBubbles(this);
         f2 = 0.8;
     }
+
     scaleMotion(this, f2 as f64);
     this.m_motionY.set(this.m_motionY.get() - f3 as f64);
     this.setPosition(this.posX(), this.posY(), this.posZ());
@@ -278,7 +299,8 @@ pub(crate) fn readEntityFromNBT(this: &Rc<Entity>, nbt: &NBTTagCompound)
     fields.m_inGround.set(nbt.getByte("inGround") == 1);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntitySnowball",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],

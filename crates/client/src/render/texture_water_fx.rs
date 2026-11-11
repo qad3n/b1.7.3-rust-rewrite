@@ -1,8 +1,8 @@
 use crate::render::{TILE_PIXELS, TextureFX, TextureFXFields};
 use game::block::Block;
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell, RefMut};
 
-pub struct WaterTuning
+pub(crate) struct WaterTuning
 {
     pub m_neighbours: [(i32, i32); 3],
     pub m_spread: f32,
@@ -13,7 +13,7 @@ pub struct WaterTuning
 const STILL_WATER: WaterTuning =
     WaterTuning { m_neighbours: [(-1, 0), (0, 0), (1, 0)], m_spread: 3.3, m_cooling: 0.1, m_bubbleChance: 0.05 };
 
-pub struct WaterSimulation
+pub(crate) struct WaterSimulation
 {
     m_tuning: &'static WaterTuning,
     m_current: RefCell<Vec<f32>>,
@@ -24,9 +24,10 @@ pub struct WaterSimulation
 
 impl WaterSimulation
 {
-    pub fn new(tuning: &'static WaterTuning) -> WaterSimulation
+    pub(crate) fn new(tuning: &'static WaterTuning) -> Self
     {
-        WaterSimulation {
+        Self
+        {
             m_tuning: tuning,
             m_current: RefCell::new(vec![0.0; TILE_PIXELS]),
             m_next: RefCell::new(vec![0.0; TILE_PIXELS]),
@@ -35,31 +36,35 @@ impl WaterSimulation
         }
     }
 
-    pub fn step(&self)
+    pub(crate) fn step(&self)
     {
         {
-            let current = self.m_current.borrow();
-            let mut next = self.m_next.borrow_mut();
-            let heat = self.m_heat.borrow();
+            let current: Ref<Vec<f32>> = self.m_current.borrow();
+            let mut next: RefMut<Vec<f32>> = self.m_next.borrow_mut();
+            let heat: Ref<Vec<f32>> = self.m_heat.borrow();
+
             for i in 0..16i32
             {
                 for j in 0..16i32
                 {
                     let mut f: f32 = 0.0;
+
                     for (dx, dy) in self.m_tuning.m_neighbours
                     {
                         let l: i32 = i + dx & 15;
                         let i1: i32 = j + dy & 15;
                         f += current[(l + i1 * 16) as usize];
                     }
+
                     let index: usize = (i + j * 16) as usize;
                     next[index] = f / self.m_tuning.m_spread + heat[index] * 0.8;
                 }
             }
         }
         {
-            let mut heat = self.m_heat.borrow_mut();
-            let mut heatDelta = self.m_heatDelta.borrow_mut();
+            let mut heat: RefMut<Vec<f32>> = self.m_heat.borrow_mut();
+            let mut heatDelta: RefMut<Vec<f32>> = self.m_heatDelta.borrow_mut();
+
             for k2 in 0..16
             {
                 for l2 in 0..16
@@ -70,7 +75,9 @@ impl WaterSimulation
                     {
                         heat[index] = 0.0;
                     }
+
                     heatDelta[index] -= self.m_tuning.m_cooling;
+
                     if jvm::math::random() < self.m_tuning.m_bubbleChance
                     {
                         heatDelta[index] = 0.5;
@@ -81,9 +88,10 @@ impl WaterSimulation
         self.m_next.swap(&self.m_current);
     }
 
-    pub fn paint(&self, fx: &TextureFXFields, source: impl Fn(i32) -> i32)
+    pub(crate) fn paint(&self, fx: &TextureFXFields, source: impl Fn(i32) -> i32)
     {
-        let current = self.m_current.borrow();
+        let current: Ref<Vec<f32>> = self.m_current.borrow();
+
         for i3 in 0..TILE_PIXELS as i32
         {
             let f1: f32 = current[source(i3) as usize].clamp(0.0, 1.0);
@@ -107,9 +115,10 @@ pub struct TextureWaterFX
 
 impl TextureWaterFX
 {
-    pub fn new() -> TextureWaterFX
+    pub fn new() -> Self
     {
-        TextureWaterFX {
+        Self
+        {
             m_fx: TextureFXFields::new(Block::waterMoving().m_blockIndexInTexture.get()),
             m_simulation: WaterSimulation::new(&STILL_WATER),
             m_tickCounter: Cell::new(0),

@@ -9,21 +9,25 @@ pub struct RecordExt
 
 pub fn recordName(this: &Item) -> &str { &this.ext::<RecordExt>().m_recordName }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemRecord",
     m_parent: Some(&ITEM),
-    onItemUse: |this, stack, _, world, x, y, z, _| {
+    onItemUse: |this, stack, _, world, x, y, z, _|
+    {
         if world.getBlockId(x, y, z) == Block::JUKEBOX && world.getBlockMetadata(x, y, z) == 0
         {
             if world.m_multiplayerWorld.get()
             {
                 return true;
             }
+
             block_juke_box::ejectRecord(world, x, y, z, this.m_shiftedIndex);
             world.doEventFrom(None, 1005, x, y, z, this.m_shiftedIndex);
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
             return true;
         }
+
         false
     },
     ..ITEM

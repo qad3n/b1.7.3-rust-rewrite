@@ -26,7 +26,7 @@ const REGION_HEIGHT: i32 = 256;
 
 pub struct PlayerManager
 {
-    m_self: Weak<PlayerManager>,
+    m_self: Weak<Self>,
     pub m_players: JArrayList<Rc<Entity>>,
     m_playerInstances: PlayerHash<Rc<PlayerInstance>>,
     m_playerInstancesToUpdate: JArrayList<Rc<PlayerInstance>>,
@@ -40,21 +40,25 @@ fn instanceKey(chunkX: i32, chunkZ: i32) -> i64 { (chunkX as i64 + 2147483647) |
 
 impl PlayerManager
 {
-    pub fn new(server: &Rc<MinecraftServer>, dimension: i32, chunkViewDistance: i32) -> Rc<PlayerManager>
+    pub fn new(server: &Rc<MinecraftServer>, dimension: i32, chunkViewDistance: i32) -> Rc<Self>
     {
         let players: JArrayList<Rc<Entity>> = JArrayList::new();
         let playerInstances: PlayerHash<Rc<PlayerInstance>> = PlayerHash::new();
         let playerInstancesToUpdate: JArrayList<Rc<PlayerInstance>> = JArrayList::new();
         let adjacentChunkCoords: [[i32; 2]; 4] = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
         if chunkViewDistance > 15
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_ARGUMENT, "Too big view radius!");
         }
+
         if chunkViewDistance < 3
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_ARGUMENT, "Too small view radius!");
         }
-        Rc::new_cyclic(|this| PlayerManager {
+
+        Rc::new_cyclic(|this| Self
+        {
             m_self: this.clone(),
             m_players: players,
             m_playerInstances: playerInstances,
@@ -76,20 +80,22 @@ impl PlayerManager
             self.m_playerInstancesToUpdate.get(i).onUpdate();
             i += 1;
         }
+
         self.m_playerInstancesToUpdate.clear();
     }
 
     fn getPlayerInstance(&self, chunkX: i32, chunkZ: i32, add: bool) -> Option<Rc<PlayerInstance>>
     {
         let i: i64 = instanceKey(chunkX, chunkZ);
-        let mut playermanager_playerinstance: Option<Rc<PlayerInstance>> = self.m_playerInstances.getValueByKey(i);
-        if playermanager_playerinstance.is_none() && add
+        let mut watched: Option<Rc<PlayerInstance>> = self.m_playerInstances.getValueByKey(i);
+        if watched.is_none() && add
         {
             let instance: Rc<PlayerInstance> = PlayerInstance::new(&self.m_self, chunkX, chunkZ);
             self.m_playerInstances.add(i, Rc::clone(&instance));
-            playermanager_playerinstance = Some(instance);
+            watched = Some(instance);
         }
-        playermanager_playerinstance
+
+        watched
     }
 
     fn addToInstance(&self, chunkX: i32, chunkZ: i32, player: &Rc<Entity>)
@@ -104,9 +110,9 @@ impl PlayerManager
     {
         let i: i32 = x >> 4;
         let j: i32 = z >> 4;
-        if let Some(playermanager_playerinstance) = self.getPlayerInstance(i, j, false)
+        if let Some(watched) = self.getPlayerInstance(i, j, false)
         {
-            playermanager_playerinstance.markBlockNeedsUpdate(x & 15, y, z & 15);
+            watched.markBlockNeedsUpdate(x & 15, y, z & 15);
         }
     }
 
@@ -117,17 +123,22 @@ impl PlayerManager
         let ext: &entity_player_mp::PlayerMPExt = entity_player_mp::fields(player);
         ext.m_trackedX.set(player.m_posX.get());
         ext.m_trackedZ.set(player.m_posZ.get());
+
         let mut k: i32 = 0;
         let l: i32 = self.m_playerViewRadius;
         let mut i1: i32 = 0;
         let mut j1: i32 = 0;
+
         self.addToInstance(i, j, player);
+
         for k1 in 1..=l * 2
         {
             for _ in 0..2
             {
                 let aint: [i32; 2] = self.m_adjacentChunkCoords[(k % 4) as usize];
+
                 k += 1;
+
                 for _ in 0..k1
                 {
                     i1 += aint[0];
@@ -136,13 +147,16 @@ impl PlayerManager
                 }
             }
         }
+
         k %= 4;
+
         for _ in 0..l * 2
         {
             i1 += self.m_adjacentChunkCoords[k as usize][0];
             j1 += self.m_adjacentChunkCoords[k as usize][1];
             self.addToInstance(i + i1, j + j1, player);
         }
+
         self.m_players.add(Rc::clone(player));
     }
 
@@ -151,16 +165,18 @@ impl PlayerManager
         let ext: &entity_player_mp::PlayerMPExt = entity_player_mp::fields(player);
         let i: i32 = ext.m_trackedX.get() as i32 >> 4;
         let j: i32 = ext.m_trackedZ.get() as i32 >> 4;
+
         for k in i - self.m_playerViewRadius..=i + self.m_playerViewRadius
         {
             for l in j - self.m_playerViewRadius..=j + self.m_playerViewRadius
             {
-                if let Some(playermanager_playerinstance) = self.getPlayerInstance(k, l, false)
+                if let Some(watched) = self.getPlayerInstance(k, l, false)
                 {
-                    playermanager_playerinstance.removePlayer(player);
+                    watched.removePlayer(player);
                 }
             }
         }
+
         self.m_players.remove(player);
     }
 
@@ -168,6 +184,7 @@ impl PlayerManager
     {
         let i: i32 = chunkX - playerChunkX;
         let j: i32 = chunkZ - playerChunkZ;
+
         if i < -self.m_playerViewRadius || i > self.m_playerViewRadius
         {
             false
@@ -202,13 +219,15 @@ impl PlayerManager
                         {
                             self.addToInstance(k1, l1, player);
                         }
+
                         if !self.isChunkWithinView(k1 - i1, l1 - j1, i, j)
-                            && let Some(playermanager_playerinstance) = self.getPlayerInstance(k1 - i1, l1 - j1, false)
+                            && let Some(watched) = self.getPlayerInstance(k1 - i1, l1 - j1, false)
                         {
-                            playermanager_playerinstance.removePlayer(player);
+                            watched.removePlayer(player);
                         }
                     }
                 }
+
                 ext.m_trackedX.set(player.m_posX.get());
                 ext.m_trackedZ.set(player.m_posZ.get());
             }
@@ -237,9 +256,10 @@ pub struct PlayerInstance
 
 impl PlayerInstance
 {
-    fn new(outer: &Weak<PlayerManager>, chunkX: i32, chunkZ: i32) -> Rc<PlayerInstance>
+    fn new(outer: &Weak<PlayerManager>, chunkX: i32, chunkZ: i32) -> Rc<Self>
     {
-        let instance: Rc<PlayerInstance> = Rc::new(PlayerInstance {
+        let instance: Rc<Self> = Rc::new(Self
+        {
             m_outer: outer.clone(),
             m_players: JArrayList::new(),
             m_blocksToUpdate: RefCell::new([0; 10]),
@@ -275,6 +295,7 @@ impl PlayerInstance
                 ),
             );
         }
+
         let ext: &entity_player_mp::PlayerMPExt = entity_player_mp::fields(player);
         ext.m_allLoadedChunks.update(|set| set.add(self.m_currentChunk));
         entity_player_mp::netServerHandler(player).sendPacket(Box::new(Packet50PreChunk::new(
@@ -292,20 +313,26 @@ impl PlayerInstance
         {
             return;
         }
+
         self.m_players.remove(player);
+
         if self.m_players.size() == 0
         {
             let l: i64 = (self.m_chunkX as i64 + i32::MAX as i64) | (self.m_chunkZ as i64 + i32::MAX as i64) << 32;
             let outer: Rc<PlayerManager> = self.outer();
             outer.m_playerInstances.remove(l);
+
             if self.m_numBlocksToUpdate.get() > 0
             {
                 outer.m_playerInstancesToUpdate.removeIdentity(self);
             }
+
             world_server::chunkProviderServer(&outer.getMinecraftServer()).unloadChunk(self.m_chunkX, self.m_chunkZ);
         }
+
         let ext: &entity_player_mp::PlayerMPExt = entity_player_mp::fields(player);
         ext.m_loadedChunks.remove(&self.m_currentChunk);
+
         if ext.m_allLoadedChunks.with(|set| set.contains(&self.m_currentChunk))
         {
             entity_player_mp::netServerHandler(player).sendPacket(Box::new(Packet50PreChunk::new(
@@ -328,33 +355,41 @@ impl PlayerInstance
             self.m_minZ.set(localZ);
             self.m_maxZ.set(localZ);
         }
+
         if self.m_minX.get() > localX
         {
             self.m_minX.set(localX);
         }
+
         if self.m_maxX.get() < localX
         {
             self.m_maxX.set(localX);
         }
+
         if self.m_minY.get() > y
         {
             self.m_minY.set(y);
         }
+
         if self.m_maxY.get() < y
         {
             self.m_maxY.set(y);
         }
+
         if self.m_minZ.get() > localZ
         {
             self.m_minZ.set(localZ);
         }
+
         if self.m_maxZ.get() < localZ
         {
             self.m_maxZ.set(localZ);
         }
+
         if self.m_numBlocksToUpdate.get() < 10
         {
             let short1: i16 = (localX << 12 | localZ << 8 | y) as i16;
+
             for i in 0..self.m_numBlocksToUpdate.get()
             {
                 if self.m_blocksToUpdate.borrow()[i as usize] == short1
@@ -362,6 +397,7 @@ impl PlayerInstance
                     return;
                 }
             }
+
             let index: i32 = self.m_numBlocksToUpdate.get();
             self.m_numBlocksToUpdate.set(index + 1);
             self.m_blocksToUpdate.borrow_mut()[index as usize] = short1;
@@ -380,6 +416,7 @@ impl PlayerInstance
             {
                 entity_player_mp::netServerHandler(&entityplayermp).sendPacket(packet.clonePacket());
             }
+
             i += 1;
         }
     }
@@ -387,16 +424,19 @@ impl PlayerInstance
     pub fn onUpdate(&self)
     {
         let minecraftServer: Rc<World> = self.outer().getMinecraftServer();
+
         if self.m_numBlocksToUpdate.get() == 0
         {
             return;
         }
+
         if self.m_numBlocksToUpdate.get() == 1
         {
             let x: i32 = self.m_chunkX * 16 + self.m_minX.get();
             let minY: i32 = self.m_minY.get();
             let z: i32 = self.m_chunkZ * 16 + self.m_minZ.get();
             self.sendPacketToPlayersInInstance(Box::new(Packet53BlockChange::new(x, minY, z, &minecraftServer)));
+
             if Block::isBlockContainer(minecraftServer.getBlockId(x, minY, z))
             {
                 self.updateTileEntity(minecraftServer.getBlockTileEntity(x, minY, z).as_ref());
@@ -406,6 +446,7 @@ impl PlayerInstance
         {
             self.m_minY.set(self.m_minY.get() / 2 * 2);
             self.m_maxY.set((self.m_maxY.get() / 2 + 1) * 2);
+
             let n: i32 = self.m_minX.get() + self.m_chunkX * 16;
             let minY2: i32 = self.m_minY.get();
             let n2: i32 = self.m_minZ.get() + self.m_chunkZ * 16;
@@ -422,6 +463,7 @@ impl PlayerInstance
                 widthZ,
                 &minecraftServer,
             )));
+
             let tileEntityList: Vec<Rc<TileEntity>> = world_server::getTileEntityList(
                 &minecraftServer,
                 n,
@@ -431,6 +473,7 @@ impl PlayerInstance
                 minY2 + height,
                 n2 + widthZ,
             );
+
             for tileentity in &tileEntityList
             {
                 self.updateTileEntity(Some(tileentity));
@@ -446,6 +489,7 @@ impl PlayerInstance
                 self.m_numBlocksToUpdate.get(),
                 &minecraftServer,
             )));
+
             // rewrite: vanilla decoded the change count here so batched tile entities such as sign text never synced
             for block in &blocksToUpdate[..self.m_numBlocksToUpdate.get() as usize]
             {

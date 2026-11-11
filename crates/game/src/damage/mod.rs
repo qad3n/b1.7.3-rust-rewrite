@@ -54,7 +54,7 @@ impl DamageKind
 {
     pub fn name(self) -> &'static str { ROWS.iter().find(|row| row.m_kind == self).map_or("generic", |row| row.m_name) }
 
-    pub fn byName(name: &str) -> Option<DamageKind> { ROWS.iter().find(|row| row.m_name == name).map(|row| row.m_kind) }
+    pub fn byName(name: &str) -> Option<Self> { ROWS.iter().find(|row| row.m_name == name).map(|row| row.m_kind) }
 }
 
 // the attacker is who beta passed as the source, the direct entity is the arrow or ball that hit
@@ -68,18 +68,14 @@ pub struct DamageSource<'a>
 
 impl<'a> DamageSource<'a>
 {
-    pub fn new(kind: DamageKind) -> DamageSource<'a> { DamageSource { m_kind: kind, m_attacker: None, m_direct: None } }
+    pub fn new(kind: DamageKind) -> Self { DamageSource { m_kind: kind, m_attacker: None, m_direct: None } }
 
-    pub fn withAttacker(kind: DamageKind, attacker: Option<&'a Rc<Entity>>) -> DamageSource<'a>
+    pub fn withAttacker(kind: DamageKind, attacker: Option<&'a Rc<Entity>>) -> Self
     {
         DamageSource { m_kind: kind, m_attacker: attacker, m_direct: attacker }
     }
 
-    pub fn withProjectile(
-        kind: DamageKind,
-        projectile: &'a Rc<Entity>,
-        attacker: Option<&'a Rc<Entity>>,
-    ) -> DamageSource<'a>
+    pub fn withProjectile(kind: DamageKind, projectile: &'a Rc<Entity>, attacker: Option<&'a Rc<Entity>>) -> Self
     {
         DamageSource { m_kind: kind, m_attacker: attacker, m_direct: Some(projectile) }
     }

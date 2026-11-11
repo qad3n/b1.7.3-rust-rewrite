@@ -27,13 +27,15 @@ const SOUND_FOLDERS: &[&str] = &["sound", "newsound", "music", "newmusic", "stre
 // one agent keeps connections alive across the sound downloads
 static AGENT: LazyLock<ureq::Agent> = LazyLock::new(ureq::Agent::new_with_defaults);
 
-pub fn install(root: &Path, dataDir: &Path, clientJar: Option<PathBuf>) -> Result<()>
+pub(crate) fn install(root: &Path, dataDir: &Path, clientJar: Option<PathBuf>) -> Result<()>
 {
     let resources: PathBuf = dataDir.join("resources");
+
     if !stampMatches(&root.join(CLIENT_STAMP), CLIENT_JAR_SHA1)
     {
         fetchClient(root, clientJar.or_else(localJar))?;
     }
+
     let soundsStamp: PathBuf = root.join(SOUNDS_STAMP);
     if !stampMatches(&soundsStamp, &resources.to_string_lossy())
     {
@@ -42,8 +44,10 @@ pub fn install(root: &Path, dataDir: &Path, clientJar: Option<PathBuf>) -> Resul
             Some(folder) => copySounds(&resources, &folder)?,
             None => fetchSounds(&resources)?,
         }
+
         write(&soundsStamp, resources.to_string_lossy().as_bytes())?;
     }
+
     Ok(())
 }
 
@@ -63,6 +67,7 @@ fn localJar() -> Option<PathBuf>
 fn mojangDir() -> Option<PathBuf>
 {
     let fromEnv = |name: &str| std::env::var_os(name).filter(|value| !value.is_empty()).map(PathBuf::from);
+
     Some(match std::env::consts::OS
     {
         "windows" => fromEnv("APPDATA")
@@ -78,6 +83,7 @@ fn isSound(name: &str) -> bool { name.split_once('/').is_some_and(|(folder, _)| 
 fn copySounds(resources: &Path, source: &Path) -> Result<()>
 {
     info!("copying sounds from {} into {}", source.display(), resources.display());
+
     for folder in SOUND_FOLDERS
     {
         let from: PathBuf = source.join(folder);
@@ -86,16 +92,19 @@ fn copySounds(resources: &Path, source: &Path) -> Result<()>
             copyTree(&from, &resources.join(folder))?;
         }
     }
+
     Ok(())
 }
 
 fn copyTree(from: &Path, to: &Path) -> Result<()>
 {
     std::fs::create_dir_all(to).with_context(|| format!("creating {}", to.display()))?;
+
     for entry in std::fs::read_dir(from).with_context(|| format!("reading {}", from.display()))?
     {
         let path: PathBuf = entry.with_context(|| format!("reading {}", from.display()))?.path();
         let destination: PathBuf = to.join(path.file_name().context("directory entry has no name")?);
+
         if path.is_dir()
         {
             copyTree(&path, &destination)?;
@@ -106,6 +115,7 @@ fn copyTree(from: &Path, to: &Path) -> Result<()>
                 .with_context(|| format!("copying {} to {}", path.display(), destination.display()))?;
         }
     }
+
     Ok(())
 }
 
@@ -118,10 +128,13 @@ fn fetchClient(root: &Path, jar: Option<PathBuf>) -> Result<()>
             info!("extracting assets from {}", path.display());
             std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?
         }
+
         None =>
         {
             info!("no local client jar, downloading the {VERSION_ID} client from Mojang");
-            downloadClientJar().with_context(|| {
+
+            downloadClientJar().with_context(||
+            {
                 format!("copy the files of {} into {} to install the assets by hand", url::MCASSET, root.display())
             })?
         }
@@ -139,11 +152,13 @@ fn fetchSounds(resources: &Path) -> Result<()>
     let indexUrl: &str = text(&version, "/assetIndex/url")?;
     let indexBytes: Vec<u8> = download(indexUrl)?;
     verify(indexUrl, &indexBytes, text(&version, "/assetIndex/sha1")?)?;
+
     let index: Value = parseJson(indexUrl, &indexBytes)?;
     let objects: &serde_json::Map<String, Value> =
         index.get("objects").and_then(Value::as_object).with_context(|| format!("{indexUrl} has no objects map"))?;
     let wanted: Vec<(&String, &Value)> = objects.iter().filter(|(name, _)| isSound(name)).collect();
     info!("downloading {} sound files into {}", wanted.len(), resources.display());
+
     for (name, object) in wanted
     {
         let hash: &str = text(object, "/hash")?;
@@ -152,11 +167,13 @@ fn fetchSounds(resources: &Path) -> Result<()>
         {
             continue;
         }
+
         let folder: &str = hash.get(..2).with_context(|| format!("short hash for {name}"))?;
         let bytes: Vec<u8> = download(&format!("{}/{folder}/{hash}", url::RESOURCES))?;
         verify(name, &bytes, hash)?;
         write(&destination, &bytes)?;
     }
+
     Ok(())
 }
 
@@ -166,7 +183,8 @@ fn versionJson() -> Result<Value>
     let entry: &Value = manifest
         .get("versions")
         .and_then(Value::as_array)
-        .and_then(|versions| {
+        .and_then(|versions|
+        {
             versions.iter().find(|version| version.get("id").and_then(Value::as_str) == Some(VERSION_ID))
         })
         .with_context(|| format!("{} has no {VERSION_ID} entry", url::VERSION_MANIFEST))?;
@@ -206,10 +224,12 @@ fn extractJar(root: &Path, bytes: &[u8]) -> Result<()>
 {
     let mut archive: zip::ZipArchive<Cursor<&[u8]>> =
         zip::ZipArchive::new(Cursor::new(bytes)).context("opening the client jar")?;
+
     for index in 0..archive.len()
     {
         let mut entry: zip::read::ZipFile<'_, Cursor<&[u8]>> =
             archive.by_index(index).context("reading the client jar")?;
+
         let Some(relative) = entry.enclosed_name()
         else
         {
@@ -219,9 +239,11 @@ fn extractJar(root: &Path, bytes: &[u8]) -> Result<()>
         {
             continue;
         }
+
         let path: PathBuf = root.join(&relative);
         std::io::copy(&mut entry, &mut create(&path)?).with_context(|| format!("extracting {}", path.display()))?;
     }
+
     info!("assets extracted into {}", root.display());
     Ok(())
 }
@@ -232,6 +254,7 @@ fn create(path: &Path) -> Result<File>
     {
         std::fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
     }
+
     File::create(path).with_context(|| format!("creating {}", path.display()))
 }
 

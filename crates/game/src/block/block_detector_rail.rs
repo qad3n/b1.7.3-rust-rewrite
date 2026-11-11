@@ -16,6 +16,7 @@ fn onEntityCollidedWithBlock(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32
     {
         return;
     }
+
     setStateIfMinecartInteractsWithRail(this, world, x, y, z, n);
 }
 
@@ -30,6 +31,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     {
         return;
     }
+
     setStateIfMinecartInteractsWithRail(this, world, x, y, z, n);
 }
 
@@ -49,10 +51,12 @@ fn setStateIfMinecartInteractsWithRail(this: &Rc<Block>, world: &Rc<World>, x: i
             ((z + 1) as f32 - f) as f64,
         ),
     );
+
     if !list.is_empty()
     {
         bl2 = true;
     }
+
     if bl2 && !bl
     {
         world.setBlockMetadataWithNotify(x, y, z, metadata | 8);
@@ -60,6 +64,7 @@ fn setStateIfMinecartInteractsWithRail(this: &Rc<Block>, world: &Rc<World>, x: i
         world.notifyBlocksOfNeighborChange(x, y - 1, z, this.m_blockID);
         world.markBlocksDirty(x, y, z, x, y, z);
     }
+
     if !bl2 && bl
     {
         world.setBlockMetadataWithNotify(x, y, z, metadata & 7);
@@ -67,13 +72,15 @@ fn setStateIfMinecartInteractsWithRail(this: &Rc<Block>, world: &Rc<World>, x: i
         world.notifyBlocksOfNeighborChange(x, y - 1, z, this.m_blockID);
         world.markBlocksDirty(x, y, z, x, y, z);
     }
+
     if bl2
     {
         world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockDetectorRail",
     m_parent: Some(&block_rail::CLASS),
     tickRate: |_| 20,
@@ -81,11 +88,13 @@ pub const CLASS: BlockClass = BlockClass {
     onEntityCollidedWithBlock,
     updateTick,
     isPoweringTo: |_, world, x, y, z, _| (world.getBlockMetadata(x, y, z) & 8) != 0,
-    isIndirectlyPoweringTo: |_, world, x, y, z, dir| {
+    isIndirectlyPoweringTo: |_, world, x, y, z, dir|
+    {
         if (world.getBlockMetadata(x, y, z) & 8) == 0
         {
             return false;
         }
+
         dir == 1
     },
     ..block_rail::CLASS

@@ -40,7 +40,8 @@ struct CatalogFile
     hook: Vec<HookEntry>,
 }
 
-static CATALOG: LazyLock<Vec<HookEntry>> = LazyLock::new(|| {
+static CATALOG: LazyLock<Vec<HookEntry>> = LazyLock::new(||
+{
     let file: CatalogFile = toml::from_str(CATALOG_TOML).expect("the bundled hook catalog parses");
     file.hook
 });

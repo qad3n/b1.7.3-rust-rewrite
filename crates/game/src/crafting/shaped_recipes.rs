@@ -13,9 +13,10 @@ pub struct ShapedRecipes
 
 impl ShapedRecipes
 {
-    pub fn new(width: i32, height: i32, ingredients: Vec<Option<Choice>>, result: Rc<ItemStack>) -> ShapedRecipes
+    pub fn new(width: i32, height: i32, ingredients: Vec<Option<Choice>>, result: Rc<ItemStack>) -> Self
     {
-        ShapedRecipes {
+        Self
+        {
             m_recipeOutputItemID: result.m_itemID.get(),
             m_recipeWidth: width,
             m_recipeHeight: height,
@@ -33,6 +34,7 @@ impl ShapedRecipes
                 let k: i32 = i - x;
                 let l: i32 = j - y;
                 let mut choice: Option<&Choice> = None;
+
                 if k >= 0 && l >= 0 && k < self.m_recipeWidth && l < self.m_recipeHeight
                 {
                     let index: i32 = if rotate
@@ -58,6 +60,7 @@ impl ShapedRecipes
                             return false;
                         }
                     }
+
                     _ => return false,
                 }
             }

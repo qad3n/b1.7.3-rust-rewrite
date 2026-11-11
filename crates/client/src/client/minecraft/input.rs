@@ -1,7 +1,8 @@
 use super::atLeastOne;
 use crate::client::Minecraft;
 use crate::entity::entity_player_sp;
-use crate::gui::{
+use crate::gui::
+{
     GuiChat, GuiGameOver, GuiIngameMenu, GuiInventory, GuiMainMenu, GuiScreen, ScaledResolution, newSleepMP,
 };
 use crate::settings::{EnumOptions, GameSettings};
@@ -37,19 +38,24 @@ impl Minecraft
             debug!("A mod refused to open {}", screenName(screen.as_ref()));
             return;
         }
+
         if self.m_currentScreen.get().is_some_and(|current| current.instanceOf("GuiUnused"))
         {
             return;
         }
+
         if let Some(current) = self.m_currentScreen.get()
         {
             current.onGuiClosed();
         }
+
         if screen.as_ref().is_some_and(|screen| screen.instanceOf("GuiMainMenu"))
         {
             self.statFileWriter().func_27175_b();
         }
+
         self.statFileWriter().syncStats();
+
         if screen.is_none() && self.m_theWorld.with(Option::is_none)
         {
             screen = Some(GuiMainMenu::new());
@@ -58,12 +64,16 @@ impl Minecraft
         {
             screen = Some(GuiGameOver::new());
         }
+
         if screen.as_ref().is_some_and(|screen| screen.instanceOf("GuiMainMenu"))
         {
             self.ingameGUI().clearChatMessages();
         }
+
         let previous: Option<Rc<GuiScreen>> = self.m_currentScreen.get();
+
         self.m_currentScreen.set(screen.clone());
+
         match &screen
         {
             Some(screen) => debug!("Opened {}", screen.className()),
@@ -71,11 +81,13 @@ impl Minecraft
             None =>
             {}
         }
+
         match screen
         {
             Some(screen) =>
             {
                 self.setIngameNotInFocus();
+
                 let scaledResolution: ScaledResolution =
                     ScaledResolution::new(&self.gameSettings(), self.m_displayWidth.get(), self.m_displayHeight.get());
                 let n: i32 = scaledResolution.getScaledWidth();
@@ -83,6 +95,7 @@ impl Minecraft
                 screen.setWorldAndResolution(&self.rc(), n, n2);
                 self.m_skipRenderWorld.set(false);
             }
+
             None => self.setIngameFocus(),
         }
     }
@@ -97,6 +110,7 @@ impl Minecraft
         {
             return;
         }
+
         self.m_inGameHasFocus.set(true);
         self.m_mouseHelper.get().orNpe().grabMouseCursor();
         self.displayGuiScreen(None);
@@ -110,10 +124,12 @@ impl Minecraft
         {
             return;
         }
+
         if let Some(player) = self.m_thePlayer.get()
         {
             entity_player_sp::resetPlayerKeyState(&player);
         }
+
         self.m_inGameHasFocus.set(false);
         self.m_mouseHelper.get().orNpe().ungrabMouseCursor();
     }
@@ -124,6 +140,7 @@ impl Minecraft
         {
             return;
         }
+
         self.displayGuiScreen(Some(GuiIngameMenu::new()));
     }
 
@@ -133,14 +150,17 @@ impl Minecraft
         {
             return;
         }
+
         if !holdingAttack
         {
             self.m_leftClickCounter.set(0);
         }
+
         if button == 0 && self.m_leftClickCounter.get() > 0
         {
             return;
         }
+
         let target: Option<MovingObjectPosition> = self.m_objectMouseOver.get();
         match target
         {
@@ -154,6 +174,7 @@ impl Minecraft
                     hit.m_sideHit,
                 );
             }
+
             _ => self.playerController().resetBlockRemoving(),
         }
     }
@@ -170,11 +191,14 @@ impl Minecraft
         {
             return;
         }
+
         if button == 0
         {
             player.swingItem();
         }
+
         let mut bl: bool = true;
+
         match self.m_objectMouseOver.get()
         {
             None =>
@@ -184,24 +208,29 @@ impl Minecraft
                     self.m_leftClickCounter.set(10);
                 }
             }
+
             Some(hit) if hit.m_typeOfHit == EnumMovingObjectType::ENTITY =>
             {
-                let target: Rc<Entity> = hit.m_entityHit.clone().orNpe();
+                let target: Rc<Entity> = hit.m_entityHit.orNpe();
+
                 if button == 0
                 {
                     self.playerController().attackEntity(&player, &target);
                 }
+
                 if button == 1
                 {
                     self.playerController().interactWithEntity(&player, &target);
                 }
             }
+
             Some(hit) if hit.m_typeOfHit == EnumMovingObjectType::TILE =>
             {
                 let n: i32 = hit.m_blockX;
                 let n2: i32 = hit.m_blockY;
                 let n3: i32 = hit.m_blockZ;
                 let n4: i32 = hit.m_sideHit;
+
                 if button == 0
                 {
                     self.playerController().clickBlock(n, n2, n3, hit.m_sideHit);
@@ -217,11 +246,13 @@ impl Minecraft
                         bl = false;
                         player.swingItem();
                     }
+
                     let Some(itemStack2) = itemStack2
                     else
                     {
                         return;
                     };
+
                     if itemStack2.m_stackSize.get() == 0
                     {
                         inventory.m_mainInventory.borrow_mut()[inventory.m_currentItem.get() as usize] = None;
@@ -232,9 +263,11 @@ impl Minecraft
                     }
                 }
             }
+
             Some(_) =>
             {}
         }
+
         if bl
             && button == 1
             && let Some(itemStack) = inventory(&player).getCurrentItem()
@@ -266,12 +299,14 @@ impl Minecraft
         Ok(())
     }
 
-    pub(super) fn resize(&self, width: i32, height: i32)
+    pub(crate) fn resize(&self, width: i32, height: i32)
     {
         let width: i32 = atLeastOne(width);
         let height: i32 = atLeastOne(height);
+
         self.m_displayWidth.set(width);
         self.m_displayHeight.set(height);
+
         if let Some(screen) = self.m_currentScreen.get()
         {
             let scaledResolution: ScaledResolution = ScaledResolution::new(&self.gameSettings(), width, height);
@@ -288,19 +323,23 @@ impl Minecraft
         {
             return;
         };
+
         let mut n: i32 = self.theWorld().getBlockId(hit.m_blockX, hit.m_blockY, hit.m_blockZ);
         if n == Block::GRASS
         {
             n = Block::DIRT;
         }
+
         if n == Block::STAIR_DOUBLE
         {
             n = Block::STAIR_SINGLE;
         }
+
         if n == Block::BEDROCK
         {
             n = Block::STONE;
         }
+
         inventory(&self.thePlayer()).setCurrentItem(n, self.playerController().instanceOf("PlayerControllerTest"));
     }
 
@@ -313,14 +352,16 @@ impl Minecraft
             session.m_username.get().unwrap_or_else(|| "null".to_owned()),
             session.m_sessionId.get().unwrap_or_else(|| "null".to_owned()),
         );
+
         let started: std::io::Result<std::thread::JoinHandle<()>> =
             jvm::thread::start(jvm::thread::nextName(), move || match jvm::net::getResponseCode(&url)
             {
-                Ok(PAID_RESPONSE_CODE) => Minecraft::setHasPaidCheckTime(jvm::system::currentTimeMillis()),
+                Ok(PAID_RESPONSE_CODE) => Self::setHasPaidCheckTime(jvm::system::currentTimeMillis()),
                 Ok(_) =>
                 {}
                 Err(exception) => exception.printStackTrace(),
             });
+
         if let Err(error) = started
         {
             jvm::io::fromStd(&error).printStackTrace();
@@ -331,13 +372,16 @@ impl Minecraft
     {
         // mod tick listeners run around the vanilla tick
         modloader::play::tick(true);
+
         if self.m_ticksRan.get() == LICENSE_CHECK_TICK
         {
             self.initLicenseCheckThread();
         }
+
         self.statFileWriter().tick();
         self.ingameGUI().updateTick();
         self.entityRenderer().getMouseOver(1.0);
+
         if let Some(player) = self.m_thePlayer.get()
             && let Some(provider) = self.theWorld().getIChunkProvider().asLoadOrGenerate()
         {
@@ -345,46 +389,59 @@ impl Minecraft
             let n2: i32 = math_helper::floor_float(player.posZ() as i32 as f32) >> 4;
             provider.setCurrentChunkOver(n, n2);
         }
+
         if !self.isGamePaused() && self.m_theWorld.with(Option::is_some)
         {
             self.playerController().updateController();
         }
+
         lwjgl::opengl::GL11::glBindTexture(3553, self.renderEngine().getTexture("/terrain.png"));
+
         if !self.isGamePaused()
         {
             self.renderEngine().updateDynamicTextures();
         }
+
         self.updateScreenForPlayer();
+
         if self.m_currentScreen.with(Option::is_some)
         {
             self.m_leftClickCounter.set(10000);
             self.m_mouseTicksRan.set(self.m_ticksRan.get() + 10000);
         }
+
         if let Some(screen) = self.m_currentScreen.get()
         {
             screen.handleInput();
+
             if let Some(screen) = self.m_currentScreen.get()
             {
                 screen.m_particlesGui.get().orNpe().tick();
                 screen.updateScreen();
             }
         }
+
         if self.m_currentScreen.get().is_none_or(|screen| screen.m_passEvents.get())
         {
             self.handleMouseEvents();
+
             if self.m_leftClickCounter.get() > 0
             {
                 self.m_leftClickCounter.set(self.m_leftClickCounter.get() - 1);
             }
+
             self.handleKeyboardEvents();
             self.handleHeldButtons();
         }
+
         self.tickWorld();
         self.m_systemTime.set(jvm::system::currentTimeMillis());
+
         if modloader::play::tick(false)
         {
             self.shutdown();
         }
+
         modloader::play::clientTick();
     }
 
@@ -404,10 +461,12 @@ impl Minecraft
                     self.displayGuiScreen(Some(newSleepMP()));
                 }
             }
+
             (Some(screen), _) if screen.instanceOf("GuiSleepMP") && !self.thePlayer().isPlayerSleeping() =>
             {
                 self.displayGuiScreen(None);
             }
+
             _ =>
             {}
         }
@@ -422,10 +481,12 @@ impl Minecraft
             {
                 continue;
             }
+
             let mut n: i32 = Mouse::getEventDWheel();
             if n != 0
             {
                 inventory(&self.thePlayer()).changeCurrentItem(n);
+
                 let settings: Rc<GameSettings> = self.gameSettings();
                 if settings.m_discreteScroll.get()
                 {
@@ -433,13 +494,16 @@ impl Minecraft
                     {
                         n = 1;
                     }
+
                     if n < 0
                     {
                         n = -1;
                     }
+
                     settings.m_totalDiscreteScroll.set(settings.m_totalDiscreteScroll.get() + n as f32 * 0.25);
                 }
             }
+
             match self.m_currentScreen.get()
             {
                 None =>
@@ -449,21 +513,25 @@ impl Minecraft
                         self.setIngameFocus();
                         continue;
                     }
+
                     if Mouse::getEventButton() == 0 && Mouse::getEventButtonState()
                     {
                         self.clickMouse(0);
                         self.m_mouseTicksRan.set(self.m_ticksRan.get());
                     }
+
                     if Mouse::getEventButton() == 1 && Mouse::getEventButtonState()
                     {
                         self.clickMouse(1);
                         self.m_mouseTicksRan.set(self.m_ticksRan.get());
                     }
+
                     if Mouse::getEventButton() == 2 && Mouse::getEventButtonState()
                     {
                         self.clickMiddleMouseButton();
                     }
                 }
+
                 Some(screen) => screen.handleMouseInput(),
             }
         }
@@ -476,20 +544,24 @@ impl Minecraft
             entity_player_sp::handleKeyPress(&self.thePlayer(), Keyboard::getEventKey(), Keyboard::getEventKeyState());
             // mod keybinds and key listeners see every key event in game
             modloader::play::key(Keyboard::getEventKey(), Keyboard::getEventKeyState());
+
             if !Keyboard::getEventKeyState()
             {
                 continue;
             }
+
             if Keyboard::getEventKey() == 87
             {
                 self.toggleFullscreen();
                 continue;
             }
+
             match self.m_currentScreen.get()
             {
                 Some(screen) => screen.handleKeyboardInput(),
                 None => self.handleGameKey(Keyboard::getEventKey()),
             }
+
             for i in 0..9
             {
                 if Keyboard::getEventKey() == 2 + i
@@ -497,6 +569,7 @@ impl Minecraft
                     inventory(&self.thePlayer()).m_currentItem.set(i);
                 }
             }
+
             if Keyboard::getEventKey() == self.gameSettings().m_keyBindToggleFog.m_keyCode.get()
             {
                 let value: i32 = if Keyboard::isKeyDown(42) || Keyboard::isKeyDown(54)
@@ -515,34 +588,42 @@ impl Minecraft
     fn handleGameKey(&self, key: i32)
     {
         let settings: Rc<GameSettings> = self.gameSettings();
+
         if key == 1
         {
             self.displayInGameMenu();
         }
+
         if key == 31 && Keyboard::isKeyDown(61)
         {
             self.forceReload();
         }
+
         if key == 59
         {
             settings.m_hideGUI.set(!settings.m_hideGUI.get());
         }
+
         if key == 61
         {
             settings.m_showDebugInfo.set(!settings.m_showDebugInfo.get());
         }
+
         if key == 63
         {
             settings.m_thirdPersonView.set(!settings.m_thirdPersonView.get());
         }
+
         if key == 66
         {
             settings.m_smoothCamera.set(!settings.m_smoothCamera.get());
         }
+
         if key == settings.m_keyBindInventory.m_keyCode.get()
         {
             self.displayGuiScreen(Some(GuiInventory::new(&self.thePlayer())));
         }
+
         if key == settings.m_keyBindDrop.m_keyCode.get()
         {
             self.thePlayer().dropCurrentItem();
@@ -560,14 +641,17 @@ impl Minecraft
         // rewrite: letting go of the use key lets go of an item in use
         let using: Option<Rc<Entity>> =
             self.m_thePlayer.get().filter(|player| game::entity::entity_player::isUsingItem(player));
+
         if let Some(player) = using
             && !Mouse::isButtonDown(1)
         {
             modloader::network::loader::stopUsing(&player);
         }
+
         if self.m_currentScreen.with(Option::is_none)
         {
             let interval: f32 = self.timer().m_ticksPerSecond.get() / 4.0;
+
             for button in 0..2
             {
                 if Mouse::isButtonDown(button)
@@ -579,6 +663,7 @@ impl Minecraft
                 }
             }
         }
+
         self.handleMouseDown(
             0,
             self.m_currentScreen.with(Option::is_none) && Mouse::isButtonDown(0) && self.m_inGameHasFocus.get(),
@@ -592,41 +677,51 @@ impl Minecraft
         {
             return;
         };
+
         if let Some(player) = self.m_thePlayer.get()
         {
             self.m_joinPlayerCounter.set(self.m_joinPlayerCounter.get() + 1);
+
             if self.m_joinPlayerCounter.get() == 30
             {
                 self.m_joinPlayerCounter.set(0);
                 world.joinEntityInSurroundings(&player);
             }
         }
+
         world.m_difficultySetting.set(self.gameSettings().m_difficulty.get());
+
         if world.m_multiplayerWorld.get()
         {
             world.m_difficultySetting.set(3);
         }
+
         if !self.isGamePaused()
         {
             self.entityRenderer().updateRenderer();
         }
+
         if !self.isGamePaused()
         {
             self.m_renderGlobal.get().orNpe().updateClouds();
         }
+
         if !self.isGamePaused()
         {
             if world.m_lightningCooldown.get() > 0
             {
                 world.m_lightningCooldown.set(world.m_lightningCooldown.get() - 1);
             }
+
             world.updateEntities();
         }
+
         if !self.isGamePaused() || self.isMultiplayerWorld()
         {
             world.setAllowedMobSpawns(self.gameSettings().m_difficulty.get() > 0, true);
             world.tick();
         }
+
         if !self.isGamePaused()
             && let Some(world) = self.m_theWorld.get()
         {
@@ -637,6 +732,7 @@ impl Minecraft
                 math_helper::floor_double(player.posZ()),
             );
         }
+
         if !self.isGamePaused()
         {
             self.m_effectRenderer.get().orNpe().updateEffects();

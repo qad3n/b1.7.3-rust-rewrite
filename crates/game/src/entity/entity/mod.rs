@@ -5,7 +5,8 @@ mod riding;
 mod update;
 
 use crate::entity::DataWatcher;
-use crate::math::AxisAlignedBB;
+use crate::math::math_helper::{floor_double, floor_float};
+use crate::math::{AxisAlignedBB, math_helper};
 use crate::world::World;
 pub use class::{ENTITY, EntityClass};
 use jvm::field::Field;
@@ -17,7 +18,8 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static NEXT_ENTITY_ID: Cell<i32> = const { Cell::new(0) };
 }
 
@@ -54,8 +56,8 @@ pub struct Entity
     pub m_entityId: Cell<i32>,
     pub m_renderDistanceWeight: Cell<f64>,
     pub m_preventEntitySpawning: Cell<bool>,
-    pub m_riddenByEntity: Field<Option<Rc<Entity>>>,
-    pub m_ridingEntity: Field<Option<Rc<Entity>>>,
+    pub m_riddenByEntity: Field<Option<Rc<Self>>>,
+    pub m_ridingEntity: Field<Option<Rc<Self>>>,
     pub m_worldObj: Field<Option<Rc<World>>>,
     pub m_prevPosX: Cell<f64>,
     pub m_prevPosY: Cell<f64>,
@@ -124,12 +126,15 @@ impl Entity
 {
     pub fn alloc(class: &'static EntityClass, ext: Box<dyn EntityExt>) -> Rc<Self>
     {
-        let entityId: i32 = NEXT_ENTITY_ID.with(|next| {
+        let entityId: i32 = NEXT_ENTITY_ID.with(|next|
+        {
             let id: i32 = next.get();
             next.set(id + 1);
             id
         });
-        Rc::new(Self {
+
+        Rc::new(Self
+        {
             // mod content reuses a vanilla constructor with a class derived from it
             m_class: crate::hooks::entityClass(class),
             m_ext: ext,
@@ -226,7 +231,7 @@ impl Entity
 
     pub fn getDataWatcher(&self) -> &DataWatcher { &self.m_dataWatcher }
 
-    pub fn equals(&self, other: &Entity) -> bool { other.m_entityId.get() == self.m_entityId.get() }
+    pub fn equals(&self, other: &Self) -> bool { other.m_entityId.get() == self.m_entityId.get() }
 
     pub fn hashCode(&self) -> i32 { self.m_entityId.get() }
 
@@ -241,6 +246,7 @@ impl Entity
         self.m_posX.set(x);
         self.m_posY.set(y);
         self.m_posZ.set(z);
+
         let f: f32 = self.m_width.get() / 2.0;
         let f1: f32 = self.m_height.get();
         let base: f64 = y - self.m_yOffset.get() as f64 + self.m_ySize.get() as f64;
@@ -251,16 +257,20 @@ impl Entity
     {
         let f: f32 = self.m_rotationPitch.get();
         let f1: f32 = self.m_rotationYaw.get();
+
         self.m_rotationYaw.set((self.m_rotationYaw.get() as f64 + yaw as f64 * 0.15) as f32);
         self.m_rotationPitch.set((self.m_rotationPitch.get() as f64 - pitch as f64 * 0.15) as f32);
+
         if self.m_rotationPitch.get() < -90.0
         {
             self.m_rotationPitch.set(-90.0);
         }
+
         if self.m_rotationPitch.get() > 90.0
         {
             self.m_rotationPitch.set(90.0);
         }
+
         self.m_prevRotationPitch.set(self.m_prevRotationPitch.get() + (self.m_rotationPitch.get() - f));
         self.m_prevRotationYaw.set(self.m_prevRotationYaw.get() + (self.m_rotationYaw.get() - f1));
     }
@@ -278,15 +288,18 @@ impl Entity
         self.m_rotationPitch.set(pitch);
         self.m_prevRotationPitch.set(pitch);
         self.m_ySize.set(0.0);
+
         let d0: f64 = (self.m_prevRotationYaw.get() - yaw) as f64;
         if d0 < -180.0
         {
             self.m_prevRotationYaw.set(self.m_prevRotationYaw.get() + 360.0);
         }
+
         if d0 >= 180.0
         {
             self.m_prevRotationYaw.set(self.m_prevRotationYaw.get() - 360.0);
         }
+
         self.setPosition(self.posX(), self.posY(), self.posZ());
         self.setRotation(yaw, pitch);
     }
@@ -296,6 +309,7 @@ impl Entity
         self.m_posX.set(x);
         self.m_prevPosX.set(x);
         self.m_lastTickPosX.set(x);
+
         let y: f64 = y + self.m_yOffset.get() as f64;
         self.m_posY.set(y);
         self.m_prevPosY.set(y);
@@ -308,7 +322,7 @@ impl Entity
         self.setPosition(self.posX(), self.posY(), self.posZ());
     }
 
-    pub fn getDistanceToEntity(&self, entity: &Entity) -> f32
+    pub fn getDistanceToEntity(&self, entity: &Self) -> f32
     {
         let f: f32 = (self.posX() - entity.posX()) as f32;
         let f1: f32 = (self.posY() - entity.posY()) as f32;
@@ -332,7 +346,7 @@ impl Entity
         crate::math::math_helper::sqrt_double(d0 * d0 + d1 * d1 + d2 * d2) as f64
     }
 
-    pub fn getDistanceSqToEntity(&self, entity: &Entity) -> f64
+    pub fn getDistanceSqToEntity(&self, entity: &Self) -> f64
     {
         let d0: f64 = self.posX() - entity.posX();
         let d1: f64 = self.posY() - entity.posY();
@@ -358,6 +372,7 @@ impl Entity
     pub fn setEntityFlag(&self, index: i32, value: bool)
     {
         let b0: i8 = self.m_dataWatcher.getWatchableObjectByte(0);
+
         let flags: i8 = if value
         {
             (b0 as i32 | 1 << index) as i8
@@ -371,7 +386,6 @@ impl Entity
 
     pub fn isWet(self: &Rc<Self>) -> bool
     {
-        use crate::math::math_helper::floor_double;
         self.m_inWater.get()
             || self.world().canBlockBeRainedOn(
                 floor_double(self.posX()),
@@ -390,15 +404,17 @@ impl Entity
         }
 
         let mut burning: bool = false;
-        crate::fluid::eachModded(crate::fluid::FluidStyle::Lava, |fluid| {
+
+        crate::fluid::eachModded(crate::fluid::FluidStyle::Lava, |fluid|
+        {
             burning = burning || world.isMaterialInBB(&bb, Rc::clone(&fluid.m_material));
         });
+
         burning
     }
 
     pub fn isInsideOfMaterial(self: &Rc<Self>, liquid: &Rc<crate::block::Material>) -> bool
     {
-        use crate::math::math_helper::{floor_double, floor_float};
         let d0: f64 = self.posY() + self.getEyeHeight() as f64;
         let i: i32 = floor_double(self.posX());
         let j: i32 = floor_float(floor_double(d0) as f32);
@@ -411,12 +427,12 @@ impl Entity
             let f1: f32 = (j + 1) as f32 - f;
             return d0 < f1 as f64;
         }
+
         false
     }
 
     pub fn moveFlying(&self, sideways: f32, forwards: f32, scale: f32)
     {
-        use crate::math::math_helper;
         let mut sideways: f32 = sideways;
         let mut forwards: f32 = forwards;
         let mut sqrtFloat: f32 = math_helper::sqrt_float(sideways * sideways + forwards * forwards);
@@ -424,33 +440,33 @@ impl Entity
         {
             return;
         }
+
         if sqrtFloat < 1.0
         {
             sqrtFloat = 1.0;
         }
+
         let n: f32 = scale / sqrtFloat;
         sideways *= n;
         forwards *= n;
+
         let sin: f32 = math_helper::sin(self.m_rotationYaw.get() * 3.1415927 / 180.0);
         let cos: f32 = math_helper::cos(self.m_rotationYaw.get() * 3.1415927 / 180.0);
         self.m_motionX.set(self.m_motionX.get() + (sideways * cos - forwards * sin) as f64);
         self.m_motionZ.set(self.m_motionZ.get() + (forwards * cos + sideways * sin) as f64);
     }
 
-    pub fn dropItem(self: &Rc<Self>, item: i32, amount: i32) -> Rc<Entity>
-    {
-        self.dropItemWithOffset(item, amount, 0.0)
-    }
+    pub fn dropItem(self: &Rc<Self>, item: i32, amount: i32) -> Rc<Self> { self.dropItemWithOffset(item, amount, 0.0) }
 
-    pub fn dropItemWithOffset(self: &Rc<Self>, item: i32, amount: i32, offsetY: f32) -> Rc<Entity>
+    pub fn dropItemWithOffset(self: &Rc<Self>, item: i32, amount: i32, offsetY: f32) -> Rc<Self>
     {
         self.entityDropItem(crate::item::ItemStack::withDamage(item, amount, 0), offsetY)
     }
 
-    pub fn entityDropItem(self: &Rc<Self>, item: Rc<crate::item::ItemStack>, offsetY: f32) -> Rc<Entity>
+    pub fn entityDropItem(self: &Rc<Self>, item: Rc<crate::item::ItemStack>, offsetY: f32) -> Rc<Self>
     {
         let world: Rc<World> = self.world();
-        let entityitem: Rc<Entity> =
+        let entityitem: Rc<Self> =
             crate::entity::entity_item::create(&world, self.posX(), self.posY() + offsetY as f64, self.posZ(), item);
         crate::entity::entity_item::fields(&entityitem).m_delayBeforeCanPickup.set(10);
         world.entityJoinedWorld(&entityitem);
@@ -465,4 +481,4 @@ impl JavaObject for Entity
     fn javaHash(&self) -> i32 { self.hashCode() }
 }
 
-pub fn setWorld(this: &Rc<Entity>, world: Option<Rc<World>>) { this.m_worldObj.set(world); }
+pub(crate) fn setWorld(this: &Rc<Entity>, world: Option<Rc<World>>) { this.m_worldObj.set(world); }

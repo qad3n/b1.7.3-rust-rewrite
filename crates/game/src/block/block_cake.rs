@@ -9,6 +9,7 @@ fn eatCakeSlice(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>)
     if crate::entity::entity_living::fields(player).m_health.get() < 20
     {
         player.heal(3);
+
         let n: i32 = world.getBlockMetadata(x, y, z) + 1;
         if n >= 6
         {
@@ -37,32 +38,43 @@ fn bounds(world: &Rc<World>, x: i32, y: i32, z: i32, top: f32) -> Rc<AxisAligned
     )
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockCake",
     m_parent: Some(&BLOCK),
-    setBlockBoundsBasedOnState: |this, world, x, y, z| {
+    setBlockBoundsBasedOnState: |this, world, x, y, z|
+    {
         let n: i32 = world.getBlockMetadata(x, y, z);
         let f: f32 = 0.0625;
         let f2: f32 = (1 + n * 2) as f32 / 16.0;
         let f3: f32 = 0.5;
         this.setBlockBounds(f2, 0.0, f, 1.0 - f, f3, 1.0 - f);
     },
-    setBlockBoundsForItemRender: |this| {
+
+    setBlockBoundsForItemRender: |this|
+    {
         let f: f32 = 0.0625;
         let f2: f32 = 0.5;
         this.setBlockBounds(f, 0.0, f, 1.0 - f, f2, 1.0 - f);
     },
-    getCollisionBoundingBoxFromPool: |_, world, x, y, z| {
+
+    getCollisionBoundingBoxFromPool: |_, world, x, y, z|
+    {
         let f: f32 = 0.0625;
         let f3: f32 = 0.5;
         Some(bounds(world, x, y, z, y as f32 + f3 - f))
     },
-    getSelectedBoundingBoxFromPool: |_, world, x, y, z| {
+
+    getSelectedBoundingBoxFromPool: |_, world, x, y, z|
+    {
         let f3: f32 = 0.5;
         bounds(world, x, y, z, y as f32 + f3)
     },
-    getBlockTextureFromSideAndMetadata: |this, face, metadata| {
+
+    getBlockTextureFromSideAndMetadata: |this, face, metadata|
+    {
         let sprite: i32 = this.m_blockIndexInTexture.get();
+
         if face == 1
         {
             return sprite;
@@ -75,10 +87,14 @@ pub const CLASS: BlockClass = BlockClass {
         {
             return sprite + 2;
         }
+
         sprite + 1
     },
-    getBlockTextureFromSide: |this, face| {
+
+    getBlockTextureFromSide: |this, face|
+    {
         let sprite: i32 = this.m_blockIndexInTexture.get();
+
         match face
         {
             1 => sprite,
@@ -88,15 +104,19 @@ pub const CLASS: BlockClass = BlockClass {
     },
     renderAsNormalBlock: |_| false,
     isOpaqueCube: |_| false,
-    blockActivated: |_, world, x, y, z, player| {
+    blockActivated: |_, world, x, y, z, player|
+    {
         eatCakeSlice(world, x, y, z, player);
         true
     },
     onBlockClicked: |_, world, x, y, z, player| eatCakeSlice(world, x, y, z, player),
-    canPlaceBlockAt: |this, world, x, y, z| {
+    canPlaceBlockAt: |this, world, x, y, z|
+    {
         (BLOCK.canPlaceBlockAt)(this, world, x, y, z) && this.canBlockStay(world, x, y, z)
     },
-    onNeighborBlockChange: |this, world, x, y, z, _| {
+
+    onNeighborBlockChange: |this, world, x, y, z, _|
+    {
         if !this.canBlockStay(world, x, y, z)
         {
             this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));

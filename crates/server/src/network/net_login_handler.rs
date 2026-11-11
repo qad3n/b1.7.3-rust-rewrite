@@ -6,7 +6,8 @@ use game::entity::{Entity, entity_player};
 use game::network::net_handler::NetHandler;
 use game::network::network_manager::NetworkManager;
 use game::network::packet::Packet;
-use game::network::packets::{
+use game::network::packets::
+{
     Packet0KeepAlive, Packet1Login, Packet2Handshake, Packet3Chat, Packet4UpdateTime, Packet6SpawnPosition,
     Packet250ModPayload, Packet255KickDisconnect,
 };
@@ -25,7 +26,7 @@ use std::time::Instant;
 
 pub struct NetLoginHandler
 {
-    m_self: Weak<NetLoginHandler>,
+    m_self: Weak<Self>,
     pub m_netManager: Field<Option<Rc<NetworkManager>>>,
     pub m_finishedProcessing: Cell<bool>,
     m_mcServer: Rc<MinecraftServer>,
@@ -54,9 +55,10 @@ const PROTOCOL_ERROR: &str = "Protocol error";
 
 impl NetLoginHandler
 {
-    pub fn new(server: &Rc<MinecraftServer>, socket: TcpStream, name: &str) -> IoResult<Rc<NetLoginHandler>>
+    pub fn new(server: &Rc<MinecraftServer>, socket: TcpStream, name: &str) -> IoResult<Rc<Self>>
     {
-        let handler: Rc<NetLoginHandler> = Rc::new_cyclic(|this| NetLoginHandler {
+        let handler: Rc<Self> = Rc::new_cyclic(|this| Self
+        {
             m_self: this.clone(),
             m_netManager: Field::new(None),
             m_finishedProcessing: Cell::new(false),
@@ -90,13 +92,16 @@ impl NetLoginHandler
             self.doLogin(&packet1login);
             self.m_packet1login.set(None);
         }
+
         let loginTimer: i32 = self.m_loginTimer.get();
         self.m_loginTimer.set(loginTimer + 1);
+
         // the socket read timeout is 30 seconds and a player may take longer to type a password
         if self.m_auth.borrow().is_some() && loginTimer % KEEP_ALIVE_TICKS == 0
         {
             self.netManager().addToSendQueue(Box::new(Packet0KeepAlive::default()));
         }
+
         let timeout: i32 = if self.m_session.borrow().is_some()
         {
             CONFIGURATION_TIMEOUT
@@ -109,6 +114,7 @@ impl NetLoginHandler
         {
             600
         };
+
         if loginTimer == timeout
         {
             self.kickUser("Took too long to log in");
@@ -121,7 +127,8 @@ impl NetLoginHandler
 
     pub fn kickUser(&self, reason: &str)
     {
-        let result: Result<(), Throwable> = jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, || {
+        let result: Result<(), Throwable> = jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, ||
+        {
             info!("Disconnecting {}: {reason}", self.getUserAndIPString());
             self.netManager().addToSendQueue(Box::new(Packet255KickDisconnect::new(JString::from(reason))));
             self.netManager().close();
@@ -146,15 +153,18 @@ impl NetLoginHandler
         {
             return false;
         }
+
         if packet.m_mapSeed != modloader::netsync::LOADER_MAGIC
         {
             let who: String = self.getUserAndIPString();
             modloader::log::info(modloader::log::LOADER, &format!("{who} has no mod loader"));
+
             let problems: Vec<String> = modloader::netsync::vanillaClientProblems();
             if problems.is_empty()
             {
                 return false;
             }
+
             self.kickUser(&modloader::netsync::kickMessage(&problems));
             return true;
         }
@@ -169,11 +179,14 @@ impl NetLoginHandler
         {
             return;
         }
+
         let entityPlayerMP: Option<Rc<Entity>> =
             self.m_mcServer.configManager().login(self, packet.m_username.as_ref());
+
         if let Some(entityPlayerMP) = entityPlayerMP
         {
             self.m_mcServer.configManager().readPlayerDataFromFile(&entityPlayerMP);
+
             let dimension: i32 = entity_player::fields(&entityPlayerMP).m_dimension.get();
             entityPlayerMP.setWorld(Some(self.m_mcServer.getWorldManager(dimension)));
             info!(
@@ -184,6 +197,7 @@ impl NetLoginHandler
                 doubleToString(entityPlayerMP.m_posY.get()),
                 doubleToString(entityPlayerMP.m_posZ.get())
             );
+
             let dimension: i32 = entity_player::fields(&entityPlayerMP).m_dimension.get();
             let worldServer: Rc<World> = self.m_mcServer.getWorldManager(dimension);
             let chunkCoordinates: ChunkCoordinates = worldServer.getSpawnPoint();
@@ -217,11 +231,14 @@ impl NetLoginHandler
                 entityPlayerMP.m_rotationPitch.get(),
             );
             self.m_mcServer.networkServer().addPlayer(&netServerHandler);
+
             // a configured modded client gets its mod channels for play
             if let Some(session) = self.m_session.borrow().as_ref()
             {
                 let handler: Weak<NetServerHandler> = Rc::downgrade(&netServerHandler);
-                let raw: Rc<dyn Fn(u32, Vec<u8>)> = Rc::new(move |channel: u32, body: Vec<u8>| {
+
+                let raw: Rc<dyn Fn(u32, Vec<u8>)> = Rc::new(move |channel: u32, body: Vec<u8>|
+                {
                     if let Some(handler) = handler.upgrade()
                     {
                         handler.sendPacket(Box::new(Packet250ModPayload::new(channel, body)));
@@ -229,20 +246,24 @@ impl NetLoginHandler
                 });
                 modloader::netsync::serverPlayerJoined(entityPlayerMP.m_entityId.get(), session, raw);
             }
+
             netServerHandler.sendPacket(Box::new(Packet4UpdateTime::new(worldServer.getWorldTime())));
             entity_player_mp::initMenu(&entityPlayerMP);
         }
+
         self.m_finishedProcessing.set(true);
     }
 
     fn startAuth(&self, packet: &Packet1Login)
     {
         let service: Rc<ServerAuth> = self.m_mcServer.auth();
+
         if packet.m_dimension & auth::LOGIN_FLAG == 0
         {
             self.kickUser("This server needs the b1.7.3 rewrite client to log in with a password");
             return;
         }
+
         let Some(ip) = self.netManager().remoteIp()
         else
         {
@@ -253,6 +274,7 @@ impl NetLoginHandler
         match service.ticket(ip)
         {
             Ok(ticket) => *self.m_ticket.borrow_mut() = Some(ticket),
+
             Err(reason) =>
             {
                 self.kickUser(&reason);
@@ -264,9 +286,11 @@ impl NetLoginHandler
         let op: bool = self.m_mcServer.configManager().isOp(packet.m_username.as_ref());
         let joined: Result<(auth::Handshake, Message), String> =
             auth::Handshake::join(&service.vault(), &name, service.policy(), op);
+
         let (handshake, start): (auth::Handshake, Message) = match joined
         {
             Ok(joined) => joined,
+
             Err(reason) =>
             {
                 self.kickUser(&reason);
@@ -291,10 +315,12 @@ impl NetLoginHandler
         let now: Instant = Instant::now();
         let mut limiter: std::cell::RefMut<'_, auth::Limiter> = service.limiter();
         limiter.attempt(ip, name, now)?;
+
         if matches!(start, Message::Start { mode: Mode::Register, .. })
         {
             limiter.register(ip, now)?;
         }
+
         Ok(())
     }
 
@@ -303,6 +329,7 @@ impl NetLoginHandler
         let message: Message = match Message::decode(data)
         {
             Ok(message) => message,
+
             Err(error) =>
             {
                 debug!("Bad auth message from {}: {error}", self.getUserAndIPString());
@@ -318,6 +345,7 @@ impl NetLoginHandler
             {
                 self.kickUser(PROTOCOL_ERROR);
             }
+
             return;
         }
 
@@ -336,6 +364,7 @@ impl NetLoginHandler
         let outcome: auth::Outcome = handshake.receive(&mut service.vault(), message);
         // the outcome may finish the login which reads this cell again
         drop(current);
+
         match outcome
         {
             auth::Outcome::Send(reply) =>
@@ -345,22 +374,27 @@ impl NetLoginHandler
                 {
                     service.limiter().failed(&name, Instant::now());
                 }
+
                 self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&reply)));
             }
+
             auth::Outcome::Wait =>
             {}
             auth::Outcome::Authed(keys) => self.finishAuth(&service, &name, &display, keys),
+
             auth::Outcome::Fail(reason) =>
             {
                 service.limiter().failed(&name, Instant::now());
                 info!("{} failed to log in as {display}: {reason}", self.getUserAndIPString());
                 self.kickUser(&reason);
             }
+
             auth::Outcome::Refuse(reason) =>
             {
                 info!("{} was refused as {display}: {reason}", self.getUserAndIPString());
                 self.kickUser(&reason);
             }
+
             auth::Outcome::Changed =>
             {
                 severe!("A join handshake reported a password change for {display}");
@@ -397,6 +431,7 @@ impl NetLoginHandler
         {
             return format!("{username} [{}]", self.netManager().getRemoteAddress());
         }
+
         self.netManager().getRemoteAddress()
     }
 }
@@ -435,15 +470,18 @@ impl NetHandler for NetLoginHandler
             .borrow_mut()
             .as_mut()
             .map(|session| session.receive(packet.m_channel, &packet.m_data, &sender));
+
         match outcome
         {
             None => self.kickUser("Protocol error"),
             Some(Outcome::Continue) =>
             {}
             Some(Outcome::Kick(reason)) => self.kickUser(&reason),
+
             Some(Outcome::Done) =>
             {
                 self.m_configured.set(true);
+
                 if let Some(login) = self.m_configuringLogin.get()
                 {
                     self.doLogin(&login);
@@ -455,11 +493,13 @@ impl NetHandler for NetLoginHandler
     fn handleLogin(&self, packet: &Packet1Login)
     {
         self.m_username.set(packet.m_username.clone());
+
         if self.m_loginSeen.replace(true) || packet.m_username != self.m_handshakeName.get()
         {
             self.kickUser(PROTOCOL_ERROR);
             return;
         }
+
         if packet.m_protocolVersion != 14
         {
             if packet.m_protocolVersion > 14
@@ -472,6 +512,7 @@ impl NetHandler for NetLoginHandler
             }
             return;
         }
+
         self.startAuth(packet);
     }
 }

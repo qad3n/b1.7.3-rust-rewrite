@@ -40,16 +40,19 @@ impl NoiseGenerator2
         let offsetX: f64 = random.nextDouble() * 256.0;
         let offsetY: f64 = random.nextDouble() * 256.0;
         let offsetZ: f64 = random.nextDouble() * 256.0;
+
         for n in 0..256
         {
             permutations[n] = n as i32;
         }
+
         for n in 0..256
         {
             let n2: usize = (random.nextIntBounded(256 - n as i32) + n as i32) as usize;
             permutations.swap(n, n2);
             permutations[n + 256] = permutations[n];
         }
+
         Self { m_permutations: permutations, m_offsetX: offsetX, m_offsetY: offsetY, m_offsetZ: offsetZ }
     }
 
@@ -83,9 +86,11 @@ impl NoiseGenerator2
     {
         let (f2, g2): (f64, f64) = skew();
         let mut i: usize = 0;
+
         for j in 0..sizeX
         {
             let d0: f64 = (x + j as f64) * scaleX + self.m_offsetX;
+
             for k in 0..sizeY
             {
                 let d1: f64 = (y + k as f64) * scaleY + self.m_offsetY;

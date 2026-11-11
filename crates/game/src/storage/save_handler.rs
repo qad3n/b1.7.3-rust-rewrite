@@ -20,7 +20,7 @@ pub struct SaveHandler
     m_now: i64,
 }
 
-pub(super) fn readWorldInfo(dir: &Path) -> Option<Rc<WorldInfo>>
+pub(crate) fn readWorldInfo(dir: &Path) -> Option<Rc<WorldInfo>>
 {
     for name in ["level.dat", "level.dat_old"]
     {
@@ -29,7 +29,9 @@ pub(super) fn readWorldInfo(dir: &Path) -> Option<Rc<WorldInfo>>
         {
             continue;
         }
-        let info: Option<Rc<WorldInfo>> = catchException(|| {
+
+        let info: Option<Rc<WorldInfo>> = catchException(||
+        {
             let nbttagcompound: Rc<NBTBase> = CompressedStreamTools::readCompressed(FileInputStream::open(&file1)?)?;
             let data: Rc<NBTBase> = nbttagcompound.compound().getCompoundTag("Data");
             Ok(Rc::new(WorldInfo::fromNBT(data.compound())))
@@ -47,27 +49,33 @@ pub(super) fn readWorldInfo(dir: &Path) -> Option<Rc<WorldInfo>>
             );
             return info;
         }
+
         warning!("Could not read {}, trying the next level file", file1.display());
     }
+
     debug!("No level data in {}, the world is new", dir.display());
     None
 }
 
 impl SaveHandler
 {
-    pub fn new(savesDir: &Path, name: &str, createPlayerDataDir: bool) -> SaveHandler
+    pub fn new(savesDir: &Path, name: &str, createPlayerDataDir: bool) -> Self
     {
         let now: i64 = jvm::system::currentTimeMillis();
         let saveDirectory: PathBuf = savesDir.join(name);
         file::mkdirs(&saveDirectory);
+
         let playersDirectory: PathBuf = saveDirectory.join("players");
         let dataDir: PathBuf = saveDirectory.join("data");
         file::mkdirs(&dataDir);
+
         if createPlayerDataDir
         {
             file::mkdirs(&playersDirectory);
         }
-        let handler: SaveHandler = SaveHandler {
+
+        let handler: Self = Self
+        {
             m_saveDirectory: saveDirectory,
             m_playersDirectory: playersDirectory,
             m_dataDir: dataDir,
@@ -80,12 +88,14 @@ impl SaveHandler
 
     fn writeSessionLock(&self)
     {
-        let result: IoResult<()> = (|| {
+        let result: IoResult<()> = (||
+        {
             let file1: PathBuf = self.m_saveDirectory.join("session.lock");
             let mut dataoutputstream: DataOutputStream<FileOutputStream> =
                 DataOutputStream::new(FileOutputStream::create(&file1, false)?);
             let written: IoResult<()> = dataoutputstream.writeLong(self.m_now);
             let closed: IoResult<()> = dataoutputstream.close();
+
             written?;
             closed
         })();
@@ -101,16 +111,19 @@ impl SaveHandler
     pub fn getPlayerData(&self, playerName: Option<&JString>) -> Option<Rc<NBTBase>>
     {
         let result: Result<IoResult<Option<Rc<NBTBase>>>, throwable::Throwable> =
-            throwable::catchThrowable(&throwable::EXCEPTION, || {
+            throwable::catchThrowable(&throwable::EXCEPTION, ||
+            {
                 let file1: PathBuf = self.m_playersDirectory.join(format!("{}.dat", JString::display(playerName)));
                 if file::exists(&file1)
                 {
                     debug!("Reading player data {} ({} bytes)", file1.display(), file::length(&file1));
                     return Ok(Some(CompressedStreamTools::readCompressed(FileInputStream::open(&file1)?)?));
                 }
+
                 debug!("No player data at {}, the player starts fresh", file1.display());
                 Ok(None)
             });
+
         match result.and_then(|inner| inner)
         {
             Ok(Some(nbt)) => return Some(nbt),
@@ -118,6 +131,7 @@ impl SaveHandler
             {}
             Err(_) => warning!("Failed to load player data for {}", JString::display(playerName)),
         }
+
         None
     }
 
@@ -125,28 +139,37 @@ impl SaveHandler
     {
         let nbttagcompound1: Rc<NBTBase> = NBTTagCompound::create();
         nbttagcompound1.compound().setTag("Data", &nbttagcompound);
-        catchException(|| {
+
+        catchException(||
+        {
             let file1: PathBuf = self.m_saveDirectory.join("level.dat_new");
             let file2: PathBuf = self.m_saveDirectory.join("level.dat_old");
             let file3: PathBuf = self.m_saveDirectory.join("level.dat");
+
             CompressedStreamTools::writeGzippedCompoundToOutputStream(
                 &nbttagcompound1,
                 FileOutputStream::create(&file1, false)?,
             )?;
+
             if file::exists(&file2)
             {
                 file::delete(&file2);
             }
+
             file::renameTo(&file3, &file2);
+
             if file::exists(&file3)
             {
                 file::delete(&file3);
             }
+
             file::renameTo(&file1, &file3);
+
             if file::exists(&file1)
             {
                 file::delete(&file1);
             }
+
             debug!(
                 "Wrote {} ({} bytes), kept the previous copy as level.dat_old",
                 file3.display(),
@@ -163,16 +186,20 @@ impl ISaveHandler for SaveHandler
 
     fn checkSessionLock(&self)
     {
-        let result: IoResult<()> = (|| {
+        let result: IoResult<()> = (||
+        {
             let file1: PathBuf = self.m_saveDirectory.join("session.lock");
             let mut datainputstream: DataInputStream<FileInputStream> =
                 DataInputStream::new(FileInputStream::open(&file1)?);
             let lock: IoResult<i64> = datainputstream.readLong();
+
             datainputstream.m_in.close()?;
+
             if lock? != self.m_now
             {
                 throwable::throw(&MINECRAFT_EXCEPTION, "The save is being accessed from another location, aborting");
             }
+
             Ok(())
         })();
         if result.is_err()
@@ -192,6 +219,7 @@ impl ISaveHandler for SaveHandler
             debug!("Dimension {dimension} chunks load from {}", folder.display());
             return Rc::new(ChunkLoader::new(&folder, true));
         }
+
         if provider.instanceOf("WorldProviderHell")
         {
             let file1: PathBuf = self.m_saveDirectory.join("DIM-1");
@@ -199,6 +227,7 @@ impl ISaveHandler for SaveHandler
             debug!("Nether chunks load from {}", file1.display());
             return Rc::new(ChunkLoader::new(&file1, true));
         }
+
         debug!("Overworld chunks load from {}", self.m_saveDirectory.display());
         Rc::new(ChunkLoader::new(&self.m_saveDirectory, true))
     }
@@ -222,9 +251,11 @@ impl IPlayerFileData for SaveHandler
     fn writePlayerData(&self, player: &Rc<Entity>)
     {
         let result: Result<IoResult<()>, throwable::Throwable> =
-            throwable::catchThrowable(&throwable::EXCEPTION, || {
+            throwable::catchThrowable(&throwable::EXCEPTION, ||
+            {
                 let nbttagcompound: Rc<NBTBase> = NBTTagCompound::create();
                 player.writeToNBT(nbttagcompound.compound());
+
                 let file1: PathBuf = self.m_playersDirectory.join("_tmp_.dat");
                 let file2: PathBuf = self
                     .m_playersDirectory
@@ -233,14 +264,17 @@ impl IPlayerFileData for SaveHandler
                     &nbttagcompound,
                     FileOutputStream::create(&file1, false)?,
                 )?;
+
                 if file::exists(&file2)
                 {
                     file::delete(&file2);
                 }
+
                 file::renameTo(&file1, &file2);
                 debug!("Wrote player data {} ({} bytes)", file2.display(), file::length(&file2));
                 Ok(())
             });
+
         if result.and_then(|inner| inner).is_err()
         {
             warning!(
@@ -254,6 +288,7 @@ impl IPlayerFileData for SaveHandler
     {
         let nbttagcompound: Option<Rc<NBTBase>> =
             self.getPlayerData(entity_player::fields(player).m_username.get().as_ref());
+
         if let Some(nbttagcompound) = nbttagcompound
         {
             player.readFromNBT(nbttagcompound.compound());

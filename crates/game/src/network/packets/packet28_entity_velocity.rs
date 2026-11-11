@@ -27,27 +27,34 @@ impl Packet28EntityVelocity
         {
             velocityX = -d;
         }
+
         if velocityY < -d
         {
             velocityY = -d;
         }
+
         if velocityZ < -d
         {
             velocityZ = -d;
         }
+
         if velocityX > d
         {
             velocityX = d;
         }
+
         if velocityY > d
         {
             velocityY = d;
         }
+
         if velocityZ > d
         {
             velocityZ = d;
         }
-        Self {
+
+        Self
+        {
             m_entityId: id,
             m_motionX: (velocityX * 8000.0) as i32,
             m_motionY: (velocityY * 8000.0) as i32,

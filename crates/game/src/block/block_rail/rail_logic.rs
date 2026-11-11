@@ -29,7 +29,9 @@ impl RailLogic
                 &format!("net.minecraft.src.{} cannot be cast to net.minecraft.src.BlockRail", block.className()),
             );
         }
+
         let isPoweredRail: bool;
+
         if getIsPowered(&block)
         {
             isPoweredRail = true;
@@ -39,7 +41,9 @@ impl RailLogic
         {
             isPoweredRail = false;
         }
-        let mut logic: Self = Self {
+
+        let mut logic: Self = Self
+        {
             m_worldObj: Rc::clone(world),
             m_trackX: x,
             m_trackY: y,
@@ -54,7 +58,9 @@ impl RailLogic
     fn setConnections(&mut self, metadata: i32)
     {
         let (x, y, z): (i32, i32, i32) = (self.m_trackX, self.m_trackY, self.m_trackZ);
+
         self.m_connectedTracks.clear();
+
         let pair: Option<[ChunkPosition; 2]> = match metadata
         {
             0 => Some([ChunkPosition::new(x, y, z - 1), ChunkPosition::new(x, y, z + 1)]),
@@ -80,7 +86,7 @@ impl RailLogic
         let mut i: i32 = 0;
         while (i as usize) < self.m_connectedTracks.len()
         {
-            let minecartTrackLogic: Option<RailLogic> = self.getMinecartTrackLogic(self.m_connectedTracks[i as usize]);
+            let minecartTrackLogic: Option<Self> = self.getMinecartTrackLogic(self.m_connectedTracks[i as usize]);
             match minecartTrackLogic
             {
                 Some(logic) if logic.isConnectedTo(self) =>
@@ -88,12 +94,14 @@ impl RailLogic
                     self.m_connectedTracks[i as usize] =
                         ChunkPosition::new(logic.m_trackX, logic.m_trackY, logic.m_trackZ);
                 }
+
                 _ =>
                 {
                     self.m_connectedTracks.remove(i as usize);
                     i -= 1;
                 }
             }
+
             i += 1;
         }
     }
@@ -105,24 +113,25 @@ impl RailLogic
             || isRailBlockAt(&self.m_worldObj, x, y - 1, z)
     }
 
-    fn getMinecartTrackLogic(&self, pos: ChunkPosition) -> Option<RailLogic>
+    fn getMinecartTrackLogic(&self, pos: ChunkPosition) -> Option<Self>
     {
         if isRailBlockAt(&self.m_worldObj, pos.m_x, pos.m_y, pos.m_z)
         {
-            return Some(RailLogic::new(&self.m_worldObj, pos.m_x, pos.m_y, pos.m_z));
+            return Some(Self::new(&self.m_worldObj, pos.m_x, pos.m_y, pos.m_z));
         }
         if isRailBlockAt(&self.m_worldObj, pos.m_x, pos.m_y + 1, pos.m_z)
         {
-            return Some(RailLogic::new(&self.m_worldObj, pos.m_x, pos.m_y + 1, pos.m_z));
+            return Some(Self::new(&self.m_worldObj, pos.m_x, pos.m_y + 1, pos.m_z));
         }
         if isRailBlockAt(&self.m_worldObj, pos.m_x, pos.m_y - 1, pos.m_z)
         {
-            return Some(RailLogic::new(&self.m_worldObj, pos.m_x, pos.m_y - 1, pos.m_z));
+            return Some(Self::new(&self.m_worldObj, pos.m_x, pos.m_y - 1, pos.m_z));
         }
+
         None
     }
 
-    fn isConnectedTo(&self, rail: &RailLogic) -> bool
+    fn isConnectedTo(&self, rail: &Self) -> bool
     {
         for chunkPosition in &self.m_connectedTracks
         {
@@ -131,6 +140,7 @@ impl RailLogic
                 return true;
             }
         }
+
         false
     }
 
@@ -143,32 +153,38 @@ impl RailLogic
                 return true;
             }
         }
+
         false
     }
 
     pub fn getAdjacentTracks(&self) -> i32
     {
         let mut n: i32 = 0;
+
         if self.isMinecartTrack(self.m_trackX, self.m_trackY, self.m_trackZ - 1)
         {
             n += 1;
         }
+
         if self.isMinecartTrack(self.m_trackX, self.m_trackY, self.m_trackZ + 1)
         {
             n += 1;
         }
+
         if self.isMinecartTrack(self.m_trackX - 1, self.m_trackY, self.m_trackZ)
         {
             n += 1;
         }
+
         if self.isMinecartTrack(self.m_trackX + 1, self.m_trackY, self.m_trackZ)
         {
             n += 1;
         }
+
         n
     }
 
-    fn handleKeyPress(&self, rail: &RailLogic) -> bool
+    fn handleKeyPress(&self, rail: &Self) -> bool
     {
         if self.isConnectedTo(rail)
         {
@@ -187,82 +203,99 @@ impl RailLogic
         {
             return true;
         }
+
         true
     }
 
-    fn addConnection(&mut self, rail: &RailLogic)
+    fn addConnection(&mut self, rail: &Self)
     {
         self.m_connectedTracks.push(ChunkPosition::new(rail.m_trackX, rail.m_trackY, rail.m_trackZ));
+
         let inTrack: bool = self.isInTrack(self.m_trackX, self.m_trackY, self.m_trackZ - 1);
         let inTrack2: bool = self.isInTrack(self.m_trackX, self.m_trackY, self.m_trackZ + 1);
         let inTrack3: bool = self.isInTrack(self.m_trackX - 1, self.m_trackY, self.m_trackZ);
         let inTrack4: bool = self.isInTrack(self.m_trackX + 1, self.m_trackY, self.m_trackZ);
         let mut n: i32 = -1;
+
         if inTrack || inTrack2
         {
             n = 0;
         }
+
         if inTrack3 || inTrack4
         {
             n = 1;
         }
+
         if !self.m_isPoweredRail
         {
             if inTrack2 && inTrack4 && !inTrack && !inTrack3
             {
                 n = 6;
             }
+
             if inTrack2 && inTrack3 && !inTrack && !inTrack4
             {
                 n = 7;
             }
+
             if inTrack && inTrack3 && !inTrack2 && !inTrack4
             {
                 n = 8;
             }
+
             if inTrack && inTrack4 && !inTrack2 && !inTrack3
             {
                 n = 9;
             }
         }
+
         n = self.slope(n);
         if n < 0
         {
             n = 0;
         }
+
         let mut metadata: i32 = n;
+
         if self.m_isPoweredRail
         {
             metadata = (self.m_worldObj.getBlockMetadata(self.m_trackX, self.m_trackY, self.m_trackZ) & 0x8) | n;
         }
+
         self.m_worldObj.setBlockMetadataWithNotify(self.m_trackX, self.m_trackY, self.m_trackZ, metadata);
     }
 
     fn slope(&self, mut n: i32) -> i32
     {
         let world: &Rc<World> = &self.m_worldObj;
+
         if n == 0
         {
             if isRailBlockAt(world, self.m_trackX, self.m_trackY + 1, self.m_trackZ - 1)
             {
                 n = 4;
             }
+
             if isRailBlockAt(world, self.m_trackX, self.m_trackY + 1, self.m_trackZ + 1)
             {
                 n = 5;
             }
         }
+
         if n == 1
         {
             if isRailBlockAt(world, self.m_trackX + 1, self.m_trackY + 1, self.m_trackZ)
             {
                 n = 2;
             }
+
             if isRailBlockAt(world, self.m_trackX - 1, self.m_trackY + 1, self.m_trackZ)
             {
                 n = 3;
             }
         }
+
         n
     }
 
@@ -273,6 +306,7 @@ impl RailLogic
         {
             return false;
         };
+
         minecartTrackLogic.removeSoftConnections();
         minecartTrackLogic.handleKeyPress(self)
     }
@@ -284,43 +318,52 @@ impl RailLogic
         let hasNeighborRail3: bool = self.hasNeighborRail(self.m_trackX - 1, self.m_trackY, self.m_trackZ);
         let hasNeighborRail4: bool = self.hasNeighborRail(self.m_trackX + 1, self.m_trackY, self.m_trackZ);
         let mut connections: i32 = -1;
+
         if (hasNeighborRail || hasNeighborRail2) && !hasNeighborRail3 && !hasNeighborRail4
         {
             connections = 0;
         }
+
         if (hasNeighborRail3 || hasNeighborRail4) && !hasNeighborRail && !hasNeighborRail2
         {
             connections = 1;
         }
+
         if !self.m_isPoweredRail
         {
             if hasNeighborRail2 && hasNeighborRail4 && !hasNeighborRail && !hasNeighborRail3
             {
                 connections = 6;
             }
+
             if hasNeighborRail2 && hasNeighborRail3 && !hasNeighborRail && !hasNeighborRail4
             {
                 connections = 7;
             }
+
             if hasNeighborRail && hasNeighborRail3 && !hasNeighborRail2 && !hasNeighborRail4
             {
                 connections = 8;
             }
+
             if hasNeighborRail && hasNeighborRail4 && !hasNeighborRail2 && !hasNeighborRail3
             {
                 connections = 9;
             }
         }
+
         if connections == -1
         {
             if hasNeighborRail || hasNeighborRail2
             {
                 connections = 0;
             }
+
             if hasNeighborRail3 || hasNeighborRail4
             {
                 connections = 1;
             }
+
             if !self.m_isPoweredRail
             {
                 if powered
@@ -329,14 +372,17 @@ impl RailLogic
                     {
                         connections = 6;
                     }
+
                     if hasNeighborRail3 && hasNeighborRail2
                     {
                         connections = 7;
                     }
+
                     if hasNeighborRail4 && hasNeighborRail
                     {
                         connections = 9;
                     }
+
                     if hasNeighborRail && hasNeighborRail3
                     {
                         connections = 8;
@@ -348,14 +394,17 @@ impl RailLogic
                     {
                         connections = 8;
                     }
+
                     if hasNeighborRail4 && hasNeighborRail
                     {
                         connections = 9;
                     }
+
                     if hasNeighborRail3 && hasNeighborRail2
                     {
                         connections = 7;
                     }
+
                     if hasNeighborRail2 && hasNeighborRail4
                     {
                         connections = 6;
@@ -363,32 +412,40 @@ impl RailLogic
                 }
             }
         }
+
         connections = self.slope(connections);
         if connections < 0
         {
             connections = 0;
         }
+
         self.setConnections(connections);
+
         let mut metadata: i32 = connections;
+
         if self.m_isPoweredRail
         {
             metadata =
                 (self.m_worldObj.getBlockMetadata(self.m_trackX, self.m_trackY, self.m_trackZ) & 0x8) | connections;
         }
+
         if force || self.m_worldObj.getBlockMetadata(self.m_trackX, self.m_trackY, self.m_trackZ) != metadata
         {
             self.m_worldObj.setBlockMetadataWithNotify(self.m_trackX, self.m_trackY, self.m_trackZ, metadata);
+
             let mut i: usize = 0;
             while i < self.m_connectedTracks.len()
             {
                 if let Some(mut minecartTrackLogic) = self.getMinecartTrackLogic(self.m_connectedTracks[i])
                 {
                     minecartTrackLogic.removeSoftConnections();
+
                     if minecartTrackLogic.handleKeyPress(self)
                     {
                         minecartTrackLogic.addConnection(self);
                     }
                 }
+
                 i += 1;
             }
         }

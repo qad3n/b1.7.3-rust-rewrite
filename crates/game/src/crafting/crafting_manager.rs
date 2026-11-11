@@ -7,7 +7,8 @@ use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INSTANCE: OnceCell<Rc<CraftingManager>> = const { OnceCell::new() };
 }
 
@@ -44,19 +45,20 @@ fn compareRecipes(recipe: &Rc<dyn IRecipe>, recipe2: &Rc<dyn IRecipe>) -> i32
     {
         return 1;
     }
+
     0
 }
 
 impl CraftingManager
 {
-    pub fn getInstance() -> Rc<CraftingManager>
+    pub fn getInstance() -> Rc<Self>
     {
-        INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(CraftingManager::new()))))
+        INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(Self::new()))))
     }
 
-    fn new() -> CraftingManager
+    fn new() -> Self
     {
-        let manager: CraftingManager = CraftingManager { m_recipes: Rc::new(JArrayList::new()) };
+        let manager: Self = Self { m_recipes: Rc::new(JArrayList::new()) };
         super::recipes_tools::addRecipes(&manager);
         super::recipes_weapons::addRecipes(&manager);
         super::recipes_ingots::addRecipes(&manager);
@@ -388,6 +390,7 @@ impl CraftingManager
         let mut s: String = String::new();
         let mut width: i32 = 0;
         let mut height: i32 = 0;
+
         for line in pattern
         {
             height += 1;
@@ -396,6 +399,7 @@ impl CraftingManager
         }
 
         let mut hashMap: HashMap<char, Choice> = HashMap::new();
+
         for (c, ingredient) in keys
         {
             let choice: Choice = match ingredient
@@ -409,9 +413,11 @@ impl CraftingManager
         }
 
         let mut ingredients: Vec<Option<Choice>> = Vec::with_capacity((width * height) as usize);
+
         for k in 0..width * height
         {
-            let char1: char = s.chars().nth(k as usize).unwrap_or_else(|| {
+            let char1: char = s.chars().nth(k as usize).unwrap_or_else(||
+            {
                 jvm::throwable::throw(&jvm::throwable::STRING_INDEX, &format!("String index out of range: {k}"))
             });
             ingredients.push(hashMap.get(&char1).map(|choice| choice.iter().map(|stack| stack.copy()).collect()));
@@ -423,6 +429,7 @@ impl CraftingManager
     pub fn addShapelessRecipe(&self, result: Rc<ItemStack>, args: &[Ingredient])
     {
         let mut ingredients: Vec<Choice> = Vec::new();
+
         for o in args
         {
             let choice: Choice = match o

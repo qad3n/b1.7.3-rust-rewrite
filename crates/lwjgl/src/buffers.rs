@@ -1,11 +1,14 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-pub static BUFFER_OVERFLOW: jvm::throwable::ThrowableClass = jvm::throwable::ThrowableClass {
+pub static BUFFER_OVERFLOW: jvm::throwable::ThrowableClass = jvm::throwable::ThrowableClass
+{
     m_name: "java.nio.BufferOverflowException",
     m_parent: Some(&jvm::throwable::RUNTIME),
 };
-pub static BUFFER_UNDERFLOW: jvm::throwable::ThrowableClass = jvm::throwable::ThrowableClass {
+
+pub static BUFFER_UNDERFLOW: jvm::throwable::ThrowableClass = jvm::throwable::ThrowableClass
+{
     m_name: "java.nio.BufferUnderflowException",
     m_parent: Some(&jvm::throwable::RUNTIME),
 };
@@ -19,15 +22,15 @@ pub enum ByteOrder
 
 impl ByteOrder
 {
-    pub fn nativeOrder() -> ByteOrder
+    pub fn nativeOrder() -> Self
     {
         if cfg!(target_endian = "big")
         {
-            ByteOrder::BigEndian
+            Self::BigEndian
         }
         else
         {
-            ByteOrder::LittleEndian
+            Self::LittleEndian
         }
     }
 }
@@ -44,8 +47,10 @@ pub trait Element: Copy + Default
     fn writeAll(values: &[Self], bytes: &mut [u8], order: ByteOrder);
 }
 
-macro_rules! element {
-    ($type:ty, $size:expr) => {
+macro_rules! element
+{
+    ($type:ty, $size:expr) =>
+    {
         impl Element for $type
         {
             const SIZE: usize = $size;
@@ -53,6 +58,7 @@ macro_rules! element {
             fn read(bytes: &[u8], order: ByteOrder) -> Self
             {
                 let raw: [u8; $size] = bytes[..$size].try_into().expect("slice holds one element");
+
                 match order
                 {
                     ByteOrder::BigEndian => <$type>::from_be_bytes(raw),
@@ -75,9 +81,11 @@ macro_rules! element {
             {
                 let slots: std::iter::Zip<std::slice::ChunksExactMut<u8>, std::slice::Iter<Self>> =
                     bytes.chunks_exact_mut($size).zip(values);
+
                 match order
                 {
                     ByteOrder::BigEndian => slots.for_each(|(slot, value)| slot.copy_from_slice(&value.to_be_bytes())),
+
                     ByteOrder::LittleEndian =>
                     {
                         slots.for_each(|(slot, value)| slot.copy_from_slice(&value.to_le_bytes()))
@@ -111,16 +119,17 @@ pub type FloatBuffer = Buffer<f32>;
 impl ByteBuffer
 {
     // ByteBuffer.allocateDirect starts in big endian order like every java byte buffer
-    pub fn allocateDirect(capacity: i32) -> ByteBuffer
+    pub fn allocateDirect(capacity: i32) -> Self
     {
         if capacity < 0
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_ARGUMENT, &capacity.to_string());
         }
-        Buffer::view(Rc::new(RefCell::new(vec![0; capacity as usize])), capacity, ByteOrder::BigEndian)
+
+        Self::view(Rc::new(RefCell::new(vec![0; capacity as usize])), capacity, ByteOrder::BigEndian)
     }
 
-    pub fn order(self, order: ByteOrder) -> ByteBuffer
+    pub fn order(self, order: ByteOrder) -> Self
     {
         self.m_order.set(order);
         self
@@ -133,6 +142,7 @@ impl ByteBuffer
         {
             jvm::throwable::throwBare(&jvm::throwable::INDEX_OUT_OF_BOUNDS);
         }
+
         i32::read(&self.m_bytes.borrow()[index as usize..], self.m_order.get())
     }
 
@@ -142,6 +152,7 @@ impl ByteBuffer
         {
             jvm::throwable::throwBare(&jvm::throwable::INDEX_OUT_OF_BOUNDS);
         }
+
         value.write(&mut self.m_bytes.borrow_mut()[index as usize..], self.m_order.get());
         self
     }
@@ -157,15 +168,17 @@ impl ByteBuffer
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_STATE, "views start at the buffer origin in this stand-in");
         }
+
         Buffer::view(Rc::clone(&self.m_bytes), self.remaining() / U::SIZE as i32, self.m_order.get())
     }
 }
 
 impl<T: Element> Buffer<T>
 {
-    fn view(bytes: Rc<RefCell<Vec<u8>>>, capacity: i32, order: ByteOrder) -> Buffer<T>
+    fn view(bytes: Rc<RefCell<Vec<u8>>>, capacity: i32, order: ByteOrder) -> Self
     {
-        Buffer {
+        Self
+        {
             m_bytes: bytes,
             m_capacity: capacity,
             m_position: Cell::new(0),
@@ -186,10 +199,12 @@ impl<T: Element> Buffer<T>
         {
             jvm::throwable::throwBare(&jvm::throwable::ILLEGAL_ARGUMENT);
         }
+
         if self.m_mark.get() > position
         {
             self.m_mark.set(-1);
         }
+
         self.m_position.set(position);
         self
     }
@@ -202,15 +217,19 @@ impl<T: Element> Buffer<T>
         {
             jvm::throwable::throwBare(&jvm::throwable::ILLEGAL_ARGUMENT);
         }
+
         self.m_limit.set(limit);
+
         if self.m_position.get() > limit
         {
             self.m_position.set(limit);
         }
+
         if self.m_mark.get() > limit
         {
             self.m_mark.set(-1);
         }
+
         self
     }
 
@@ -247,6 +266,7 @@ impl<T: Element> Buffer<T>
         {
             jvm::throwable::throwBare(&jvm::throwable::INDEX_OUT_OF_BOUNDS);
         }
+
         index as usize * T::SIZE
     }
 
@@ -257,6 +277,7 @@ impl<T: Element> Buffer<T>
         {
             jvm::throwable::throwBare(overflow);
         }
+
         self.m_position.set(position + count);
         position
     }
@@ -290,10 +311,12 @@ impl<T: Element> Buffer<T>
     pub fn getInto(&self, dst: &mut [T]) -> &Self
     {
         let start: i32 = self.nextIndex(dst.len() as i32, &BUFFER_UNDERFLOW);
+
         for (i, value) in dst.iter_mut().enumerate()
         {
             *value = self.getAt(start + i as i32);
         }
+
         self
     }
 

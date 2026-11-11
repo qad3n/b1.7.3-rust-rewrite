@@ -11,6 +11,7 @@ pub trait ISaveHandler
     fn getChunkLoader(&self, provider: &Rc<WorldProvider>) -> Rc<dyn IChunkLoader>;
     fn saveWorldInfoAndPlayer(&self, info: &Rc<WorldInfo>, players: &[Rc<Entity>]);
     fn saveWorldInfo(&self, info: &Rc<WorldInfo>);
+
     fn getPlayerDataStorage(self: Rc<Self>) -> Rc<dyn IPlayerFileData>
     {
         crate::port::abstractMethod("getPlayerDataStorage")

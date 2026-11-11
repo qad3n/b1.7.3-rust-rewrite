@@ -10,6 +10,7 @@ pub fn releaseWorld(world: &World)
             releaseChunk(&chunk);
         }
     }
+
     world.m_loadedEntityList.clear();
     world.m_unloadedEntityList.clear();
     world.m_loadedTileEntityList.clear();
@@ -28,5 +29,6 @@ fn releaseChunk(chunk: &Rc<Chunk>)
     {
         list.clear();
     }
+
     chunk.m_chunkTileEntityMap.update(|map| map.clear());
 }

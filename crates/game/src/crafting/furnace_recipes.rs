@@ -4,7 +4,8 @@ use jvm::hash_map::JHashMap;
 use std::cell::{OnceCell, RefCell};
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static SMELTING_BASE: OnceCell<Rc<FurnaceRecipes>> = const { OnceCell::new() };
 }
 
@@ -15,14 +16,11 @@ pub struct FurnaceRecipes
 
 impl FurnaceRecipes
 {
-    pub fn smelting() -> Rc<FurnaceRecipes>
-    {
-        SMELTING_BASE.with(|base| Rc::clone(base.get_or_init(|| Rc::new(FurnaceRecipes::new()))))
-    }
+    pub fn smelting() -> Rc<Self> { SMELTING_BASE.with(|base| Rc::clone(base.get_or_init(|| Rc::new(Self::new())))) }
 
-    fn new() -> FurnaceRecipes
+    fn new() -> Self
     {
-        let recipes: FurnaceRecipes = FurnaceRecipes { m_smeltingList: RefCell::new(JHashMap::new()) };
+        let recipes: Self = Self { m_smeltingList: RefCell::new(JHashMap::new()) };
         recipes.addSmelting(Block::ORE_IRON, ItemStack::withItem(&Item::ingotIron()));
         recipes.addSmelting(Block::ORE_GOLD, ItemStack::withItem(&Item::ingotGold()));
         recipes.addSmelting(Block::ORE_DIAMOND, ItemStack::withItem(&Item::diamond()));

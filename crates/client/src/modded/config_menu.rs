@@ -1,6 +1,7 @@
 use super::menu::{fit, scrollWheel};
 use crate::client::Minecraft;
-use crate::gui::{
+use crate::gui::
+{
     FontRenderer, GUI_SCREEN, GUI_SLOT, GuiButton, GuiScreen, GuiScreenClass, GuiSlot, GuiSlotClass, GuiTextField,
 };
 use crate::render::Tessellator;
@@ -109,6 +110,7 @@ fn screen(slot: &GuiSlot) -> Rc<GuiScreen> { slot.ext::<ConfigSlot>().m_screen.u
 fn rows(options: &[ConfigOption]) -> Vec<Row>
 {
     let mut categories: Vec<Option<&str>> = Vec::new();
+
     for found in options.iter().map(config::category)
     {
         if !categories.contains(&found)
@@ -116,17 +118,22 @@ fn rows(options: &[ConfigOption]) -> Vec<Row>
             categories.push(found);
         }
     }
+
     categories.sort_by_key(Option::is_some);
+
     let headed: bool = categories.iter().any(Option::is_some);
     let mut rows: Vec<Row> = Vec::new();
+
     for current in categories
     {
         if headed
         {
             rows.push(Row::Header(current.map_or_else(|| GENERAL.to_owned(), config::humanize)));
         }
+
         rows.extend(options.iter().filter(|option| config::category(option) == current).cloned().map(Row::Option));
     }
+
     rows
 }
 
@@ -137,19 +144,23 @@ fn value(this: &GuiScreen, option: &ConfigOption) -> String
 
 fn controls(font: &FontRenderer, option: &ConfigOption, current: &str, x: i32) -> Vec<Control>
 {
-    let control = |part: Part, offset: i32, width: i32, text: &str| Control {
+    let control = |part: Part, offset: i32, width: i32, text: &str| Control
+    {
         m_part: part,
         m_x: x + offset,
         m_width: width,
         m_text: fit(font, text, width - 6),
     };
+
     match &option.kind
     {
         ConfigKind::Bool { .. } =>
         {
             vec![control(Part::Toggle, 0, layout::CONTROL_WIDTH, if current == "true" { ON } else { OFF })]
         }
+
         ConfigKind::Choice { .. } => vec![control(Part::Cycle, 0, layout::CONTROL_WIDTH, &config::humanize(current))],
+
         ConfigKind::Int { .. } | ConfigKind::Float { .. } =>
         {
             let middle: i32 = layout::CONTROL_WIDTH - 2 * (layout::STEP_WIDTH + layout::GAP);
@@ -160,6 +171,7 @@ fn controls(font: &FontRenderer, option: &ConfigOption, current: &str, x: i32) -
                 control(Part::Plus, plusX, layout::STEP_WIDTH, "+"),
             ]
         }
+
         ConfigKind::Text { .. } => vec![control(Part::Edit, 0, layout::CONTROL_WIDTH, current)],
     }
 }
@@ -184,6 +196,7 @@ fn nextChoice(choices: &[String], current: &str) -> String
 fn stepped(kind: &ConfigKind, current: &str, direction: i64) -> Option<String>
 {
     let scale: i64 = if shifted() { steps::SHIFT_SCALE } else { 1 };
+
     match kind
     {
         ConfigKind::Int { min, max, .. } =>
@@ -191,6 +204,7 @@ fn stepped(kind: &ConfigKind, current: &str, direction: i64) -> Option<String>
             let base: i64 = current.parse().ok()?;
             Some(base.saturating_add(direction * steps::INT * scale).clamp(*min, *max).to_string())
         }
+
         ConfigKind::Float { min, max, .. } =>
         {
             let base: f64 = current.parse().ok()?;
@@ -198,6 +212,7 @@ fn stepped(kind: &ConfigKind, current: &str, direction: i64) -> Option<String>
             let rounded: f64 = (next * steps::FLOAT_ROUNDING).round() / steps::FLOAT_ROUNDING;
             Some(rounded.clamp(*min, *max).to_string())
         }
+
         _ => None,
     }
 }
@@ -231,6 +246,7 @@ fn stopEditing(this: &GuiScreen)
 {
     let state: &ConfigMenu = menu(this);
     *state.m_editing.borrow_mut() = None;
+
     if let Some(field) = state.m_field.borrow().as_ref()
     {
         field.setFocused(false);
@@ -245,9 +261,11 @@ fn commitEdit(this: &GuiScreen)
     {
         return;
     };
+
     let text: String = state.m_field.borrow().as_ref().map(|field| field.getText().to_string()).unwrap_or_default();
     let option: Option<ConfigOption> =
         state.m_runtime.m_config.borrow().options().iter().find(|option| option.key == key).cloned();
+
     if let Some(option) = option
         && apply(this, &option, &text)
     {
@@ -258,17 +276,20 @@ fn commitEdit(this: &GuiScreen)
 fn press(this: &GuiScreen, option: &ConfigOption, part: Part)
 {
     let current: String = value(this, option);
+
     let next: Option<String> = match (part, &option.kind)
     {
         (Part::Toggle, _) => Some((current != "true").to_string()),
         (Part::Cycle, ConfigKind::Choice { choices, .. }) => Some(nextChoice(choices, &current)),
         (Part::Minus, kind) => stepped(kind, &current, -1),
         (Part::Plus, kind) => stepped(kind, &current, 1),
+
         (Part::Edit, _) =>
         {
             startEditing(this, option);
             None
         }
+
         _ => None,
     };
     if let Some(next) = next
@@ -294,6 +315,7 @@ fn select(this: &GuiScreen, index: i32)
     let state: &ConfigMenu = menu(this);
     state.m_selected.set(index);
     *state.m_message.borrow_mut() = None;
+
     if let Some(button) = state.m_resetButton.get()
     {
         button.m_enabled.set(selectedOption(this).is_some());
@@ -307,12 +329,15 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, _tessel
     let state: &ConfigMenu = menu(&this);
     let rows: Ref<'_, Vec<Row>> = state.m_rows.borrow();
     let textY: i32 = y + (height - 8) / 2;
+
     match &rows[index as usize]
     {
         Row::Header(title) => this.m_gui.drawCenteredString(&font, title, this.m_width.get() / 2, textY, YELLOW),
+
         Row::Option(option) =>
         {
             let left: i32 = controlX(&this);
+
             let labelColor: i32 = if value(&this, option) == option.kind.defaultText()
             {
                 WHITE
@@ -322,8 +347,10 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, _tessel
                 YELLOW
             };
             this.m_gui.drawString(&font, &fit(&font, &config::label(option), left - x - 4), x, textY, labelColor);
+
             let mc: Rc<Minecraft> = this.mc();
             let (mouseX, mouseY): (i32, i32) = state.m_mouse.get();
+
             for control in controls(&font, option, &value(&this, option), left)
             {
                 let button: Rc<GuiButton> =
@@ -334,12 +361,14 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, _tessel
     }
 }
 
-const CONFIG_SLOT: GuiSlotClass = GuiSlotClass {
+const CONFIG_SLOT: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiModConfigSlot",
     m_parent: Some(&GUI_SLOT),
     m_interfaces: &[],
     getSize: |slot| menu(&screen(slot)).m_rows.borrow().len() as i32,
-    elementClicked: |slot, index, _| {
+    elementClicked: |slot, index, _|
+    {
         let this: Rc<GuiScreen> = screen(slot);
         let option: Option<ConfigOption> = match menu(&this).m_rows.borrow().get(index as usize)
         {
@@ -351,13 +380,16 @@ const CONFIG_SLOT: GuiSlotClass = GuiSlotClass {
         {
             return;
         };
+
         select(&this, index);
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         let mouseX: i32 = menu(&this).m_mouse.get().0;
         let hit: Option<Part> = controls(&font, &option, &value(&this, &option), controlX(&this))
             .into_iter()
             .find(|control| mouseX >= control.m_x && mouseX < control.m_x + control.m_width)
             .map(|control| control.m_part);
+
         if let Some(part) = hit
         {
             this.mc().m_sndManager.get().orNpe().playSoundFX("random.click", 1.0, 1.0);
@@ -376,12 +408,15 @@ fn drawInfo(this: &GuiScreen, font: &FontRenderer)
     let (width, height): (i32, i32) = (this.m_width.get(), this.m_height.get());
     let center: i32 = width / 2;
     let infoWidth: i32 = width - 2 * layout::INFO_MARGIN;
+
     let Some(option) = selectedOption(this)
     else
     {
         return;
     };
+
     let [labelY, commentY, detailY] = layout::INFO_Y;
+
     // the edit field covers the label and comment lines while open
     if state.m_editing.borrow().is_none()
     {
@@ -400,13 +435,16 @@ fn drawInfo(this: &GuiScreen, font: &FontRenderer)
     this.m_gui.drawCenteredString(font, &fit(font, &detail, infoWidth), center, height - detailY, color);
 }
 
-const MOD_CONFIG: GuiScreenClass = GuiScreenClass {
+const MOD_CONFIG: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiModConfig",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let state: &ConfigMenu = menu(this);
         *state.m_rows.borrow_mut() = rows(state.m_runtime.m_config.borrow().options());
+
         let (width, height): (i32, i32) = (this.m_width.get(), this.m_height.get());
         let slot: Rc<GuiSlot> = GuiSlot::construct(
             &CONFIG_SLOT,
@@ -421,6 +459,7 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass {
         slot.setRowWidth(rowWidth(width));
         slot.registerScrollButtons(&this.m_controlList, layout::SCROLL_UP, layout::SCROLL_DOWN);
         state.m_slot.set(Some(slot));
+
         let fieldWidth: i32 = (width - 2 * layout::INFO_MARGIN).min(layout::FIELD_MAX_WIDTH);
         let field: GuiTextField = GuiTextField::new(
             this.rc(),
@@ -434,6 +473,7 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass {
         field.setMaxStringLength(layout::FIELD_MAX_LENGTH);
         *state.m_field.borrow_mut() = Some(field);
         *state.m_editing.borrow_mut() = None;
+
         let y: i32 = height - layout::BUTTON_Y;
         let reset: Rc<GuiButton> = GuiButton::withSize(
             layout::RESET,
@@ -448,14 +488,18 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass {
         state.m_resetButton.set(Some(reset));
         select(this, state.m_selected.get());
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         match button.m_id.get()
         {
             layout::DONE => this.mc().displayGuiScreen(Some(Rc::clone(&menu(this).m_parent))),
+
             layout::RESET =>
             {
                 if let Some(option) = selectedOption(this)
@@ -464,16 +508,21 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass {
                     apply(this, &option, &option.kind.defaultText());
                 }
             }
+
             _ => menu(this).m_slot.get().orNpe().actionPerformed(button),
         }
     },
-    keyTyped: |this, chr, key| {
+
+    keyTyped: |this, chr, key|
+    {
         let editing: bool = menu(this).m_editing.borrow().is_some();
+
         match key
         {
             Keyboard::KEY_ESCAPE if editing => stopEditing(this),
             Keyboard::KEY_ESCAPE => this.mc().displayGuiScreen(Some(Rc::clone(&menu(this).m_parent))),
             Keyboard::KEY_RETURN if editing => commitEdit(this),
+
             _ =>
             {
                 if let Some(field) = menu(this).m_field.borrow().as_ref()
@@ -483,40 +532,51 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass {
             }
         }
     },
-    mouseMovedOrUp: |this, mouseX, mouseY, button| {
+
+    mouseMovedOrUp: |this, mouseX, mouseY, button|
+    {
         scrollWheel(&menu(this).m_slot.get().orNpe(), Mouse::getEventDWheel(), layout::SCROLL_UP, layout::SCROLL_DOWN);
         (GUI_SCREEN.mouseMovedOrUp)(this, mouseX, mouseY, button);
     },
-    updateScreen: |this| {
+
+    updateScreen: |this|
+    {
         if let Some(field) = menu(this).m_field.borrow().as_ref()
         {
             field.updateCursorCounter();
         }
     },
-    drawScreen: |this, mouseX, mouseY, partial| {
+
+    drawScreen: |this, mouseX, mouseY, partial|
+    {
         let state: &ConfigMenu = menu(this);
         state.m_mouse.set((mouseX, mouseY));
         state.m_slot.get().orNpe().drawScreen(mouseX, mouseY, partial);
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         let center: i32 = this.m_width.get() / 2;
         let title: String = format!("{} config", state.m_runtime.m_manifest.displayName());
         this.m_gui.drawCenteredString(&font, &title, center, layout::TITLE_Y, WHITE);
+
         let file: String = state.m_runtime.m_config.borrow().fileName();
         this.m_gui.drawCenteredString(&font, &file, center, layout::FILE_Y, GREY);
         drawInfo(this, &font);
+
         if state.m_editing.borrow().is_some()
             && let Some(field) = state.m_field.borrow().as_ref()
         {
             field.drawTextBox();
         }
+
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, partial);
     },
     ..GUI_SCREEN
 };
 
-pub fn configScreen(parent: &Rc<GuiScreen>, runtime: Rc<ModRuntime>) -> Rc<GuiScreen>
+pub(crate) fn configScreen(parent: &Rc<GuiScreen>, runtime: Rc<ModRuntime>) -> Rc<GuiScreen>
 {
-    let state: ConfigMenu = ConfigMenu {
+    let state: ConfigMenu = ConfigMenu
+    {
         m_parent: Rc::clone(parent),
         m_runtime: runtime,
         m_rows: RefCell::new(Vec::new()),

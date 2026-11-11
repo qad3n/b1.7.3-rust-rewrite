@@ -18,6 +18,7 @@ fn canPlaceBlockOnSide(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: 
     {
         return true;
     }
+
     face == 5 && world.isBlockNormalCube(x - 1, y, z)
 }
 
@@ -35,6 +36,7 @@ fn canPlaceBlockAt(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return true;
     }
+
     world.isBlockNormalCube(x, y, z + 1)
 }
 
@@ -42,7 +44,9 @@ fn onBlockPlaced(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, f
 {
     let mut i: i32 = world.getBlockMetadata(x, y, z);
     let j: i32 = i & 8;
+
     i &= 7;
+
     if face == 2 && world.isBlockNormalCube(x, y, z + 1)
     {
         i = 4;
@@ -84,6 +88,7 @@ fn getOrientation(world: &Rc<World>, x: i32, y: i32, z: i32) -> i32
     {
         return 4;
     }
+
     1
 }
 
@@ -93,22 +98,27 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
     {
         let n: i32 = world.getBlockMetadata(x, y, z) & 7;
         let mut bl: bool = false;
+
         if !world.isBlockNormalCube(x - 1, y, z) && n == 1
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x + 1, y, z) && n == 2
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x, y, z - 1) && n == 3
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x, y, z + 1) && n == 4
         {
             bl = true;
         }
+
         if bl
         {
             this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
@@ -125,6 +135,7 @@ fn canSurviveOrBreak(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
         world.setBlockWithNotify(x, y, z, 0);
         return false;
     }
+
     true
 }
 
@@ -137,10 +148,12 @@ fn setBlockBoundsBasedOnState(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32
     let f2: f32 = 0.625;
     let f3: f32 = 0.1875;
     let mut f4: f32 = 0.125;
+
     if bl
     {
         f4 = 0.0625;
     }
+
     if n2 == 1
     {
         this.setBlockBounds(0.0, f, 0.5 - f3, f4, f2, 0.5 + f3);
@@ -192,6 +205,7 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _
     {
         return true;
     }
+
     world.setBlockMetadataWithNotify(x, y, z, n2 + n3);
     world.markBlocksDirty(x, y, z, x, y, z);
     world.playSoundEffect(x as f64 + 0.5, y as f64 + 0.5, z as f64 + 0.5, "random.click", 0.3, 0.6);
@@ -207,9 +221,11 @@ fn onBlockRemoval(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     if (n & 8) > 0
     {
         world.notifyBlocksOfNeighborChange(x, y, z, this.m_blockID);
+
         let n2: i32 = n & 7;
         notifyAttached(world, x, y, z, n2, this.m_blockID);
     }
+
     (BLOCK.onBlockRemoval)(this, world, x, y, z);
 }
 
@@ -237,6 +253,7 @@ fn isIndirectlyPoweringTo(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, 
     {
         return true;
     }
+
     n2 == 1 && dir == 5
 }
 
@@ -251,15 +268,18 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     {
         return;
     }
+
     world.setBlockMetadataWithNotify(x, y, z, n & 7);
     world.notifyBlocksOfNeighborChange(x, y, z, this.m_blockID);
+
     let n2: i32 = n & 7;
     notifyAttached(world, x, y, z, n2, this.m_blockID);
     world.playSoundEffect(x as f64 + 0.5, y as f64 + 0.5, z as f64 + 0.5, "random.click", 0.3, 0.5);
     world.markBlocksDirty(x, y, z, x, y, z);
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockButton",
     m_parent: Some(&BLOCK),
     getCollisionBoundingBoxFromPool: |_, _, _, _, _| None,
@@ -271,7 +291,8 @@ pub const CLASS: BlockClass = BlockClass {
     onBlockPlaced,
     onNeighborBlockChange,
     setBlockBoundsBasedOnState,
-    onBlockClicked: |this, world, x, y, z, player| {
+    onBlockClicked: |this, world, x, y, z, player|
+    {
         this.blockActivated(world, x, y, z, player);
     },
     blockActivated,
@@ -280,7 +301,8 @@ pub const CLASS: BlockClass = BlockClass {
     isIndirectlyPoweringTo,
     canProvidePower: |_| true,
     updateTick,
-    setBlockBoundsForItemRender: |this| {
+    setBlockBoundsForItemRender: |this|
+    {
         let f: f32 = 0.1875;
         let f2: f32 = 0.125;
         let f3: f32 = 0.125;

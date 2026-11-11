@@ -7,7 +7,8 @@ use lwjgl::opengl::GL11;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     pub static RANDOM: Random = Random::new();
 }
 
@@ -48,11 +49,13 @@ impl Particle
         {
             self.remove();
         }
+
         self.m_a = 2.0 - self.m_age as f64 / self.m_lifetime as f64 * 2.0;
         if self.m_a > 1.0
         {
             self.m_a = 1.0;
         }
+
         self.m_a *= self.m_a;
         self.m_a *= 0.5;
     }
@@ -79,9 +82,9 @@ pub struct GuiParticle
 
 impl GuiParticle
 {
-    pub fn new(minecraft: Rc<Minecraft>) -> GuiParticle
+    pub fn new(minecraft: Rc<Minecraft>) -> Self
     {
-        GuiParticle { m_gui: Gui::new(), m_particles: RefCell::new(Vec::new()), m_minecraft: minecraft }
+        Self { m_gui: Gui::new(), m_particles: RefCell::new(Vec::new()), m_minecraft: minecraft }
     }
 
     pub fn tick(&self)
@@ -93,11 +96,13 @@ impl GuiParticle
             let particle: &mut Particle = &mut particles[i];
             particle.tickColor();
             particle.tickPosition(self);
+
             if particle.m_removed
             {
                 particles.remove(i);
                 continue;
             }
+
             i += 1;
         }
         *self.m_particles.borrow_mut() = particles;
@@ -107,7 +112,9 @@ impl GuiParticle
     {
         let renderEngine: Rc<RenderEngine> = self.m_minecraft.m_renderEngine.get().orNpe();
         renderEngine.bindTexture(renderEngine.getTexture("/gui/particles.png"));
+
         let tickDelta: f64 = tickDelta as f64;
+
         for particle in self.m_particles.borrow().iter()
         {
             let j: i32 = (particle.m_lastX + (particle.m_x - particle.m_lastX) * tickDelta - 4.0) as i32;

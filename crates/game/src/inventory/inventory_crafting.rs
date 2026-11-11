@@ -16,14 +16,10 @@ pub struct InventoryCrafting
 
 impl InventoryCrafting
 {
-    pub fn new(menu: &Weak<Container>, width: i32, height: i32) -> InventoryCrafting
+    pub fn new(menu: &Weak<Container>, width: i32, height: i32) -> Self
     {
         let n: i32 = width * height;
-        InventoryCrafting {
-            m_stackList: RefCell::new(vec![None; n as usize]),
-            m_size: width,
-            m_eventHandler: Weak::clone(menu),
-        }
+        Self { m_stackList: RefCell::new(vec![None; n as usize]), m_size: width, m_eventHandler: Weak::clone(menu) }
     }
 
     fn eventHandler(&self) -> Rc<Container>
@@ -40,6 +36,7 @@ impl CraftingGrid for InventoryCrafting
         {
             return None;
         }
+
         let n: i32 = column + row * self.m_size;
         self.getStackInSlot(n)
     }
@@ -55,6 +52,7 @@ impl IInventory for InventoryCrafting
         {
             return None;
         }
+
         slot(&self.m_stackList, index)
     }
 
@@ -67,11 +65,14 @@ impl IInventory for InventoryCrafting
             self.eventHandler().onCraftMatrixChanged(self);
             return Some(current);
         }
+
         let itemstack: Rc<ItemStack> = current.splitStack(amount);
+
         if current.m_stackSize.get() == 0
         {
             setSlot(&self.m_stackList, index, None);
         }
+
         self.eventHandler().onCraftMatrixChanged(self);
         Some(itemstack)
     }

@@ -1,8 +1,12 @@
 use crate::host::context::{entityInfo, withWorld};
+use crate::network::loader::{EntitySynced, MovingBlock, SpawnEntity};
+use crate::registry::EntityEntry;
 use crate::state;
 use common::nbt::{NBTBase, NBTTagCompound};
 use game::damage::DamageSource;
+use game::entity::entity_falling_sand::FallingSandFields;
 use game::entity::{Entity, EntityClass, entity_creature, entity_living};
+use game::pathfinding::PathEntity;
 use game::world::World;
 use jvm::string::JString;
 use mod_protocol::Identifier;
@@ -38,8 +42,10 @@ pub struct EntityTemplate
 fn projectileUpdate(this: &Rc<Entity>)
 {
     this.onEntityUpdate();
+
     let [x, y, z] = [this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get()];
     this.setPosition(this.m_posX.get() + x, this.m_posY.get() + y, this.m_posZ.get() + z);
+
     let horizontal: f64 = (x * x + z * z).sqrt();
     if horizontal > 0.0 || y != 0.0
     {
@@ -48,7 +54,8 @@ fn projectileUpdate(this: &Rc<Entity>)
     }
 }
 
-pub const PROJECTILE: EntityClass = EntityClass {
+pub const PROJECTILE: EntityClass = EntityClass
+{
     m_name: "EntityModProjectile",
     m_parent: Some(&game::entity::entity_snowball::CLASS),
     onUpdate: projectileUpdate,
@@ -56,7 +63,8 @@ pub const PROJECTILE: EntityClass = EntityClass {
 };
 
 // a block in flight the mod steers, drawn like falling sand, moved by its motion with no gravity or landing
-pub const MOVING_BLOCK: EntityClass = EntityClass {
+pub const MOVING_BLOCK: EntityClass = EntityClass
+{
     m_name: "EntityModBlock",
     m_parent: Some(&game::entity::entity_falling_sand::CLASS),
     onUpdate: projectileUpdate,
@@ -67,6 +75,7 @@ pub const MOVING_BLOCK: EntityClass = EntityClass {
 fn createMovingBlock(world: Option<Rc<World>>) -> Rc<Entity>
 {
     const SIZE: f32 = 0.98;
+
     let entity: Rc<Entity> = game::entity::entity_falling_sand::new(world);
     entity.m_preventEntitySpawning.set(true);
     entity.setSize(SIZE, SIZE);
@@ -75,7 +84,8 @@ fn createMovingBlock(world: Option<Rc<World>>) -> Rc<Entity>
 }
 
 // EntityMob that never looks for a target and only fights whoever hurts it, the pig zombie's anger without the zombie
-pub const NEUTRAL_MONSTER: EntityClass = EntityClass {
+pub const NEUTRAL_MONSTER: EntityClass = EntityClass
+{
     m_name: "EntityModNeutralMob",
     m_parent: Some(&game::entity::entity_mob::CLASS),
     findPlayerToAttack: |_| None,
@@ -85,80 +95,95 @@ pub const NEUTRAL_MONSTER: EntityClass = EntityClass {
 pub const ENTITY_TEMPLATES: [EntityTemplate; 18] = [
     EntityTemplate { m_name: "projectile", m_class: &PROJECTILE, m_create: game::entity::entity_snowball::new },
     // EntityArrow itself: flies, sticks in blocks, drawn by RenderArrow and picked up when a player shot it
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "arrow",
         m_class: &game::entity::entity_arrow::CLASS,
         m_create: game::entity::entity_arrow::new,
     },
     EntityTemplate { m_name: "moving_block", m_class: &MOVING_BLOCK, m_create: createMovingBlock },
     // EntityMob itself: hunts players in sight, melee, gone on peaceful, never burns
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "monster",
         m_class: &game::entity::entity_mob::CLASS,
         m_create: game::entity::entity_mob::new,
     },
     EntityTemplate { m_name: "neutral_monster", m_class: &NEUTRAL_MONSTER, m_create: game::entity::entity_mob::new },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "pig",
         m_class: &game::entity::entity_pig::CLASS,
         m_create: game::entity::entity_pig::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "cow",
         m_class: &game::entity::entity_cow::CLASS,
         m_create: game::entity::entity_cow::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "chicken",
         m_class: &game::entity::entity_chicken::CLASS,
         m_create: game::entity::entity_chicken::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "squid",
         m_class: &game::entity::entity_squid::CLASS,
         m_create: game::entity::entity_squid::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "zombie",
         m_class: &game::entity::entity_zombie::CLASS,
         m_create: game::entity::entity_zombie::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "skeleton",
         m_class: &game::entity::entity_skeleton::CLASS,
         m_create: game::entity::entity_skeleton::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "spider",
         m_class: &game::entity::entity_spider::CLASS,
         m_create: game::entity::entity_spider::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "creeper",
         m_class: &game::entity::entity_creeper::CLASS,
         m_create: game::entity::entity_creeper::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "sheep",
         m_class: &game::entity::entity_sheep::CLASS,
         m_create: game::entity::entity_sheep::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "ghast",
         m_class: &game::entity::entity_ghast::CLASS,
         m_create: game::entity::entity_ghast::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "slime",
         m_class: &game::entity::entity_slime::CLASS,
         m_create: game::entity::entity_slime::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "wolf",
         m_class: &game::entity::entity_wolf::CLASS,
         m_create: game::entity::entity_wolf::new,
     },
-    EntityTemplate {
+    EntityTemplate
+    {
         m_name: "zombie_pigman",
         m_class: &game::entity::entity_pig_zombie::CLASS,
         m_create: game::entity::entity_pig_zombie::new,
@@ -175,7 +200,8 @@ pub struct EntityType
     m_texture: Option<JString>,
 }
 
-thread_local! {
+thread_local!
+{
     // synced bytes that reached a client before the entity they belong to
     static STASHED: RefCell<HashMap<i32, Vec<OwnedBytes>>> = RefCell::new(HashMap::new());
     static TYPES: RefCell<HashMap<Identifier, Rc<EntityType>>> = RefCell::new(HashMap::new());
@@ -186,7 +212,8 @@ thread_local! {
 fn template(spec: &EntitySpec) -> Result<&'static EntityTemplate, String>
 {
     let name: String = crate::content::blocks::templateName(spec.template.as_ref(), "pig")?;
-    ENTITY_TEMPLATES.iter().find(|row| row.m_name == name).ok_or_else(|| {
+    ENTITY_TEMPLATES.iter().find(|row| row.m_name == name).ok_or_else(||
+    {
         let known: Vec<&str> = ENTITY_TEMPLATES.iter().map(|row| row.m_name).collect();
         format!("unknown entity template minecraft:{name}, known: {}", known.join(", "))
     })
@@ -219,7 +246,9 @@ pub fn register(id: Identifier, owner: usize, spec: EntitySpec) -> Result<(), St
     let template: &'static EntityTemplate = template(&spec)?;
     let texture: Option<JString> =
         spec.texture.as_deref().and_then(modTexturePath).map(|path| JString::from(path.as_str()));
-    let entityType: EntityType = EntityType {
+
+    let entityType: EntityType = EntityType
+    {
         m_id: id.clone(),
         m_owner: owner,
         m_spec: spec,
@@ -227,11 +256,16 @@ pub fn register(id: Identifier, owner: usize, spec: EntitySpec) -> Result<(), St
         m_class: OnceCell::new(),
         m_texture: texture,
     };
+
     let ownerId: String = state::modId(owner);
-    crate::registry::with(|registries| {
-        let entry = crate::registry::EntityEntry { m_saveKey: id.to_string(), m_spec: Some(entityType.m_spec.clone()) };
+
+    crate::registry::with(|registries|
+    {
+        let entry: EntityEntry =
+            crate::registry::EntityEntry { m_saveKey: id.to_string(), m_spec: Some(entityType.m_spec.clone()) };
         registries.m_entities.register(id.clone(), &ownerId, entry).map_err(|error| error.to_string())
     })?;
+
     TYPES.with(|types| types.borrow_mut().insert(id, Rc::new(entityType)));
     Ok(())
 }
@@ -255,6 +289,7 @@ fn callEntity(this: &Rc<Entity>, call: EntityCall) -> Option<GuestReply>
     let handle: u32 = entityType.m_spec.behavior.as_ref()?.handle;
     let runtime: Rc<state::ModRuntime> = state::modAt(entityType.m_owner)?;
     let request: GuestCall = GuestCall::Entity { handle, call };
+
     match this.m_worldObj.get()
     {
         Some(world) => withWorld(&world, || runtime.call(&request)),
@@ -265,6 +300,7 @@ fn callEntity(this: &Rc<Entity>, call: EntityCall) -> Option<GuestReply>
 fn tick(this: &Rc<Entity>)
 {
     (parentClass(this).onUpdate)(this);
+
     if !this.m_isDead.get()
     {
         callEntity(this, EntityCall::Tick { entity: entityInfo(this) });
@@ -346,6 +382,7 @@ fn steeredMove(this: &Rc<Entity>, strafe: f32, forward: f32)
 {
     let steering: Option<mod_protocol::spec::SteeringSpec> =
         typeOf(this).and_then(|entityType| entityType.m_spec.steering);
+
     if !steering.is_some_and(|steering| crate::steering::travel(this, &steering))
     {
         (parentClass(this).moveEntityWithHeading)(this, strafe, forward);
@@ -371,6 +408,7 @@ fn dropItems(this: &Rc<Entity>)
     {
         return (parentClass(this).dropFewItems)(this);
     };
+
     for drop in drops
     {
         let Some(item) = crate::registry::with(|registries| registries.itemId(&drop.item))
@@ -382,6 +420,7 @@ fn dropItems(this: &Rc<Entity>)
         {
             continue;
         }
+
         let (min, max): (i32, i32) = match drop.count.as_slice()
         {
             [count] => (*count, *count),
@@ -403,29 +442,36 @@ fn wants(entityType: &EntityType, method: EntityMethod) -> bool
 
 fn classFor(entityType: &Rc<EntityType>) -> &'static EntityClass
 {
-    entityType.m_class.get_or_init(|| {
-        crate::classes::deriveEntityClass(entityType.m_template.m_class, &entityType.m_id.to_string(), |class| {
+    entityType.m_class.get_or_init(||
+    {
+        crate::classes::deriveEntityClass(entityType.m_template.m_class, &entityType.m_id.to_string(), |class|
+        {
             class.getEntityTexture = texture;
             class.dropFewItems = dropItems;
+
             if entityType.m_spec.steering.is_some()
             {
                 class.moveEntityWithHeading = steeredMove;
             }
+
             if entityType.m_spec.persistent
             {
                 class.canDespawn = |_| false;
             }
+
             if entityType.m_spec.immovable
             {
                 class.canBePushed = |_| false;
                 class.addVelocity = |_, _, _, _| {};
             }
+
             if entityType.m_spec.sounds.is_some()
             {
                 class.getLivingSound = livingSound;
                 class.getHurtSound = hurtSound;
                 class.getDeathSound = deathSound;
             }
+
             let methods: [ClassPatch; 7] = [
                 (EntityMethod::Tick, |class| class.onUpdate = tick),
                 (EntityMethod::LivingUpdate, |class| class.onLivingUpdate = livingUpdate),
@@ -435,6 +481,7 @@ fn classFor(entityType: &Rc<EntityType>) -> &'static EntityClass
                 (EntityMethod::CanSpawn, |class| class.getCanSpawnHere = canSpawn),
                 (EntityMethod::Ai, |class| class.updatePlayerActionState = ai),
             ];
+
             for (method, apply) in methods
             {
                 if wants(entityType, method)
@@ -450,24 +497,29 @@ pub fn create(entityType: &Rc<EntityType>, world: Option<Rc<World>>) -> Rc<Entit
 {
     let class: &'static EntityClass = classFor(entityType);
     let entity: Rc<Entity> = game::hooks::withEntityClass(class, || (entityType.m_template.m_create)(world));
+
     if let Some([width, height]) = entityType.m_spec.size
     {
         entity.setSize(width, height);
     }
+
     if let Some(health) = entityType.m_spec.health
         && entity.instanceOf("EntityLiving")
     {
         entity_living::fields(&entity).m_health.set(health);
     }
+
     if let Some(speed) = entityType.m_spec.speed
         && entity.instanceOf("EntityLiving")
     {
         entity_living::fields(&entity).m_moveSpeed.set(speed);
     }
+
     if entityType.m_spec.fire_immune
     {
         entity.m_isImmuneToFire.set(true);
     }
+
     entity
 }
 
@@ -483,9 +535,11 @@ pub fn spawn(world: &Rc<World>, kind: &Identifier, pos: [f64; 3], data: Vec<u8>)
     let entity: Rc<Entity> = match TYPES.with(|types| types.borrow().get(kind).cloned())
     {
         Some(entityType) => create(&entityType, Some(Rc::clone(world))),
+
         None =>
         {
-            let key: String = crate::registry::with(|registries| {
+            let key: String = crate::registry::with(|registries|
+            {
                 registries.m_entities.get(kind).map(|row| row.m_value.m_saveKey.clone())
             })
             .ok_or_else(|| format!("{kind} is not a registered entity"))?;
@@ -494,17 +548,20 @@ pub fn spawn(world: &Rc<World>, kind: &Identifier, pos: [f64; 3], data: Vec<u8>)
         }
     };
     entity.setLocationAndAngles(pos[0], pos[1], pos[2], world.m_rand.nextFloat() * 360.0, 0.0);
+
     if !data.is_empty()
     {
         setData(&entity, kind.namespace(), data);
     }
+
     world.entityJoinedWorld(&entity);
     Ok(entity.m_entityId.get())
 }
 
 pub fn data(entity: &Entity, key: &str) -> Vec<u8>
 {
-    DATA.with(|data| {
+    DATA.with(|data|
+    {
         data.borrow().get(&entity.m_entityId.get()).and_then(|map| map.get(key).cloned()).unwrap_or_default()
     })
 }
@@ -525,17 +582,21 @@ pub fn synced(entity: &Entity, owner: &str) -> Vec<u8>
     {
         return bytes;
     }
+
     let legacy: Vec<u8> = data(entity, LEGACY_SYNCED_KEY);
     if !legacy.is_empty()
     {
-        DATA.with(|data| {
+        DATA.with(|data|
+        {
             if let Some(map) = data.borrow_mut().get_mut(&entity.m_entityId.get())
             {
                 map.remove(LEGACY_SYNCED_KEY);
             }
         });
+
         setData(entity, &key, legacy.clone());
     }
+
     legacy
 }
 
@@ -544,10 +605,12 @@ pub fn setSynced(entity: &Entity, owner: &str, bytes: Vec<u8>) { setData(entity,
 // every mod's synced bytes on an entity, by owner
 fn allSynced(entity: &Entity) -> Vec<OwnedBytes>
 {
-    DATA.with(|data| {
+    DATA.with(|data|
+    {
         data.borrow()
             .get(&entity.m_entityId.get())
-            .map(|map| {
+            .map(|map|
+            {
                 map.iter()
                     .filter_map(|(key, bytes)| Some((key.strip_prefix(SYNCED_PREFIX)?.to_owned(), bytes.clone())))
                     .collect()
@@ -560,6 +623,7 @@ fn allSynced(entity: &Entity) -> Vec<OwnedBytes>
 pub fn publishSynced(entity: &Rc<Entity>, owner: &str, bytes: Vec<u8>)
 {
     setSynced(entity, owner, bytes.clone());
+
     if let Some(world) = entity.m_worldObj.get()
     {
         let message =
@@ -585,7 +649,8 @@ pub fn claimStashedSynced(entity: &Entity)
 // living entities draw through RenderLiving, projectiles through the plain model renderer
 pub fn isLivingClass(className: &str) -> bool
 {
-    TYPES.with(|types| {
+    TYPES.with(|types|
+    {
         types
             .borrow()
             .values()
@@ -611,6 +676,7 @@ pub fn pose(entity: &Rc<Entity>, input: mod_protocol::abi::PoseInput) -> Option<
     {
         return None;
     }
+
     match callEntity(entity, EntityCall::Pose { input })
     {
         Some(GuestReply::Pose(pose)) => Some(pose),
@@ -628,11 +694,14 @@ pub fn writeData(entity: &Entity, nbt: &NBTTagCompound)
     {
         return;
     };
+
     let compound: Rc<NBTBase> = NBTTagCompound::create();
+
     for (key, bytes) in map
     {
         compound.compound().setByteArray(&key, Rc::new(bytes.iter().map(|byte| *byte as i8).collect()));
     }
+
     nbt.setCompoundTag(MOD_DATA, &compound);
 }
 
@@ -642,6 +711,7 @@ pub fn readData(entity: &Entity, nbt: &NBTTagCompound)
     {
         return;
     }
+
     let compound: Rc<NBTBase> = nbt.getCompoundTag(MOD_DATA);
     for tag in compound.compound().getValues()
     {
@@ -662,9 +732,10 @@ pub fn moveTowards(entity: &Rc<Entity>, pos: BlockPos, _speed: f32)
     {
         return;
     };
+
     if entity.instanceOf("EntityCreature")
     {
-        let path = world.getEntityPathToXYZ(entity, pos.x, pos.y, pos.z, PATH_RANGE);
+        let path: Option<Rc<PathEntity>> = world.getEntityPathToXYZ(entity, pos.x, pos.y, pos.z, PATH_RANGE);
         entity_creature::fields(entity).m_pathToEntity.set(path);
     }
 }
@@ -683,7 +754,8 @@ pub(crate) fn biomesFor(spawn: &mod_protocol::spec::SpawnSpec) -> Vec<Rc<game::w
 {
     let all: &[crate::registry::BiomeRow] = &crate::registry::BIOMES[..crate::registry::OVERWORLD_BIOMES];
     all.iter()
-        .filter(|(name, _)| {
+        .filter(|(name, _)|
+        {
             spawn.biomes.is_empty() || spawn.biomes.iter().any(|id| id.isVanilla() && id.path() == *name)
         })
         .map(|(_, biome)| biome())
@@ -734,6 +806,7 @@ pub fn addSpawns(biome: &game::worldgen::BiomeGenBase, id: &Identifier)
             addSpawn(biome, &entityType, spawn);
         }
     }
+
     crate::modify::applySpawnsTo(biome, id);
 }
 
@@ -784,7 +857,9 @@ pub fn sendSpawn(entity: &Rc<Entity>, player: &Rc<Entity>) -> bool
     {
         return false;
     };
-    let message = crate::network::loader::SpawnEntity {
+
+    let message: SpawnEntity = crate::network::loader::SpawnEntity
+    {
         kind: numeric,
         id: entity.m_entityId.get(),
         pos: [entity.m_posX.get(), entity.m_posY.get(), entity.m_posZ.get()],
@@ -792,6 +867,7 @@ pub fn sendSpawn(entity: &Rc<Entity>, player: &Rc<Entity>) -> bool
         motion: [entity.m_motionX.get(), entity.m_motionY.get(), entity.m_motionZ.get()],
         data: data(entity, &kindNamespace(entity)),
     };
+
     let channel: Identifier = crate::network::loader::id(crate::network::loader::SPAWN_ENTITY);
     crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&message));
     sendMovingBlock(entity, player);
@@ -807,12 +883,15 @@ fn sendMovingBlock(entity: &Rc<Entity>, player: &Rc<Entity>)
         return;
     }
 
-    let fields = game::entity::entity_falling_sand::fields(entity);
-    let message = crate::network::loader::MovingBlock {
+    let fields: &FallingSandFields = game::entity::entity_falling_sand::fields(entity);
+
+    let message: MovingBlock = crate::network::loader::MovingBlock
+    {
         id: entity.m_entityId.get(),
         block: fields.m_blockID.get(),
         meta: fields.m_metadata.get(),
     };
+
     let channel: Identifier = crate::network::loader::id(crate::network::loader::MOVING_BLOCK);
     crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&message));
 }
@@ -821,9 +900,10 @@ fn sendMovingBlock(entity: &Rc<Entity>, player: &Rc<Entity>)
 pub fn sendSynced(entity: &Rc<Entity>, player: &Rc<Entity>)
 {
     let channel: Identifier = crate::network::loader::id(crate::network::loader::ENTITY_SYNCED);
+
     for (owner, data) in allSynced(entity).into_iter().filter(|(_, bytes)| !bytes.is_empty())
     {
-        let update = crate::network::loader::EntitySynced { id: entity.m_entityId.get(), owner, data };
+        let update: EntitySynced = crate::network::loader::EntitySynced { id: entity.m_entityId.get(), owner, data };
         crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&update));
     }
 }

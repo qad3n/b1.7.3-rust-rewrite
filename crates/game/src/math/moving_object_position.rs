@@ -25,7 +25,8 @@ impl MovingObjectPosition
 {
     pub fn newTile(x: i32, y: i32, z: i32, face: i32, facePos: &Vec3D) -> Self
     {
-        Self {
+        Self
+        {
             m_typeOfHit: EnumMovingObjectType::TILE,
             m_blockX: x,
             m_blockY: y,
@@ -38,7 +39,8 @@ impl MovingObjectPosition
 
     pub fn newEntity(entity: &Rc<Entity>) -> Self
     {
-        Self {
+        Self
+        {
             m_typeOfHit: EnumMovingObjectType::ENTITY,
             m_blockX: 0,
             m_blockY: 0,

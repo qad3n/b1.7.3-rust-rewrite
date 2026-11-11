@@ -19,7 +19,8 @@ impl Packet103SetSlot
 {
     pub fn new(menuId: i32, slot: i32, item: Option<&Rc<ItemStack>>) -> Self
     {
-        Self {
+        Self
+        {
             m_windowId: menuId,
             m_itemSlot: slot,
             m_myItemStack: item.map(|item| PacketItemStack::from(&item.copy())),

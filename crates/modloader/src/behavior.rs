@@ -3,6 +3,7 @@ use crate::host::context::{blockCtx, stackData, stackFrom, withWorld};
 use crate::state;
 use game::block::{Block, BlockClass};
 use game::entity::Entity;
+use game::inventory::InventoryPlayer;
 use game::item::{Item, ItemClass, ItemStack};
 use game::world::{IBlockAccess, World};
 use jvm::random::Random;
@@ -21,6 +22,7 @@ fn callBlock(this: &Block, world: Option<&Rc<World>>, call: BlockCall) -> Option
     let handle: u32 = data.m_spec.behavior.as_ref()?.handle;
     let runtime: Rc<state::ModRuntime> = state::modAt(data.m_owner)?;
     let request: GuestCall = GuestCall::Block { handle, call };
+
     match world
     {
         Some(world) => withWorld(world, || runtime.call(&request)),
@@ -178,6 +180,7 @@ fn harvest(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32, y: 
 {
     let mut context: BlockCtx = ctx(this, world, x, y, z);
     context.meta = metadata;
+
     if !handled(callBlock(this, Some(world), BlockCall::Harvest { ctx: context, player: player.m_entityId.get() }))
     {
         (parent(this).harvestBlock)(this, world, player, x, y, z, metadata);
@@ -199,7 +202,9 @@ fn canStay(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 fn accessCtx(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> BlockCtx
 {
     let dimension: i32 = crate::host::context::currentDimension();
-    BlockCtx {
+
+    BlockCtx
+    {
         world: dimension,
         pos: BlockPos::new(x, y, z),
         block: this.m_blockID,
@@ -262,20 +267,24 @@ pub fn overlays(blockId: i32) -> bool
 pub fn faceRotations(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> Option<[i32; 6]>
 {
     let turns: bool = content::blockData(this.m_blockID)
-        .and_then(|data| {
+        .and_then(|data|
+        {
             data.m_spec.behavior.as_ref().map(|behavior| behavior.methods.contains(&BlockMethod::FaceRotation))
         })
         .unwrap_or(false);
+
     if !turns
     {
         return None;
     }
+
     match callBlock(this, None, BlockCall::FaceRotation { ctx: accessCtx(this, world, x, y, z) })
     {
         Some(GuestReply::Bytes(bytes)) if bytes.len() == 6 =>
         {
             Some(std::array::from_fn(|face| i32::from(bytes[face] & 3)))
         }
+
         _ => None,
     }
 }
@@ -343,6 +352,7 @@ fn callItem(this: &Item, world: Option<&Rc<World>>, call: ItemCall) -> Option<Gu
     let handle: u32 = data.m_spec.behavior.as_ref()?.handle;
     let runtime: Rc<state::ModRuntime> = state::modAt(data.m_owner)?;
     let request: GuestCall = GuestCall::Item { handle, call };
+
     match world
     {
         Some(world) => withWorld(world, || runtime.call(&request)),
@@ -363,6 +373,7 @@ fn applyStack(stack: &Rc<ItemStack>, reply: &Option<mod_protocol::abi::StackData
             stack.setItemDamage(data.damage);
             Some(Rc::clone(stack))
         }
+
         Some(data) => stackFrom(data),
         None => None,
     }
@@ -372,6 +383,7 @@ fn rightClick(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player:
 {
     let call: ItemCall =
         ItemCall::RightClick { world: dimensionOf(world), player: player.m_entityId.get(), stack: stackData(stack) };
+
     match callItem(this, Some(world), call)
     {
         Some(GuestReply::Use { handled: true, stack: reply }) => applyStack(stack, &reply),
@@ -391,7 +403,8 @@ fn useOnBlock(
     face: i32,
 ) -> bool
 {
-    let call: ItemCall = ItemCall::UseOnBlock {
+    let call: ItemCall = ItemCall::UseOnBlock
+    {
         world: dimensionOf(world),
         player: player.m_entityId.get(),
         stack: stackData(stack),
@@ -405,6 +418,7 @@ fn useOnBlock(
             applyStack(stack, &reply);
             handled
         }
+
         Some(GuestReply::Bool(handled)) => handled,
         _ => (itemParent(this).onItemUse)(this, stack, player, world, x, y, z, face),
     }
@@ -412,11 +426,13 @@ fn useOnBlock(
 
 fn hitEntity(this: &Rc<Item>, stack: &Rc<ItemStack>, target: &Rc<Entity>, attacker: &Rc<Entity>) -> bool
 {
-    let call: ItemCall = ItemCall::HitEntity {
+    let call: ItemCall = ItemCall::HitEntity
+    {
         stack: stackData(stack),
         target: target.m_entityId.get(),
         attacker: attacker.m_entityId.get(),
     };
+
     let world: Option<Rc<World>> = target.m_worldObj.get();
     asBool(callItem(this, world.as_ref(), call))
         .unwrap_or_else(|| (itemParent(this).hitEntity)(this, stack, target, attacker))
@@ -443,12 +459,14 @@ fn blockDestroyed(
     entity: &Rc<Entity>,
 ) -> bool
 {
-    let call: ItemCall = ItemCall::BlockDestroyed {
+    let call: ItemCall = ItemCall::BlockDestroyed
+    {
         stack: stackData(stack),
         block,
         pos: BlockPos::new(x, y, z),
         player: entity.m_entityId.get(),
     };
+
     let world: Option<Rc<World>> = entity.m_worldObj.get();
     asBool(callItem(this, world.as_ref(), call))
         .unwrap_or_else(|| (itemParent(this).onBlockDestroyed)(this, stack, block, x, y, z, entity))
@@ -490,7 +508,9 @@ fn useAction(this: &Rc<Item>, stack: &Rc<ItemStack>) -> i32
 fn usingTick(this: &Rc<Item>, stack: &Rc<ItemStack>, player: &Rc<Entity>, left: i32)
 {
     let world: Rc<World> = player.world();
-    let call: ItemCall = ItemCall::UsingTick {
+
+    let call: ItemCall = ItemCall::UsingTick
+    {
         world: dimensionOf(&world),
         player: player.m_entityId.get(),
         stack: stackData(stack),
@@ -507,7 +527,8 @@ fn heldAfter(stack: &Rc<ItemStack>, player: &Rc<Entity>, reply: &Option<mod_prot
     {
         return;
     }
-    let inventory = game::entity::entity_player::inventory(player);
+
+    let inventory: Rc<InventoryPlayer> = game::entity::entity_player::inventory(player);
     let slot: usize = inventory.m_currentItem.get() as usize;
     let held: bool = inventory.m_mainInventory.borrow()[slot].as_ref().is_some_and(|held| Rc::ptr_eq(held, stack));
     if held
@@ -518,7 +539,8 @@ fn heldAfter(stack: &Rc<ItemStack>, player: &Rc<Entity>, reply: &Option<mod_prot
 
 fn stoppedUsing(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: &Rc<Entity>, left: i32)
 {
-    let call: ItemCall = ItemCall::StoppedUsing {
+    let call: ItemCall = ItemCall::StoppedUsing
+    {
         world: dimensionOf(world),
         player: player.m_entityId.get(),
         stack: stackData(stack),
@@ -535,6 +557,7 @@ fn useFinish(this: &Rc<Item>, stack: &Rc<ItemStack>, world: &Rc<World>, player: 
 {
     let call: ItemCall =
         ItemCall::UseFinish { world: dimensionOf(world), player: player.m_entityId.get(), stack: stackData(stack) };
+
     match callItem(this, Some(world), call)
     {
         Some(GuestReply::Use { handled: true, stack: reply }) => applyStack(stack, &reply),

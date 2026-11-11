@@ -1,9 +1,11 @@
 use crate::math::{MovingObjectPosition, Vec3D};
 use jvm::array_list::JArrayList;
+use jvm::floating_decimal::doubleToString;
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static BOUNDING_BOXES: JArrayList<Rc<AxisAlignedBB>> = JArrayList::new();
     static NUM_BOUNDING_BOXES_IN_USE: Cell<i32> = const { Cell::new(0) };
 }
@@ -45,13 +47,16 @@ impl AxisAlignedBB
 
     pub fn getBoundingBoxFromPool(minX: f64, minY: f64, minZ: f64, maxX: f64, maxY: f64, maxZ: f64) -> Rc<Self>
     {
-        BOUNDING_BOXES.with(|boxes| {
+        BOUNDING_BOXES.with(|boxes|
+        {
             let used: i32 = NUM_BOUNDING_BOXES_IN_USE.with(Cell::get);
             if used >= boxes.size()
             {
                 boxes.add(Self::getBoundingBox(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
             }
+
             NUM_BOUNDING_BOXES_IN_USE.with(|count| count.set(used + 1));
+
             let bb: Rc<Self> = boxes.get(used);
             bb.setBounds(minX, minY, minZ, maxX, maxY, maxZ);
             bb
@@ -60,7 +65,8 @@ impl AxisAlignedBB
 
     fn new(minX: f64, minY: f64, minZ: f64, maxX: f64, maxY: f64, maxZ: f64) -> Self
     {
-        Self {
+        Self
+        {
             m_minX: Cell::new(minX),
             m_minY: Cell::new(minY),
             m_minZ: Cell::new(minZ),
@@ -100,30 +106,37 @@ impl AxisAlignedBB
         let mut d4: f64 = self.maxX();
         let mut d5: f64 = self.maxY();
         let mut d6: f64 = self.maxZ();
+
         if dx < 0.0
         {
             d += dx;
         }
+
         if dx > 0.0
         {
             d4 += dx;
         }
+
         if dy < 0.0
         {
             d2 += dy;
         }
+
         if dy > 0.0
         {
             d5 += dy;
         }
+
         if dz < 0.0
         {
             d3 += dz;
         }
+
         if dz > 0.0
         {
             d6 += dz;
         }
+
         Self::getBoundingBoxFromPool(d, d2, d3, d4, d5, d6)
     }
 
@@ -151,9 +164,10 @@ impl AxisAlignedBB
         )
     }
 
-    pub fn calculateXOffset(&self, bb: &AxisAlignedBB, limit: f64) -> f64
+    pub fn calculateXOffset(&self, bb: &Self, limit: f64) -> f64
     {
         let mut limit: f64 = limit;
+
         if bb.maxY() <= self.minY() || bb.minY() >= self.maxY()
         {
             return limit;
@@ -162,6 +176,7 @@ impl AxisAlignedBB
         {
             return limit;
         }
+
         if limit > 0.0 && bb.maxX() <= self.minX()
         {
             let n: f64 = self.minX() - bb.maxX();
@@ -170,6 +185,7 @@ impl AxisAlignedBB
                 limit = n;
             }
         }
+
         if limit < 0.0 && bb.minX() >= self.maxX()
         {
             let n2: f64 = self.maxX() - bb.minX();
@@ -178,12 +194,14 @@ impl AxisAlignedBB
                 limit = n2;
             }
         }
+
         limit
     }
 
-    pub fn calculateYOffset(&self, bb: &AxisAlignedBB, limit: f64) -> f64
+    pub fn calculateYOffset(&self, bb: &Self, limit: f64) -> f64
     {
         let mut limit: f64 = limit;
+
         if bb.maxX() <= self.minX() || bb.minX() >= self.maxX()
         {
             return limit;
@@ -192,6 +210,7 @@ impl AxisAlignedBB
         {
             return limit;
         }
+
         if limit > 0.0 && bb.maxY() <= self.minY()
         {
             let n: f64 = self.minY() - bb.maxY();
@@ -200,6 +219,7 @@ impl AxisAlignedBB
                 limit = n;
             }
         }
+
         if limit < 0.0 && bb.minY() >= self.maxY()
         {
             let n2: f64 = self.maxY() - bb.minY();
@@ -208,12 +228,14 @@ impl AxisAlignedBB
                 limit = n2;
             }
         }
+
         limit
     }
 
-    pub fn calculateZOffset(&self, bb: &AxisAlignedBB, limit: f64) -> f64
+    pub fn calculateZOffset(&self, bb: &Self, limit: f64) -> f64
     {
         let mut limit: f64 = limit;
+
         if bb.maxX() <= self.minX() || bb.minX() >= self.maxX()
         {
             return limit;
@@ -222,6 +244,7 @@ impl AxisAlignedBB
         {
             return limit;
         }
+
         if limit > 0.0 && bb.maxZ() <= self.minZ()
         {
             let n: f64 = self.minZ() - bb.maxZ();
@@ -230,6 +253,7 @@ impl AxisAlignedBB
                 limit = n;
             }
         }
+
         if limit < 0.0 && bb.minZ() >= self.maxZ()
         {
             let n2: f64 = self.maxZ() - bb.minZ();
@@ -238,10 +262,11 @@ impl AxisAlignedBB
                 limit = n2;
             }
         }
+
         limit
     }
 
-    pub fn intersectsWith(&self, bb: &AxisAlignedBB) -> bool
+    pub fn intersectsWith(&self, bb: &Self) -> bool
     {
         if bb.maxX() <= self.minX() || bb.minX() >= self.maxX()
         {
@@ -251,6 +276,7 @@ impl AxisAlignedBB
         {
             return false;
         }
+
         !(bb.maxZ() <= self.minZ()) && !(bb.minZ() >= self.maxZ())
     }
 
@@ -275,6 +301,7 @@ impl AxisAlignedBB
         {
             return false;
         }
+
         !(vec.z() <= self.minZ()) && !(vec.z() >= self.maxZ())
     }
 
@@ -311,32 +338,39 @@ impl AxisAlignedBB
         let mut vec3D4: Option<Rc<Vec3D>> = from.getIntermediateWithYValue(to, self.maxY());
         let mut vec3D5: Option<Rc<Vec3D>> = from.getIntermediateWithZValue(to, self.minZ());
         let mut vec3D6: Option<Rc<Vec3D>> = from.getIntermediateWithZValue(to, self.maxZ());
+
         if !self.isVecInYZ(vec3D.as_deref())
         {
             vec3D = None;
         }
+
         if !self.isVecInYZ(vec3D2.as_deref())
         {
             vec3D2 = None;
         }
+
         if !self.isVecInXZ(vec3D3.as_deref())
         {
             vec3D3 = None;
         }
+
         if !self.isVecInXZ(vec3D4.as_deref())
         {
             vec3D4 = None;
         }
+
         if !self.isVecInXY(vec3D5.as_deref())
         {
             vec3D5 = None;
         }
+
         if !self.isVecInXY(vec3D6.as_deref())
         {
             vec3D6 = None;
         }
 
         let mut vec3D7: Option<Rc<Vec3D>> = None;
+
         for candidate in [&vec3D, &vec3D2, &vec3D3, &vec3D4, &vec3D5, &vec3D6]
         {
             if let Some(candidate) = candidate
@@ -355,30 +389,37 @@ impl AxisAlignedBB
 
         let hit: Rc<Vec3D> = vec3D7.clone()?;
         let mut n: i32 = -1;
+
         if sameVec(&vec3D7, &vec3D)
         {
             n = 4;
         }
+
         if sameVec(&vec3D7, &vec3D2)
         {
             n = 5;
         }
+
         if sameVec(&vec3D7, &vec3D3)
         {
             n = 0;
         }
+
         if sameVec(&vec3D7, &vec3D4)
         {
             n = 1;
         }
+
         if sameVec(&vec3D7, &vec3D5)
         {
             n = 2;
         }
+
         if sameVec(&vec3D7, &vec3D6)
         {
             n = 3;
         }
+
         Some(MovingObjectPosition::newTile(0, 0, 0, n, &hit))
     }
 
@@ -389,6 +430,7 @@ impl AxisAlignedBB
         {
             return false;
         };
+
         vec.y() >= self.minY() && vec.y() <= self.maxY() && vec.z() >= self.minZ() && vec.z() <= self.maxZ()
     }
 
@@ -399,6 +441,7 @@ impl AxisAlignedBB
         {
             return false;
         };
+
         vec.x() >= self.minX() && vec.x() <= self.maxX() && vec.z() >= self.minZ() && vec.z() <= self.maxZ()
     }
 
@@ -409,25 +452,22 @@ impl AxisAlignedBB
         {
             return false;
         };
+
         vec.x() >= self.minX() && vec.x() <= self.maxX() && vec.y() >= self.minY() && vec.y() <= self.maxY()
     }
 
-    pub fn setBB(&self, bb: &AxisAlignedBB)
-    {
-        self.setBounds(bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ());
-    }
+    pub fn setBB(&self, bb: &Self) { self.setBounds(bb.minX(), bb.minY(), bb.minZ(), bb.maxX(), bb.maxY(), bb.maxZ()); }
 
     pub fn toString(&self) -> String
     {
-        use jvm::floating_decimal::doubleToString as d;
         format!(
             "box[{}, {}, {} -> {}, {}, {}]",
-            d(self.minX()),
-            d(self.minY()),
-            d(self.minZ()),
-            d(self.maxX()),
-            d(self.maxY()),
-            d(self.maxZ())
+            doubleToString(self.minX()),
+            doubleToString(self.minY()),
+            doubleToString(self.minZ()),
+            doubleToString(self.maxX()),
+            doubleToString(self.maxY()),
+            doubleToString(self.maxZ())
         )
     }
 }

@@ -10,7 +10,9 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     {
         return;
     }
+
     (block_flower::CLASS.updateTick)(this, world, x, y, z, random);
+
     if world.getBlockLightValue(x, y + 1, z) >= 9 && random.nextIntBounded(30) == 0
     {
         let n: i32 = world.getBlockMetadata(x, y, z);
@@ -28,7 +30,9 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
 pub fn growTree(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rand: &Random)
 {
     let n: i32 = world.getBlockMetadata(x, y, z) & 3;
+
     world.setBlock(x, y, z, 0);
+
     let worldGenerator: Box<dyn WorldGenerator> = if n == 1
     {
         Box::new(WorldGenTaiga2::new())
@@ -40,6 +44,7 @@ pub fn growTree(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, ran
     else
     {
         let trees: Box<dyn WorldGenerator> = Box::new(WorldGenTrees::new());
+
         if rand.nextIntBounded(10) == 0
         {
             Box::new(WorldGenBigTree::new())
@@ -49,17 +54,20 @@ pub fn growTree(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, ran
             trees
         }
     };
+
     if !worldGenerator.generate(world, rand, x, y, z)
     {
         world.setBlockAndMetadata(x, y, z, this.m_blockID, n);
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockSapling",
     m_parent: Some(&block_flower::CLASS),
     updateTick,
-    getBlockTextureFromSideAndMetadata: |this, face, metadata| {
+    getBlockTextureFromSideAndMetadata: |this, face, metadata|
+    {
         let metadata: i32 = metadata & 0x3;
         match metadata
         {

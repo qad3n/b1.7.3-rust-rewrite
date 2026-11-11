@@ -24,36 +24,45 @@ pub fn getRandomStackFromInventory(this: &Rc<TileEntity>) -> Option<Rc<ItemStack
         if tile_entity_chest::slot(contents(this), i).is_some()
         {
             let bound: i32 = n;
+
             n += 1;
+
             if random.nextIntBounded(bound) == 0
             {
                 slot = i;
             }
         }
     }
+
     if slot >= 0
     {
         return this.decrStackSize(slot, 1);
     }
+
     None
 }
 
-pub const CLASS: TileEntityClass = TileEntityClass {
+pub const CLASS: TileEntityClass = TileEntityClass
+{
     m_name: "TileEntityDispenser",
     m_parent: Some(&TILE_ENTITY),
     m_interfaces: &["IInventory"],
     getSizeInventory: |_| 9,
     getStackInSlot: |this, index| tile_entity_chest::slot(contents(this), index),
     decrStackSize: |this, index, amount| tile_entity_chest::decrSlot(this, contents(this), index, amount, true),
-    setInventorySlotContents: |this, index, item| {
+    setInventorySlotContents: |this, index, item|
+    {
         tile_entity_chest::setSlotContents(this, contents(this), index, item, true)
     },
     getInvName: |_| "Trap",
-    readFromNBT: |this, nbt| {
+    readFromNBT: |this, nbt|
+    {
         (TILE_ENTITY.readFromNBT)(this, nbt);
         tile_entity_chest::readSlots(this, contents(this), nbt);
     },
-    writeToNBT: |this, nbt| {
+
+    writeToNBT: |this, nbt|
+    {
         (TILE_ENTITY.writeToNBT)(this, nbt);
         tile_entity_chest::writeSlots(contents(this), nbt);
     },

@@ -11,11 +11,13 @@ pub fn growUp(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return;
     }
+
     let mut n: i32 = 1;
     while world.getBlockId(x, y - n, z) == this.m_blockID
     {
         n += 1;
     }
+
     if n < 3
     {
         let n2: i32 = world.getBlockMetadata(x, y, z);
@@ -42,6 +44,7 @@ fn canPlaceBlockAt(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) 
     {
         return false;
     }
+
     let water: Rc<Material> = Material::water();
     Rc::ptr_eq(&world.getBlockMaterial(x - 1, y - 1, z), &water)
         || Rc::ptr_eq(&world.getBlockMaterial(x + 1, y - 1, z), &water)
@@ -58,7 +61,8 @@ fn checkBlockCoordValid(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: 
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockReed",
     m_parent: Some(&BLOCK),
     updateTick: |this, world, x, y, z, _: &Random| growUp(this, world, x, y, z),
@@ -77,6 +81,7 @@ pub fn create(id: i32, sprite: i32) -> Rc<Block>
 {
     let block: Rc<Block> = Block::construct(&CLASS, Box::new(()), id, Material::plants());
     block.m_blockIndexInTexture.set(sprite);
+
     let f: f32 = 0.375;
     block.setBlockBounds(0.5 - f, 0.0, 0.5 - f, 0.5 + f, 1.0, 0.5 + f);
     block.setTickOnLoad(true)

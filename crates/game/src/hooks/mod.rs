@@ -15,18 +15,22 @@ pub enum GameEvent<'a>
     {
         world: &'a Rc<World>
     },
+
     ChunkLoad
     {
         world: &'a Rc<World>, x: i32, z: i32
     },
+
     ChunkUnload
     {
         world: &'a Rc<World>, x: i32, z: i32
     },
+
     ChunkGenerate
     {
         world: &'a Rc<World>, x: i32, z: i32
     },
+
     BlockPlace
     {
         world: &'a Rc<World>,
@@ -37,6 +41,7 @@ pub enum GameEvent<'a>
         meta: i32,
         player: Option<&'a Rc<Entity>>,
     },
+
     BlockBreak
     {
         world: &'a Rc<World>,
@@ -47,26 +52,32 @@ pub enum GameEvent<'a>
         meta: i32,
         player: Option<&'a Rc<Entity>>,
     },
+
     BlockActivate
     {
         world: &'a Rc<World>, x: i32, y: i32, z: i32, block: i32, player: &'a Rc<Entity>
     },
+
     NeighborChange
     {
         world: &'a Rc<World>, x: i32, y: i32, z: i32, block: i32, neighbor: i32
     },
+
     ExplosionAffect
     {
         world: &'a Rc<World>, x: i32, y: i32, z: i32, block: i32
     },
+
     HarvestDrops
     {
         world: &'a Rc<World>, x: i32, y: i32, z: i32, block: i32, meta: i32
     },
+
     ItemUse
     {
         world: &'a Rc<World>, player: &'a Rc<Entity>, stack: &'a Rc<ItemStack>
     },
+
     ItemUseOnBlock
     {
         world: &'a Rc<World>,
@@ -77,62 +88,77 @@ pub enum GameEvent<'a>
         z: i32,
         face: i32,
     },
+
     ItemDestroyed
     {
         player: &'a Rc<Entity>, stack: &'a ItemStack
     },
+
     ItemPickup
     {
         player: &'a Rc<Entity>, item: &'a Rc<Entity>, stack: &'a Rc<ItemStack>
     },
+
     ItemToss
     {
         player: &'a Rc<Entity>, stack: &'a Rc<ItemStack>
     },
+
     EntityJoinWorld
     {
         world: &'a Rc<World>, entity: &'a Rc<Entity>
     },
+
     EntityTick
     {
         entity: &'a Rc<Entity>
     },
+
     LivingAttack
     {
         entity: &'a Rc<Entity>, damage: &'a DamageSource<'a>, amount: &'a mut i32
     },
+
     LivingDeath
     {
         entity: &'a Rc<Entity>, source: Option<&'a Rc<Entity>>
     },
+
     LivingDrops
     {
         entity: &'a Rc<Entity>, source: Option<&'a Rc<Entity>>
     },
+
     LivingSpawnCheck
     {
         entity: &'a Rc<Entity>, allowed: &'a mut bool
     },
+
     PlayerSleep
     {
         player: &'a Rc<Entity>, x: i32, y: i32, z: i32
     },
+
     PlayerBreakSpeed
     {
         player: &'a Rc<Entity>, block: &'a Rc<Block>, speed: &'a mut f32
     },
+
     PlayerCanHarvest
     {
         player: &'a Rc<Entity>, block: &'a Rc<Block>, allowed: &'a mut bool
     },
+
     ItemCrafted
     {
         player: &'a Rc<Entity>, stack: &'a Rc<ItemStack>
     },
+
     ItemSmelted
     {
         player: &'a Rc<Entity>, stack: &'a Rc<ItemStack>
     },
+
     BucketFill
     {
         world: &'a Rc<World>, player: &'a Rc<Entity>, stack: &'a Rc<ItemStack>
@@ -218,7 +244,8 @@ pub trait LoaderHooks
     }
 }
 
-thread_local! {
+thread_local!
+{
     static HOOKS: Cell<Option<&'static dyn LoaderHooks>> = const { Cell::new(None) };
 }
 
@@ -344,16 +371,21 @@ pub fn itemByName(nbt: &NBTTagCompound) -> Option<i32>
 pub fn savesBlockNames() -> bool { active().is_some_and(|hooks| hooks.savesNames()) }
 
 // mod content reuses a vanilla constructor while the next constructed object takes a derived class
-macro_rules! class_override {
-    ($slot:ident, $with:ident, $take:ident, $class:ty) => {
-        thread_local! {
+macro_rules! class_override
+{
+    ($slot:ident, $with:ident, $take:ident, $class:ty) =>
+    {
+        thread_local!
+        {
             static $slot: Cell<Option<&'static $class>> = const { Cell::new(None) };
         }
 
         pub fn $with<R>(class: &'static $class, build: impl FnOnce() -> R) -> R
         {
             $slot.with(|slot| slot.set(Some(class)));
+
             let result: R = build();
+
             $slot.with(|slot| slot.set(None));
             result
         }

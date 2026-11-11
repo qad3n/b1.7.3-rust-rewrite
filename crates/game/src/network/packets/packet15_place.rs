@@ -21,7 +21,8 @@ impl Packet15Place
 {
     pub fn new(x: i32, y: i32, z: i32, face: i32, itemInHand: Option<&Rc<ItemStack>>) -> Self
     {
-        Self {
+        Self
+        {
             m_xPosition: x,
             m_yPosition: y,
             m_zPosition: z,

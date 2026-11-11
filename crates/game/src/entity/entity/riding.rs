@@ -2,7 +2,7 @@ use crate::entity::Entity;
 use jvm::throwable::OrNpe;
 use std::rc::Rc;
 
-pub fn updateRidden(this: &Rc<Entity>)
+pub(crate) fn updateRidden(this: &Rc<Entity>)
 {
     let riding: Rc<Entity> = this.m_ridingEntity.get().orNpe();
     if riding.m_isDead.get()
@@ -15,6 +15,7 @@ pub fn updateRidden(this: &Rc<Entity>)
     this.m_motionY.set(0.0);
     this.m_motionZ.set(0.0);
     this.onUpdate();
+
     let Some(riding) = this.m_ridingEntity.get()
     else
     {
@@ -27,18 +28,22 @@ pub fn updateRidden(this: &Rc<Entity>)
     this.m_entityRiderPitchDelta.set(
         this.m_entityRiderPitchDelta.get() + (riding.m_rotationPitch.get() - riding.m_prevRotationPitch.get()) as f64,
     );
+
     while this.m_entityRiderYawDelta.get() >= 180.0
     {
         this.m_entityRiderYawDelta.set(this.m_entityRiderYawDelta.get() - 360.0);
     }
+
     while this.m_entityRiderYawDelta.get() < -180.0
     {
         this.m_entityRiderYawDelta.set(this.m_entityRiderYawDelta.get() + 360.0);
     }
+
     while this.m_entityRiderPitchDelta.get() >= 180.0
     {
         this.m_entityRiderPitchDelta.set(this.m_entityRiderPitchDelta.get() - 360.0);
     }
+
     while this.m_entityRiderPitchDelta.get() < -180.0
     {
         this.m_entityRiderPitchDelta.set(this.m_entityRiderPitchDelta.get() + 360.0);
@@ -51,14 +56,17 @@ pub fn updateRidden(this: &Rc<Entity>)
     {
         d0 = f as f64;
     }
+
     if d0 < -f as f64
     {
         d0 = -f as f64;
     }
+
     if d1 > f as f64
     {
         d1 = f as f64;
     }
+
     if d1 < -f as f64
     {
         d1 = -f as f64;
@@ -70,20 +78,21 @@ pub fn updateRidden(this: &Rc<Entity>)
     this.m_rotationPitch.set((this.m_rotationPitch.get() as f64 + d1) as f32);
 }
 
-pub fn updateRiderPosition(this: &Rc<Entity>)
+pub(crate) fn updateRiderPosition(this: &Rc<Entity>)
 {
     let rider: Rc<Entity> = this.m_riddenByEntity.get().orNpe();
     rider.setPosition(this.posX(), this.posY() + this.getMountedYOffset() + rider.getYOffset(), this.posZ());
 }
 
-pub fn getMountedYOffset(this: &Rc<Entity>) -> f64 { this.m_height.get() as f64 * 0.75 }
+pub(crate) fn getMountedYOffset(this: &Rc<Entity>) -> f64 { this.m_height.get() as f64 * 0.75 }
 
 impl Entity {}
 
-pub fn mountEntity(this: &Rc<Entity>, entity: Option<&Rc<Entity>>)
+pub(crate) fn mountEntity(this: &Rc<Entity>, entity: Option<&Rc<Entity>>)
 {
     this.m_entityRiderPitchDelta.set(0.0);
     this.m_entityRiderYawDelta.set(0.0);
+
     let Some(entity) = entity
     else
     {
@@ -98,6 +107,7 @@ pub fn mountEntity(this: &Rc<Entity>, entity: Option<&Rc<Entity>>)
             );
             riding.m_riddenByEntity.set(None);
         }
+
         this.m_ridingEntity.set(None);
         return;
     };
@@ -121,10 +131,12 @@ pub fn mountEntity(this: &Rc<Entity>, entity: Option<&Rc<Entity>>)
     {
         riding.m_riddenByEntity.set(None);
     }
+
     if let Some(rider) = entity.m_riddenByEntity.get()
     {
         rider.m_ridingEntity.set(None);
     }
+
     this.m_ridingEntity.set(Some(Rc::clone(entity)));
     entity.m_riddenByEntity.set(Some(Rc::clone(this)));
 }

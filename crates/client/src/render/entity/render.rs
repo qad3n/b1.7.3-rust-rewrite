@@ -14,8 +14,10 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
 
-game::vtable! {
-    RenderClass for Render {
+game::vtable!
+{
+    RenderClass for Render
+    {
         fn doRender(entity: &Rc<Entity>, dx: f64, dy: f64, dz: f64, yaw: f32, tickDelta: f32);
         fn applyTranslation(entity: &Rc<Entity>, dx: f64, dy: f64, dz: f64);
         fn rotateCorpse(entity: &Rc<Entity>, bob: f32, bodyYaw: f32, tickDelta: f32);
@@ -51,9 +53,10 @@ const FIRE_FRAME: f32 = 15.99;
 
 impl Render
 {
-    pub fn alloc(class: &'static RenderClass, living: Option<LivingRenderFields>, ext: Box<dyn Any>) -> Rc<Render>
+    pub fn alloc(class: &'static RenderClass, living: Option<LivingRenderFields>, ext: Box<dyn Any>) -> Rc<Self>
     {
-        Rc::new(Render {
+        Rc::new(Self
+        {
             m_class: class,
             m_shadowSize: Cell::new(0.0),
             m_shadowDarkness: Cell::new(1.0),
@@ -82,6 +85,7 @@ impl Render
     pub fn loadDownloadableImageTexture(&self, url: Option<&str>, backup: Option<&str>) -> bool
     {
         let renderengine: Rc<RenderEngine> = self.renderEngine();
+
         let i: i32 = match url
         {
             Some(url) => renderengine.getTextureForDownloadableImage(url, backup),
@@ -92,31 +96,40 @@ impl Render
             renderengine.bindTexture(i);
             return true;
         }
+
         false
     }
 
     fn renderEntityOnFire(&self, entity: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     {
         GL11::glDisable(GL11::GL_LIGHTING);
+
         let i: i32 = Block::fire().m_blockIndexInTexture.get();
         let j: i32 = (i & 15) << 4;
         let k: i32 = i & 240;
+
         GL11::glPushMatrix();
         GL11::glTranslatef(dx as f32, dy as f32, dz as f32);
+
         let f4: f32 = entity.m_width.get() * 1.4;
         GL11::glScalef(f4, f4, f4);
         self.loadTexture("/terrain.png");
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let mut f5: f32 = 0.5;
         let f6: f32 = 0.0;
         let mut f7: f32 = entity.m_height.get() / f4;
         let mut f8: f32 = (entity.posY() - entity.m_boundingBox.minY()) as f32;
+
         GL11::glRotatef(-self.renderManager().m_playerViewY.get(), 0.0, 1.0, 0.0);
         GL11::glTranslatef(0.0, 0.0, -0.3 + f7 as i32 as f32 * 0.02);
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
         let mut f9: f32 = 0.0;
         let mut l: i32 = 0;
+
         tessellator.startDrawingQuads();
+
         while f7 > 0.0
         {
             let row: i32 = if l % 2 == 0 { k } else { k + 16 };
@@ -124,10 +137,12 @@ impl Render
             let mut f1: f32 = (j as f32 + FIRE_FRAME) / 256.0;
             let f2: f32 = row as f32 / 256.0;
             let f3: f32 = (row as f32 + FIRE_FRAME) / 256.0;
+
             if l / 2 % 2 == 0
             {
                 std::mem::swap(&mut f, &mut f1);
             }
+
             tessellator.addVertexWithUV((f5 - f6) as f64, (0.0 - f8) as f64, f9 as f64, f1 as f64, f3 as f64);
             tessellator.addVertexWithUV((-f5 - f6) as f64, (0.0 - f8) as f64, f9 as f64, f as f64, f3 as f64);
             tessellator.addVertexWithUV((-f5 - f6) as f64, (1.4 - f8) as f64, f9 as f64, f as f64, f2 as f64);
@@ -138,6 +153,7 @@ impl Render
             f9 += 0.03;
             l += 1;
         }
+
         tessellator.draw();
         GL11::glPopMatrix();
         GL11::glEnable(GL11::GL_LIGHTING);
@@ -147,10 +163,14 @@ impl Render
     {
         GL11::glEnable(GL11::GL_BLEND);
         GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
+
         let renderengine: Rc<RenderEngine> = self.renderEngine();
         renderengine.bindTexture(renderengine.getTexture("%clamp%/misc/shadow.png"));
+
         let world: Rc<World> = self.renderManager().m_worldObj.get().orNpe();
+
         GL11::glDepthMask(false);
+
         let f: f32 = self.m_shadowSize.get();
         let tick: f64 = tickDelta as f64;
         let d0: f64 = entity.m_lastTickPosX.get() + (entity.posX() - entity.m_lastTickPosX.get()) * tick;
@@ -169,6 +189,7 @@ impl Render
         let d5: f64 = dz - d2;
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         tessellator.startDrawingQuads();
+
         for k1 in i..=j
         {
             for l1 in k..=l
@@ -194,6 +215,7 @@ impl Render
                 }
             }
         }
+
         tessellator.draw();
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         GL11::glDisable(GL11::GL_BLEND);
@@ -214,6 +236,7 @@ impl Render
     )
     {
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         if !block.renderAsNormalBlock()
         {
             return;
@@ -223,11 +246,14 @@ impl Render
         {
             return;
         }
+
         if d > 1.0
         {
             d = 1.0;
         }
+
         tessellator.setColorRGBA_F(1.0, 1.0, 1.0, d as f32);
+
         let d2: f64 = x as f64 + block.m_minX.get() + cx;
         let d3: f64 = x as f64 + block.m_maxX.get() + cx;
         let d4: f64 = y as f64 + block.m_minY.get() + cy + SHADOW_LIFT;
@@ -237,6 +263,7 @@ impl Render
         let f2: f32 = ((dx - d3) / 2.0 / shadowSize as f64 + 0.5) as f32;
         let f3: f32 = ((dz - d5) / 2.0 / shadowSize as f64 + 0.5) as f32;
         let f4: f32 = ((dz - d6) / 2.0 / shadowSize as f64 + 0.5) as f32;
+
         tessellator.addVertexWithUV(d2, d4, d5, f as f64, f3 as f64);
         tessellator.addVertexWithUV(d2, d4, d6, f as f64, f4 as f64);
         tessellator.addVertexWithUV(d3, d4, d6, f2 as f64, f4 as f64);
@@ -246,20 +273,26 @@ impl Render
     pub fn renderOffsetAABB(shape: &AxisAlignedBB, dx: f64, dy: f64, dz: f64)
     {
         GL11::glDisable(GL11::GL_TEXTURE_2D);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         tessellator.startDrawingQuads();
         tessellator.setTranslationD(dx, dy, dz);
+
         let normals: [(f32, f32, f32); 6] =
             [(0.0, 0.0, -1.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0), (0.0, 1.0, 0.0), (-1.0, 0.0, 0.0), (1.0, 0.0, 0.0)];
+
         for (face, (nx, ny, nz)) in boxFaces(shape).iter().zip(normals)
         {
             tessellator.setNormal(nx, ny, nz);
+
             for &(x, y, z) in face
             {
                 tessellator.addVertex(x, y, z);
             }
         }
+
         tessellator.setTranslationD(0.0, 0.0, 0.0);
         tessellator.draw();
         GL11::glEnable(GL11::GL_TEXTURE_2D);
@@ -269,6 +302,7 @@ impl Render
     {
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         tessellator.startDrawingQuads();
+
         for face in boxFaces(shape)
         {
             for (x, y, z) in face
@@ -276,6 +310,7 @@ impl Render
                 tessellator.addVertex(x, y, z);
             }
         }
+
         tessellator.draw();
     }
 
@@ -294,6 +329,7 @@ impl Render
                 self.renderShadow(entity, dx, dy, dz, f, tickDelta);
             }
         }
+
         if entity.isBurning()
         {
             self.renderEntityOnFire(entity, dx, dy, dz);
@@ -320,7 +356,8 @@ fn boxFaces(shape: &AxisAlignedBB) -> [[(f64, f64, f64); 4]; 6]
     ]
 }
 
-pub const RENDER: RenderClass = RenderClass {
+pub const RENDER: RenderClass = RenderClass
+{
     m_name: "Render",
     m_parent: None,
     m_interfaces: &[],

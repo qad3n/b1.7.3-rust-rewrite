@@ -1,14 +1,16 @@
-use game::world::World;
+use game::world::{ISaveHandler, World};
 use mod_protocol::wire;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 pub const LOADER_DIR: &str = "loader";
 const WORLD_DATA_FILE: &str = "moddata.dat";
 const PROBE: &str = "loader_probe";
 
-thread_local! {
+thread_local!
+{
     // mod id and key to bytes for the world in play, loaded on world load and written on save
     static WORLD_DATA: RefCell<BTreeMap<String, Vec<u8>>> = const { RefCell::new(BTreeMap::new()) };
 }
@@ -16,7 +18,7 @@ thread_local! {
 // the world folder is the parent of its data folder, which the save handler already knows
 pub fn worldDir(world: &World) -> Option<PathBuf>
 {
-    let handler = world.m_saveHandler.get()?;
+    let handler: Rc<dyn ISaveHandler> = world.m_saveHandler.get()?;
     Some(handler.getDataFile(PROBE)?.parent()?.parent()?.to_path_buf())
 }
 
@@ -30,6 +32,7 @@ pub fn decode<T: serde::de::DeserializeOwned>(name: &str, bytes: &[u8]) -> Optio
     match wire::decode(bytes)
     {
         Ok(value) => Some(value),
+
         Err(error) =>
         {
             crate::log::warn(crate::log::LOADER, &format!("could not decode {name}, ignoring it: {error}"));
@@ -45,7 +48,9 @@ pub fn write(world: &World, name: &str, bytes: &[u8]) -> std::io::Result<()>
     {
         return Ok(());
     };
+
     std::fs::create_dir_all(&dir)?;
+
     let target: PathBuf = dir.join(name);
     let temp: PathBuf = dir.join(format!("{name}.tmp"));
     std::fs::write(&temp, bytes)?;
@@ -69,6 +74,7 @@ pub fn saveWorld(world: &World)
     {
         crate::log::error(crate::log::LOADER, &format!("could not save mod world data: {error}"));
     }
+
     crate::structures::save(world);
     crate::biomes::save(world);
 }

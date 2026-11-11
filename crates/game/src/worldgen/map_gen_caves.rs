@@ -7,7 +7,7 @@ use std::rc::Rc;
 const PI_F: f32 = jvm::math::PI as f32;
 const HALF_PI_F: f32 = (jvm::math::PI / 2.0) as f32;
 
-pub fn create() -> Rc<MapGenBase> { MapGenBase::alloc(&MAP_GEN_CAVES) }
+pub(crate) fn create() -> Rc<MapGenBase> { MapGenBase::alloc(&MAP_GEN_CAVES) }
 
 fn carveRoom(this: &Rc<MapGenBase>, chunkX: i32, chunkZ: i32, blocks: &mut [i8], x: f64, y: f64, z: f64)
 {
@@ -42,28 +42,35 @@ fn releaseEntitySkin(
     let mut f: f32 = 0.0f32;
     let mut f1: f32 = 0.0f32;
     let random: Random = Random::withSeed(this.m_rand.nextLong());
+
     if tunnelCount <= 0
     {
         let i: i32 = this.m_range.get() * 16 - 16;
         tunnelCount = i - random.nextIntBounded(i / 4);
     }
+
     let mut flag2: bool = false;
+
     if tunnel == -1
     {
         tunnel = tunnelCount / 2;
         flag2 = true;
     }
+
     let j: i32 = random.nextIntBounded(tunnelCount / 2) + tunnelCount / 4;
     let flag: bool = random.nextIntBounded(6) == 0;
+
     while tunnel < tunnelCount
     {
         let d2: f64 = 1.5 + (math_helper::sin(tunnel as f32 * PI_F / tunnelCount as f32) * baseWidth * 1.0f32) as f64;
         let d3: f64 = d2 * widthHeightRatio;
         let f2: f32 = math_helper::cos(pitch);
         let f3: f32 = math_helper::sin(pitch);
+
         x += (math_helper::cos(yaw) * f2) as f64;
         y += f3 as f64;
         z += (math_helper::sin(yaw) * f2) as f64;
+
         if flag
         {
             pitch *= 0.92f32;
@@ -78,6 +85,7 @@ fn releaseEntitySkin(
         f *= 0.75f32;
         f1 += (random.nextFloat() - random.nextFloat()) * random.nextFloat() * 2.0f32;
         f += (random.nextFloat() - random.nextFloat()) * random.nextFloat() * 4.0f32;
+
         if !flag2 && tunnel == j && baseWidth > 1.0f32
         {
             let width: f32 = random.nextFloat() * 0.5f32 + 0.5f32;
@@ -96,6 +104,7 @@ fn releaseEntitySkin(
                 tunnelCount,
                 1.0,
             );
+
             let width: f32 = random.nextFloat() * 0.5f32 + 0.5f32;
             releaseEntitySkin(
                 this,
@@ -114,6 +123,7 @@ fn releaseEntitySkin(
             );
             return;
         }
+
         if flag2 || random.nextIntBounded(4) != 0
         {
             let d4: f64 = x - d0;
@@ -124,6 +134,7 @@ fn releaseEntitySkin(
             {
                 return;
             }
+
             if !(x < d0 - 16.0 - d2 * 2.0)
                 && !(z < d1 - 16.0 - d2 * 2.0)
                 && !(x > d0 + 16.0 + d2 * 2.0)
@@ -135,30 +146,37 @@ fn releaseEntitySkin(
                 let mut l: i32 = math_helper::floor_double(y + d3) + 1;
                 let mut j3: i32 = math_helper::floor_double(z - d2) - chunkZ * 16 - 1;
                 let mut i1: i32 = math_helper::floor_double(z + d2) - chunkZ * 16 + 1;
+
                 if l2 < 0
                 {
                     l2 = 0;
                 }
+
                 if k > 16
                 {
                     k = 16;
                 }
+
                 if i3 < 1
                 {
                     i3 = 1;
                 }
+
                 if l > 120
                 {
                     l = 120;
                 }
+
                 if j3 < 0
                 {
                     j3 = 0;
                 }
+
                 if i1 > 16
                 {
                     i1 = 16;
                 }
+
                 let mut flag3: bool = false;
                 let mut j1: i32 = l2;
                 while !flag3 && j1 < k
@@ -170,6 +188,7 @@ fn releaseEntitySkin(
                         while !flag3 && l1 >= i3 - 1
                         {
                             let i2: i32 = (j1 * 16 + k1) * 128 + l1;
+
                             if (0..128).contains(&l1)
                             {
                                 let block: i32 = blocks[i2 as usize] as i32;
@@ -177,27 +196,34 @@ fn releaseEntitySkin(
                                 {
                                     flag3 = true;
                                 }
+
                                 if l1 != i3 - 1 && j1 != l2 && j1 != k - 1 && k1 != j3 && k1 != i1 - 1
                                 {
                                     l1 = i3;
                                 }
                             }
+
                             l1 -= 1;
                         }
+
                         k1 += 1;
                     }
+
                     j1 += 1;
                 }
+
                 if !flag3
                 {
                     for k3 in l2..k
                     {
                         let d10: f64 = ((k3 + chunkX * 16) as f64 + 0.5 - x) / d2;
+
                         for l3 in j3..i1
                         {
                             let d8: f64 = ((l3 + chunkZ * 16) as f64 + 0.5 - z) / d2;
                             let mut j2: i32 = (k3 * 16 + l3) * 128 + l;
                             let mut flag1: bool = false;
+
                             if d10 * d10 + d8 * d8 < 1.0
                             {
                                 for k2 in (i3..l).rev()
@@ -210,6 +236,7 @@ fn releaseEntitySkin(
                                         {
                                             flag1 = true;
                                         }
+
                                         if b0 == stone || b0 == dirt || b0 == grass
                                         {
                                             if k2 < 10
@@ -226,11 +253,13 @@ fn releaseEntitySkin(
                                             }
                                         }
                                     }
+
                                     j2 -= 1;
                                 }
                             }
                         }
                     }
+
                     if flag2
                     {
                         break;
@@ -238,6 +267,7 @@ fn releaseEntitySkin(
                 }
             }
         }
+
         tunnel += 1;
     }
 }
@@ -253,21 +283,25 @@ fn recursiveGenerate(
 {
     let rand: &Random = &this.m_rand;
     let mut i: i32 = rand.nextIntBounded(rand.nextIntBounded(rand.nextIntBounded(40) + 1) + 1);
+
     if rand.nextIntBounded(15) != 0
     {
         i = 0;
     }
+
     for _ in 0..i
     {
         let d0: f64 = (startChunkX * 16 + rand.nextIntBounded(16)) as f64;
         let d1: f64 = rand.nextIntBounded(rand.nextIntBounded(120) + 8) as f64;
         let d2: f64 = (startChunkZ * 16 + rand.nextIntBounded(16)) as f64;
         let mut k: i32 = 1;
+
         if rand.nextIntBounded(4) == 0
         {
             carveRoom(this, chunkX, chunkZ, blocks, d0, d1, d2);
             k += rand.nextIntBounded(4);
         }
+
         for _ in 0..k
         {
             let f: f32 = rand.nextFloat() * PI_F * 2.0f32;

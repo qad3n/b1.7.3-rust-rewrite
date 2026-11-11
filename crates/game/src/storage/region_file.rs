@@ -4,7 +4,7 @@ use jvm::array_list::JArrayList;
 use jvm::io::{ByteArrayInputStream, DataInputStream, DataOutputStream, InputStream, IoResult, OutputStream};
 use jvm::throwable::{self, OrNpe};
 use jvm::zip::{DeflaterOutputStream, GZIPInputStream, InflaterInputStream};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::path::Path;
 use std::rc::Rc;
 
@@ -20,8 +20,8 @@ mod layout
     pub const VERSION_DEFLATE: i8 = 2;
 }
 
-pub type ChunkInputStream = DataInputStream<Box<dyn InputStream>>;
-pub type ChunkOutputStream = DataOutputStream<DeflaterOutputStream<RegionFileChunkBuffer>>;
+pub(crate) type ChunkInputStream = DataInputStream<Box<dyn InputStream>>;
+pub(crate) type ChunkOutputStream = DataOutputStream<DeflaterOutputStream<RegionFileChunkBuffer>>;
 
 pub struct RegionFile
 {
@@ -34,9 +34,10 @@ pub struct RegionFile
 
 impl RegionFile
 {
-    pub fn new(file: &Path) -> Rc<RegionFile>
+    pub fn new(file: &Path) -> Rc<Self>
     {
-        let mut region: RegionFile = RegionFile {
+        let mut region: Self = Self
+        {
             m_dataFile: RefCell::new(None),
             m_offsets: RefCell::new(vec![0; layout::SECTOR_INTS as usize]),
             m_chunkSaveTimes: RefCell::new(vec![0; layout::SECTOR_INTS as usize]),
@@ -47,22 +48,27 @@ impl RegionFile
         {
             error.printStackTrace();
         }
+
         Rc::new(region)
     }
 
     fn load(&mut self, file: &Path) -> IoResult<()>
     {
         *self.m_dataFile.get_mut() = Some(RandomAccessFile::open(file)?);
+
         let dataFile: &mut RandomAccessFile = self.m_dataFile.get_mut().as_mut().orNpe();
         let sectorMask: i64 = layout::SECTOR_BYTES as i64 - 1;
+
         if dataFile.length()? < layout::SECTOR_BYTES as i64
         {
             for _ in 0..layout::SECTOR_INTS * 2
             {
                 dataFile.writeInt(0)?;
             }
+
             self.m_sizeDelta.set(self.m_sizeDelta.get() + layout::SECTOR_BYTES * 2);
         }
+
         if (dataFile.length()? & sectorMask) != 0
         {
             let mut j1: i64 = 0;
@@ -72,20 +78,25 @@ impl RegionFile
                 j1 += 1;
             }
         }
+
         let k1: i32 = dataFile.length()? as i32 / layout::SECTOR_BYTES;
         let sectorFree: &JArrayList<bool> = self.m_sectorFree.insert(JArrayList::new());
+
         for _ in 0..k1
         {
             sectorFree.add(true);
         }
+
         sectorFree.set(0, false);
         sectorFree.set(1, false);
         dataFile.seek(0)?;
+
         let offsets: &mut Vec<i32> = self.m_offsets.get_mut();
         for offset in offsets.iter_mut()
         {
             let k: i32 = dataFile.readInt()?;
             *offset = k;
+
             if k != 0 && (k >> 8) + (k & layout::COUNT_MASK) <= sectorFree.size()
             {
                 for l in 0..(k & layout::COUNT_MASK)
@@ -94,10 +105,12 @@ impl RegionFile
                 }
             }
         }
+
         for saveTime in self.m_chunkSaveTimes.get_mut().iter_mut()
         {
             *saveTime = dataFile.readInt()?;
         }
+
         Ok(())
     }
 
@@ -105,7 +118,7 @@ impl RegionFile
 
     fn withDataFile<R>(&self, body: impl FnOnce(&mut RandomAccessFile) -> IoResult<R>) -> IoResult<R>
     {
-        let mut dataFile = self.m_dataFile.borrow_mut();
+        let mut dataFile: RefMut<Option<RandomAccessFile>> = self.m_dataFile.borrow_mut();
         body(dataFile.as_mut().orNpe())
     }
 
@@ -117,6 +130,7 @@ impl RegionFile
         {
             return None;
         }
+
         self.readChunk(chunkX, chunkZ).unwrap_or_default()
     }
 
@@ -133,8 +147,11 @@ impl RegionFile
         {
             return Ok(None);
         }
-        let (n4, by, byArray): (i32, i8, Vec<u8>) = self.withDataFile(|dataFile| {
+
+        let (n4, by, byArray): (i32, i8, Vec<u8>) = self.withDataFile(|dataFile|
+        {
             dataFile.seek((n2 * layout::SECTOR_BYTES) as i64)?;
+
             let n4: i32 = dataFile.readInt()?;
             if n4 > layout::SECTOR_BYTES * n3
             {
@@ -145,10 +162,12 @@ impl RegionFile
             {
                 return Ok((n4, by, Vec::new()));
             }
+
             if n4 - 1 < 0
             {
                 throwable::throw(&throwable::NEGATIVE_ARRAY_SIZE, &(n4 - 1).to_string());
             }
+
             let mut byArray: Vec<u8> = vec![0; (n4 - 1) as usize];
             dataFile.read(&mut byArray)?;
             Ok((n4, by, byArray))
@@ -157,6 +176,7 @@ impl RegionFile
         {
             return Ok(None);
         }
+
         let input: Box<dyn InputStream> = match by
         {
             layout::VERSION_GZIP => Box::new(GZIPInputStream::new(ByteArrayInputStream::new(byArray))?),
@@ -172,6 +192,7 @@ impl RegionFile
         {
             return None;
         }
+
         let buffer: RegionFileChunkBuffer =
             RegionFileChunkBuffer { m_region: Rc::clone(self), m_chunkX: chunkX, m_chunkZ: chunkZ, m_buf: Vec::new() };
         Some(DataOutputStream::new(DeflaterOutputStream::new(buffer)))
@@ -196,6 +217,7 @@ impl RegionFile
         {
             return Ok(());
         }
+
         if j != 0 && k == l
         {
             self.writeSectors(j, data, size)?;
@@ -206,8 +228,10 @@ impl RegionFile
             {
                 sectorFree.set(j + i1, true);
             }
+
             let mut l1: i32 = sectorFree.indexOf(&true);
             let mut j1: i32 = 0;
+
             if l1 != -1
             {
                 let mut k1: i32 = l1;
@@ -229,36 +253,46 @@ impl RegionFile
                         l1 = k1;
                         j1 = 1;
                     }
+
                     if j1 >= l
                     {
                         break;
                     }
+
                     k1 += 1;
                 }
             }
+
             if j1 >= l
             {
                 j = l1;
                 self.setOffset(chunkX, chunkZ, j << 8 | l)?;
+
                 for j2 in 0..l
                 {
                     sectorFree.set(j + j2, false);
                 }
+
                 self.writeSectors(j, data, size)?;
             }
             else
             {
                 j = sectorFree.size();
-                self.withDataFile(|dataFile| {
+
+                self.withDataFile(|dataFile|
+                {
                     let end: i64 = dataFile.length()?;
                     dataFile.seek(end)
                 })?;
+
                 let emptySector: Vec<u8> = vec![0; layout::SECTOR_BYTES as usize];
+
                 for _ in 0..l
                 {
                     self.withDataFile(|dataFile| dataFile.writeFrom(&emptySector, 0, layout::SECTOR_BYTES))?;
                     sectorFree.add(false);
                 }
+
                 self.m_sizeDelta.set(self.m_sizeDelta.get() + layout::SECTOR_BYTES * l);
                 self.writeSectors(j, data, size)?;
                 self.setOffset(chunkX, chunkZ, j << 8 | l)?;
@@ -269,7 +303,8 @@ impl RegionFile
 
     fn writeSectors(&self, blockOffset: i32, data: &[u8], size: i32) -> IoResult<()>
     {
-        self.withDataFile(|dataFile| {
+        self.withDataFile(|dataFile|
+        {
             dataFile.seek((blockOffset * layout::SECTOR_BYTES) as i64)?;
             dataFile.writeInt(size + 1)?;
             dataFile.writeByte(layout::VERSION_DEFLATE as i32)?;
@@ -295,7 +330,9 @@ impl RegionFile
     {
         let index: i32 = Self::index(chunkX, chunkZ);
         self.m_offsets.borrow_mut()[index as usize] = blockInfo;
-        self.withDataFile(|dataFile| {
+
+        self.withDataFile(|dataFile|
+        {
             dataFile.seek((index * layout::INT_BYTES) as i64)?;
             dataFile.writeInt(blockInfo)
         })
@@ -305,7 +342,9 @@ impl RegionFile
     {
         let index: i32 = Self::index(chunkX, chunkZ);
         self.m_chunkSaveTimes.borrow_mut()[index as usize] = timeSeconds;
-        self.withDataFile(|dataFile| {
+
+        self.withDataFile(|dataFile|
+        {
             dataFile.seek((layout::SECTOR_BYTES + index * layout::INT_BYTES) as i64)?;
             dataFile.writeInt(timeSeconds)
         })

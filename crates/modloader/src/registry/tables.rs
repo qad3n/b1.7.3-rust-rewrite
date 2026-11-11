@@ -1,10 +1,11 @@
 use super::vanilla::{self, BIOMES, BLOCK_NAMES, DIMENSIONS, ITEM_NAMES, RECORD_NAMES};
 use super::{Registry, SyncedRegistry};
 use game::block::Block;
-use game::crafting::{CraftingManager, FurnaceRecipes};
+use game::crafting::{CraftingManager, FurnaceRecipes, IRecipe};
 use game::entity::EntityList;
 use game::item::{Item, ItemStack};
 use game::tileentity::TileEntityKind;
+use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
 use mod_protocol::spec::{BlockSpec, EntitySpec, ItemSpec, RecipeSpec, TileEntitySpec};
 use std::collections::HashMap;
@@ -88,9 +89,10 @@ pub struct Registries
 
 impl Registries
 {
-    pub fn seeded() -> Registries
+    pub fn seeded() -> Self
     {
-        let mut registries: Registries = Registries {
+        let mut registries: Self = Self
+        {
             m_blocks: Registry::new("block"),
             m_items: Registry::new("item"),
             m_entities: Registry::new("entity"),
@@ -106,14 +108,17 @@ impl Registries
         registries.seedEntities();
         registries.seedRecipes();
         registries.seedPackets();
+
         for (numeric, name) in DIMENSIONS
         {
             registries.m_dimensions.seed(Identifier::minecraft(name), numeric, DimensionEntry);
         }
+
         for (numeric, (name, _)) in BIOMES.iter().enumerate()
         {
             registries.m_biomes.seed(Identifier::minecraft(name), numeric as i32, BiomeEntry);
         }
+
         registries
     }
 
@@ -126,6 +131,7 @@ impl Registries
                 self.m_blocks.seed(Identifier::minecraft(name), id as i32, BlockEntry { m_spec: None, m_page: None });
             }
         }
+
         for (index, name) in ITEM_NAMES.iter().enumerate()
         {
             let numeric: i32 = 256 + index as i32;
@@ -134,10 +140,12 @@ impl Registries
                 self.m_items.seed(Identifier::minecraft(name), numeric, ItemEntry { m_spec: None, m_block: None });
             }
         }
+
         for (numeric, name) in RECORD_NAMES
         {
             self.m_items.seed(Identifier::minecraft(name), numeric, ItemEntry { m_spec: None, m_block: None });
         }
+
         // a block item whose name a real item already uses, such as the bed block, takes a _block suffix
         for (id, name) in BLOCK_NAMES.iter().enumerate().skip(1)
         {
@@ -145,6 +153,7 @@ impl Registries
             {
                 continue;
             }
+
             let plain: Identifier = Identifier::minecraft(name);
             let itemId: Identifier = if self.m_items.get(&plain).is_some()
             {
@@ -165,6 +174,7 @@ impl Registries
             let id: Identifier = Identifier::minecraft(&vanilla::snakeCase(key));
             self.m_entities.seed(id, numeric, EntityEntry { m_saveKey: key.to_owned(), m_spec: None });
         }
+
         for (index, saveId) in TileEntityKind::vanillaIds().enumerate()
         {
             let id: Identifier = Identifier::minecraft(&vanilla::snakeCase(saveId));
@@ -174,8 +184,9 @@ impl Registries
 
     fn seedRecipes(&mut self)
     {
-        let list = CraftingManager::getInstance().getRecipeList();
+        let list: Rc<JArrayList<Rc<dyn IRecipe>>> = CraftingManager::getInstance().getRecipeList();
         let mut taken: HashMap<String, i32> = HashMap::new();
+
         for index in 0..list.size()
         {
             let output: Rc<ItemStack> = list.get(index).getRecipeOutput();
@@ -184,13 +195,16 @@ impl Registries
             crate::content::recipes::nameRecipe(&list.get(index), id.clone());
             self.m_recipes.seed(id, index, RecipeEntry { m_spec: None });
         }
+
         let mut inputs: Vec<i32> = FurnaceRecipes::smelting().getSmeltingList().borrow().keys();
         inputs.sort_unstable();
+
         for input in inputs
         {
             let name: String = format!("smelting/{}", self.outputName(input, 0));
             self.m_smelting.seed(Identifier::minecraft(&name), input, RecipeEntry { m_spec: None });
         }
+
         for (name, ticks) in [("stick", 100), ("coal", 1600), ("lava_bucket", 20000), ("sapling", 100)]
         {
             let id: Identifier = Identifier::minecraft(name);
@@ -206,6 +220,7 @@ impl Registries
     {
         let path: String =
             self.m_items.byNumeric(item).map_or_else(|| item.to_string(), |row| row.m_id.path().to_owned());
+
         match damage
         {
             0 => path,

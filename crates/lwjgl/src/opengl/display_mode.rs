@@ -9,14 +9,11 @@ pub struct DisplayMode
 
 impl DisplayMode
 {
-    pub fn new(width: i32, height: i32) -> DisplayMode
-    {
-        DisplayMode { m_width: width, m_height: height, m_bpp: 0, m_freq: 0 }
-    }
+    pub fn new(width: i32, height: i32) -> Self { Self { m_width: width, m_height: height, m_bpp: 0, m_freq: 0 } }
 
-    pub(crate) fn withFormat(width: i32, height: i32, bpp: i32, freq: i32) -> DisplayMode
+    pub(crate) fn withFormat(width: i32, height: i32, bpp: i32, freq: i32) -> Self
     {
-        DisplayMode { m_width: width, m_height: height, m_bpp: bpp, m_freq: freq }
+        Self { m_width: width, m_height: height, m_bpp: bpp, m_freq: freq }
     }
 
     pub fn getWidth(&self) -> i32 { self.m_width }

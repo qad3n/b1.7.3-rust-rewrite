@@ -86,9 +86,11 @@ pub fn displayName(stack: &Rc<ItemStack>) -> String
     {
         registries.m_items.byNumeric(stack.m_itemID.get()).map(|row| row.m_id.clone())
     });
+
     let damage: Option<usize> = usize::try_from(stack.getItemDamage()).ok();
     let label: Option<&str> =
         id.as_ref().and_then(variants).zip(damage).and_then(|(row, damage)| row.m_labels.get(damage).copied());
+
     if let Some(label) = label
     {
         return label.to_owned();
@@ -102,6 +104,7 @@ pub fn displayName(stack: &Rc<ItemStack>) -> String
 
     let key: String = format!("{name}.name");
     let translated: String = StatCollector::translateToLocal(&key);
+
     match id
     {
         Some(id) if translated == key => humanize(id.path()),
@@ -115,6 +118,7 @@ fn listed(registries: &Registries, row: &Row<ItemEntry>) -> bool
     {
         return false;
     }
+
     let paged: Option<bool> = row
         .m_value
         .m_block
@@ -174,11 +178,13 @@ pub fn recipeList() -> Vec<RecipeView>
         CraftingManager::getInstance().getRecipeList().toVec().iter().map(crafting).collect();
     let mut smelting: Vec<(i32, Rc<ItemStack>)> = FurnaceRecipes::smelting().getSmeltingList().borrow().entries();
     smelting.sort_by_key(|(input, _)| *input);
+
     recipes.extend(smelting.into_iter().map(|(input, result)| RecipeView
     {
         id: smeltingName(input),
         output: stackData(&result),
         shape: RecipeShape::Smelting { input: StackData { id: input, count: 1, damage: ANY_DAMAGE } },
     }));
+
     recipes
 }

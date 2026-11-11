@@ -13,16 +13,19 @@ fn onUpdate(this: &Rc<Entity>)
     entity_fx::ageParticle(this);
     animateTexture(this);
     entity_fx::moveByMotion(this);
+
     if this.posY() == this.m_prevPosY.get()
     {
         this.m_motionX.set(this.m_motionX.get() * 1.1);
         this.m_motionZ.set(this.m_motionZ.get() * 1.1);
     }
+
     entity_fx::scaleMotion(this, 0.96f32 as f64);
     entity_fx::groundFriction(this);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityReddustFX",
     m_parent: Some(&entity_fx::CLASS),
     renderParticle: entity_heart_fx::renderGrowing,
@@ -42,10 +45,12 @@ pub fn newScaled(world: &Rc<World>, x: f64, y: f64, z: f64, scale: f32, mut r: f
     let size: InitialSize = InitialSize { m_initialSize: Cell::new(0.0) };
     let this: Rc<Entity> = entity_fx::construct(&CLASS, Box::new(size), world, x, y, z, 0.0, 0.0, 0.0);
     entity_fx::scaleMotion(&this, 0.1f32 as f64);
+
     if r == 0.0
     {
         r = 1.0;
     }
+
     let f: f32 = math::random() as f32 * 0.4 + 0.6;
     let fields: &FXFields = fx(&this);
     fields.m_particleRed.set(tint(r, f));

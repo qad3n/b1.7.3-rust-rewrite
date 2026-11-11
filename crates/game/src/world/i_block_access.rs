@@ -27,27 +27,27 @@ pub trait IBlockAccess
 
 impl IBlockAccess for World
 {
-    fn getBlockId(&self, x: i32, y: i32, z: i32) -> i32 { World::getBlockId(self, x, y, z) }
+    fn getBlockId(&self, x: i32, y: i32, z: i32) -> i32 { Self::getBlockId(self, x, y, z) }
 
     fn getBlockTileEntity(&self, x: i32, y: i32, z: i32) -> Option<Rc<TileEntity>>
     {
-        World::getBlockTileEntity(self, x, y, z)
+        Self::getBlockTileEntity(self, x, y, z)
     }
 
     fn getBrightness(&self, x: i32, y: i32, z: i32, blockLight: i32) -> f32
     {
-        World::getBrightness(self, x, y, z, blockLight)
+        Self::getBrightness(self, x, y, z, blockLight)
     }
 
-    fn getLightBrightness(&self, x: i32, y: i32, z: i32) -> f32 { World::getLightBrightness(self, x, y, z) }
+    fn getLightBrightness(&self, x: i32, y: i32, z: i32) -> f32 { Self::getLightBrightness(self, x, y, z) }
 
-    fn getBlockMetadata(&self, x: i32, y: i32, z: i32) -> i32 { World::getBlockMetadata(self, x, y, z) }
+    fn getBlockMetadata(&self, x: i32, y: i32, z: i32) -> i32 { Self::getBlockMetadata(self, x, y, z) }
 
-    fn getBlockMaterial(&self, x: i32, y: i32, z: i32) -> Rc<Material> { World::getBlockMaterial(self, x, y, z) }
+    fn getBlockMaterial(&self, x: i32, y: i32, z: i32) -> Rc<Material> { Self::getBlockMaterial(self, x, y, z) }
 
-    fn isBlockOpaqueCube(&self, x: i32, y: i32, z: i32) -> bool { World::isBlockOpaqueCube(self, x, y, z) }
+    fn isBlockOpaqueCube(&self, x: i32, y: i32, z: i32) -> bool { Self::isBlockOpaqueCube(self, x, y, z) }
 
-    fn isBlockNormalCube(&self, x: i32, y: i32, z: i32) -> bool { World::isBlockNormalCube(self, x, y, z) }
+    fn isBlockNormalCube(&self, x: i32, y: i32, z: i32) -> bool { Self::isBlockNormalCube(self, x, y, z) }
 
-    fn getWorldChunkManager(&self) -> Rc<WorldChunkManager> { World::getWorldChunkManager(self) }
+    fn getWorldChunkManager(&self) -> Rc<WorldChunkManager> { Self::getWorldChunkManager(self) }
 }

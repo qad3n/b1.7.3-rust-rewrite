@@ -47,6 +47,7 @@ impl Minecraft
     pub fn run(&self)
     {
         self.m_running.store(true, Ordering::Relaxed);
+
         let started: Result<Result<(), LWJGLException>, Throwable> = catchThrowable(&EXCEPTION, || self.startGame());
         if let Some(exception) = match started
         {
@@ -59,22 +60,26 @@ impl Minecraft
             self.onMinecraftCrash(UnexpectedThrowable::new("Failed to start game".to_owned(), exception));
             return;
         }
+
         if let Err(throwable) = catchThrowable(&THROWABLE, || self.runLoop())
             && !throwable.instanceOf(&MINECRAFT_ERROR)
         {
             let details: String = self.crashDetails();
+
             self.cleanHeap();
             throwable.printStackTrace();
             self.onMinecraftCrash(
                 UnexpectedThrowable::new("Unexpected error".to_owned(), throwable).withDetails(details),
             );
         }
+
         self.shutdownMinecraftApplet();
     }
 
     fn runLoop(&self)
     {
         let mut counter: FrameCounter = FrameCounter { m_lastSecond: jvm::system::currentTimeMillis(), m_frames: 0 };
+
         while self.isRunning()
         {
             match catchThrowable(&THROWABLE, || self.runFrame(&mut counter))
@@ -82,17 +87,20 @@ impl Minecraft
                 Ok(true) =>
                 {}
                 Ok(false) => break,
+
                 Err(exception) if exception.instanceOf(&MINECRAFT_EXCEPTION) =>
                 {
                     self.m_theWorld.set(None);
                     self.changeWorld1(None);
                     self.displayGuiScreen(Some(GuiConflictWarning::new()));
                 }
+
                 Err(error) if error.instanceOf(&OUT_OF_MEMORY) =>
                 {
                     self.cleanHeap();
                     self.displayGuiScreen(Some(GuiErrorScreen::new()));
                 }
+
                 Err(throwable) => rethrow(throwable),
             }
         }
@@ -104,8 +112,10 @@ impl Minecraft
         {
             return false;
         }
+
         AxisAlignedBB::clearBoundingBoxPool();
         Vec3D::initialize();
+
         match self.m_frame.get()
         {
             Some(frame) => frame.dispatchEvents(self),
@@ -113,9 +123,11 @@ impl Minecraft
             None =>
             {}
         }
+
         if self.isGamePaused() && self.m_theWorld.with(Option::is_some)
         {
             let f: f32 = self.timer().m_renderPartialTicks.get();
+
             self.timer().updateTimer();
             self.timer().m_renderPartialTicks.set(f);
         }
@@ -124,9 +136,11 @@ impl Minecraft
             self.timer().updateTimer();
         }
         let l: i64 = jvm::system::nanoTime();
+
         for _ in 0..self.timer().m_elapsedTicks.get()
         {
             self.m_ticksRan.set(self.m_ticksRan.get() + 1);
+
             if catchThrowable(&MINECRAFT_EXCEPTION, || self.runTick()).is_err()
             {
                 self.m_theWorld.set(None);
@@ -134,35 +148,44 @@ impl Minecraft
                 self.displayGuiScreen(Some(GuiConflictWarning::new()));
             }
         }
+
         let i1: i64 = jvm::system::nanoTime() - l;
+
         self.checkGLError("Pre render");
         RenderBlocks::setFancyGrass(self.gameSettings().m_fancyGraphics.get());
         self.sndManager().update(self.m_thePlayer.get().as_ref(), self.timer().m_renderPartialTicks.get());
         GL11::glEnable(3553);
+
         if let Some(world) = self.m_theWorld.get()
         {
             world.updatingLighting();
         }
+
         if !Keyboard::isKeyDown(65)
         {
             Display::update();
         }
+
         if self.m_thePlayer.get().is_some_and(|player| player.isEntityInsideOpaqueBlock())
         {
             self.gameSettings().m_thirdPersonView.set(false);
         }
+
         if !self.m_skipRenderWorld.get()
         {
             if let Some(controller) = self.m_playerController.get()
             {
                 controller.setPartialTime(self.timer().m_renderPartialTicks.get());
             }
+
             self.entityRenderer().updateCameraAndRender(self.timer().m_renderPartialTicks.get());
         }
+
         if !Display::isActive()
         {
             std::thread::sleep(INACTIVE_SLEEP);
         }
+
         if self.gameSettings().m_showDebugInfo.get()
         {
             self.displayDebugInfo(i1);
@@ -173,10 +196,12 @@ impl Minecraft
         }
         self.m_guiAchievement.get().orNpe().updateAchievementWindow();
         std::thread::yield_now();
+
         if Keyboard::isKeyDown(65)
         {
             Display::update();
         }
+
         self.screenshotListener();
         self.followCanvasSize();
         self.checkGLError("Post render");
@@ -185,6 +210,7 @@ impl Minecraft
             !self.isMultiplayerWorld() && self.m_currentScreen.get().is_some_and(|screen| screen.doesGuiPauseGame()),
             Ordering::Relaxed,
         );
+
         while jvm::system::currentTimeMillis() >= counter.m_lastSecond + 1000
         {
             self.m_debug.set(format!(
@@ -196,10 +222,11 @@ impl Minecraft
             counter.m_lastSecond += 1000;
             counter.m_frames = 0;
         }
+
         true
     }
 
-    pub(super) fn followCanvasSize(&self)
+    pub(crate) fn followCanvasSize(&self)
     {
         let Some(canvas) = self.m_mcCanvas.get()
         else
@@ -222,11 +249,13 @@ impl Minecraft
 
     pub fn cleanHeap(&self)
     {
-        let _ = catchThrowable(&THROWABLE, || {
-            Minecraft::releaseMemoryReservedForCrash();
+        let _ = catchThrowable(&THROWABLE, ||
+        {
+            Self::releaseMemoryReservedForCrash();
             self.m_renderGlobal.get().orNpe().releaseGlLists();
         });
-        let _ = catchThrowable(&THROWABLE, || {
+        let _ = catchThrowable(&THROWABLE, ||
+        {
             AxisAlignedBB::clearCache();
             Vec3D::clearPool();
         });
@@ -236,35 +265,47 @@ impl Minecraft
     pub fn shutdownMinecraftApplet(&self)
     {
         let started: Instant = Instant::now();
+
         info!("Shutting down");
         // mods get their shutdown event before the game tears down
         modloader::play::shutdown();
-        let result: Result<(), Throwable> = catchThrowable(&THROWABLE, || {
+
+        let result: Result<(), Throwable> = catchThrowable(&THROWABLE, ||
+        {
             self.statFileWriter().func_27175_b();
             self.statFileWriter().syncStats();
+
             if let Some(applet) = self.m_mcApplet.get()
             {
                 applet.clearApplet();
             }
-            let _ = catchThrowable(&EXCEPTION, || {
+
+            let _ = catchThrowable(&EXCEPTION, ||
+            {
                 if let Some(thread) = self.m_downloadResourcesThread.get()
                 {
                     thread.closeMinecraft();
                 }
             });
+
             jvm::system::println("Stopping!");
+
             let _ = catchThrowable(&THROWABLE, || self.changeWorld1(None));
             let _ = catchThrowable(&THROWABLE, GLAllocation::deleteTexturesAndDisplayLists);
+
             self.sndManager().closeMinecraft();
             Mouse::destroy();
             Keyboard::destroy();
         });
+
         Display::destroy();
         info!("Shutdown took {}", took(started));
+
         if !self.m_hasCrashed.get()
         {
             std::process::exit(0);
         }
+
         if let Err(throwable) = result
         {
             rethrow(throwable);
@@ -276,12 +317,14 @@ impl Minecraft
         // rewrite: test tools ask for a screenshot of the game alone through a request file
         crate::modded::devShot(self.m_displayWidth.get(), self.m_displayHeight.get());
         crate::modded::devCommands(self);
+
         if Keyboard::isKeyDown(60)
         {
             if !self.m_isTakingScreenshot.get()
             {
                 self.m_isTakingScreenshot.set(true);
-                let dir: Option<PathBuf> = Minecraft::minecraftDir();
+
+                let dir: Option<PathBuf> = Self::minecraftDir();
                 let message: String = ScreenShotHelper::saveScreenshot(
                     dir.as_deref(),
                     self.m_displayWidth.get(),
@@ -300,16 +343,18 @@ impl Minecraft
     fn displayDebugInfo(&self, tickTime: i64)
     {
         let l: i64 = 16666666;
+
         if self.m_prevFrameTime.get() == -1
         {
             self.m_prevFrameTime.set(jvm::system::nanoTime());
         }
+
         let l2: i64 = jvm::system::nanoTime();
-        let length: i32 = Minecraft::frameTimes(|times| times.len() as i32);
-        let recorded: i32 = Minecraft::numRecordedFrameTimes();
-        Minecraft::tickTimes(|times| times[(recorded & (length - 1)) as usize] = tickTime);
-        Minecraft::frameTimes(|times| times[(recorded & (length - 1)) as usize] = l2 - self.m_prevFrameTime.get());
-        Minecraft::setNumRecordedFrameTimes(recorded.wrapping_add(1));
+        let length: i32 = Self::frameTimes(|times| times.len() as i32);
+        let recorded: i32 = Self::numRecordedFrameTimes();
+        Self::tickTimes(|times| times[(recorded & (length - 1)) as usize] = tickTime);
+        Self::frameTimes(|times| times[(recorded & (length - 1)) as usize] = l2 - self.m_prevFrameTime.get());
+        Self::setNumRecordedFrameTimes(recorded.wrapping_add(1));
         self.m_prevFrameTime.set(l2);
         GL11::glClear(256);
         GL11::glMatrixMode(5889);
@@ -320,11 +365,15 @@ impl Minecraft
         GL11::glTranslatef(0.0, 0.0, -2000.0);
         GL11::glLineWidth(1.0);
         GL11::glDisable(3553);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let height: i32 = self.m_displayHeight.get();
         let width: f64 = length as f64;
+
         tessellator.startDrawing(7);
+
         let n2: i32 = (l / 200000) as i32;
+
         tessellator.setColorOpaque_I(0x20000000);
         tessellator.addVertex(0.0, (height - n2) as f64, 0.0);
         tessellator.addVertex(0.0, height as f64, 0.0);
@@ -336,10 +385,12 @@ impl Minecraft
         tessellator.addVertex(width, (height - n2) as f64, 0.0);
         tessellator.addVertex(width, (height - n2 * 2) as f64, 0.0);
         tessellator.draw();
-        let frameTimes: Vec<i64> = Minecraft::frameTimes(|times| times.clone());
-        let tickTimes: Vec<i64> = Minecraft::tickTimes(|times| times.clone());
+
+        let frameTimes: Vec<i64> = Self::frameTimes(|times| times.clone());
+        let tickTimes: Vec<i64> = Self::tickTimes(|times| times.clone());
         let l3: i64 = frameTimes.iter().fold(0i64, |sum, time| sum.wrapping_add(*time));
         let n: i32 = (l3 / 200000 / length as i64) as i32;
+
         tessellator.startDrawing(7);
         tessellator.setColorOpaque_I(0x20400000);
         tessellator.addVertex(0.0, (height - n) as f64, 0.0);
@@ -348,12 +399,15 @@ impl Minecraft
         tessellator.addVertex(width, (height - n) as f64, 0.0);
         tessellator.draw();
         tessellator.startDrawing(1);
-        let recorded: i32 = Minecraft::numRecordedFrameTimes();
+
+        let recorded: i32 = Self::numRecordedFrameTimes();
+
         for i in 0..length
         {
             let n3: i32 = ((i - recorded) & (length - 1)) * 255 / length;
             let mut n4: i32 = n3 * n3 / 255;
             n4 = n4 * n4 / 255;
+
             if frameTimes[i as usize] > l
             {
                 tessellator.setColorOpaque_I(-16777216 + n4 * 65536);
@@ -371,6 +425,7 @@ impl Minecraft
             tessellator.addVertex(x, ((height as i64 - l4) as f32 + 0.5) as f64, 0.0);
             tessellator.addVertex(x, ((height as i64 - (l4 - l5)) as f32 + 0.5) as f64, 0.0);
         }
+
         tessellator.draw();
         GL11::glEnable(3553);
     }

@@ -30,12 +30,12 @@ pub struct Level
 
 impl Level
 {
-    pub const SEVERE: Level = Level { m_name: "SEVERE", m_value: 1000, m_color: colors::RED };
-    pub const WARNING: Level = Level { m_name: "WARNING", m_value: 900, m_color: colors::YELLOW };
-    pub const INFO: Level = Level { m_name: "INFO", m_value: 800, m_color: colors::PLAIN };
-    pub const CONFIG: Level = Level { m_name: "CONFIG", m_value: 700, m_color: colors::PLAIN };
-    pub const DEBUG: Level = Level { m_name: "DEBUG", m_value: 500, m_color: colors::GREY };
-    pub const TRACE: Level = Level { m_name: "TRACE", m_value: 400, m_color: colors::GREY };
+    pub const SEVERE: Self = Self { m_name: "SEVERE", m_value: 1000, m_color: colors::RED };
+    pub const WARNING: Self = Self { m_name: "WARNING", m_value: 900, m_color: colors::YELLOW };
+    pub const INFO: Self = Self { m_name: "INFO", m_value: 800, m_color: colors::PLAIN };
+    pub const CONFIG: Self = Self { m_name: "CONFIG", m_value: 700, m_color: colors::PLAIN };
+    pub const DEBUG: Self = Self { m_name: "DEBUG", m_value: 500, m_color: colors::GREY };
+    pub const TRACE: Self = Self { m_name: "TRACE", m_value: 400, m_color: colors::GREY };
 
     pub fn getLocalizedName(&self) -> &'static str { self.m_name }
 
@@ -44,42 +44,51 @@ impl Level
 
 // the enclosing function as the compiler names it, read lazily by the formatter
 #[macro_export]
-macro_rules! function {
-    () => {{
+macro_rules! function
+{
+    () => {
+    {
         fn here() {}
         ::std::any::type_name_of_val(&here)
     }};
 }
 
 #[macro_export]
-macro_rules! logThrown {
-    ($level:expr, $thrown:expr, $($arg:tt)+) => {
+macro_rules! logThrown
+{
+    ($level:expr, $thrown:expr, $($arg:tt)+) =>
+    {
         $crate::logging::logger().logFrom($level, &format!($($arg)+), $thrown, $crate::function!(), line!())
     };
 }
 
 #[macro_export]
-macro_rules! severe {
+macro_rules! severe
+{
     ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::SEVERE, None, $($arg)+) };
 }
 
 #[macro_export]
-macro_rules! warning {
+macro_rules! warning
+{
     ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::WARNING, None, $($arg)+) };
 }
 
 #[macro_export]
-macro_rules! info {
+macro_rules! info
+{
     ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::INFO, None, $($arg)+) };
 }
 
 #[macro_export]
-macro_rules! debug {
+macro_rules! debug
+{
     ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::DEBUG, None, $($arg)+) };
 }
 
 #[macro_export]
-macro_rules! trace {
+macro_rules! trace
+{
     ($($arg:tt)+) => { $crate::logThrown!($crate::logging::Level::TRACE, None, $($arg)+) };
 }
 
@@ -144,10 +153,7 @@ pub struct ConsoleHandler
 
 impl ConsoleHandler
 {
-    pub fn new(formatter: Box<dyn Formatter>) -> ConsoleHandler
-    {
-        ConsoleHandler { m_formatter: formatter, m_level: consoleLevel() }
-    }
+    pub fn new(formatter: Box<dyn Formatter>) -> Self { Self { m_formatter: formatter, m_level: consoleLevel() } }
 }
 
 impl Handler for ConsoleHandler
@@ -158,6 +164,7 @@ impl Handler for ConsoleHandler
         {
             return;
         }
+
         eprint!("{}", paint(record.m_level.m_color, &self.m_formatter.format(record)));
     }
 
@@ -174,9 +181,9 @@ pub struct FileHandler
 
 impl FileHandler
 {
-    pub fn new(pattern: &Path, append: bool, formatter: Box<dyn Formatter>) -> IoResult<FileHandler>
+    pub fn new(pattern: &Path, append: bool, formatter: Box<dyn Formatter>) -> IoResult<Self>
     {
-        Ok(FileHandler { m_formatter: formatter, m_output: FileOutputStream::create(pattern, append)? })
+        Ok(Self { m_formatter: formatter, m_output: FileOutputStream::create(pattern, append)? })
     }
 }
 
@@ -216,14 +223,15 @@ pub struct Logger
     m_state: Mutex<LoggerState>,
 }
 
-static MINECRAFT: Logger = Logger {
+static MINECRAFT: Logger = Logger
+{
     m_name: "Minecraft",
     m_state: Mutex::new(LoggerState { m_handlers: Vec::new(), m_useParentHandlers: true }),
 };
 
 impl Logger
 {
-    pub fn getLogger(name: &str) -> &'static Logger
+    pub fn getLogger(name: &str) -> &'static Self
     {
         match name
         {
@@ -256,21 +264,25 @@ impl Logger
 
     fn publish(&self, level: Level, message: &str, thrown: Option<Throwable>, site: Site)
     {
-        let record: LogRecord = LogRecord {
+        let record: LogRecord = LogRecord
+        {
             m_level: level,
             m_message: JString::from(message),
             m_millis: crate::system::currentTimeMillis(),
             m_thrown: thrown,
             m_site: site,
         };
+
         let mut state: MutexGuard<'_, LoggerState> = self.state();
         for handler in state.m_handlers.iter_mut()
         {
             handler.publish(&record);
         }
+
         if state.m_useParentHandlers && record.m_level.m_value >= Level::INFO.m_value
         {
             eprintln!("{}: {}", record.m_level.m_name, message);
+
             if let Some(thrown) = &record.m_thrown
             {
                 thrown.printStackTrace();
@@ -323,6 +335,7 @@ impl log::Log for Bridge
             log::Level::Info => Level::INFO,
             log::Level::Debug | log::Level::Trace => Level::DEBUG,
         };
+
         let module: &'static str = record.module_path_static().unwrap_or("unknown");
         let site: Site = Site::Module(module, record.line().unwrap_or_default());
         self.m_logger.publish(level, &record.args().to_string(), None, site);
@@ -337,6 +350,7 @@ pub fn logger() -> &'static Logger { &MINECRAFT }
 pub fn bridge(logger: &'static Logger, targets: &'static [&'static str])
 {
     static BRIDGE: OnceLock<Bridge> = OnceLock::new();
+
     let bridge: &'static Bridge = BRIDGE.get_or_init(|| Bridge { m_logger: logger, m_targets: targets });
     match log::set_logger(bridge)
     {
@@ -361,6 +375,7 @@ fn consoleLevel() -> Level
         "info" => Level::INFO,
         "debug" | "fine" => Level::DEBUG,
         "trace" | "finest" => Level::TRACE,
+
         other =>
         {
             eprintln!("unknown {CONSOLE_LEVEL_VAR} level {other}, showing debug and up");
@@ -383,11 +398,13 @@ fn modulePath(file: &str) -> String
     let module: &str = module.trim_end_matches(".rs");
     let module: &str = module.strip_suffix("/mod").unwrap_or(module);
     let mut path: String = crateName.replace('-', "_");
+
     if module != "lib" && module != "main"
     {
         path += "::";
         path += &module.replace('/', "::");
     }
+
     path
 }
 
@@ -395,6 +412,7 @@ fn modulePath(file: &str) -> String
 fn functionPath(raw: &str) -> String
 {
     let mut path: Vec<String> = Vec::new();
+
     for segment in topSegments(raw)
     {
         match segment
@@ -405,6 +423,7 @@ fn functionPath(raw: &str) -> String
             _ => path.push(segment.to_owned()),
         }
     }
+
     path.join("::")
 }
 
@@ -422,17 +441,21 @@ fn topSegments(raw: &str) -> Vec<&str>
         {
             b'<' => depth += 1,
             b'>' => depth -= 1,
+
             b':' if depth == 0 && bytes.get(i + 1) == Some(&b':') =>
             {
                 segments.push(&raw[start..i]);
                 start = i + 2;
                 i += 1;
             }
+
             _ =>
             {}
         }
+
         i += 1;
     }
+
     segments.push(&raw[start..]);
     segments
 }
@@ -449,8 +472,10 @@ fn implType(inner: &str) -> String
 pub fn paint(color: &str, text: &str) -> String
 {
     static COLORED: OnceLock<bool> = OnceLock::new();
+
     let colored: bool =
         *COLORED.get_or_init(|| std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none());
+
     if !colored || color.is_empty()
     {
         return text.to_owned();

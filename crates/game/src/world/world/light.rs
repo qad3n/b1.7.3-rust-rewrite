@@ -79,6 +79,7 @@ impl World
         {
             return 0;
         }
+
         let y: i32 = y.min(self.height() - 1);
         self.getChunkFromChunkCoords(x >> 4, z >> 4).getBlockLightValue(x & 15, y, z & 15, 0)
     }
@@ -105,22 +106,27 @@ impl World
                 let value3: i32 = self.getBlockLightValue_do(x - 1, y, z, false);
                 let value4: i32 = self.getBlockLightValue_do(x, y, z + 1, false);
                 let value5: i32 = self.getBlockLightValue_do(x, y, z - 1, false);
+
                 if value2 > value
                 {
                     value = value2;
                 }
+
                 if value3 > value
                 {
                     value = value3;
                 }
+
                 if value4 > value
                 {
                     value = value4;
                 }
+
                 if value5 > value
                 {
                     value = value5;
                 }
+
                 return value;
             }
         }
@@ -129,6 +135,7 @@ impl World
         {
             return 0;
         }
+
         let y: i32 = y.min(self.height() - 1);
         let chunk: Rc<Chunk> = self.getChunkFromChunkCoords(x >> 4, z >> 4);
         chunk.getBlockLightValue(x & 0xF, y, z & 0xF, self.m_skylightSubtracted.get())
@@ -144,6 +151,7 @@ impl World
         {
             return true;
         }
+
         match self.loadedChunk(x >> 4, z >> 4)
         {
             Some(chunk) => chunk.canBlockSeeTheSky(x & 15, y, z & 15),
@@ -157,12 +165,14 @@ impl World
         {
             return 0;
         }
+
         self.getChunkFromChunkCoords(x >> 4, z >> 4).getHeightValue(x & 15, z & 15)
     }
 
     pub fn neighborLightPropagationChanged(&self, kind: EnumSkyBlock, x: i32, y: i32, z: i32, light: i32)
     {
         let mut light: i32 = light;
+
         if self.worldProvider().m_hasNoSky.get() && kind == EnumSkyBlock::Sky
         {
             return;
@@ -202,10 +212,12 @@ impl World
         {
             y = 0;
         }
+
         if y >= self.height()
         {
             y = self.height() - 1;
         }
+
         if y >= 0 && y < self.height() && !outside(x, z)
         {
             return match self.loadedChunk(x >> 4, z >> 4)
@@ -214,6 +226,7 @@ impl World
                 None => 0,
             };
         }
+
         kind.defaultValue()
     }
 
@@ -231,6 +244,7 @@ impl World
         };
 
         chunk.setLightValue(kind, x & 15, y, z & 15, light);
+
         let mut i: i32 = 0;
         while i < self.m_worldAccesses.size()
         {
@@ -246,6 +260,7 @@ impl World
         {
             i = blockLight;
         }
+
         self.worldProvider().brightness(i)
     }
 
@@ -264,9 +279,12 @@ impl World
         }
 
         self.m_lightingUpdatesCounter.set(self.m_lightingUpdatesCounter.get() + 1);
+
         let result: Result<bool, jvm::throwable::Throwable> =
-            jvm::throwable::catchThrowable(&jvm::throwable::THROWABLE, || {
+            jvm::throwable::catchThrowable(&jvm::throwable::THROWABLE, ||
+            {
                 let mut i: i32 = 500;
+
                 while self.m_lightingToUpdate.size() > 0
                 {
                     i -= 1;
@@ -274,13 +292,16 @@ impl World
                     {
                         return true;
                     }
+
                     let last: Rc<MetadataChunkBlock> =
                         self.m_lightingToUpdate.removeAt(self.m_lightingToUpdate.size() - 1);
                     last.run(self);
                 }
+
                 false
             });
         self.m_lightingUpdatesCounter.set(self.m_lightingUpdatesCounter.get() - 1);
+
         match result
         {
             Ok(value) => value,
@@ -320,8 +341,10 @@ impl World
         }
 
         LIGHTING_UPDATES_SCHEDULED.with(|count| count.set(count.get() + 1));
+
         let result: Result<(), jvm::throwable::Throwable> =
-            jvm::throwable::catchThrowable(&jvm::throwable::THROWABLE, || {
+            jvm::throwable::catchThrowable(&jvm::throwable::THROWABLE, ||
+            {
                 if LIGHTING_UPDATES_SCHEDULED.with(|count| count.get()) == 50
                 {
                     return;
@@ -337,6 +360,7 @@ impl World
                 }
 
                 let k: i32 = self.m_lightingToUpdate.size();
+
                 if expand
                 {
                     let mut l: i32 = 5;
@@ -344,10 +368,12 @@ impl World
                     {
                         l = k;
                     }
+
                     for i1 in 0..l
                     {
                         let block: Rc<MetadataChunkBlock> =
                             self.m_lightingToUpdate.get(self.m_lightingToUpdate.size() - i1 - 1);
+
                         if block.m_type == kind && block.expand(minX, minY, minZ, maxX, maxY, maxZ)
                         {
                             return;
@@ -356,7 +382,9 @@ impl World
                 }
 
                 self.m_lightingToUpdate.add(Rc::new(MetadataChunkBlock::new(kind, minX, minY, minZ, maxX, maxY, maxZ)));
+
                 let j1: i32 = 1000000;
+
                 if self.m_lightingToUpdate.size() > 1000000
                 {
                     warning!("More than {j1} updates, aborting lighting updates");
@@ -364,6 +392,7 @@ impl World
                 }
             });
         LIGHTING_UPDATES_SCHEDULED.with(|count| count.set(count.get() - 1));
+
         if let Err(throwable) = result
         {
             jvm::throwable::rethrow(throwable);

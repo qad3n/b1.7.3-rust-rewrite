@@ -24,8 +24,10 @@ use std::rc::{Rc, Weak};
 
 const OUTSIDE_WINDOW: i32 = -999;
 
-crate::vtable! {
-    ContainerClass for Container {
+crate::vtable!
+{
+    ContainerClass for Container
+    {
         fn getStackInSlot(slot: i32) -> Option<Rc<ItemStack>>;
         fn isUsableByPlayer(player: &Rc<Entity>) -> bool;
         fn onCraftGuiOpened(listener: &Rc<dyn ICrafting>);
@@ -47,6 +49,7 @@ fn updateCraftingResults(this: &Rc<Container>)
         {
             itemstack1 = itemstack.map(|stack| stack.copy());
             this.m_items.set(i, itemstack1.clone());
+
             let mut j: i32 = 0;
             while j < this.m_listeners.size()
             {
@@ -54,6 +57,7 @@ fn updateCraftingResults(this: &Rc<Container>)
                 j += 1;
             }
         }
+
         i += 1;
     }
 }
@@ -64,6 +68,7 @@ fn onCraftGuiOpened(this: &Rc<Container>, listener: &Rc<dyn ICrafting>)
     {
         jvm::throwable::throw(&jvm::throwable::ILLEGAL_ARGUMENT, "Listener already listening");
     }
+
     this.m_listeners.add(Rc::clone(listener));
     listener.updateCraftingInventory(this, &this.getItems());
     this.updateCraftingResults();
@@ -79,7 +84,8 @@ fn onCraftGuiClosed(_this: &Rc<Container>, player: &Rc<Entity>)
     }
 }
 
-pub const CONTAINER: ContainerClass = ContainerClass {
+pub const CONTAINER: ContainerClass = ContainerClass
+{
     m_name: "Container",
     m_parent: None,
     m_interfaces: &[],
@@ -106,12 +112,10 @@ pub struct Container
 
 impl Container
 {
-    pub fn construct(
-        class: &'static ContainerClass,
-        ext: impl FnOnce(&Weak<Container>) -> Box<dyn Any>,
-    ) -> Rc<Container>
+    pub fn construct(class: &'static ContainerClass, ext: impl FnOnce(&Weak<Self>) -> Box<dyn Any>) -> Rc<Self>
     {
-        Rc::new_cyclic(|this| Container {
+        Rc::new_cyclic(|this| Self
+        {
             m_class: class,
             m_items: JArrayList::new(),
             m_slots: JArrayList::new(),
@@ -141,6 +145,7 @@ impl Container
             arraylist.push(self.m_slots.get(i).getStack());
             i += 1;
         }
+
         arraylist
     }
 
@@ -154,8 +159,10 @@ impl Container
             {
                 return Some(slotx);
             }
+
             i += 1;
         }
+
         None
     }
 
@@ -170,9 +177,11 @@ impl Container
     ) -> Option<Rc<ItemStack>>
     {
         let mut itemstack: Option<Rc<ItemStack>> = None;
+
         if button == 0 || button == 1
         {
             let inventoryplayer: Rc<InventoryPlayer> = entity_player::inventory(player);
+
             if slot == OUTSIDE_WINDOW
             {
                 if inventoryplayer.getItemStack().is_some() && slot == OUTSIDE_WINDOW
@@ -182,12 +191,14 @@ impl Container
                         entity_player::dropPlayerItem(player, inventoryplayer.getItemStack());
                         inventoryplayer.setItemStack(None);
                     }
+
                     if button == 1
                     {
                         entity_player::dropPlayerItem(
                             player,
                             Some(inventoryplayer.getItemStack().orNpe().splitStack(1)),
                         );
+
                         if inventoryplayer.getItemStack().orNpe().m_stackSize.get() == 0
                         {
                             inventoryplayer.setItemStack(None);
@@ -201,7 +212,9 @@ impl Container
                 if let Some(itemstack1) = itemstack1
                 {
                     let i: i32 = itemstack1.m_stackSize.get();
+
                     itemstack = Some(itemstack1.copy());
+
                     let slotx: Rc<Slot> = self.m_slots.get(slot);
                     if let Some(current) = slotx.getStack()
                     {
@@ -217,12 +230,15 @@ impl Container
             {
                 let slot1: Rc<Slot> = self.m_slots.get(slot);
                 slot1.onSlotChanged();
+
                 let itemstack3: Option<Rc<ItemStack>> = slot1.getStack();
                 let itemstack4: Option<Rc<ItemStack>> = inventoryplayer.getItemStack();
+
                 if let Some(itemstack3) = &itemstack3
                 {
                     itemstack = Some(itemstack3.copy());
                 }
+
                 match (itemstack3, itemstack4)
                 {
                     (None, itemstack4) =>
@@ -238,17 +254,21 @@ impl Container
                             {
                                 1
                             };
+
                             if k > slot1.getSlotStackLimit()
                             {
                                 k = slot1.getSlotStackLimit();
                             }
+
                             slot1.putStack(Some(itemstack4.splitStack(k)));
+
                             if itemstack4.m_stackSize.get() == 0
                             {
                                 inventoryplayer.setItemStack(None);
                             }
                         }
                     }
+
                     (Some(itemstack3), None) =>
                     {
                         let l: i32 = if button == 0
@@ -261,12 +281,15 @@ impl Container
                         };
                         let itemstack2: Option<Rc<ItemStack>> = slot1.decrStackSize(l);
                         inventoryplayer.setItemStack(itemstack2);
+
                         if itemstack3.m_stackSize.get() == 0
                         {
                             slot1.putStack(None);
                         }
+
                         slot1.onPickupFromSlot(inventoryplayer.getItemStack());
                     }
+
                     (Some(itemstack3), Some(itemstack4)) =>
                     {
                         if slot1.isItemValid(&itemstack4)
@@ -281,6 +304,7 @@ impl Container
                 }
             }
         }
+
         itemstack
     }
 
@@ -299,6 +323,7 @@ impl Container
             if itemstack4.m_stackSize.get() <= slot1.getSlotStackLimit()
             {
                 let itemstack5: Rc<ItemStack> = Rc::clone(itemstack3);
+
                 slot1.putStack(Some(Rc::clone(itemstack4)));
                 inventoryplayer.setItemStack(Some(itemstack5));
             }
@@ -313,19 +338,24 @@ impl Container
             {
                 1
             };
+
             if i1 > slot1.getSlotStackLimit() - itemstack3.m_stackSize.get()
             {
                 i1 = slot1.getSlotStackLimit() - itemstack3.m_stackSize.get();
             }
+
             if i1 > itemstack4.getMaxStackSize() - itemstack3.m_stackSize.get()
             {
                 i1 = itemstack4.getMaxStackSize() - itemstack3.m_stackSize.get();
             }
+
             itemstack4.splitStack(i1);
+
             if itemstack4.m_stackSize.get() == 0
             {
                 inventoryplayer.setItemStack(None);
             }
+
             itemstack3.m_stackSize.set(itemstack3.m_stackSize.get().wrapping_add(i1));
         }
     }
@@ -347,10 +377,12 @@ impl Container
             {
                 itemstack4.m_stackSize.set(itemstack4.m_stackSize.get().wrapping_add(j1));
                 itemstack3.splitStack(j1);
+
                 if itemstack3.m_stackSize.get() == 0
                 {
                     slot1.putStack(None);
                 }
+
                 slot1.onPickupFromSlot(inventoryplayer.getItemStack());
             }
         }
@@ -396,10 +428,12 @@ impl Container
     pub fn moveItem(&self, item: &Rc<ItemStack>, from: i32, to: i32, reverse: bool)
     {
         let mut i: i32 = from;
+
         if reverse
         {
             i = to - 1;
         }
+
         if item.isStackable()
         {
             while item.m_stackSize.get() > 0 && (!reverse && i < to || reverse && i >= from)
@@ -427,6 +461,7 @@ impl Container
                         slot.onSlotChanged();
                     }
                 }
+
                 if reverse
                 {
                     i -= 1;
@@ -437,6 +472,7 @@ impl Container
                 }
             }
         }
+
         if item.m_stackSize.get() > 0
         {
             if reverse
@@ -447,6 +483,7 @@ impl Container
             {
                 i = from;
             }
+
             while !reverse && i < to || reverse && i >= from
             {
                 let slot1: Rc<Slot> = self.m_slots.get(i);
@@ -458,6 +495,7 @@ impl Container
                     item.m_stackSize.set(0);
                     break;
                 }
+
                 if reverse
                 {
                     i -= 1;
@@ -480,6 +518,7 @@ impl Container
             let copy: Rc<ItemStack> = itemstack1.copy();
             itemstack = Some(Rc::clone(&copy));
             moveTo(&itemstack1);
+
             if itemstack1.m_stackSize.get() == 0
             {
                 slotx.putStack(None);
@@ -488,12 +527,15 @@ impl Container
             {
                 slotx.onSlotChanged();
             }
+
             if itemstack1.m_stackSize.get() == copy.m_stackSize.get()
             {
                 return None;
             }
+
             slotx.onPickupFromSlot(Some(itemstack1));
         }
+
         itemstack
     }
 }

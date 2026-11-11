@@ -25,10 +25,12 @@ pub fn burnInDaylight(this: &Rc<Entity>)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityZombie",
     m_parent: Some(&entity_mob::CLASS),
-    onLivingUpdate: |this| {
+    onLivingUpdate: |this|
+    {
         burnInDaylight(this);
         (entity_mob::CLASS.onLivingUpdate)(this);
     },

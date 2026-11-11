@@ -12,24 +12,30 @@ struct DownloadTerrainExt
     m_updateCounter: Cell<i32>,
 }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiDownloadTerrain",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
     keyTyped: |_, _, _| {},
     initGui: |this| this.m_controlList.clear(),
-    updateScreen: |this| {
+    updateScreen: |this|
+    {
         let ext: &DownloadTerrainExt = this.ext::<DownloadTerrainExt>();
         ext.m_updateCounter.set(ext.m_updateCounter.get() + 1);
+
         if ext.m_updateCounter.get() % 20 == 0
         {
             ext.m_netHandler.addToSendQueue(Box::new(Packet0KeepAlive::default()));
         }
+
         ext.m_netHandler.processReadPackets();
     },
     actionPerformed: |_, _| {},
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         this.drawBackground(0);
+
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         this.m_gui.drawCenteredString(
             &this.fontRenderer(),

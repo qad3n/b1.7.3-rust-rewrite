@@ -20,7 +20,9 @@ pub fn register(id: Identifier, spec: EffectSpec) -> Result<(), String>
             .ok_or_else(|| format!("{} is not an attribute", modifier.attribute))?;
         modifiers.push((attribute, modifier.amount, operation(modifier.operation)));
     }
-    effect::register(EffectType {
+
+    effect::register(EffectType
+    {
         m_name: id.to_string(),
         m_color: spec.color as i32,
         m_beneficial: spec.beneficial,
@@ -29,12 +31,14 @@ pub fn register(id: Identifier, spec: EffectSpec) -> Result<(), String>
         m_interval: spec.interval,
         m_amount: spec.amount,
     });
+
     Ok(())
 }
 
 pub fn add(entity: &Rc<Entity>, id: &Identifier, level: i32, ticks: i32) -> Result<(), String>
 {
     let kind: Rc<EffectType> = effect::byName(&id.to_string()).ok_or_else(|| format!("{id} is not an effect"))?;
+
     entity.m_ext.living().ok_or("only living entities have effects")?;
     effect::add(entity, kind, level, ticks);
     syncOwn(entity);
@@ -55,7 +59,8 @@ pub fn level(entity: &Entity, id: &Identifier) -> i32
     entity
         .m_ext
         .living()
-        .and_then(|living| {
+        .and_then(|living|
+        {
             living.m_effects.list().into_iter().find(|(kind, _, _)| kind.m_name == name).map(|(_, level, _)| level)
         })
         .unwrap_or(-1)
@@ -74,6 +79,7 @@ pub fn syncOwn(entity: &Rc<Entity>)
     {
         return;
     };
+
     let effects: Vec<SyncedEffect> = living
         .m_effects
         .list()
@@ -95,10 +101,12 @@ pub fn received(message: EffectSync)
     {
         return;
     };
+
     let active: Vec<ActiveEffect> = message
         .effects
         .into_iter()
-        .filter_map(|synced| {
+        .filter_map(|synced|
+        {
             Some(ActiveEffect { m_effect: effect::byName(&synced.name)?, m_level: synced.level, m_ticks: synced.ticks })
         })
         .collect();

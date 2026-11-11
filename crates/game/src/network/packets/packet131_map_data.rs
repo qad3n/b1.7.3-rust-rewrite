@@ -40,6 +40,7 @@ impl Packet for Packet131MapData
     fn writePacketData(&self, output: &mut PacketOutput) -> IoResult<()>
     {
         let data: &Vec<u8> = self.m_data.as_ref().orNpe();
+
         output.writeShort(self.m_type as i32)?;
         output.writeShort(self.m_id as i32)?;
         output.writeByte(data.len() as i32)?;

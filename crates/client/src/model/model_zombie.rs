@@ -1,4 +1,4 @@
-use crate::model::{ModelBase, ModelBaseFields, ModelBiped};
+use crate::model::{ModelBase, ModelBaseFields, ModelBiped, ModelRenderer};
 use game::math::math_helper;
 use std::f32::consts::PI;
 
@@ -9,7 +9,7 @@ pub struct ModelZombie
 
 impl ModelZombie
 {
-    pub fn new() -> ModelZombie { ModelZombie { m_biped: ModelBiped::new(0.0, 0.0) } }
+    pub fn new() -> Self { Self { m_biped: ModelBiped::new(0.0, 0.0) } }
 }
 
 impl ModelBase for ModelZombie
@@ -25,11 +25,13 @@ impl ModelBase for ModelZombie
     {
         let biped: &ModelBiped = &self.m_biped;
         biped.bipedRotationAngles(walk, walkSpeed, bob, yaw, pitch);
+
         let onGround: f32 = biped.m_base.m_onGround.get();
         let f: f32 = math_helper::sin(onGround * PI);
         let f2: f32 = math_helper::sin((1.0 - (1.0 - onGround) * (1.0 - onGround)) * PI);
-        let rightArm = &biped.m_bipedRightArm;
-        let leftArm = &biped.m_bipedLeftArm;
+        let rightArm: &ModelRenderer = &biped.m_bipedRightArm;
+        let leftArm: &ModelRenderer = &biped.m_bipedLeftArm;
+
         rightArm.m_rotateAngleZ.set(0.0);
         leftArm.m_rotateAngleZ.set(0.0);
         rightArm.m_rotateAngleY.set(-(0.1 - f * 0.6));

@@ -21,9 +21,9 @@ impl SideSpec
     {
         match self
         {
-            SideSpec::Both => ModSide::Both,
-            SideSpec::Client => ModSide::Client,
-            SideSpec::Server => ModSide::Server,
+            Self::Both => ModSide::Both,
+            Self::Client => ModSide::Client,
+            Self::Server => ModSide::Server,
         }
     }
 }
@@ -83,7 +83,7 @@ pub struct Manifest
 
 impl Manifest
 {
-    pub fn parse(text: &str) -> Result<Manifest, String> { toml::from_str(text).map_err(|error| error.to_string()) }
+    pub fn parse(text: &str) -> Result<Self, String> { toml::from_str(text).map_err(|error| error.to_string()) }
 
     pub fn displayName(&self) -> &str
     {

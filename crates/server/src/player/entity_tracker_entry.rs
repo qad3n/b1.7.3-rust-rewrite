@@ -4,7 +4,8 @@ use game::entity::{DataWatcher, Entity, entity_arrow, entity_falling_sand, entit
 use game::item::ItemStack;
 use game::math::math_helper;
 use game::network::packet::Packet;
-use game::network::packets::{
+use game::network::packets::
+{
     Packet5PlayerInventory, Packet17Sleep, Packet20NamedEntitySpawn, Packet21PickupSpawn, Packet23VehicleSpawn,
     Packet24MobSpawn, Packet25EntityPainting, Packet28EntityVelocity, Packet29DestroyEntity, Packet31RelEntityMove,
     Packet32EntityLook, Packet33RelEntityMoveLook, Packet34EntityTeleport, Packet40EntityMetadata,
@@ -60,14 +61,10 @@ impl JavaObject for EntityTrackerEntry
 
 impl EntityTrackerEntry
 {
-    pub fn new(
-        entity: &Rc<Entity>,
-        trackingRange: i32,
-        updateInterval: i32,
-        syncVelocity: bool,
-    ) -> Rc<EntityTrackerEntry>
+    pub fn new(entity: &Rc<Entity>, trackingRange: i32, updateInterval: i32, syncVelocity: bool) -> Rc<Self>
     {
-        Rc::new(EntityTrackerEntry {
+        Rc::new(Self
+        {
             m_updateCounter: Cell::new(0),
             m_firstUpdateDone: Cell::new(false),
             m_sinceTeleport: Cell::new(0),
@@ -94,7 +91,9 @@ impl EntityTrackerEntry
     pub fn updatePlayerList(&self, players: &[Rc<Entity>])
     {
         let tracked: &Rc<Entity> = &self.m_trackedEntity;
+
         self.m_playerEntitiesUpdated.set(false);
+
         if !self.m_firstUpdateDone.get()
             || tracked.getDistanceSq(
                 self.m_lastTrackedEntityPosX.get(),
@@ -112,6 +111,7 @@ impl EntityTrackerEntry
 
         self.m_sinceTeleport.set(self.m_sinceTeleport.get() + 1);
         self.m_updateCounter.set(self.m_updateCounter.get() + 1);
+
         if self.m_updateCounter.get() % self.m_updateInterval == 0
         {
             self.sendVelocity();
@@ -247,6 +247,7 @@ impl EntityTrackerEntry
     pub fn sendPacketToTrackedPlayersAndTrackedEntity(&self, packet: Box<dyn Packet>)
     {
         self.sendPacketToTrackedPlayers(packet.clonePacket());
+
         if self.m_trackedEntity.instanceOf("EntityPlayerMP")
         {
             entity_player_mp::netServerHandler(&self.m_trackedEntity).sendPacket(packet);
@@ -272,6 +273,7 @@ impl EntityTrackerEntry
         {
             return;
         }
+
         let d0: f64 = player.m_posX.get() - (self.m_encodedPosX.get() / 32) as f64;
         let d1: f64 = player.m_posZ.get() - (self.m_encodedPosZ.get() / 32) as f64;
         let threshold: f64 = self.m_trackingDistanceThreshold as f64;
@@ -282,11 +284,14 @@ impl EntityTrackerEntry
                 && modloader::entities::canTrack(&self.m_trackedEntity, player)
             {
                 self.m_trackedPlayers.update(|set| set.add(Rc::clone(player)));
+
                 let handler: Rc<crate::network::NetServerHandler> = entity_player_mp::netServerHandler(player);
+
                 // mod entities spawn through the loader channel
                 if !modloader::entities::sendSpawn(&self.m_trackedEntity, player)
                 {
                     handler.sendPacket(self.getSpawnPacket());
+
                     // the named spawn packet carries no metadata so sneaking fire and riding flags follow it
                     if self.m_trackedEntity.instanceOf("EntityPlayer")
                     {
@@ -298,7 +303,9 @@ impl EntityTrackerEntry
                     // rewrite: mod data synced on vanilla entities, as players' equipment, follows their spawn
                     modloader::entities::sendSynced(&self.m_trackedEntity, player);
                 }
+
                 let tracked: &Rc<Entity> = &self.m_trackedEntity;
+
                 if self.m_shouldSendMotionUpdates
                 {
                     handler.sendPacket(Box::new(Packet28EntityVelocity::new(
@@ -308,6 +315,7 @@ impl EntityTrackerEntry
                         tracked.m_motionZ.get(),
                     )));
                 }
+
                 let aitemstack: Option<Vec<Option<Rc<ItemStack>>>> = tracked.getInventory();
                 if let Some(aitemstack) = aitemstack
                 {
@@ -320,6 +328,7 @@ impl EntityTrackerEntry
                         )));
                     }
                 }
+
                 if tracked.instanceOf("EntityPlayer") && tracked.isPlayerSleeping()
                 {
                     handler.sendPacket(Box::new(Packet17Sleep::new(
@@ -348,6 +357,7 @@ impl EntityTrackerEntry
             {
                 game::port::classCast(player.className(), "EntityPlayerMP");
             }
+
             self.updatePlayerEntity(player);
         }
     }
@@ -363,6 +373,7 @@ impl EntityTrackerEntry
         {
             return Box::new(Packet20NamedEntitySpawn::new(tracked));
         }
+
         if tracked.instanceOf("EntityMinecart")
         {
             let minecartType: i32 = entity_minecart::fields(tracked).m_minecartType.get();
@@ -379,6 +390,7 @@ impl EntityTrackerEntry
                 return Box::new(Packet23VehicleSpawn::new(tracked, 12));
             }
         }
+
         if tracked.instanceOf("EntityBoat")
         {
             return Box::new(Packet23VehicleSpawn::new(tracked, 1));
@@ -391,6 +403,7 @@ impl EntityTrackerEntry
         {
             return Box::new(Packet23VehicleSpawn::new(tracked, 90));
         }
+
         if tracked.instanceOf("EntityArrow")
         {
             let entityliving: Option<Rc<Entity>> = entity_arrow::fields(tracked).m_owner.get();
@@ -401,10 +414,12 @@ impl EntityTrackerEntry
             };
             return Box::new(Packet23VehicleSpawn::withData(tracked, 60, data));
         }
+
         if tracked.instanceOf("EntitySnowball")
         {
             return Box::new(Packet23VehicleSpawn::new(tracked, 61));
         }
+
         if tracked.instanceOf("EntityFireball")
         {
             let entityfireball: &entity_fireball::FireballFields = entity_fireball::fields(tracked);
@@ -416,6 +431,7 @@ impl EntityTrackerEntry
             packet23vehiclespawn.m_velocityZ = (entityfireball.m_accelerationZ.get() * 8000.0) as i32;
             return Box::new(packet23vehiclespawn);
         }
+
         if tracked.instanceOf("EntityEgg")
         {
             return Box::new(Packet23VehicleSpawn::new(tracked, 62));
@@ -424,6 +440,7 @@ impl EntityTrackerEntry
         {
             return Box::new(Packet23VehicleSpawn::new(tracked, 50));
         }
+
         if tracked.instanceOf("EntityFallingSand")
         {
             let blockID: i32 = entity_falling_sand::fields(tracked).m_blockID.get();
@@ -436,10 +453,12 @@ impl EntityTrackerEntry
                 return Box::new(Packet23VehicleSpawn::new(tracked, 71));
             }
         }
+
         if tracked.instanceOf("EntityPainting")
         {
             return Box::new(Packet25EntityPainting::new(tracked));
         }
+
         jvm::throwable::throw(
             &jvm::throwable::ILLEGAL_ARGUMENT,
             &format!("Don't know how to add class net.minecraft.src.{}!", tracked.className()),

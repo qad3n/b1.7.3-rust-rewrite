@@ -24,6 +24,7 @@ fn onItemUse(
 ) -> bool
 {
     let id: i32 = blockID(this);
+
     if world.getBlockId(x, y, z) == Block::SNOW
     {
         face = 0;
@@ -34,27 +35,33 @@ fn onItemUse(
         {
             y -= 1;
         }
+
         if face == 1
         {
             y += 1;
         }
+
         if face == 2
         {
             z -= 1;
         }
+
         if face == 3
         {
             z += 1;
         }
+
         if face == 4
         {
             x -= 1;
         }
+
         if face == 5
         {
             x += 1;
         }
     }
+
     if stack.m_stackSize.get() == 0
     {
         return false;
@@ -63,11 +70,14 @@ fn onItemUse(
     {
         return false;
     }
+
     if world.canBlockBePlacedAt(id, x, y, z, false, face)
     {
         // mods may refuse a placement
         let meta: i32 = this.getPlacedBlockMetadata(stack.getItemDamage());
-        if crate::hooks::fire(crate::hooks::GameEvent::BlockPlace {
+
+        if crate::hooks::fire(crate::hooks::GameEvent::BlockPlace
+        {
             world,
             x,
             y,
@@ -79,11 +89,14 @@ fn onItemUse(
         {
             return false;
         }
+
         let block: Rc<Block> = Block::byId(id).orNpe();
+
         if world.setBlockAndMetadataWithNotify(x, y, z, id, this.getPlacedBlockMetadata(stack.getItemDamage()))
         {
             Block::byId(id).orNpe().onBlockPlaced(world, x, y, z, face);
             Block::byId(id).orNpe().onBlockPlacedBy(world, x, y, z, player);
+
             let sound: Rc<StepSound> = block.m_stepSound.get();
             world.playSoundEffect(
                 (x as f32 + 0.5) as f64,
@@ -95,12 +108,15 @@ fn onItemUse(
             );
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
         }
+
         return true;
     }
+
     false
 }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemBlock",
     m_parent: Some(&ITEM),
     onItemUse,

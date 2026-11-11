@@ -1,7 +1,7 @@
 use crate::worldgen::{BIOME_GEN_BASE, BiomeGenBase, BiomeGenBaseClass, SpawnListEntry};
 use std::rc::Rc;
 
-pub fn create() -> Rc<BiomeGenBase>
+pub(crate) fn create() -> Rc<BiomeGenBase>
 {
     let biome: Rc<BiomeGenBase> = BiomeGenBase::alloc(&BIOME_GEN_HELL);
     biome.m_spawnableMonsterList.clear();

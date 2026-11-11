@@ -9,7 +9,7 @@ pub struct JsonStringNodeBuilder
 
 impl JsonStringNodeBuilder
 {
-    pub fn new(value: JString) -> JsonStringNodeBuilder { JsonStringNodeBuilder { m_value: value } }
+    pub fn new(value: JString) -> Self { Self { m_value: value } }
 
     pub fn buildString(&self) -> JsonStringNode { JsonNodeFactories::string(self.m_value.clone()) }
 }

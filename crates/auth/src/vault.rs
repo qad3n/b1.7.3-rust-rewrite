@@ -60,7 +60,7 @@ pub struct Vault
 
 impl Vault
 {
-    pub fn open(path: &Path, passphrase: &[u8]) -> AuthResult<Vault>
+    pub fn open(path: &Path, passphrase: &[u8]) -> AuthResult<Self>
     {
         if passphrase.len() < PASSPHRASE_MIN
         {
@@ -75,11 +75,13 @@ impl Vault
         }
     }
 
-    fn create(path: &Path, passphrase: &[u8]) -> AuthResult<Vault>
+    fn create(path: &Path, passphrase: &[u8]) -> AuthResult<Self>
     {
         let mut salt: [u8; layout::SALT] = [0; layout::SALT];
         OsRng.fill_bytes(&mut salt);
-        let vault: Vault = Vault {
+
+        let vault: Self = Self
+        {
             m_path: path.to_path_buf(),
             m_salt: salt,
             m_key: stretch(passphrase, &salt)?,
@@ -91,9 +93,10 @@ impl Vault
         Ok(vault)
     }
 
-    fn decrypt(path: &Path, data: &[u8], passphrase: &[u8]) -> AuthResult<Vault>
+    fn decrypt(path: &Path, data: &[u8], passphrase: &[u8]) -> AuthResult<Self>
     {
         let damaged: String = format!("auth vault {} is damaged", path.display());
+
         if data.len() < layout::HEADER + layout::NONCE || &data[..layout::MAGIC.len()] != layout::MAGIC
         {
             return Err(damaged);
@@ -104,7 +107,9 @@ impl Vault
         let nonce: &XNonce = XNonce::from_slice(&data[layout::HEADER..layout::HEADER + layout::NONCE]);
         let payload: Payload<'_, '_> =
             Payload { msg: &data[layout::HEADER + layout::NONCE..], aad: &data[..layout::HEADER] };
-        let plain: Zeroizing<Vec<u8>> = Zeroizing::new(cipher(&key).decrypt(nonce, payload).map_err(|_| {
+
+        let plain: Zeroizing<Vec<u8>> = Zeroizing::new(cipher(&key).decrypt(nonce, payload).map_err(|_|
+        {
             format!("auth vault {} could not be decrypted, wrong passphrase or damaged file", path.display())
         })?);
 
@@ -113,10 +118,13 @@ impl Vault
             .map_err(|_| format!("auth vault {} holds a bad server key", path.display()))?;
 
         let mut accounts: BTreeMap<String, Account> = BTreeMap::new();
+
         for _ in 0..reader.long()?
         {
             let name: String = reader.text()?;
-            let account: Account = Account {
+
+            let account: Account = Account
+            {
                 m_display: reader.text()?,
                 m_suite: reader.byte()?,
                 m_record: reader.bytes()?,
@@ -126,15 +134,18 @@ impl Vault
         }
 
         let mut invites: Vec<Invite> = Vec::new();
+
         for _ in 0..reader.long()?
         {
             let name: String = reader.text()?;
             let digest: [u8; 32] = reader.bytes()?.try_into().map_err(|_| &damaged)?;
             invites.push(Invite { m_name: name, m_digest: digest, m_expires: reader.long()? });
         }
+
         reader.end()?;
 
-        Ok(Vault {
+        Ok(Self
+        {
             m_path: path.to_path_buf(),
             m_salt: salt,
             m_key: key,
@@ -149,6 +160,7 @@ impl Vault
         let mut writer: Writer = Writer::new();
         writer.bytes(&Zeroizing::new(self.m_setup.serialize().to_vec()));
         writer.long(self.m_accounts.len() as u64);
+
         for (name, account) in &self.m_accounts
         {
             writer.text(name);
@@ -157,13 +169,16 @@ impl Vault
             writer.bytes(&account.m_record);
             writer.long(account.m_created);
         }
+
         writer.long(self.m_invites.len() as u64);
+
         for invite in &self.m_invites
         {
             writer.text(&invite.m_name);
             writer.bytes(&invite.m_digest);
             writer.long(invite.m_expires);
         }
+
         Zeroizing::new(writer.finish())
     }
 
@@ -176,6 +191,7 @@ impl Vault
         let mut file: Vec<u8> = Vec::with_capacity(layout::HEADER + layout::NONCE + plain.len());
         file.extend_from_slice(layout::MAGIC);
         file.extend_from_slice(&self.m_salt);
+
         let payload: Payload<'_, '_> = Payload { msg: &plain, aad: &file };
         let sealed: Vec<u8> = cipher(&self.m_key)
             .encrypt(XNonce::from_slice(&nonce), payload)
@@ -206,6 +222,7 @@ impl Vault
                 None => self.m_accounts.remove(name),
             };
         }
+
         saved
     }
 
@@ -222,6 +239,7 @@ impl Vault
         {
             self.m_accounts.insert(name.to_string(), previous);
         }
+
         saved.map(|()| true)
     }
 
@@ -229,16 +247,20 @@ impl Vault
     {
         let mut bytes: Zeroizing<[u8; invites::LEN]> = Zeroizing::new([0; invites::LEN]);
         OsRng.fill_bytes(bytes.as_mut());
+
         let code: String =
             bytes.iter().map(|byte| invites::ALPHABET[*byte as usize % invites::ALPHABET.len()] as char).collect();
 
         let now: u64 = unixNow();
         self.m_invites.retain(|invite| invite.m_expires > now && invite.m_name != name);
-        self.m_invites.push(Invite {
+
+        self.m_invites.push(Invite
+        {
             m_name: name.to_string(),
             m_digest: digest(name, &code),
             m_expires: now + invites::LIFETIME_SECS,
         });
+
         self.save()?;
         Ok(code)
     }
@@ -287,7 +309,7 @@ fn digest(name: &str, code: &str) -> [u8; 32]
     hasher.finalize().into()
 }
 
-pub fn unixNow() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs()) }
+pub(crate) fn unixNow() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs()) }
 
 fn ioError(path: &Path, action: &str) -> impl FnOnce(std::io::Error) -> String
 {
@@ -316,6 +338,7 @@ fn writeAtomic(path: &Path, data: &[u8]) -> AuthResult<()>
     options.write(true).create_new(true);
     #[cfg(unix)]
     std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+
     let mut file: File = options.open(&temp).map_err(ioError(&temp, "create"))?;
     file.write_all(data).map_err(ioError(&temp, "write"))?;
     file.sync_all().map_err(ioError(&temp, "sync"))?;

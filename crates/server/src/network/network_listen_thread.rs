@@ -30,6 +30,7 @@ pub struct NetworkListenThread
 fn bind(address: Option<IpAddr>, port: i32) -> IoResult<TcpListener>
 {
     let port: u16 = port as u16;
+
     let result: std::io::Result<TcpListener> = match address
     {
         Some(address) => TcpListener::bind(SocketAddr::new(address, port)),
@@ -43,6 +44,7 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
 {
     let mut hashmap: HashMap<IpAddr, i64> = HashMap::new();
     let mut connectionCounter: i32 = 0;
+
     while open.load(Ordering::Relaxed)
     {
         match serverSocket.accept()
@@ -62,15 +64,19 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
                 else
                 {
                     hashmap.insert(inetaddress, jvm::system::currentTimeMillis());
+
                     let counter: i32 = connectionCounter;
+
                     connectionCounter += 1;
                     debug!("Connection #{counter} from {address}");
+
                     if accepted.send((socket, counter)).is_err()
                     {
                         return;
                     }
                 }
             }
+
             Err(error) => warning!("Could not accept a connection: {error}"),
         }
     }
@@ -78,13 +84,14 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
 
 impl NetworkListenThread
 {
-    pub fn new(server: &Rc<MinecraftServer>, address: Option<IpAddr>, port: i32) -> IoResult<NetworkListenThread>
+    pub fn new(server: &Rc<MinecraftServer>, address: Option<IpAddr>, port: i32) -> IoResult<Self>
     {
         let serverSocket: TcpListener = bind(address, port)?;
         if let Ok(local) = serverSocket.local_addr()
         {
             debug!("Listening on {local}");
         }
+
         let open: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
         let (sender, receiver): (Sender<Accepted>, Receiver<Accepted>) = channel();
         let listener: TcpListener = serverSocket.try_clone().map_err(|error| jvm::io::fromStd(&error))?;
@@ -92,7 +99,9 @@ impl NetworkListenThread
         let networkAcceptThread: JoinHandle<()> =
             jvm::thread::start(JString::from("Listen thread"), move || acceptLoop(listener, threadOpen, sender))
                 .map_err(|error| jvm::io::fromStd(&error))?;
-        Ok(NetworkListenThread {
+
+        Ok(Self
+        {
             m_serverSocket: serverSocket,
             m_networkAcceptThread: networkAcceptThread,
             m_open: open,
@@ -132,41 +141,49 @@ impl NetworkListenThread
     pub fn handleNetworkListenThread(&self)
     {
         self.takeAccepted();
+
         let mut i: i32 = 0;
         while i < self.m_pendingConnections.size()
         {
             let netloginhandler: Rc<NetLoginHandler> = self.m_pendingConnections.get(i);
             let result: Result<(), Throwable> =
                 throwable::catchThrowable(&throwable::EXCEPTION, || netloginhandler.tryLogin());
+
             if let Err(exception1) = result
             {
                 netloginhandler.kickUser("Internal server error");
                 logThrown!(Level::WARNING, Some(exception1), "Failed to handle packet: {exception1}");
             }
+
             if netloginhandler.m_finishedProcessing.get()
             {
                 self.m_pendingConnections.removeAt(i);
                 i -= 1;
             }
+
             netloginhandler.netManager().wakeThreads();
             i += 1;
         }
+
         let mut j: i32 = 0;
         while j < self.m_playerList.size()
         {
             let netserverhandler: Rc<NetServerHandler> = self.m_playerList.get(j);
             let result: Result<(), Throwable> =
                 throwable::catchThrowable(&throwable::EXCEPTION, || netserverhandler.handlePackets());
+
             if let Err(exception) = result
             {
                 logThrown!(Level::WARNING, Some(exception), "Failed to handle packet: {exception}");
                 netserverhandler.kickPlayer("Internal server error");
             }
+
             if netserverhandler.m_connectionClosed.get()
             {
                 self.m_playerList.removeAt(j);
                 j -= 1;
             }
+
             netserverhandler.m_netManager.wakeThreads();
             j += 1;
         }

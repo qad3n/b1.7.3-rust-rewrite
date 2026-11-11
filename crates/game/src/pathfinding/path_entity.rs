@@ -13,10 +13,10 @@ pub struct PathEntity
 
 impl PathEntity
 {
-    pub fn new(nodes: Vec<Rc<PathPoint>>) -> Rc<PathEntity>
+    pub fn new(nodes: Vec<Rc<PathPoint>>) -> Rc<Self>
     {
         let pathLength: i32 = nodes.len() as i32;
-        Rc::new(PathEntity { m_points: nodes, m_pathLength: pathLength, m_pathIndex: Cell::new(0) })
+        Rc::new(Self { m_points: nodes, m_pathLength: pathLength, m_pathIndex: Cell::new(0) })
     }
 
     fn point(&self, index: i32) -> &Rc<PathPoint>
@@ -25,6 +25,7 @@ impl PathEntity
         {
             jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &index.to_string());
         }
+
         &self.m_points[index as usize]
     }
 
@@ -38,6 +39,7 @@ impl PathEntity
         {
             return Some(Rc::clone(self.point(self.m_pathLength - 1)));
         }
+
         None
     }
 

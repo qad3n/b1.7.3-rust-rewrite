@@ -12,7 +12,7 @@ impl ChunkCoordinates
 {
     pub fn new(x: i32, y: i32, z: i32) -> Self { Self { m_x: x, m_y: y, m_z: z } }
 
-    pub fn withCopy(pos: &ChunkCoordinates) -> Self { Self { m_x: pos.m_x, m_y: pos.m_y, m_z: pos.m_z } }
+    pub fn withCopy(pos: &Self) -> Self { Self { m_x: pos.m_x, m_y: pos.m_y, m_z: pos.m_z } }
 
     pub fn equals(&self, other: &Self) -> bool
     {
@@ -29,8 +29,10 @@ impl ChunkCoordinates
             {
                 return self.m_x.wrapping_sub(other.m_x);
             }
+
             return self.m_z.wrapping_sub(other.m_z);
         }
+
         self.m_y.wrapping_sub(other.m_y)
     }
 

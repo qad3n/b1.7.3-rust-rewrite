@@ -1,5 +1,6 @@
 use crate::block::{Material, block_bed};
-use crate::entity::{
+use crate::entity::
+{
     Entity, entity_chicken, entity_cow, entity_creeper, entity_ghast, entity_living, entity_pig, entity_pig_zombie,
     entity_sheep, entity_skeleton, entity_slime, entity_spider, entity_squid, entity_wolf, entity_zombie,
 };
@@ -10,7 +11,7 @@ use crate::worldgen::{BiomeGenBase, EnumCreatureType, SpawnListEntry};
 use common::world::{ChunkCoordIntPair, ChunkPosition};
 use jvm::hash_map::JHashSet;
 use jvm::throwable::{self, OrNpe, Throwable};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
 type Constructor = fn(Option<Rc<World>>) -> Rc<Entity>;
@@ -35,7 +36,8 @@ const NIGHT_SPAWN_ENTITIES: [Constructor; 3] = [entity_spider::new, entity_zombi
 
 const SPAWN_RADIUS_CHUNKS: i32 = 8;
 
-thread_local! {
+thread_local!
+{
     static ELIGIBLE_CHUNKS_FOR_SPAWNING: RefCell<JHashSet<ChunkCoordIntPair>> = RefCell::new(JHashSet::new());
 }
 
@@ -45,9 +47,11 @@ fn instantiate(create: Constructor, world: &Rc<World>) -> Option<Rc<Entity>>
 {
     let result: Result<Rc<Entity>, Throwable> =
         throwable::catchThrowable(&throwable::EXCEPTION, || create(Some(Rc::clone(world))));
+
     match result
     {
         Ok(entity) => Some(entity),
+
         Err(error) =>
         {
             error.printStackTrace();
@@ -81,14 +85,18 @@ impl SpawnerAnimals
         {
             return 0;
         }
-        let eligible: Vec<ChunkCoordIntPair> = ELIGIBLE_CHUNKS_FOR_SPAWNING.with(|set| {
-            let mut set = set.borrow_mut();
+
+        let eligible: Vec<ChunkCoordIntPair> = ELIGIBLE_CHUNKS_FOR_SPAWNING.with(|set|
+        {
+            let mut set: RefMut<JHashSet<ChunkCoordIntPair>> = set.borrow_mut();
             set.clear();
+
             for i in 0..world.m_playerEntities.size()
             {
                 let entityplayer: Rc<Entity> = world.m_playerEntities.get(i);
                 let j: i32 = math_helper::floor_double(entityplayer.posX() / 16.0);
                 let k: i32 = math_helper::floor_double(entityplayer.posZ() / 16.0);
+
                 for l in -SPAWN_RADIUS_CHUNKS..=SPAWN_RADIUS_CHUNKS
                 {
                     for i1 in -SPAWN_RADIUS_CHUNKS..=SPAWN_RADIUS_CHUNKS
@@ -97,11 +105,14 @@ impl SpawnerAnimals
                     }
                 }
             }
+
             set.items()
         });
+
         let mut k3: i32 = 0;
         let chunkcoordinates: ChunkCoordinates = world.getSpawnPoint();
         let owned: bool = crate::hooks::ownsSpawns(world);
+
         for enumcreaturetype in EnumCreatureType::VALUES
         {
             let peaceful: bool = enumcreaturetype.getPeacefulCreature();
@@ -112,20 +123,24 @@ impl SpawnerAnimals
             {
                 continue;
             }
+
             'chunks: for chunkcoordintpair in &eligible
             {
                 // rewrite: a dimension that names its spawns per spot picks the spot first, vanilla keeps its order
-                let point: Option<ChunkPosition> = owned.then(|| {
+                let point: Option<ChunkPosition> = owned.then(||
+                {
                     Self::getRandomSpawningPointInChunk(
                         world,
                         chunkcoordintpair.m_chunkXPos * 16,
                         chunkcoordintpair.m_chunkZPos * 16,
                     )
                 });
-                let listed: Option<Vec<SpawnListEntry>> = point.as_ref().and_then(|point| {
+                let listed: Option<Vec<SpawnListEntry>> = point.as_ref().and_then(|point|
+                {
                     crate::hooks::spawnList(world, enumcreaturetype, point.m_x, point.m_y, point.m_z)
                 });
-                let entries: Vec<SpawnListEntry> = listed.unwrap_or_else(|| {
+                let entries: Vec<SpawnListEntry> = listed.unwrap_or_else(||
+                {
                     let biomegenbase: Rc<BiomeGenBase> =
                         world.getWorldChunkManager().getBiomeGenAtChunkCoord(*chunkcoordintpair);
                     biomegenbase.getSpawnableList(enumcreaturetype).toVec()
@@ -134,9 +149,11 @@ impl SpawnerAnimals
                 {
                     continue;
                 }
+
                 let j1: i32 = entries.iter().map(|entry| entry.m_spawnRarityRate).sum();
                 let mut l3: i32 = world.m_rand.nextIntBounded(j1);
                 let mut spawnEntry: &SpawnListEntry = &entries[0];
+
                 for entry in &entries
                 {
                     l3 -= entry.m_spawnRarityRate;
@@ -146,7 +163,9 @@ impl SpawnerAnimals
                         break;
                     }
                 }
-                let chunkposition: ChunkPosition = point.unwrap_or_else(|| {
+
+                let chunkposition: ChunkPosition = point.unwrap_or_else(||
+                {
                     Self::getRandomSpawningPointInChunk(
                         world,
                         chunkcoordintpair.m_chunkXPos * 16,
@@ -161,13 +180,16 @@ impl SpawnerAnimals
                 {
                     continue;
                 }
+
                 let mut i2: i32 = 0;
+
                 for _ in 0..3
                 {
                     let mut k2: i32 = i4;
                     let mut l2: i32 = k1;
                     let mut i3: i32 = l1;
                     let b1: i32 = 6;
+
                     for _ in 0..4
                     {
                         k2 += world.m_rand.nextIntBounded(b1) - world.m_rand.nextIntBounded(b1);
@@ -192,6 +214,7 @@ impl SpawnerAnimals
                         {
                             continue;
                         }
+
                         // mod entities in biome spawn lists are created by the loader
                         let Some(entityliving) = crate::hooks::createEntity(spawnEntry.m_entityClass, world)
                             .or_else(|| instantiate(constructorFor(spawnEntry.m_entityClass), world))
@@ -199,6 +222,7 @@ impl SpawnerAnimals
                         {
                             return k3;
                         };
+
                         entityliving.setLocationAndAngles(
                             f as f64,
                             f1 as f64,
@@ -206,22 +230,26 @@ impl SpawnerAnimals
                             world.m_rand.nextFloat() * 360.0,
                             0.0,
                         );
+
                         // mods may veto or allow a natural spawn
                         if crate::hooks::spawnAllowed(&entityliving, entityliving.getCanSpawnHere())
                         {
                             i2 += 1;
                             world.entityJoinedWorld(&entityliving);
                             Self::creatureSpecificInit(&entityliving, world, f, f1, f2);
+
                             if i2 >= entityliving.getMaxSpawnedInChunk()
                             {
                                 continue 'chunks;
                             }
                         }
+
                         k3 += i2;
                     }
                 }
             }
         }
+
         k3
     }
 
@@ -231,6 +259,7 @@ impl SpawnerAnimals
         {
             return world.getBlockMaterial(x, y, z).getIsLiquid() && !world.isBlockNormalCube(x, y + 1, z);
         }
+
         world.isBlockNormalCube(x, y - 1, z)
             && !world.isBlockNormalCube(x, y, z)
             && !world.getBlockMaterial(x, y, z).getIsLiquid()
@@ -256,6 +285,7 @@ impl SpawnerAnimals
     {
         let mut flag: bool = false;
         let pathfinder: Pathfinder = Pathfinder::new(Rc::clone(world) as Rc<dyn IBlockAccess>);
+
         for entityplayer in players
         {
             let aclass: &[Constructor] = &NIGHT_SPAWN_ENTITIES;
@@ -264,12 +294,14 @@ impl SpawnerAnimals
             while i < 20 && !flag1
             {
                 i += 1;
+
                 let j: i32 = math_helper::floor_double(entityplayer.posX()) + world.m_rand.nextIntBounded(32)
                     - world.m_rand.nextIntBounded(32);
                 let k: i32 = math_helper::floor_double(entityplayer.posZ()) + world.m_rand.nextIntBounded(32)
                     - world.m_rand.nextIntBounded(32);
                 let mut l: i32 = math_helper::floor_double(entityplayer.posY()) + world.m_rand.nextIntBounded(16)
                     - world.m_rand.nextIntBounded(16);
+
                 if l < 1
                 {
                     l = 1;
@@ -284,12 +316,14 @@ impl SpawnerAnimals
                 {
                     j1 -= 1;
                 }
+
                 while !Self::canCreatureTypeSpawnAtLocation(EnumCreatureType::Monster, world, j, j1, k)
                     && j1 < l + 16
                     && j1 < world.height()
                 {
                     j1 += 1;
                 }
+
                 if j1 >= l + 16 || j1 >= world.height()
                 {
                     continue;
@@ -297,11 +331,13 @@ impl SpawnerAnimals
                 let f: f32 = j as f32 + 0.5;
                 let f1: f32 = j1 as f32;
                 let f2: f32 = k as f32 + 0.5;
+
                 let Some(entityliving) = instantiate(aclass[i1 as usize], world)
                 else
                 {
                     return flag;
                 };
+
                 entityliving.setLocationAndAngles(
                     f as f64,
                     f1 as f64,
@@ -309,6 +345,7 @@ impl SpawnerAnimals
                     world.m_rand.nextFloat() * 360.0,
                     0.0,
                 );
+
                 // mods may veto or allow a natural spawn
                 if !crate::hooks::spawnAllowed(&entityliving, entityliving.getCanSpawnHere())
                 {
@@ -316,11 +353,13 @@ impl SpawnerAnimals
                 }
                 let pathentity: Option<Rc<PathEntity>> =
                     pathfinder.createEntityPathTo(&entityliving, entityplayer, 32.0);
+
                 let Some(pathentity) = pathentity.filter(|path| path.m_pathLength > 1)
                 else
                 {
                     continue;
                 };
+
                 let pathpoint: Rc<PathPoint> = pathentity.getLastNode().orNpe();
                 if (pathpoint.m_xCoord as f64 - entityplayer.posX()).abs() < 1.5
                     && (pathpoint.m_zCoord as f64 - entityplayer.posZ()).abs() < 1.5
@@ -334,6 +373,7 @@ impl SpawnerAnimals
                         1,
                     )
                     .unwrap_or_else(|| ChunkCoordinates::new(j, j1 + 1, k));
+
                     let x: f32 = chunkcoordinates.m_x as f32 + 0.5;
                     let y: f32 = chunkcoordinates.m_y as f32;
                     let z: f32 = chunkcoordinates.m_z as f32 + 0.5;
@@ -347,6 +387,7 @@ impl SpawnerAnimals
                 }
             }
         }
+
         flag
     }
 }

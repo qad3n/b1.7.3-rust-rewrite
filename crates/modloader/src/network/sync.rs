@@ -33,12 +33,15 @@ pub fn tileChanged(tile: &Rc<TileEntity>)
     {
         return;
     };
-    let message: TileData = TileData {
+
+    let message: TileData = TileData
+    {
         world: crate::host::context::dimension(&world),
         pos: BlockPos::new(tile.m_xCoord.get(), tile.m_yCoord.get(), tile.m_zCoord.get()),
         data: ext.m_data.borrow().clone(),
     };
     let bytes: Vec<u8> = mod_protocol::wire::encode(&message);
+
     for player in world.m_playerEntities.toVec()
     {
         let dx: f64 = player.m_posX.get() - message.pos.x as f64;

@@ -60,7 +60,8 @@ pub use map_gen_base::{MAP_GEN_BASE, MapGenBase, MapGenBaseClass};
 pub use map_gen_caves::MAP_GEN_CAVES;
 pub use map_gen_caves_hell::MAP_GEN_CAVES_HELL;
 pub use spawn_list_entry::SpawnListEntry;
-pub use world_chunk_manager::{
+pub use world_chunk_manager::
+{
     WORLD_CHUNK_MANAGER, WORLD_CHUNK_MANAGER_HELL, WorldChunkManager, WorldChunkManagerClass,
 };
 pub use world_gen_big_tree::WorldGenBigTree;

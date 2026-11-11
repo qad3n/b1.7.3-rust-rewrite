@@ -2,10 +2,12 @@ use crate::block::{Block, BlockClass, block_sand};
 use crate::item::Item;
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockGravel",
     m_parent: Some(&block_sand::CLASS),
-    idDropped: |this, _, random| {
+    idDropped: |this, _, random|
+    {
         if random.nextIntBounded(10) == 0
         {
             Item::flint().m_shiftedIndex

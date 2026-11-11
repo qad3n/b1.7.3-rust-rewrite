@@ -1,14 +1,17 @@
 use crate::item::{ITEM, Item, ItemClass};
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemCoal",
     m_parent: Some(&ITEM),
-    getItemNameIS: |_, stack| {
+    getItemNameIS: |_, stack|
+    {
         if stack.getItemDamage() == 1
         {
             return Some("item.charcoal".to_string());
         }
+
         Some("item.coal".to_string())
     },
     ..ITEM

@@ -103,17 +103,19 @@ struct ModSlot
 
 fn screen(slot: &GuiSlot) -> Rc<GuiScreen> { slot.ext::<ModSlot>().m_screen.upgrade().orNpe() }
 
-pub(super) fn fit(font: &FontRenderer, text: &str, width: i32) -> String
+pub(crate) fn fit(font: &FontRenderer, text: &str, width: i32) -> String
 {
     if font.getStringWidth(text) <= width
     {
         return text.to_owned();
     }
+
     let mut cut: String = text.to_owned();
     while !cut.is_empty() && font.getStringWidth(&format!("{cut}{ELLIPSIS}")) > width
     {
         cut.pop();
     }
+
     format!("{cut}{ELLIPSIS}")
 }
 
@@ -122,6 +124,7 @@ fn wrap(font: &FontRenderer, text: &str, width: i32) -> Vec<String>
 {
     let mut lines: Vec<String> = Vec::new();
     let mut line: String = String::new();
+
     for word in text.split_whitespace()
     {
         let joined: String = if line.is_empty()
@@ -132,6 +135,7 @@ fn wrap(font: &FontRenderer, text: &str, width: i32) -> Vec<String>
         {
             format!("{line} {word}")
         };
+
         if line.is_empty() || font.getStringWidth(&joined) <= width
         {
             line = joined;
@@ -141,10 +145,12 @@ fn wrap(font: &FontRenderer, text: &str, width: i32) -> Vec<String>
             lines.push(std::mem::replace(&mut line, word.to_owned()));
         }
     }
+
     if !line.is_empty()
     {
         lines.push(line);
     }
+
     lines
 }
 
@@ -155,18 +161,23 @@ fn detailLines(font: &FontRenderer, details: Vec<(String, i32)>) -> Vec<(String,
         .flat_map(|(text, color)| wrap(font, &text, listing::TEXT_WIDTH).into_iter().map(move |line| (line, color)))
         .collect();
     let hidden: bool = lines.len() > listing::DETAIL_LINES;
+
     lines.truncate(listing::DETAIL_LINES);
+
     if let (true, Some(last)) = (hidden, lines.last_mut())
     {
         last.0 = format!("{} {ELLIPSIS}", last.0);
     }
+
     lines.into_iter().map(|(text, color)| (fit(font, &text, listing::TEXT_WIDTH), color)).collect()
 }
 
 fn entry(font: &FontRenderer, title: &str, status: Status, details: Vec<(String, i32)>) -> Entry
 {
     let titleWidth: i32 = listing::TEXT_WIDTH - font.getStringWidth(status.row().m_label) - 6;
-    Entry {
+
+    Entry
+    {
         m_title: fit(font, title, titleWidth),
         m_status: status,
         m_lines: detailLines(font, details),
@@ -190,20 +201,25 @@ fn modEntry(font: &FontRenderer, runtime: Rc<ModRuntime>, problems: &mut Vec<Pro
     let (own, rest): (Vec<Problem>, Vec<Problem>) =
         std::mem::take(problems).into_iter().partition(|problem| owns(&runtime, problem));
     *problems = rest;
+
     let status: Status = match (runtime.isActive() && runtime.m_instance.is_some(), own.is_empty())
     {
         (false, _) => Status::Failed,
         (true, true) => Status::Loaded,
         (true, false) => Status::Warning,
     };
+
     let manifest: &Manifest = &runtime.m_manifest;
     let mut details: Vec<(String, i32)> =
         own.into_iter().map(|problem| (problem.m_reason, status.row().m_color)).collect();
+
     if !manifest.description.is_empty()
     {
         details.push((manifest.description.clone(), GREY));
     }
+
     details.push((format!("{} - {}", manifest.id, runtime.m_file), DARK_GREY));
+
     let title: String = format!("{} {}", manifest.displayName(), manifest.version);
     Entry { m_runtime: Some(Rc::clone(&runtime)), ..entry(font, &title, status, details) }
 }
@@ -213,6 +229,7 @@ fn problemEntry(font: &FontRenderer, problems: Vec<Problem>) -> Entry
 {
     let first: &Problem = &problems[0];
     let file: String = fileName(&first.m_file);
+
     let title: String = match first.m_mod.as_str()
     {
         state::UNKNOWN_MOD => file.clone(),
@@ -221,10 +238,12 @@ fn problemEntry(font: &FontRenderer, problems: Vec<Problem>) -> Entry
     };
     let showFile: bool = !file.is_empty() && file != title;
     let mut details: Vec<(String, i32)> = problems.into_iter().map(|problem| (problem.m_reason, RED)).collect();
+
     if showFile
     {
         details.push((file, DARK_GREY));
     }
+
     entry(font, &title, Status::Failed, details)
 }
 
@@ -233,6 +252,7 @@ fn entries(font: &FontRenderer) -> Vec<Entry>
     let mut problems: Vec<Problem> = state::problems();
     let mut entries: Vec<Entry> =
         state::mods().into_iter().map(|runtime| modEntry(font, runtime, &mut problems)).collect();
+
     while let Some(first) = problems.first()
     {
         let (modId, file): (String, String) = (first.m_mod.clone(), first.m_file.clone());
@@ -241,10 +261,12 @@ fn entries(font: &FontRenderer) -> Vec<Entry>
         problems = rest;
         entries.push(problemEntry(font, own));
     }
+
     for (id, reason) in state::skipped()
     {
         entries.push(entry(font, &id, Status::Skipped, vec![(reason, GREY)]));
     }
+
     let conflicts: Vec<(String, String)> = modloader::keybinds::conflicts();
     if !conflicts.is_empty()
     {
@@ -252,12 +274,14 @@ fn entries(font: &FontRenderer) -> Vec<Entry>
             conflicts.into_iter().map(|(first, second)| (format!("{first} and {second}"), RED)).collect();
         entries.push(entry(font, KEY_CONFLICT_TITLE, Status::Warning, details));
     }
+
     let changes: Vec<String> = modloader::modify::conflicts();
     if !changes.is_empty()
     {
         let details: Vec<(String, i32)> = changes.into_iter().map(|change| (change, RED)).collect();
         entries.push(entry(font, MODIFY_CONFLICT_TITLE, Status::Warning, details));
     }
+
     entries
 }
 
@@ -265,20 +289,23 @@ fn summary(entries: &[Entry]) -> String
 {
     let mut parts: Vec<String> = STATUSES
         .iter()
-        .filter_map(|row| {
+        .filter_map(|row|
+        {
             let count: usize = entries.iter().filter(|entry| entry.m_status == row.m_status).count();
             (count > 0).then(|| format!("{count} {}", row.m_summary))
         })
         .collect();
+
     if entries.iter().any(|entry| configurable(entry).is_some())
     {
         parts.push(CONFIG_HINT.to_owned());
     }
+
     parts.join(", ")
 }
 
 // the wheel arrives as a release event and scrolls like the vanilla scroll buttons
-pub(super) fn scrollWheel(slot: &Rc<GuiSlot>, wheel: i32, up: i32, down: i32)
+pub(crate) fn scrollWheel(slot: &Rc<GuiSlot>, wheel: i32, up: i32, down: i32)
 {
     if wheel != 0
     {
@@ -314,6 +341,7 @@ fn openModsFolder()
     {
         return;
     };
+
     let folder: &Path = &paths.m_mods;
     let absolute: std::path::PathBuf = std::path::absolute(folder).unwrap_or_else(|_| folder.to_path_buf());
     if !Sys::openURL(&format!("file://{}", absolute.display()))
@@ -331,20 +359,24 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, _height: i32, _tesse
     let row: &StatusRow = entry.m_status.row();
     let [titleY, detailYs @ ..] = listing::LINE_Y;
     this.m_gui.drawString(&font, &entry.m_title, x, y + titleY, WHITE);
+
     let labelX: i32 = x + listing::TEXT_WIDTH - font.getStringWidth(row.m_label);
     this.m_gui.drawString(&font, row.m_label, labelX, y + titleY, row.m_color);
+
     for ((text, color), lineY) in entry.m_lines.iter().zip(detailYs)
     {
         this.m_gui.drawString(&font, text, x, y + lineY, *color);
     }
 }
 
-const MOD_SLOT: GuiSlotClass = GuiSlotClass {
+const MOD_SLOT: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiModSlot",
     m_parent: Some(&GUI_SLOT),
     m_interfaces: &[],
     getSize: |slot| list(&screen(slot)).m_entries.borrow().len() as i32,
-    elementClicked: |slot, index, _| {
+    elementClicked: |slot, index, _|
+    {
         let this: Rc<GuiScreen> = screen(slot);
         list(&this).m_selected.set(index);
         openConfig(&this);
@@ -355,15 +387,18 @@ const MOD_SLOT: GuiSlotClass = GuiSlotClass {
     ..GUI_SLOT
 };
 
-const MOD_LIST: GuiScreenClass = GuiScreenClass {
+const MOD_LIST: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiModList",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let state: &ModList = list(this);
         let found: Vec<Entry> = entries(&this.fontRenderer());
         *state.m_summary.borrow_mut() = summary(&found);
         *state.m_entries.borrow_mut() = found;
+
         let (width, height): (i32, i32) = (this.m_width.get(), this.m_height.get());
         let mc: Rc<Minecraft> = this.mc();
         let slot: Rc<GuiSlot> = GuiSlot::construct(
@@ -378,20 +413,26 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass {
         );
         slot.registerScrollButtons(&this.m_controlList, listing::SCROLL_UP, listing::SCROLL_DOWN);
         state.m_slot.set(Some(slot));
+
         let step: i32 = listing::BUTTON_WIDTH + listing::BUTTON_GAP;
         let left: i32 = width / 2 - step + listing::BUTTON_GAP / 2;
         let y: i32 = height - listing::BUTTON_Y;
-        let button = |id: i32, column: i32, label: &str| {
+
+        let button = |id: i32, column: i32, label: &str|
+        {
             GuiButton::withSize(id, left + column * step, y, listing::BUTTON_WIDTH, 20, label)
         };
         this.m_controlList.add(button(listing::OPEN_FOLDER, 0, "Mods Folder"));
         this.m_controlList.add(button(listing::DONE, 1, "Done"));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         match button.m_id.get()
         {
             listing::DONE => this.mc().displayGuiScreen(Some(Rc::clone(&list(this).m_parent))),
@@ -399,20 +440,27 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass {
             _ => list(this).m_slot.get().orNpe().actionPerformed(button),
         }
     },
-    keyTyped: |this, _, key| {
+
+    keyTyped: |this, _, key|
+    {
         if key == Keyboard::KEY_ESCAPE
         {
             this.mc().displayGuiScreen(Some(Rc::clone(&list(this).m_parent)));
         }
     },
-    mouseMovedOrUp: |this, mouseX, mouseY, button| {
+
+    mouseMovedOrUp: |this, mouseX, mouseY, button|
+    {
         let slot: Rc<GuiSlot> = list(this).m_slot.get().orNpe();
         scrollWheel(&slot, Mouse::getEventDWheel(), listing::SCROLL_UP, listing::SCROLL_DOWN);
         (GUI_SCREEN.mouseMovedOrUp)(this, mouseX, mouseY, button);
     },
-    drawScreen: |this, mouseX, mouseY, partial| {
+
+    drawScreen: |this, mouseX, mouseY, partial|
+    {
         let state: &ModList = list(this);
         state.m_slot.get().orNpe().drawScreen(mouseX, mouseY, partial);
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         let center: i32 = this.m_width.get() / 2;
         this.m_gui.drawCenteredString(&font, "Mods", center, listing::TITLE_Y, WHITE);
@@ -424,7 +472,8 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass {
 
 pub fn modsScreen(parent: &Rc<GuiScreen>) -> Rc<GuiScreen>
 {
-    let state: ModList = ModList {
+    let state: ModList = ModList
+    {
         m_parent: Rc::clone(parent),
         m_entries: RefCell::new(Vec::new()),
         m_summary: RefCell::new(String::new()),
@@ -450,9 +499,11 @@ pub fn drawModCount(screen: &GuiScreen, font: &FontRenderer)
     {
         return;
     }
+
     // GuiMainMenu draws the copyright 10 from the bottom and 2 from the right edge
     const BOTTOM: i32 = 20;
     const RIGHT: i32 = 2;
+
     let count: usize = state::mods().len();
     let text: String = format!("{count} {} loaded.", if count == 1 { "mod" } else { "mods" });
     let x: i32 = screen.m_width.get() - font.getStringWidth(&text) - RIGHT;

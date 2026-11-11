@@ -2,7 +2,8 @@ use crate::block::block_sand::FALL_INSTANTLY;
 use crate::block::{Block, Material};
 use crate::world::{Chunk, IChunkProvider, World};
 use crate::worldgen::terrain_pool::{self, Generated, TerrainKind, TerrainSource};
-use crate::worldgen::{
+use crate::worldgen::
+{
     BiomeGenBase, MapGenBase, WORLD_CHUNK_MANAGER, WorldChunkManager, WorldGenCactus, WorldGenClay, WorldGenDeadBush,
     WorldGenDungeons, WorldGenFlowers, WorldGenLakes, WorldGenLiquids, WorldGenMinable, WorldGenPumpkin, WorldGenReed,
     WorldGenTallGrass, WorldGenerator, map_gen_caves,
@@ -15,12 +16,12 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
-pub(super) mod chunk
+pub(crate) mod chunk
 {
-    pub const BLOCK_COUNT: usize = 32768;
-    pub const COLUMN_COUNT: usize = 256;
-    pub const SEED_X: i64 = 341873128712;
-    pub const SEED_Z: i64 = 132897987541;
+    pub(crate) const BLOCK_COUNT: usize = 32768;
+    pub(crate) const COLUMN_COUNT: usize = 256;
+    pub(crate) const SEED_X: i64 = 341873128712;
+    pub(crate) const SEED_Z: i64 = 132897987541;
 }
 
 pub struct ChunkProviderGenerate
@@ -72,9 +73,10 @@ impl TerrainSource for SurfaceSource
     }
 }
 
-pub(super) fn source(seed: i64) -> Box<dyn TerrainSource>
+pub(crate) fn source(seed: i64) -> Box<dyn TerrainSource>
 {
-    Box::new(SurfaceSource {
+    Box::new(SurfaceSource
+    {
         m_terrain: Terrain::new(seed),
         m_manager: WorldChunkManager::withSeed(seed),
         m_seed: seed,
@@ -85,9 +87,10 @@ impl ChunkProviderGenerate
 {
     fn world(&self) -> Rc<World> { Rc::clone(&self.m_worldObj) }
 
-    pub fn new(world: &Rc<World>, seed: i64) -> Rc<ChunkProviderGenerate>
+    pub fn new(world: &Rc<World>, seed: i64) -> Rc<Self>
     {
-        Rc::new(ChunkProviderGenerate {
+        Rc::new(Self
+        {
             m_terrain: Terrain::new(seed),
             m_worldObj: Rc::clone(world),
             m_generatedTemperatures: Field::new(None),
@@ -110,11 +113,13 @@ impl ChunkProviderGenerate
 
 impl Terrain
 {
-    fn new(seed: i64) -> Terrain
+    fn new(seed: i64) -> Self
     {
         let cave: Rc<MapGenBase> = map_gen_caves::create();
         let rand: Random = Random::withSeed(seed);
-        Terrain {
+
+        Self
+        {
             m_minLimitPerlinNoise: NoiseGeneratorOctaves::new(&rand, 16),
             m_maxLimitPerlinNoise: NoiseGeneratorOctaves::new(&rand, 16),
             m_perlinNoise1: NoiseGeneratorOctaves::new(&rand, 8),
@@ -141,6 +146,7 @@ impl Terrain
     fn blocks(&self, manager: &Rc<WorldChunkManager>, seed: i64, chunkX: i32, chunkZ: i32) -> Vec<i8>
     {
         self.m_rand.setSeed(chunkSeed(chunkX, chunkZ));
+
         let mut blocks: Vec<i8> = vec![0; chunk::BLOCK_COUNT];
         let biomes: Vec<Option<Rc<BiomeGenBase>>> =
             manager.loadBlockGeneratorData(self.m_biomesForGeneration.take(), chunkX * 16, chunkZ * 16, 16, 16);
@@ -152,7 +158,7 @@ impl Terrain
         blocks
     }
 
-    pub fn generateTerrain(
+    pub(crate) fn generateTerrain(
         &self,
         manager: &WorldChunkManager,
         chunkX: i32,
@@ -170,6 +176,7 @@ impl Terrain
         let heightMap: Vec<f64> =
             self.generateHeightMap(manager, self.m_heightMap.take(), chunkX * b0, 0, chunkZ * b0, i, b2, j);
         let at = |index: i32| -> f64 { heightMap[index as usize] };
+
         for k in 0..b0
         {
             for l in 0..b0
@@ -185,6 +192,7 @@ impl Terrain
                     let d6: f64 = (at(((k + 0) * j + l + 1) * b2 + i1 + 1) - d2) * d0;
                     let d7: f64 = (at(((k + 1) * j + l + 0) * b2 + i1 + 1) - d3) * d0;
                     let d8: f64 = (at(((k + 1) * j + l + 1) * b2 + i1 + 1) - d4) * d0;
+
                     for j1 in 0..8
                     {
                         let d9: f64 = 0.25;
@@ -192,6 +200,7 @@ impl Terrain
                         let mut d11: f64 = d2;
                         let d12: f64 = (d3 - d1) * d9;
                         let d13: f64 = (d4 - d2) * d9;
+
                         for k1 in 0..4
                         {
                             let mut l1: i32 = (k1 + k * 4) << 11 | (l * 4) << 7 | (i1 * 8 + j1);
@@ -199,10 +208,12 @@ impl Terrain
                             let d14: f64 = 0.25;
                             let mut d15: f64 = d10;
                             let d16: f64 = (d11 - d10) * d14;
+
                             for i2 in 0..4
                             {
                                 let d17: f64 = temperatures[((k * 4 + k1) * 16 + l * 4 + i2) as usize];
                                 let mut j2: i32 = 0;
+
                                 if i1 * 8 + j1 < b1
                                 {
                                     if d17 < 0.5 && i1 * 8 + j1 >= b1 - 1
@@ -214,17 +225,21 @@ impl Terrain
                                         j2 = Block::WATER_STILL;
                                     }
                                 }
+
                                 if d15 > 0.0
                                 {
                                     j2 = Block::STONE;
                                 }
+
                                 blocks[l1 as usize] = j2 as i8;
                                 l1 += short1;
                                 d15 += d16;
                             }
+
                             d10 += d12;
                             d11 += d13;
                         }
+
                         d1 += d5;
                         d2 += d6;
                         d3 += d7;
@@ -233,10 +248,11 @@ impl Terrain
                 }
             }
         }
+
         self.m_heightMap.set(Some(heightMap));
     }
 
-    pub fn replaceBlocksForBiome(
+    pub(crate) fn replaceBlocksForBiome(
         &self,
         chunkX: i32,
         chunkZ: i32,
@@ -264,8 +280,10 @@ impl Terrain
             d0 * 2.0,
             d0 * 2.0,
         );
+
         let stone: i32 = Block::STONE;
         let sand: i32 = Block::SAND;
+
         for i in 0..16
         {
             for j in 0..16
@@ -277,14 +295,17 @@ impl Terrain
                 let mut l: i32 = -1;
                 let mut b1: i8 = biome.m_topBlock.get();
                 let mut b2: i8 = biome.m_fillerBlock.get();
+
                 for i1 in (0..=127).rev()
                 {
                     let j1: usize = ((j * 16 + i) * 128 + i1) as usize;
+
                     if i1 <= 0 + self.m_rand.nextIntBounded(5)
                     {
                         blocks[j1] = Block::BEDROCK as i8;
                         continue;
                     }
+
                     let b3: i32 = blocks[j1] as i32;
                     if b3 == 0
                     {
@@ -303,27 +324,33 @@ impl Terrain
                             {
                                 b1 = biome.m_topBlock.get();
                                 b2 = biome.m_fillerBlock.get();
+
                                 if flag1
                                 {
                                     b1 = 0;
                                 }
+
                                 if flag1
                                 {
                                     b2 = Block::GRAVEL as i8;
                                 }
+
                                 if flag
                                 {
                                     b1 = sand as i8;
                                 }
+
                                 if flag
                                 {
                                     b2 = sand as i8;
                                 }
                             }
+
                             if i1 < b0 && b1 == 0
                             {
                                 b1 = Block::WATER_STILL as i8;
                             }
+
                             l = k;
                             blocks[j1] = if i1 >= b0 - 1 { b1 } else { b2 };
                         }
@@ -331,6 +358,7 @@ impl Terrain
                         {
                             l -= 1;
                             blocks[j1] = b2;
+
                             if l == 0 && b2 as i32 == sand
                             {
                                 l = self.m_rand.nextIntBounded(4);
@@ -341,6 +369,7 @@ impl Terrain
                 }
             }
         }
+
         self.m_sandNoise.set(Some(sandNoise));
         self.m_gravelNoise.set(Some(gravelNoise));
         self.m_stoneNoise.set(Some(stoneNoise));
@@ -380,6 +409,7 @@ impl Terrain
             d1 / 160.0,
             d0 / 80.0,
         );
+
         let minLimitNoise: Vec<f64> = self.m_minLimitPerlinNoise.generateNoiseOctaves(
             self.m_minLimitPerlinNoiseBuffer.take(),
             fx,
@@ -392,6 +422,7 @@ impl Terrain
             d1,
             d0,
         );
+
         let maxLimitNoise: Vec<f64> = self.m_maxLimitPerlinNoise.generateNoiseOctaves(
             self.m_maxLimitPerlinNoiseBuffer.take(),
             fx,
@@ -404,12 +435,15 @@ impl Terrain
             d1,
             d0,
         );
+
         let mut i: usize = 0;
         let mut j: usize = 0;
         let k: i32 = 16 / sizeX;
+
         for l in 0..sizeX
         {
             let i1: i32 = l * k + k / 2;
+
             for j1 in 0..sizeZ
             {
                 let k1: i32 = j1 * k + k / 2;
@@ -419,17 +453,20 @@ impl Terrain
                 d4 *= d4;
                 d4 *= d4;
                 d4 = 1.0 - d4;
+
                 let mut d5: f64 = (scaleNoise[j] + 256.0) / 512.0;
                 d5 *= d4;
                 if d5 > 1.0
                 {
                     d5 = 1.0;
                 }
+
                 let mut d6: f64 = depthNoise[j] / 8000.0;
                 if d6 < 0.0
                 {
                     d6 = -d6 * 0.3;
                 }
+
                 d6 = d6 * 3.0 - 2.0;
                 if d6 < 0.0
                 {
@@ -438,6 +475,7 @@ impl Terrain
                     {
                         d6 = -1.0;
                     }
+
                     d6 /= 1.4;
                     d6 /= 2.0;
                     d5 = 0.0;
@@ -448,16 +486,21 @@ impl Terrain
                     {
                         d6 = 1.0;
                     }
+
                     d6 /= 8.0;
                 }
+
                 if d5 < 0.0
                 {
                     d5 = 0.0;
                 }
+
                 d5 += 0.5;
                 d6 = d6 * sizeY as f64 / 16.0;
                 let d7: f64 = sizeY as f64 / 2.0 + d6 * 4.0;
+
                 j += 1;
+
                 for l1 in 0..sizeY
                 {
                     let mut d9: f64 = (l1 as f64 - d7) * 12.0 / d5;
@@ -465,6 +508,7 @@ impl Terrain
                     {
                         d9 *= 4.0;
                     }
+
                     let d10: f64 = minLimitNoise[i] / 512.0;
                     let d11: f64 = maxLimitNoise[i] / 512.0;
                     let d12: f64 = (perlinNoise[i] / 10.0 + 1.0) / 2.0;
@@ -481,16 +525,19 @@ impl Terrain
                         d10 + (d11 - d10) * d12
                     };
                     d8 -= d9;
+
                     if l1 > sizeY - 4
                     {
                         let d13: f64 = ((l1 - (sizeY - 4)) as f32 / 3.0f32) as f64;
                         d8 = d8 * (1.0 - d13) + -10.0 * d13;
                     }
+
                     heightMap[i] = d8;
                     i += 1;
                 }
             }
         }
+
         self.m_scaleNoiseBuffer.set(Some(scaleNoise));
         self.m_depthNoiseBuffer.set(Some(depthNoise));
         self.m_perlinNoiseBuffer.set(Some(perlinNoise));
@@ -500,19 +547,22 @@ impl Terrain
     }
 }
 
-pub(super) fn chunkSeed(chunkX: i32, chunkZ: i32) -> i64
+pub(crate) fn chunkSeed(chunkX: i32, chunkZ: i32) -> i64
 {
     chunkX as i64 * chunk::SEED_X + chunkZ as i64 * chunk::SEED_Z
 }
 
-pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ: i32)
+pub(crate) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ: i32)
 {
     let i: i32 = chunkX * 16;
     let j: i32 = chunkZ * 16;
+
     rand.setSeed(world.getRandomSeed());
+
     let k: i64 = rand.nextLong() / 2 * 2 + 1;
     let l: i64 = rand.nextLong() / 2 * 2 + 1;
     rand.setSeed((chunkX as i64 * k + chunkZ as i64 * l) ^ world.getRandomSeed());
+
     if rand.nextIntBounded(4) == 0
     {
         let i1: i32 = i + rand.nextIntBounded(16) + 8;
@@ -520,16 +570,19 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         let k1: i32 = j + rand.nextIntBounded(16) + 8;
         WorldGenLakes::new(Block::WATER_STILL).generate(world, rand, i1, j1, k1);
     }
+
     if rand.nextIntBounded(8) == 0
     {
         let j3: i32 = i + rand.nextIntBounded(16) + 8;
         let j6: i32 = rand.nextIntBounded(rand.nextIntBounded(120) + 8);
         let j9: i32 = j + rand.nextIntBounded(16) + 8;
+
         if j6 < 64 || rand.nextIntBounded(10) == 0
         {
             WorldGenLakes::new(Block::LAVA_STILL).generate(world, rand, j3, j6, j9);
         }
     }
+
     for _ in 0..8
     {
         let k6: i32 = i + rand.nextIntBounded(16) + 8;
@@ -537,6 +590,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         let l1: i32 = j + rand.nextIntBounded(16) + 8;
         WorldGenDungeons.generate(world, rand, k6, k9, l1);
     }
+
     for _ in 0..10
     {
         let l6: i32 = i + rand.nextIntBounded(16);
@@ -544,6 +598,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         let j12: i32 = j + rand.nextIntBounded(16);
         WorldGenClay::new(32).generate(world, rand, l6, l9, j12);
     }
+
     let ores: [(i32, i32, i32, i32); 7] = [
         (Block::DIRT, 32, 20, 128),
         (Block::GRAVEL, 32, 10, 128),
@@ -553,6 +608,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
         (Block::ORE_REDSTONE, 7, 8, 16),
         (Block::ORE_DIAMOND, 7, 1, 16),
     ];
+
     for (block, size, count, maxY) in ores
     {
         for _ in 0..count
@@ -563,6 +619,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
             WorldGenMinable::new(block, size).generate(world, rand, x, y, z);
         }
     }
+
     {
         let l8: i32 = i + rand.nextIntBounded(16);
         let l11: i32 = rand.nextIntBounded(16) + rand.nextIntBounded(16);
@@ -571,7 +628,7 @@ pub(super) fn populateOres(world: &Rc<World>, rand: &Random, chunkX: i32, chunkZ
     }
 }
 
-pub(super) fn populateTrees(
+pub(crate) fn populateTrees(
     world: &Rc<World>,
     rand: &Random,
     noise: &NoiseGeneratorOctaves,
@@ -584,38 +641,47 @@ pub(super) fn populateTrees(
     let d0: f64 = 0.5;
     let i6: i32 = ((noise.getValue(i as f64 * d0, j as f64 * d0) / 8.0 + rand.nextDouble() * 4.0 + 4.0) / 3.0) as i32;
     let mut i9: i32 = 0;
+
     if rand.nextIntBounded(10) == 0
     {
         i9 += 1;
     }
+
     if is(BiomeGenBase::forest())
     {
         i9 += i6 + 5;
     }
+
     if is(BiomeGenBase::rainforest())
     {
         i9 += i6 + 5;
     }
+
     if is(BiomeGenBase::seasonalForest())
     {
         i9 += i6 + 2;
     }
+
     if is(BiomeGenBase::taiga())
     {
         i9 += i6 + 5;
     }
+
     if is(BiomeGenBase::desert())
     {
         i9 -= 20;
     }
+
     if is(BiomeGenBase::tundra())
     {
         i9 -= 20;
     }
+
     if is(BiomeGenBase::plains())
     {
         i9 -= 20;
     }
+
     for _ in 0..i9
     {
         let k14: i32 = i + rand.nextIntBounded(16) + 8;
@@ -626,7 +692,7 @@ pub(super) fn populateTrees(
     }
 }
 
-pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<BiomeGenBase>, i: i32, j: i32)
+pub(crate) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<BiomeGenBase>, i: i32, j: i32)
 {
     let flowers: [(i32, i32); 3] = [(Block::PLANT_RED, 2), (Block::MUSHROOM_BROWN, 4), (Block::MUSHROOM_RED, 8)];
     for (flower, chance) in flowers
@@ -639,6 +705,7 @@ pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<B
             WorldGenFlowers::new(flower).generate(world, rand, x, y, z);
         }
     }
+
     for _ in 0..10
     {
         let j18: i32 = i + rand.nextIntBounded(16) + 8;
@@ -646,6 +713,7 @@ pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<B
         let l22: i32 = j + rand.nextIntBounded(16) + 8;
         WorldGenReed.generate(world, rand, j18, i21, l22);
     }
+
     if rand.nextIntBounded(32) == 0
     {
         let l16: i32 = i + rand.nextIntBounded(16) + 8;
@@ -653,11 +721,14 @@ pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<B
         let j21: i32 = j + rand.nextIntBounded(16) + 8;
         WorldGenPumpkin.generate(world, rand, l16, k18, j21);
     }
+
     let mut b2: i32 = 0;
+
     if Rc::ptr_eq(biome, &BiomeGenBase::desert())
     {
         b2 += 10;
     }
+
     for _ in 0..b2
     {
         let k21: i32 = i + rand.nextIntBounded(16) + 8;
@@ -665,6 +736,7 @@ pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<B
         let i24: i32 = j + rand.nextIntBounded(16) + 8;
         WorldGenCactus.generate(world, rand, k21, i23, i24);
     }
+
     for _ in 0..50
     {
         let l21: i32 = i + rand.nextIntBounded(16) + 8;
@@ -672,6 +744,7 @@ pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<B
         let j24: i32 = j + rand.nextIntBounded(16) + 8;
         WorldGenLiquids::new(Block::WATER_MOVING).generate(world, rand, l21, j23, j24);
     }
+
     for _ in 0..20
     {
         let i22: i32 = i + rand.nextIntBounded(16) + 8;
@@ -681,9 +754,10 @@ pub(super) fn populateDecorations(world: &Rc<World>, rand: &Random, biome: &Rc<B
     }
 }
 
-pub(super) fn populateSnow(world: &Rc<World>, temperatures: &Field<Option<Vec<f64>>>, i: i32, j: i32)
+pub(crate) fn populateSnow(world: &Rc<World>, temperatures: &Field<Option<Vec<f64>>>, i: i32, j: i32)
 {
     temperatures.set(Some(world.getWorldChunkManager().getTemperatures(temperatures.take(), i + 8, j + 8, 16, 16)));
+
     for k19 in i + 8..i + 8 + 16
     {
         for j22 in j + 8..j + 8 + 16
@@ -706,7 +780,7 @@ pub(super) fn populateSnow(world: &Rc<World>, temperatures: &Field<Option<Vec<f6
     }
 }
 
-pub(super) fn setFallInstantly(value: bool) { FALL_INSTANTLY.with(|flag: &Cell<bool>| flag.set(value)); }
+pub(crate) fn setFallInstantly(value: bool) { FALL_INSTANTLY.with(|flag: &Cell<bool>| flag.set(value)); }
 
 impl IChunkProvider for ChunkProviderGenerate
 {
@@ -733,31 +807,39 @@ impl IChunkProvider for ChunkProviderGenerate
     fn populate(&self, _source: &Rc<dyn IChunkProvider>, chunkX: i32, chunkZ: i32)
     {
         setFallInstantly(true);
+
         let world: &Rc<World> = &self.world();
         let rand: &Random = &self.m_terrain.m_rand;
         let i: i32 = chunkX * 16;
         let j: i32 = chunkZ * 16;
         let biome: Rc<BiomeGenBase> = world.getWorldChunkManager().getBiomeGenAt(i + 16, j + 16);
         let is = |other: Rc<BiomeGenBase>| -> bool { Rc::ptr_eq(&biome, &other) };
+
         populateOres(world, rand, chunkX, chunkZ);
         populateTrees(world, rand, &self.m_terrain.m_mobSpawnerNoise, &biome, i, j);
+
         let mut b0: i32 = 0;
+
         if is(BiomeGenBase::forest())
         {
             b0 = 2;
         }
+
         if is(BiomeGenBase::seasonalForest())
         {
             b0 = 4;
         }
+
         if is(BiomeGenBase::taiga())
         {
             b0 = 2;
         }
+
         if is(BiomeGenBase::plains())
         {
             b0 = 3;
         }
+
         for _ in 0..b0
         {
             let i15: i32 = i + rand.nextIntBounded(16) + 8;
@@ -765,44 +847,56 @@ impl IChunkProvider for ChunkProviderGenerate
             let j2: i32 = j + rand.nextIntBounded(16) + 8;
             WorldGenFlowers::new(Block::PLANT_YELLOW).generate(world, rand, i15, i17, j2);
         }
+
         let mut b1: i32 = 0;
+
         if is(BiomeGenBase::forest())
         {
             b1 = 2;
         }
+
         if is(BiomeGenBase::rainforest())
         {
             b1 = 10;
         }
+
         if is(BiomeGenBase::seasonalForest())
         {
             b1 = 2;
         }
+
         if is(BiomeGenBase::taiga())
         {
             b1 = 1;
         }
+
         if is(BiomeGenBase::plains())
         {
             b1 = 10;
         }
+
         for _ in 0..b1
         {
             let mut b3: i32 = 1;
+
             if is(BiomeGenBase::rainforest()) && rand.nextIntBounded(3) != 0
             {
                 b3 = 2;
             }
+
             let l19: i32 = i + rand.nextIntBounded(16) + 8;
             let k2: i32 = rand.nextIntBounded(128);
             let l2: i32 = j + rand.nextIntBounded(16) + 8;
             WorldGenTallGrass::new(Block::TALL_GRASS, b3).generate(world, rand, l19, k2, l2);
         }
+
         b1 = 0;
+
         if is(BiomeGenBase::desert())
         {
             b1 = 2;
         }
+
         for _ in 0..b1
         {
             let j17: i32 = i + rand.nextIntBounded(16) + 8;
@@ -810,6 +904,7 @@ impl IChunkProvider for ChunkProviderGenerate
             let k22: i32 = j + rand.nextIntBounded(16) + 8;
             WorldGenDeadBush::new(Block::DEAD_BUSH).generate(world, rand, j17, i20, k22);
         }
+
         populateDecorations(world, rand, &biome, i, j);
         populateSnow(world, &self.m_generatedTemperatures, i, j);
         // mod ores and features generate after vanilla with their own random so vanilla terrain is unchanged

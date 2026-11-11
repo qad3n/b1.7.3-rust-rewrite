@@ -22,7 +22,7 @@ fn channels(color: i32) -> (f32, f32, f32, f32)
 
 impl Gui
 {
-    pub fn new() -> Gui { Gui::default() }
+    pub fn new() -> Self { Self::default() }
 
     pub fn drawHorizontalLine(&self, mut x1: i32, mut x2: i32, y: i32, color: i32)
     {
@@ -30,6 +30,7 @@ impl Gui
         {
             std::mem::swap(&mut x1, &mut x2);
         }
+
         self.drawRect(x1, y, x2 + 1, y + 1, color);
     }
 
@@ -39,6 +40,7 @@ impl Gui
         {
             std::mem::swap(&mut y1, &mut y2);
         }
+
         self.drawRect(x, y1 + 1, x + 1, y2, color);
     }
 
@@ -48,12 +50,15 @@ impl Gui
         {
             std::mem::swap(&mut x1, &mut x2);
         }
+
         if y1 < y2
         {
             std::mem::swap(&mut y1, &mut y2);
         }
+
         let (f, f2, f3, f4): (f32, f32, f32, f32) = channels(color);
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glEnable(3042);
         GL11::glDisable(3553);
         GL11::glBlendFunc(770, 771);
@@ -73,11 +78,13 @@ impl Gui
     {
         let (f, f2, f3, f4): (f32, f32, f32, f32) = channels(color1);
         let (f5, f6, f7, f8): (f32, f32, f32, f32) = channels(color2);
+
         GL11::glDisable(3553);
         GL11::glEnable(3042);
         GL11::glDisable(3008);
         GL11::glBlendFunc(770, 771);
         GL11::glShadeModel(7425);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         tessellator.startDrawingQuads();
         tessellator.setColorRGBA_F(f2, f3, f4, f);

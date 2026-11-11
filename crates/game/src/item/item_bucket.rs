@@ -26,11 +26,13 @@ fn onItemRightClick(
     let isFull: i32 = this.ext::<BucketExt>().m_isFull;
     let (movingobjectposition, d0, d1, d2): (Option<MovingObjectPosition>, f64, f64, f64) =
         item_boat::lookRay(world, player, isFull == 0);
+
     let Some(movingobjectposition) = movingobjectposition
     else
     {
         return Some(Rc::clone(stack));
     };
+
     if movingobjectposition.m_typeOfHit == EnumMovingObjectType::TILE
     {
         let mut i: i32 = movingobjectposition.m_blockX;
@@ -40,11 +42,13 @@ fn onItemRightClick(
         {
             return Some(Rc::clone(stack));
         }
+
         if isFull == 0
         {
             // a source of any fluid with a bucket fills it, beta's water and lava included
             let bucket: Option<Rc<Item>> =
                 crate::fluid::of(&world.getBlockMaterial(i, j, k)).and_then(|fluid| Item::byId(fluid.m_bucket.get()));
+
             if let Some(bucket) = bucket
                 && world.getBlockMetadata(i, j, k) == 0
             {
@@ -58,6 +62,7 @@ fn onItemRightClick(
             {
                 return Some(ItemStack::withItem(&Item::bucketEmpty()));
             }
+
             match movingobjectposition.m_sideHit
             {
                 0 => j -= 1,
@@ -69,6 +74,7 @@ fn onItemRightClick(
                 _ =>
                 {}
             }
+
             if world.isAirBlock(i, j, k) || !world.getBlockMaterial(i, j, k).isSolid()
             {
                 if world.worldProvider().m_isHellWorld.get() && isFull == Block::WATER_MOVING
@@ -81,6 +87,7 @@ fn onItemRightClick(
                         0.5,
                         2.6 + (world.m_rand.nextFloat() - world.m_rand.nextFloat()) * 0.8,
                     );
+
                     for _ in 0..8
                     {
                         world.spawnParticle(
@@ -107,6 +114,7 @@ fn onItemRightClick(
     {
         return Some(ItemStack::withItem(&Item::bucketMilk()));
     }
+
     Some(Rc::clone(stack))
 }
 

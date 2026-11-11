@@ -12,9 +12,11 @@ use std::rc::Rc;
 fn collide(list: &JArrayList<Rc<AxisAlignedBB>>, bb: &AxisAlignedBB, axis: u8, value: f64) -> f64
 {
     let mut value: f64 = value;
+
     for i in 0..list.size()
     {
         let other: Rc<AxisAlignedBB> = list.get(i);
+
         value = match axis
         {
             0 => other.calculateXOffset(bb, value),
@@ -22,15 +24,17 @@ fn collide(list: &JArrayList<Rc<AxisAlignedBB>>, bb: &AxisAlignedBB, axis: u8, v
             _ => other.calculateZOffset(bb, value),
         };
     }
+
     value
 }
 
-pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
+pub(crate) fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 {
     let mut dx: f64 = dx;
     let mut dy: f64 = dy;
     let mut dz: f64 = dz;
     let bb: &Rc<AxisAlignedBB> = &this.m_boundingBox;
+
     if this.m_noClip.get()
     {
         bb.offset(dx, dy, dz);
@@ -41,9 +45,12 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     }
 
     let world: Rc<World> = this.world();
+
     this.m_ySize.set(this.m_ySize.get() * 0.4);
+
     let d0: f64 = this.posX();
     let d1: f64 = this.posZ();
+
     if this.m_isInWeb.get()
     {
         this.m_isInWeb.set(false);
@@ -63,6 +70,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     if flag
     {
         let d5: f64 = 0.05;
+
         while dx != 0.0 && world.getCollidingBoundingBoxes(this, &bb.getOffsetBoundingBox(dx, -1.0, 0.0)).isEmpty()
         {
             if dx < d5 && dx >= -d5
@@ -101,6 +109,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     let mut list: Rc<JArrayList<Rc<AxisAlignedBB>>> = world.getCollidingBoundingBoxes(this, &bb.addCoord(dx, dy, dz));
     dy = collide(&list, bb, 1, dy);
     bb.offset(0.0, dy, 0.0);
+
     if !this.m_immovable.get() && d3 != dy
     {
         dz = 0.0;
@@ -109,8 +118,10 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     }
 
     let flag1: bool = this.m_onGround.get() || d3 != dy && d3 < 0.0;
+
     dx = collide(&list, bb, 0, dx);
     bb.offset(dx, 0.0, 0.0);
+
     if !this.m_immovable.get() && d2 != dx
     {
         dz = 0.0;
@@ -120,6 +131,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 
     dz = collide(&list, bb, 2, dz);
     bb.offset(0.0, 0.0, dz);
+
     if !this.m_immovable.get() && d4 != dz
     {
         dz = 0.0;
@@ -132,14 +144,18 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
         let d8: f64 = dx;
         let d6: f64 = dy;
         let d7: f64 = dz;
+
         dx = d2;
         dy = this.m_stepHeight.get() as f64;
         dz = d4;
+
         let axisalignedbb1: Rc<AxisAlignedBB> = bb.copy();
+
         bb.setBB(&axisalignedbb);
         list = world.getCollidingBoundingBoxes(this, &bb.addCoord(dx, dy, dz));
         dy = collide(&list, bb, 1, dy);
         bb.offset(0.0, dy, 0.0);
+
         if !this.m_immovable.get() && d3 != dy
         {
             dz = 0.0;
@@ -149,6 +165,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 
         dx = collide(&list, bb, 0, dx);
         bb.offset(dx, 0.0, 0.0);
+
         if !this.m_immovable.get() && d2 != dx
         {
             dz = 0.0;
@@ -158,6 +175,7 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 
         dz = collide(&list, bb, 2, dz);
         bb.offset(0.0, 0.0, dz);
+
         if !this.m_immovable.get() && d4 != dz
         {
             dz = 0.0;
@@ -203,14 +221,17 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     this.m_onGround.set(d3 != dy && d3 < 0.0);
     this.m_isCollided.set(this.m_isCollidedHorizontally.get() || this.m_isCollidedVertically.get());
     this.updateFallState(dy, this.m_onGround.get());
+
     if d2 != dx
     {
         this.m_motionX.set(0.0);
     }
+
     if d3 != dy
     {
         this.m_motionY.set(0.0);
     }
+
     if d4 != dz
     {
         this.m_motionZ.set(0.0);
@@ -218,16 +239,19 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 
     let d9: f64 = this.posX() - d0;
     let d10: f64 = this.posZ() - d1;
+
     if this.canTriggerWalking() && !flag && this.m_ridingEntity.with(Option::is_none)
     {
         this.m_distanceWalkedModified.set(
             (this.m_distanceWalkedModified.get() as f64 + math_helper::sqrt_double(d9 * d9 + d10 * d10) as f64 * 0.6)
                 as f32,
         );
+
         let k2: i32 = floor_double(this.posX());
         let k: i32 = floor_double(this.posY() - 0.2f32 as f64 - this.m_yOffset.get() as f64);
         let j3: i32 = floor_double(this.posZ());
         let mut k4: i32 = world.getBlockId(k2, k, j3);
+
         if tags::has(Tag::Fences, world.getBlockId(k2, k - 1, j3))
         {
             k4 = world.getBlockId(k2, k - 1, j3);
@@ -236,8 +260,10 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
         if this.m_distanceWalkedModified.get() > this.m_nextStepDistance.get() as f32 && k4 > 0
         {
             this.m_nextStepDistance.set(this.m_nextStepDistance.get() + 1);
+
             let block: Rc<Block> = Block::byId(k4).orNpe();
             let mut stepsound: Rc<StepSound> = block.m_stepSound.get();
+
             if world.getBlockId(k2, k + 1, j3) == Block::SNOW
             {
                 stepsound = Block::snow().m_stepSound.get();
@@ -286,12 +312,15 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
     }
 
     let flag2: bool = this.isWet();
+
     if world.isBoundingBoxBurning(&bb.contract(0.001, 0.001, 0.001))
     {
         this.dealFireDamage(1);
+
         if !flag2
         {
             this.m_fire.set(this.m_fire.get() + 1);
+
             if this.m_fire.get() == 0
             {
                 this.m_fire.set(300);
@@ -314,16 +343,17 @@ pub fn moveEntity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 impl Entity {}
 
 // items projectiles and falling blocks keep predicting locally and only glide onto the server position
-pub fn setPositionAndRotation2(this: &Rc<Entity>, x: f64, y: f64, z: f64, yaw: f32, pitch: f32, _steps: i32)
+pub(crate) fn setPositionAndRotation2(this: &Rc<Entity>, x: f64, y: f64, z: f64, yaw: f32, pitch: f32, _steps: i32)
 {
     this.setRotation(yaw, pitch);
+
     if !this.m_remote.correct([this.posX(), this.posY(), this.posZ()], [x, y, z])
     {
         remote::place(this, &Pose::new(x, y, z, yaw, pitch));
     }
 }
 
-pub fn pushOutOfBlocks(this: &Rc<Entity>, x: f64, y: f64, z: f64) -> bool
+pub(crate) fn pushOutOfBlocks(this: &Rc<Entity>, x: f64, y: f64, z: f64) -> bool
 {
     let i: i32 = floor_double(x);
     let j: i32 = floor_double(y);
@@ -347,32 +377,38 @@ pub fn pushOutOfBlocks(this: &Rc<Entity>, x: f64, y: f64, z: f64) -> bool
             d3 = d0;
             b0 = 0;
         }
+
         if flag1 && 1.0 - d0 < d3
         {
             d3 = 1.0 - d0;
             b0 = 1;
         }
+
         if flag2 && d1 < d3
         {
             d3 = d1;
             b0 = 2;
         }
+
         if flag3 && 1.0 - d1 < d3
         {
             d3 = 1.0 - d1;
             b0 = 3;
         }
+
         if flag4 && d2 < d3
         {
             d3 = d2;
             b0 = 4;
         }
+
         if flag5 && 1.0 - d2 < d3
         {
             b0 = 5;
         }
 
         let f: f32 = this.m_rand.nextFloat() * 0.2 + 0.1;
+
         match b0
         {
             0 => this.m_motionX.set(-f as f64),
@@ -384,10 +420,11 @@ pub fn pushOutOfBlocks(this: &Rc<Entity>, x: f64, y: f64, z: f64) -> bool
             _ => (),
         }
     }
+
     false
 }
 
-pub fn updateFallState(this: &Rc<Entity>, dy: f64, onGround: bool)
+pub(crate) fn updateFallState(this: &Rc<Entity>, dy: f64, onGround: bool)
 {
     if onGround
     {

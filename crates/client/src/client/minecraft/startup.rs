@@ -1,7 +1,8 @@
 use super::atLeastOne;
 use crate::client::{Minecraft, ThreadDownloadResources};
 use crate::gui::{FontRenderer, GuiConnecting, GuiIngame, GuiMainMenu, ScaledResolution};
-use crate::render::{
+use crate::render::
+{
     EffectRenderer, EntityRenderer, ItemRenderer, OpenGlCapsChecker, RenderEngine, RenderGlobal, RenderManager,
     Tessellator, TextureCompassFX, TextureFX, TextureFlamesFX, TextureLavaFlowFX, TexturePackList, TexturePortalFX,
     TextureWatchFX, TextureWaterFlowFX,
@@ -56,7 +57,8 @@ impl Minecraft
     pub fn startGame(&self) -> Result<(), LWJGLException>
     {
         let started: Instant = Instant::now();
-        let this: Rc<Minecraft> = self.rc();
+        let this: Rc<Self> = self.rc();
+
         if let Some(canvas) = self.m_mcCanvas.get()
         {
             // the awt canvas is a stand-in so the black fill before attaching is skipped
@@ -75,6 +77,7 @@ impl Minecraft
             Display::setDisplayMode(DisplayMode::new(self.m_displayWidth.get(), self.m_displayHeight.get()))?;
         }
         Display::setTitle(WINDOW_TITLE);
+
         if let Err(exception) = Display::create()
         {
             warning!("Display creation failed, retrying once: {exception}");
@@ -100,18 +103,21 @@ impl Minecraft
         );
         logDriver();
 
-        let dataDir: PathBuf = Minecraft::getMinecraftDir();
+        let dataDir: PathBuf = Self::getMinecraftDir();
         self.m_mcDataDir.set(Some(dataDir.clone()));
         // the built in mod loader creates mods and config next to saves and loads what it finds
         crate::modded::install(&this);
         modloader::bootstrap(&dataDir);
         self.m_saveLoader.set(Some(Rc::new(SaveConverterMcRegion::new(&dataDir.join("saves")))));
+
         let stage: Instant = Instant::now();
         let settings: Rc<GameSettings> = GameSettings::new(Rc::clone(&this), &dataDir);
         self.m_gameSettings.set(Some(Rc::clone(&settings)));
         self.applyDisplayOptions(&settings)?;
+
         let packs: Rc<TexturePackList> = TexturePackList::new(&this, &dataDir);
         self.m_texturePackList.set(Some(Rc::clone(&packs)));
+
         let engine: Rc<RenderEngine> = RenderEngine::new(&packs, Some(Rc::clone(&settings)));
         self.m_renderEngine.set(Some(Rc::clone(&engine)));
         self.m_fontRenderer.set(Some(Rc::new(FontRenderer::new(&settings, "/font/default.png", &engine))));
@@ -123,17 +129,21 @@ impl Minecraft
         self.m_entityRenderer.set(Some(Rc::new(EntityRenderer::new(&this))));
         RenderManager::instance().m_itemRenderer.set(Some(Rc::new(ItemRenderer::new(Rc::clone(&this)))));
         self.m_statFileWriter.set(Some(Rc::new(StatFileWriter::new(&self.m_session.get().orNpe(), &dataDir))));
+
         let openInventory: Rc<StatBase> = AchievementList::openInventory().orNpe();
         Achievement::setStatStringFormatter(&openInventory, Rc::new(InventoryKeyFormat { m_mc: Rc::downgrade(&this) }));
         self.loadScreen()?;
         Keyboard::create()?;
         Mouse::create()?;
+
         let component: Rc<dyn Component> = self.m_mcCanvas.get().orNpe();
         self.m_mouseHelper.set(Some(Rc::new(MouseHelper::new(component))));
+
         if let Err(exception) = Controllers::create()
         {
             warning!("Controllers unavailable: {exception}");
         }
+
         self.checkGLError("Pre startup");
         GL11::glEnable(3553);
         GL11::glShadeModel(7425);
@@ -148,8 +158,11 @@ impl Minecraft
         GL11::glMatrixMode(5888);
         self.checkGLError("Startup");
         self.m_glCapabilities.set(Some(Rc::new(OpenGlCapsChecker)));
+
         let stage: Instant = Instant::now();
+
         self.sndManager().loadSoundSettings(Some(Rc::clone(&settings)));
+
         // mod sounds join the sound pool under their mod id, discs the streaming pool
         for (path, file) in modloader::sounds::files()
         {
@@ -159,6 +172,7 @@ impl Minecraft
                 false => self.sndManager().addSound(&path, &file),
             }
         }
+
         debug!("Sound system started in {}", took(stage));
 
         let effects: [Rc<dyn TextureFX>; 9] = [
@@ -172,20 +186,25 @@ impl Minecraft
             Rc::new(TextureFlamesFX::new(0)),
             Rc::new(TextureFlamesFX::new(1)),
         ];
+
         for effect in effects
         {
             engine.registerTextureFX(effect);
         }
+
         self.m_renderGlobal.set(Some(RenderGlobal::new(&this, &engine)));
         GL11::glViewport(0, 0, self.m_displayWidth.get(), self.m_displayHeight.get());
         self.m_effectRenderer.set(Some(Rc::new(EffectRenderer::new(self.m_theWorld.get(), &engine))));
+
         let stage: Instant = Instant::now();
+
         self.startDownloadResources(&dataDir);
         debug!("Resources checked in {}", took(stage));
         self.sndManager().logPools();
 
         self.checkGLError("Post startup");
         self.m_ingameGUI.set(Some(Rc::new(GuiIngame::new(Rc::clone(&this)))));
+
         match self.m_serverName.get()
         {
             Some(serverName) =>
@@ -195,6 +214,7 @@ impl Minecraft
             // mod load problems are shown before the title screen
             None => self.displayGuiScreen(Some(crate::modded::startScreen(GuiMainMenu::new()))),
         }
+
         info!("Startup took {}", took(started));
         Ok(())
     }
@@ -203,6 +223,7 @@ impl Minecraft
     fn applyDisplayOptions(&self, settings: &GameSettings) -> Result<(), LWJGLException>
     {
         Display::setVSyncEnabled(settings.m_vsync.get());
+
         if self.m_fullscreen.get()
         {
             // a fullscreen launch shows as on in the video settings
@@ -222,7 +243,8 @@ impl Minecraft
     // the resource download runs on the game thread because it shares game objects
     fn startDownloadResources(&self, dataDir: &std::path::Path)
     {
-        let _ = catchThrowable(&EXCEPTION, || {
+        let _ = catchThrowable(&EXCEPTION, ||
+        {
             let thread: Rc<ThreadDownloadResources> = Rc::new(ThreadDownloadResources::new(dataDir, self.rc()));
             self.m_downloadResourcesThread.set(Some(Rc::clone(&thread)));
             thread.run();
@@ -242,13 +264,17 @@ impl Minecraft
         GL11::glTranslatef(0.0, 0.0, -2000.0);
         GL11::glViewport(0, 0, self.m_displayWidth.get(), self.m_displayHeight.get());
         GL11::glClearColor(0.0, 0.0, 0.0, 0.0);
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glDisable(2896);
         GL11::glEnable(3553);
         GL11::glDisable(2912);
         GL11::glBindTexture(3553, self.renderEngine().getTexture("/title/mojang.png"));
+
         let width: f64 = self.m_displayWidth.get() as f64;
         let height: f64 = self.m_displayHeight.get() as f64;
+
         tessellator.startDrawingQuads();
         tessellator.setColorOpaque_I(0xFFFFFF);
         tessellator.addVertexWithUV(0.0, height, 0.0, 0.0, 0.0);
@@ -256,8 +282,10 @@ impl Minecraft
         tessellator.addVertexWithUV(width, 0.0, 0.0, 0.0, 0.0);
         tessellator.addVertexWithUV(0.0, 0.0, 0.0, 0.0, 0.0);
         tessellator.draw();
+
         let n: i32 = 256;
         let n2: i32 = 256;
+
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         tessellator.setColorOpaque_I(0xFFFFFF);
         self.draw(
@@ -312,12 +340,13 @@ impl Minecraft
         tessellator.draw();
     }
 
-    pub(super) fn checkGLError(&self, message: &str)
+    pub(crate) fn checkGLError(&self, message: &str)
     {
         let n: i32 = GL11::glGetError();
         if n != 0
         {
             let string: &str = GLU::gluErrorString(n).unwrap_or("null");
+
             jvm::system::println("########## GL ERROR ##########");
             jvm::system::println(&format!("@ {message}"));
             jvm::system::println(&format!("{n}: {string}"));

@@ -179,6 +179,7 @@ pub fn scalbn(x: f64, n: i32) -> f64
         x *= logarithm::TWO54;
         high = hi(x);
         k = ((high & 0x7FF00000) >> 20) - 54;
+
         if n < -50000
         {
             return TINY * x;
@@ -207,6 +208,7 @@ pub fn scalbn(x: f64, n: i32) -> f64
         {
             return HUGE * copysign(HUGE, x);
         }
+
         return TINY * copysign(TINY, x);
     }
 
@@ -225,10 +227,12 @@ fn kernelSin(x: f64, y: f64, iy: i32) -> f64
     let z: f64 = x * x;
     let v: f64 = z * x;
     let r: f64 = sine::S2 + z * (sine::S3 + z * (sine::S4 + z * (sine::S5 + z * sine::S6)));
+
     if iy == 0
     {
         return x + v * (sine::S1 + z * r);
     }
+
     x - ((z * (0.5 * y - v * r) - y) - v * sine::S1)
 }
 
@@ -243,6 +247,7 @@ fn kernelCos(x: f64, y: f64) -> f64
     let z: f64 = x * x;
     let r: f64 =
         z * (cosine::C1 + z * (cosine::C2 + z * (cosine::C3 + z * (cosine::C4 + z * (cosine::C5 + z * cosine::C6)))));
+
     if ix < 0x3FD33333
     {
         return 1.0 - (0.5 * z - (z * r - x * y));
@@ -276,6 +281,7 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
     {
         jv = 0;
     }
+
     let mut q0: i32 = e0 - 24 * (jv + 1);
 
     let mut j: i32 = jv - jx;
@@ -296,10 +302,12 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
     for i in 0..=jk
     {
         let mut fw: f64 = 0.0;
+
         for j in 0..=jx
         {
             fw += x[j as usize] * f[(jx + i - j) as usize];
         }
+
         q[i as usize] = fw;
     }
 
@@ -307,11 +315,14 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
     let mut z: f64;
     let mut n: i32;
     let mut ih: i32;
+
     loop
     {
         let mut i: i32 = 0;
         let mut j: i32 = jz;
+
         z = q[jz as usize];
+
         while j > 0
         {
             let fw: f64 = ((reduce::TWON24 * z) as i32) as f64;
@@ -326,6 +337,7 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
         n = z as i32;
         z -= n as f64;
         ih = 0;
+
         if q0 > 0
         {
             let i: i32 = iq[(jz - 1) as usize] >> (24 - q0);
@@ -345,10 +357,13 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
         if ih > 0
         {
             n += 1;
+
             let mut carry: i32 = 0;
+
             for i in 0..jz
             {
                 let j: i32 = iq[i as usize];
+
                 if carry == 0
                 {
                     if j != 0
@@ -373,6 +388,7 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
             if ih == 2
             {
                 z = 1.0 - z;
+
                 if carry != 0
                 {
                     z -= scalbn(1.0, q0);
@@ -392,6 +408,7 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
             j |= iq[i as usize];
             i -= 1;
         }
+
         if j != 0
         {
             break;
@@ -406,13 +423,17 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
         for i in (jz + 1)..=(jz + k)
         {
             f[(jx + i) as usize] = reduce::TWO_OVER_PI[(jv + i) as usize] as f64;
+
             let mut fw: f64 = 0.0;
+
             for j in 0..=jx
             {
                 fw += x[j as usize] * f[(jx + i - j) as usize];
             }
+
             q[i as usize] = fw;
         }
+
         jz += k;
     }
 
@@ -420,6 +441,7 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
     {
         jz -= 1;
         q0 -= 24;
+
         while iq[jz as usize] == 0
         {
             jz -= 1;
@@ -462,6 +484,7 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
             fw += reduce::PIO2[k as usize] * q[(i + k) as usize];
             k += 1;
         }
+
         fq[(jz - i) as usize] = fw;
         i -= 1;
     }
@@ -473,12 +496,15 @@ fn kernelRemPio2(x: &[f64; 3], y: &mut [f64; 2], e0: i32, nx: i32) -> i32
         fw += fq[i as usize];
         i -= 1;
     }
+
     y[0] = if ih == 0 { fw } else { -fw };
     fw = fq[0] - fw;
+
     for i in 1..=jz
     {
         fw += fq[i as usize];
     }
+
     y[1] = if ih == 0 { fw } else { -fw };
     n & 7
 }
@@ -499,6 +525,7 @@ fn remPio2(x: f64, y: &mut [f64; 2]) -> i32
         if hx > 0
         {
             let mut z: f64 = x - reduce::PIO2_1;
+
             if ix != 0x3FF921FB
             {
                 y[0] = z - reduce::PIO2_1T;
@@ -514,6 +541,7 @@ fn remPio2(x: f64, y: &mut [f64; 2]) -> i32
         }
 
         let mut z: f64 = x + reduce::PIO2_1;
+
         if ix != 0x3FF921FB
         {
             y[0] = z + reduce::PIO2_1T;
@@ -535,6 +563,7 @@ fn remPio2(x: f64, y: &mut [f64; 2]) -> i32
         let fn_: f64 = n as f64;
         let mut r: f64 = t - fn_ * reduce::PIO2_1;
         let mut w: f64 = fn_ * reduce::PIO2_1T;
+
         if n < 32 && ix != reduce::NPIO2_HW[(n - 1) as usize]
         {
             y[0] = r - w;
@@ -542,6 +571,7 @@ fn remPio2(x: f64, y: &mut [f64; 2]) -> i32
         else
         {
             let j: i32 = ix >> 20;
+
             y[0] = r - w;
             let mut i: i32 = j - ((hi(y[0]) >> 20) & 0x7FF);
             if i > 16
@@ -564,12 +594,14 @@ fn remPio2(x: f64, y: &mut [f64; 2]) -> i32
         }
 
         y[1] = (r - y[0]) - w;
+
         if hx < 0
         {
             y[0] = -y[0];
             y[1] = -y[1];
             return -n;
         }
+
         return n;
     }
 
@@ -588,6 +620,7 @@ fn remPio2(x: f64, y: &mut [f64; 2]) -> i32
         *slot = (z as i32) as f64;
         z = (z - *slot) * reduce::TWO24;
     }
+
     tx[2] = z;
 
     let mut nx: i32 = 3;
@@ -597,12 +630,14 @@ fn remPio2(x: f64, y: &mut [f64; 2]) -> i32
     }
 
     let n: i32 = kernelRemPio2(&tx, y, e0, nx);
+
     if hx < 0
     {
         y[0] = -y[0];
         y[1] = -y[1];
         return -n;
     }
+
     n
 }
 
@@ -660,6 +695,7 @@ pub fn atan(x: f64) -> f64
     let hx: i32 = hi(x);
     let ix: i32 = hx & 0x7FFFFFFF;
     let id: i32;
+
     if ix >= 0x44100000
     {
         if ix > 0x7FF00000 || (ix == 0x7FF00000 && lo(x) != 0)
@@ -670,6 +706,7 @@ pub fn atan(x: f64) -> f64
         {
             return arctan::HI[3] + arctan::LO[3];
         }
+
         return -arctan::HI[3] - arctan::LO[3];
     }
 
@@ -679,11 +716,13 @@ pub fn atan(x: f64) -> f64
         {
             return x;
         }
+
         id = -1;
     }
     else
     {
         x = x.abs();
+
         if ix < 0x3FF30000
         {
             if ix < 0x3FE60000
@@ -714,6 +753,7 @@ pub fn atan(x: f64) -> f64
     let w: f64 = z * z;
     let s1: f64 = z * (at[0] + w * (at[2] + w * (at[4] + w * (at[6] + w * (at[8] + w * at[10])))));
     let s2: f64 = w * (at[1] + w * (at[3] + w * (at[5] + w * (at[7] + w * at[9]))));
+
     if id < 0
     {
         return x - x * (s1 + s2);
@@ -743,6 +783,7 @@ pub fn atan2(y: f64, x: f64) -> f64
     }
 
     let m: i32 = ((hy >> 31) & 1) | ((hx >> 30) & 2);
+
     if (iy as u32 | ly) == 0
     {
         return match m
@@ -777,6 +818,7 @@ pub fn atan2(y: f64, x: f64) -> f64
                 _ => -3.0 * arctan::PI_O_4 - TINY,
             };
         }
+
         return match m
         {
             0 => 0.0,
@@ -811,6 +853,7 @@ pub fn atan2(y: f64, x: f64) -> f64
     {
         atan((y / x).abs())
     };
+
     match m
     {
         0 => z,
@@ -826,6 +869,7 @@ pub fn log(x: f64) -> f64
     let mut hx: i32 = hi(x);
     let lx: u32 = lo(x);
     let mut k: i32 = 0;
+
     if hx < 0x00100000
     {
         if ((hx & 0x7FFFFFFF) as u32 | lx) == 0
@@ -836,6 +880,7 @@ pub fn log(x: f64) -> f64
         {
             return (x - x) / 0.0;
         }
+
         k -= 54;
         x *= logarithm::TWO54;
         hx = hi(x);
@@ -851,7 +896,9 @@ pub fn log(x: f64) -> f64
     let mut i: i32 = (hx + 0x95F64) & 0x100000;
     x = withHi(x, hx | (i ^ 0x3FF00000));
     k += i >> 20;
+
     let f: f64 = x - 1.0;
+
     if (0x000FFFFF & (2 + hx)) < 3
     {
         if f == 0.0
@@ -860,15 +907,18 @@ pub fn log(x: f64) -> f64
             {
                 return 0.0;
             }
+
             let dk: f64 = k as f64;
             return dk * logarithm::LN2_HI + dk * logarithm::LN2_LO;
         }
 
         let r: f64 = f * f * (0.5 - 0.33333333333333333 * f);
+
         if k == 0
         {
             return f - r;
         }
+
         let dk: f64 = k as f64;
         return dk * logarithm::LN2_HI - ((r - dk * logarithm::LN2_LO) - f);
     }
@@ -876,20 +926,27 @@ pub fn log(x: f64) -> f64
     let s: f64 = f / (2.0 + f);
     let dk: f64 = k as f64;
     let z: f64 = s * s;
+
     i = hx - 0x6147A;
+
     let w: f64 = z * z;
     let j: i32 = 0x6B851 - hx;
     let t1: f64 = w * (logarithm::LG2 + w * (logarithm::LG4 + w * logarithm::LG6));
     let t2: f64 = z * (logarithm::LG1 + w * (logarithm::LG3 + w * (logarithm::LG5 + w * logarithm::LG7)));
+
     i |= j;
+
     let r: f64 = t2 + t1;
+
     if i > 0
     {
         let hfsq: f64 = 0.5 * f * f;
+
         if k == 0
         {
             return f - (hfsq - s * (hfsq + r));
         }
+
         return dk * logarithm::LN2_HI - ((hfsq - (s * (hfsq + r) + dk * logarithm::LN2_LO)) - f);
     }
 
@@ -897,6 +954,7 @@ pub fn log(x: f64) -> f64
     {
         return f - s * (f - r);
     }
+
     dk * logarithm::LN2_HI - ((s * (f - r) - dk * logarithm::LN2_LO) - f)
 }
 
@@ -905,6 +963,7 @@ pub fn exp(x: f64) -> f64
     let mut x: f64 = x;
     let mut hx: u32 = hi(x) as u32;
     let xsb: usize = ((hx >> 31) & 1) as usize;
+
     hx &= 0x7FFFFFFF;
     if hx >= 0x40862E42
     {
@@ -914,8 +973,10 @@ pub fn exp(x: f64) -> f64
             {
                 return x + x;
             }
+
             return if xsb == 0 { x } else { 0.0 };
         }
+
         if x > exponent::O_THRESHOLD
         {
             return HUGE * HUGE;
@@ -926,25 +987,26 @@ pub fn exp(x: f64) -> f64
         }
     }
 
-    let mut hi_part: f64 = 0.0;
-    let mut lo_part: f64 = 0.0;
+    let mut hiPart: f64 = 0.0;
+    let mut loPart: f64 = 0.0;
     let mut k: i32 = 0;
+
     if hx > 0x3FD62E42
     {
         if hx < 0x3FF0A2B2
         {
-            hi_part = x - exponent::LN2_HI[xsb];
-            lo_part = exponent::LN2_LO[xsb];
+            hiPart = x - exponent::LN2_HI[xsb];
+            loPart = exponent::LN2_LO[xsb];
             k = 1 - xsb as i32 - xsb as i32;
         }
         else
         {
             k = (exponent::INVLN2 * x + exponent::HALF[xsb]) as i32;
             let t: f64 = k as f64;
-            hi_part = x - t * exponent::LN2_HI[0];
-            lo_part = t * exponent::LN2_LO[0];
+            hiPart = x - t * exponent::LN2_HI[0];
+            loPart = t * exponent::LN2_LO[0];
         }
-        x = hi_part - lo_part;
+        x = hiPart - loPart;
     }
     else if hx < 0x3E300000
     {
@@ -957,16 +1019,19 @@ pub fn exp(x: f64) -> f64
     let t: f64 = x * x;
     let c: f64 =
         x - t * (exponent::P1 + t * (exponent::P2 + t * (exponent::P3 + t * (exponent::P4 + t * exponent::P5))));
+
     if k == 0
     {
         return 1.0 - ((x * c) / (c - 2.0) - x);
     }
 
-    let y: f64 = 1.0 - ((lo_part - (x * c) / (2.0 - c)) - hi_part);
+    let y: f64 = 1.0 - ((loPart - (x * c) / (2.0 - c)) - hiPart);
+
     if k >= -1021
     {
         return withHi(y, hi(y).wrapping_add(k << 20));
     }
+
     withHi(y, hi(y).wrapping_add((k + 1000) << 20)) * exponent::TWOM1000
 }
 
@@ -990,6 +1055,7 @@ pub fn pow(x: f64, y: f64) -> f64
     }
 
     let mut yisint: i32 = 0;
+
     if hx < 0
     {
         if iy >= 0x43400000
@@ -1030,6 +1096,7 @@ pub fn pow(x: f64, y: f64) -> f64
             {
                 return if hy >= 0 { y } else { 0.0 };
             }
+
             return if hy < 0 { -y } else { 0.0 };
         }
 
@@ -1039,6 +1106,7 @@ pub fn pow(x: f64, y: f64) -> f64
             {
                 return 1.0 / x;
             }
+
             return x;
         }
 
@@ -1054,13 +1122,16 @@ pub fn pow(x: f64, y: f64) -> f64
     }
 
     let mut ax: f64 = x.abs();
+
     if lx == 0 && (ix == 0x7FF00000 || ix == 0 || ix == 0x3FF00000)
     {
         let mut z: f64 = ax;
+
         if hy < 0
         {
             z = 1.0 / z;
         }
+
         if hx < 0
         {
             if ((ix - 0x3FF00000) | yisint) == 0
@@ -1072,6 +1143,7 @@ pub fn pow(x: f64, y: f64) -> f64
                 z = -z;
             }
         }
+
         return z;
     }
 
@@ -1082,6 +1154,7 @@ pub fn pow(x: f64, y: f64) -> f64
     }
 
     let mut s: f64 = 1.0;
+
     if (n | (yisint - 1)) == 0
     {
         s = -1.0;
@@ -1089,6 +1162,7 @@ pub fn pow(x: f64, y: f64) -> f64
 
     let t1: f64;
     let t2: f64;
+
     if iy > 0x41E00000
     {
         if iy > 0x43F00000
@@ -1114,6 +1188,7 @@ pub fn pow(x: f64, y: f64) -> f64
                 s * TINY * TINY
             };
         }
+
         if ix > 0x3FF00000
         {
             return if hy > 0
@@ -1136,16 +1211,21 @@ pub fn pow(x: f64, y: f64) -> f64
     else
     {
         n = 0;
+
         if ix < 0x00100000
         {
             ax *= power::TWO53;
             n -= 53;
             ix = hi(ax);
         }
+
         n += (ix >> 20) - 0x3FF;
+
         let j: i32 = ix & 0x000FFFFF;
         ix = j | 0x3FF00000;
+
         let k: usize;
+
         if j <= 0x3988E
         {
             k = 0;
@@ -1165,46 +1245,47 @@ pub fn pow(x: f64, y: f64) -> f64
         let mut u: f64 = ax - power::BP[k];
         let mut v: f64 = 1.0 / (ax + power::BP[k]);
         let ss: f64 = u * v;
-        let s_h: f64 = withLo(ss, 0);
-        let mut t_h: f64 = words(((ix >> 1) | 0x20000000) + 0x00080000 + ((k as i32) << 18), 0);
-        let mut t_l: f64 = ax - (t_h - power::BP[k]);
-        let s_l: f64 = v * ((u - s_h * t_h) - s_h * t_l);
+        let sH: f64 = withLo(ss, 0);
+        let mut tH: f64 = words(((ix >> 1) | 0x20000000) + 0x00080000 + ((k as i32) << 18), 0);
+        let mut tL: f64 = ax - (tH - power::BP[k]);
+        let sL: f64 = v * ((u - sH * tH) - sH * tL);
 
         let mut s2: f64 = ss * ss;
         let mut r: f64 = s2
             * s2
             * (power::L1 + s2 * (power::L2 + s2 * (power::L3 + s2 * (power::L4 + s2 * (power::L5 + s2 * power::L6)))));
-        r += s_l * (s_h + ss);
-        s2 = s_h * s_h;
-        t_h = withLo(3.0 + s2 + r, 0);
-        t_l = r - ((t_h - 3.0) - s2);
+        r += sL * (sH + ss);
+        s2 = sH * sH;
+        tH = withLo(3.0 + s2 + r, 0);
+        tL = r - ((tH - 3.0) - s2);
 
-        u = s_h * t_h;
-        v = s_l * t_h + t_l * ss;
+        u = sH * tH;
+        v = sL * tH + tL * ss;
 
-        let p_h: f64 = withLo(u + v, 0);
-        let p_l: f64 = v - (p_h - u);
-        let z_h: f64 = power::CP_H * p_h;
-        let z_l: f64 = power::CP_L * p_h + p_l * power::CP + power::DP_L[k];
+        let pH: f64 = withLo(u + v, 0);
+        let pL: f64 = v - (pH - u);
+        let zH: f64 = power::CP_H * pH;
+        let zL: f64 = power::CP_L * pH + pL * power::CP + power::DP_L[k];
 
         let t: f64 = n as f64;
-        t1 = withLo(((z_h + z_l) + power::DP_H[k]) + t, 0);
-        t2 = z_l - (((t1 - t) - power::DP_H[k]) - z_h);
+        t1 = withLo(((zH + zL) + power::DP_H[k]) + t, 0);
+        t2 = zL - (((t1 - t) - power::DP_H[k]) - zH);
     }
 
     let y1: f64 = withLo(y, 0);
-    let p_l: f64 = (y - y1) * t1 + y * t2;
-    let mut p_h: f64 = y1 * t1;
-    let mut z: f64 = p_l + p_h;
+    let pL: f64 = (y - y1) * t1 + y * t2;
+    let mut pH: f64 = y1 * t1;
+    let mut z: f64 = pL + pH;
     let mut j: i32 = hi(z);
     let i: i32 = lo(z) as i32;
+
     if j >= 0x40900000
     {
         if (j.wrapping_sub(0x40900000) | i) != 0
         {
             return s * HUGE * HUGE;
         }
-        if p_l + power::OVT > z - p_h
+        if pL + power::OVT > z - pH
         {
             return s * HUGE * HUGE;
         }
@@ -1215,7 +1296,7 @@ pub fn pow(x: f64, y: f64) -> f64
         {
             return s * TINY * TINY;
         }
-        if p_l <= z - p_h
+        if pL <= z - pH
         {
             return s * TINY * TINY;
         }
@@ -1223,23 +1304,28 @@ pub fn pow(x: f64, y: f64) -> f64
 
     let i: i32 = j & 0x7FFFFFFF;
     let mut k: i32 = (i >> 20) - 0x3FF;
+
     n = 0;
+
     if i > 0x3FE00000
     {
         n = j + (0x00100000 >> (k + 1));
         k = ((n & 0x7FFFFFFF) >> 20) - 0x3FF;
         let t: f64 = words(n & !(0x000FFFFF >> k), 0);
+
         n = ((n & 0x000FFFFF) | 0x00100000) >> (20 - k);
+
         if j < 0
         {
             n = -n;
         }
-        p_h -= t;
+
+        pH -= t;
     }
 
-    let t: f64 = withLo(p_l + p_h, 0);
+    let t: f64 = withLo(pL + pH, 0);
     let u: f64 = t * power::LG2_H;
-    let v: f64 = (p_l - (t - p_h)) * power::LG2 + t * power::LG2_L;
+    let v: f64 = (pL - (t - pH)) * power::LG2 + t * power::LG2_L;
     z = u + v;
     let w: f64 = v - (z - u);
     let t: f64 = z * z;

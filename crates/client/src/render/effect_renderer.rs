@@ -25,18 +25,21 @@ pub struct EffectRenderer
 
 impl EffectRenderer
 {
-    pub fn new(world: Option<Rc<World>>, textureManager: &Rc<RenderEngine>) -> EffectRenderer
+    pub fn new(world: Option<Rc<World>>, textureManager: &Rc<RenderEngine>) -> Self
     {
-        let effectRenderer: EffectRenderer = EffectRenderer {
+        let effectRenderer: Self = Self
+        {
             m_worldObj: Field::new(None),
             m_fxLayers: [JArrayList::new(), JArrayList::new(), JArrayList::new(), JArrayList::new()],
             m_renderer: Rc::clone(textureManager),
             m_rand: Random::new(),
         };
+
         if world.is_some()
         {
             effectRenderer.m_worldObj.set(world);
         }
+
         effectRenderer
     }
 
@@ -49,6 +52,7 @@ impl EffectRenderer
         {
             layer.removeAt(0);
         }
+
         layer.add(particle);
     }
 
@@ -61,11 +65,13 @@ impl EffectRenderer
             {
                 let entityfx: Rc<Entity> = layer.get(j);
                 entityfx.onUpdate();
+
                 if entityfx.m_isDead.get()
                 {
                     layer.removeAt(j);
                     j -= 1;
                 }
+
                 j += 1;
             }
         }
@@ -86,6 +92,7 @@ impl EffectRenderer
             camera.m_lastTickPosY.get() + (camera.posY() - camera.m_lastTickPosY.get()) * delta,
             camera.m_lastTickPosZ.get() + (camera.posZ() - camera.m_lastTickPosZ.get()) * delta,
         );
+
         let textures: [&str; 3] = ["/particles.png", "/terrain.png", "/gui/items.png"];
         for (layer, texture) in self.m_fxLayers.iter().zip(textures)
         {
@@ -93,9 +100,12 @@ impl EffectRenderer
             {
                 continue;
             }
+
             GL11::glBindTexture(3553, self.m_renderer.getTexture(texture));
+
             let tessellator: Rc<Tessellator> = Tessellator::instance();
             tessellator.startDrawingQuads();
+
             for j in 0..layer.size()
             {
                 let particle: Rc<Entity> = layer.get(j);
@@ -104,6 +114,7 @@ impl EffectRenderer
                     particle.renderParticle(&*tessellator, tickDelta, f, f5, f2, f3, f4);
                 }
             }
+
             tessellator.draw();
         }
     }
@@ -115,7 +126,9 @@ impl EffectRenderer
         {
             return;
         }
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         for i in 0..layer.size()
         {
             layer.get(i).renderParticle(&*tessellator, tickDelta, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -125,6 +138,7 @@ impl EffectRenderer
     pub fn clearEffects(&self, world: Option<Rc<World>>)
     {
         self.m_worldObj.set(world);
+
         for layer in &self.m_fxLayers
         {
             layer.clear();
@@ -137,6 +151,7 @@ impl EffectRenderer
         {
             return;
         }
+
         let block2: Option<Rc<Block>> = Block::byId(block);
         let n: i32 = 4;
         for i in 0..n
@@ -175,6 +190,7 @@ impl EffectRenderer
         {
             return;
         }
+
         let block: Rc<Block> = Block::byId(n).orNpe();
         let f: f32 = 0.1;
         let inset: f64 = (f * 2.0) as f64;
@@ -190,6 +206,7 @@ impl EffectRenderer
             + self.m_rand.nextDouble() * (block.m_maxZ.get() - block.m_minZ.get() - inset)
             + f as f64
             + block.m_minZ.get();
+
         match face
         {
             0 => d2 = y as f64 + block.m_minY.get() - f as f64,
@@ -201,6 +218,7 @@ impl EffectRenderer
             _ =>
             {}
         }
+
         let particle: Rc<Entity> =
             entity_digging_fx::new(&world, d, d2, d3, 0.0, 0.0, 0.0, &block, face, world.getBlockMetadata(x, y, z));
         let particle: Rc<Entity> = entity_digging_fx::init(&particle, x, y, z);

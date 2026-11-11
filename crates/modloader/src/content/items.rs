@@ -24,6 +24,7 @@ pub fn toolOf(item: &Rc<Item>) -> Option<(ToolClass, i32)>
     {
         return data.m_tool.as_ref().map(|tool| (tool.class, tool.level));
     }
+
     let class: ToolClass = match item.className()
     {
         "ItemPickaxe" => ToolClass::Pickaxe,
@@ -43,6 +44,7 @@ pub fn materialOf(item: &Item) -> Option<EnumToolMaterial>
     {
         return Some(tool.m_toolMaterial);
     }
+
     item.tryExt::<SwordExt>().map(|sword| sword.m_toolMaterial)
 }
 
@@ -70,6 +72,7 @@ fn toolSpeed(this: &Rc<Item>, stack: &Rc<ItemStack>, block: &Rc<Block>) -> f32
                 1.0
             }
         }
+
         _ => (template(this).getStrVsBlock)(this, stack, block),
     }
 }
@@ -95,12 +98,14 @@ fn patch(class: &mut ItemClass, spec: &ItemSpec)
     {
         class.getColorFromDamage = iconColor;
     }
+
     if spec.tool.is_some()
     {
         class.getStrVsBlock = toolSpeed;
         class.canHarvestBlock = toolHarvest;
         class.getDamageVsEntity = toolDamage;
     }
+
     if let Some(behavior) = &spec.behavior
     {
         crate::behavior::patchItem(class, behavior);
@@ -115,6 +120,7 @@ pub fn validate(spec: &ItemSpec) -> Result<(), String>
         let known: Vec<&str> = templates::ITEM_TEMPLATES.iter().map(|row| row.m_name).collect();
         return Err(format!("unknown item template minecraft:{name}, known: {}", known.join(", ")));
     }
+
     Ok(())
 }
 
@@ -132,32 +138,40 @@ fn applyCommon(mut item: Rc<Item>, spec: &ItemSpec, id: &Identifier) -> Result<R
     {
         item = item.setIconIndex(super::textureSlot(texture, Atlas::Items).unwrap_or(DEFAULT_ICON));
     }
+
     if let Some(size) = spec.max_stack
     {
         item = item.setMaxStackSize(size);
     }
+
     let durability: Option<i32> =
         spec.max_damage.or(spec.tool.as_ref().map(|tool| tool.durability).filter(|value| *value > 0));
+
     if let Some(damage) = durability.or(spec.armor.as_ref().map(|armor| armor.durability))
     {
         item = item.setMaxDamage(damage);
     }
+
     if spec.full3d == Some(true)
     {
         item = item.setFull3D();
     }
+
     let key: String = format!("{}.{}", id.namespace(), id.path().replace('/', "."));
     item = item.setItemName(&key);
+
     if let Some(name) = &spec.name
     {
         super::lang::addDefault(&format!("item.{key}.name"), name);
     }
+
     if let Some(container) = &spec.container_item
     {
         let numeric: i32 = crate::registry::with(|registries| registries.itemId(container))
             .ok_or_else(|| format!("container item {container} is not registered"))?;
         item = item.setContainerItem(Item::byId(numeric));
     }
+
     Ok(item)
 }
 
@@ -167,6 +181,7 @@ pub fn build(row: &Row<ItemEntry>, owner: usize) -> Result<(), String>
     {
         return Ok(());
     }
+
     let spec: ItemSpec = row.m_value.m_spec.clone().ok_or("a modded item row has a spec")?;
     let templateId: String =
         super::blocks::templateName(spec.template.as_ref(), templates::defaultItemTemplate(&spec))?;
@@ -177,9 +192,10 @@ pub fn build(row: &Row<ItemEntry>, owner: usize) -> Result<(), String>
         row.m_numeric,
         ItemData { m_id: row.m_id.clone(), m_owner: owner, m_spec: spec.clone(), m_tool: tool },
     );
-    let template_class: &'static ItemClass = templateClass(template, &spec);
+
+    let templateRow: &'static ItemClass = templateClass(template, &spec);
     let class: &'static ItemClass =
-        crate::classes::deriveItemClass(template_class, &row.m_id.to_string(), |class| patch(class, &spec));
+        crate::classes::deriveItemClass(templateRow, &row.m_id.to_string(), |class| patch(class, &spec));
     let flowing: Option<i32> = super::fluids::bucketFlowing(&row.m_id);
     let item: Rc<Item> = game::hooks::withItemClass(class, || match flowing
     {
@@ -187,14 +203,17 @@ pub fn build(row: &Row<ItemEntry>, owner: usize) -> Result<(), String>
         None => (template.m_create)(row.m_numeric - 256, &spec),
     });
     applyCommon(item, &spec, &row.m_id)?;
+
     if let Some(ticks) = spec.fuel
     {
         super::putFuel(row.m_numeric, ticks);
     }
+
     if spec.food.as_ref().is_some_and(|food| food.wolf_food)
     {
         super::tags::flag(RegistryKind::Item, "wolf_food", &row.m_id);
     }
+
     Ok(())
 }
 
@@ -203,6 +222,7 @@ fn templateClass(template: &templates::ItemTemplate, spec: &ItemSpec) -> &'stati
 {
     let id: Identifier = Identifier::minecraft(template.m_name);
     let _ = spec;
+
     crate::registry::with(|registries| registries.itemId(&id))
         .and_then(Item::byId)
         .map_or(&game::item::ITEM, |item| item.m_class)
@@ -216,26 +236,32 @@ pub fn buildBlockItem(block: &Rc<Block>, spec: Option<&ItemSpec>, owner: usize, 
     {
         return Ok(());
     }
+
     let class: &'static ItemClass = match spec.filter(|spec| spec.behavior.is_some())
     {
         Some(spec) =>
         {
             crate::classes::deriveItemClass(&game::item::item_block::CLASS, &id.to_string(), |class| patch(class, spec))
         }
+
         None => &game::item::item_block::CLASS,
     };
     let item: Rc<Item> = game::item::item_block::construct(class, numeric - 256);
+
     if let Some(spec) = spec
     {
         super::putItem(numeric, ItemData { m_id: id.clone(), m_owner: owner, m_spec: spec.clone(), m_tool: None });
+
         if let Some(size) = spec.max_stack
         {
             item.setMaxStackSize(size);
         }
+
         if let Some(ticks) = spec.fuel
         {
             super::putFuel(numeric, ticks);
         }
     }
+
     Ok(())
 }

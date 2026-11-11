@@ -25,7 +25,8 @@ impl Packet23VehicleSpawn
 
     pub fn withData(entity: &Entity, r#type: i32, data: i32) -> Self
     {
-        let mut packet: Self = Self {
+        let mut packet: Self = Self
+        {
             m_entityId: entity.m_entityId.get(),
             m_xPosition: math_helper::encodePos(entity.m_posX.get()),
             m_yPosition: math_helper::encodePos(entity.m_posY.get()),
@@ -34,6 +35,7 @@ impl Packet23VehicleSpawn
             m_data: data,
             ..Self::default()
         };
+
         if data > 0
         {
             let mut d: f64 = entity.m_motionX.get();
@@ -44,30 +46,37 @@ impl Packet23VehicleSpawn
             {
                 d = -d4;
             }
+
             if d2 < -d4
             {
                 d2 = -d4;
             }
+
             if d3 < -d4
             {
                 d3 = -d4;
             }
+
             if d > d4
             {
                 d = d4;
             }
+
             if d2 > d4
             {
                 d2 = d4;
             }
+
             if d3 > d4
             {
                 d3 = d4;
             }
+
             packet.m_velocityX = (d * 8000.0) as i32;
             packet.m_velocityY = (d2 * 8000.0) as i32;
             packet.m_velocityZ = (d3 * 8000.0) as i32;
         }
+
         packet
     }
 }
@@ -90,6 +99,7 @@ impl Packet for Packet23VehicleSpawn
             self.m_velocityY = input.readShort()? as i32;
             self.m_velocityZ = input.readShort()? as i32;
         }
+
         Ok(())
     }
 
@@ -101,12 +111,14 @@ impl Packet for Packet23VehicleSpawn
         output.writeInt(self.m_yPosition)?;
         output.writeInt(self.m_zPosition)?;
         output.writeInt(self.m_data)?;
+
         if self.m_data > 0
         {
             output.writeShort(self.m_velocityX)?;
             output.writeShort(self.m_velocityY)?;
             output.writeShort(self.m_velocityZ)?;
         }
+
         Ok(())
     }
 

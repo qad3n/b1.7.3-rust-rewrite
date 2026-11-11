@@ -17,9 +17,10 @@ impl ChunkProviderClient
 {
     fn world(&self) -> Rc<World> { Rc::clone(&self.m_worldObj) }
 
-    pub fn new(world: &Rc<World>) -> ChunkProviderClient
+    pub fn new(world: &Rc<World>) -> Self
     {
-        ChunkProviderClient {
+        Self
+        {
             m_blankChunk: Chunk::newEmptyWithBlocks(world, vec![0; world.volume()], 0, 0),
             m_chunkMapping: ChunkMap::new(),
             m_chunks: JArrayList::new(),
@@ -30,11 +31,13 @@ impl ChunkProviderClient
     pub fn unloadChunk(&self, chunkX: i32, chunkZ: i32)
     {
         trace!("Chunk {chunkX},{chunkZ} unloaded by the server");
+
         let chunk: Rc<Chunk> = self.provideChunk(chunkX, chunkZ);
         if !chunk.isEmpty()
         {
             chunk.onChunkUnload();
         }
+
         self.m_chunkMapping.update(|map| map.remove(&ChunkCoordIntPair::new(chunkX, chunkZ)));
         self.m_chunks.removeIdentity(&chunk);
     }

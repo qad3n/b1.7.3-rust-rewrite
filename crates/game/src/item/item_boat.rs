@@ -45,17 +45,20 @@ fn onItemRightClick(
     {
         return Some(Rc::clone(stack));
     };
+
     if movingobjectposition.m_typeOfHit == EnumMovingObjectType::TILE
     {
         let i: i32 = movingobjectposition.m_blockX;
         let mut j: i32 = movingobjectposition.m_blockY;
         let k: i32 = movingobjectposition.m_blockZ;
+
         if !world.m_multiplayerWorld.get()
         {
             if world.getBlockId(i, j, k) == Block::SNOW
             {
                 j -= 1;
             }
+
             world.entityJoinedWorld(&entity_boat::createAt(
                 world,
                 (i as f32 + 0.5) as f64,
@@ -63,8 +66,10 @@ fn onItemRightClick(
                 (k as f32 + 0.5) as f64,
             ));
         }
+
         stack.m_stackSize.set(stack.m_stackSize.get() - 1);
     }
+
     Some(Rc::clone(stack))
 }
 

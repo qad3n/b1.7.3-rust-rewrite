@@ -31,6 +31,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
 {
     let fluid: Rc<Fluid> = block_fluid::fluidOf(this);
     let mut i: i32 = getFlowDecay(this, world, x, y, z);
+
     let b0: i32 = if world.worldProvider().m_isHellWorld.get()
     {
         fluid.m_netherDecay
@@ -41,9 +42,11 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     };
 
     let mut flag: bool = true;
+
     if i > 0
     {
         let mut j: i32 = -100;
+
         ext(this).m_numAdjacentSources.set(0);
         j = getSmallestFlowDecay(this, world, x - 1, y, z, j);
         j = getSmallestFlowDecay(this, world, x + 1, y, z, j);
@@ -54,11 +57,13 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
         {
             k = -1;
         }
+
         if getFlowDecay(this, world, x, y + 1, z) >= 0
         {
             let l: i32 = getFlowDecay(this, world, x, y + 1, z);
             k = if l >= 8 { l } else { l + 8 };
         }
+
         if ext(this).m_numAdjacentSources.get() >= 2 && fluid.m_infinite
         {
             if world.getBlockMaterial(x, y - 1, z).isSolid()
@@ -71,11 +76,13 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
                 k = 0;
             }
         }
+
         if fluid.m_style == FluidStyle::Lava && i < 8 && k < 8 && k > i && random.nextIntBounded(4) != 0
         {
             k = i;
             flag = false;
         }
+
         if k != i
         {
             i = k;
@@ -114,15 +121,19 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     else if i >= 0 && (i == 0 || blockBlocksFlow(world, x, y - 1, z))
     {
         getOptimalFlowDirections(this, world, x, y, z);
+
         let mut i1: i32 = i + b0;
+
         if i >= 8
         {
             i1 = 1;
         }
+
         if i1 >= 8
         {
             return;
         }
+
         // java reads the block's shared array so a tick nested in flowIntoBlock rewrites the directions left to check
         for direction in 0..4
         {
@@ -141,6 +152,7 @@ fn flowIntoBlock(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, de
     {
         return;
     }
+
     let n: i32 = world.getBlockId(x, y, z);
     if n > 0
     {
@@ -153,6 +165,7 @@ fn flowIntoBlock(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, de
             Block::byId(n).orNpe().dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
         }
     }
+
     world.setBlockAndMetadataWithNotify(x, y, z, this.m_blockID, depth);
 }
 
@@ -170,6 +183,7 @@ fn offset(i: i32, x: i32, z: i32) -> (i32, i32)
 fn calculateFlowCost(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, distance: i32, fromDir: i32) -> i32
 {
     let mut n: i32 = 1000;
+
     for i in 0..4
     {
         if i == 0 && fromDir == 1 || i == 1 && fromDir == 0 || i == 2 && fromDir == 3 || i == 3 && fromDir == 2
@@ -196,8 +210,10 @@ fn calculateFlowCost(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
         {
             continue;
         }
+
         n = n2;
     }
+
     n
 }
 
@@ -208,6 +224,7 @@ fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32,
         let mut costs: [i32; 4] = ext(this).m_flowCost.get();
         costs[n2 as usize] = 1000;
         ext(this).m_flowCost.set(costs);
+
         let (n, n4): (i32, i32) = offset(n2, x, z);
         let n3: i32 = y;
         if blockBlocksFlow(world, n, n3, n4)
@@ -215,6 +232,7 @@ fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32,
         {
             continue;
         }
+
         let cost: i32 = if !blockBlocksFlow(world, n, n3 - 1, n4)
         {
             0
@@ -230,19 +248,24 @@ fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32,
 
     let costs: [i32; 4] = ext(this).m_flowCost.get();
     let mut n2: i32 = costs[0];
+
     for n in 1..4
     {
         if costs[n] >= n2
         {
             continue;
         }
+
         n2 = costs[n];
     }
+
     let mut optimal: [bool; 4] = [false; 4];
+
     for n in 0..4
     {
         optimal[n] = costs[n] == n2;
     }
+
     ext(this).m_isOptimalFlowDirection.set(optimal);
 }
 
@@ -261,6 +284,7 @@ fn blockBlocksFlow(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
     {
         return false;
     }
+
     Block::byId(n).orNpe().m_blockMaterial.getIsSolid()
 }
 
@@ -271,14 +295,17 @@ fn getSmallestFlowDecay(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: 
     {
         return depth;
     }
+
     if n == 0
     {
         ext(this).m_numAdjacentSources.set(ext(this).m_numAdjacentSources.get() + 1);
     }
+
     if n >= 8
     {
         n = 0;
     }
+
     if depth < 0 || n < depth { n } else { depth }
 }
 
@@ -289,15 +316,19 @@ fn liquidCanDisplaceBlock(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z
     {
         return false;
     }
+
     !blockBlocksFlow(world, x, y, z)
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockFlowing",
     m_parent: Some(&block_fluid::CLASS),
     updateTick,
-    onBlockAdded: |this, world, x, y, z| {
+    onBlockAdded: |this, world, x, y, z|
+    {
         (block_fluid::CLASS.onBlockAdded)(this, world, x, y, z);
+
         if world.getBlockId(x, y, z) == this.m_blockID
         {
             world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());

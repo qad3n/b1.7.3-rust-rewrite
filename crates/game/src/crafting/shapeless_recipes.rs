@@ -10,9 +10,9 @@ pub struct ShapelessRecipes
 
 impl ShapelessRecipes
 {
-    pub fn new(result: Rc<ItemStack>, ingredients: Vec<Choice>) -> ShapelessRecipes
+    pub fn new(result: Rc<ItemStack>, ingredients: Vec<Choice>) -> Self
     {
-        ShapelessRecipes { m_recipeOutput: result, m_recipeItems: ingredients }
+        Self { m_recipeOutput: result, m_recipeItems: ingredients }
     }
 }
 
@@ -21,6 +21,7 @@ impl IRecipe for ShapelessRecipes
     fn matches(&self, inventory: &dyn CraftingGrid) -> bool
     {
         let mut arraylist: Vec<&Choice> = self.m_recipeItems.iter().collect();
+
         for i in 0..3
         {
             for j in 0..3
@@ -36,6 +37,7 @@ impl IRecipe for ShapelessRecipes
                 {
                     return false;
                 };
+
                 arraylist.remove(index);
             }
         }

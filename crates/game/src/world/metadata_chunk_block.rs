@@ -19,7 +19,8 @@ impl MetadataChunkBlock
 {
     pub fn new(kind: EnumSkyBlock, minX: i32, minY: i32, minZ: i32, maxX: i32, maxY: i32, maxZ: i32) -> Self
     {
-        Self {
+        Self
+        {
             m_type: kind,
             m_minX: Cell::new(minX),
             m_minY: Cell::new(minY),
@@ -46,6 +47,7 @@ impl MetadataChunkBlock
         let mut j1: i32 = 0;
         let flag: bool = false;
         let mut flag1: bool = false;
+
         for k1 in self.m_minX.get()..=self.m_maxX.get()
         {
             for l1 in self.m_minZ.get()..=self.m_maxZ.get()
@@ -53,6 +55,7 @@ impl MetadataChunkBlock
                 let i2: i32 = k1 >> 4;
                 let j2: i32 = l1 >> 4;
                 let mut flag2: bool;
+
                 if flag && i2 == i1 && j2 == j1
                 {
                     flag2 = flag1;
@@ -68,6 +71,7 @@ impl MetadataChunkBlock
                             flag2 = false;
                         }
                     }
+
                     flag1 = flag2;
                     i1 = i2;
                     j1 = j2;
@@ -82,6 +86,7 @@ impl MetadataChunkBlock
                 {
                     self.m_minY.set(0);
                 }
+
                 if self.m_maxY.get() >= world.height()
                 {
                     self.m_maxY.set(world.height() - 1);
@@ -110,7 +115,9 @@ impl MetadataChunkBlock
         {
             j3 = 1;
         }
+
         let mut k3: i32 = 0;
+
         if kind == EnumSkyBlock::Sky
         {
             if reader.seesSky(k1, j5, l1)
@@ -135,32 +142,39 @@ impl MetadataChunkBlock
             let k4: i32 = reader.savedLight(kind, k1, j5 + 1, l1);
             let l4: i32 = reader.savedLight(kind, k1, j5, l1 - 1);
             let i5: i32 = reader.savedLight(kind, k1, j5, l1 + 1);
+
             l2 = l3;
             if i4 > l2
             {
                 l2 = i4;
             }
+
             if j4 > l2
             {
                 l2 = j4;
             }
+
             if k4 > l2
             {
                 l2 = k4;
             }
+
             if l4 > l2
             {
                 l2 = l4;
             }
+
             if i5 > l2
             {
                 l2 = i5;
             }
+
             l2 -= j3;
             if l2 < 0
             {
                 l2 = 0;
             }
+
             if k3 > l2
             {
                 l2 = k3;
@@ -170,22 +184,27 @@ impl MetadataChunkBlock
         if k2 != l2
         {
             world.setLightValue(kind, k1, j5, l1, l2);
+
             let mut k5: i32 = l2 - 1;
             if k5 < 0
             {
                 k5 = 0;
             }
+
             world.neighborLightPropagationChanged(kind, k1 - 1, j5, l1, k5);
             world.neighborLightPropagationChanged(kind, k1, j5 - 1, l1, k5);
             world.neighborLightPropagationChanged(kind, k1, j5, l1 - 1, k5);
+
             if k1 + 1 >= self.m_maxX.get()
             {
                 world.neighborLightPropagationChanged(kind, k1 + 1, j5, l1, k5);
             }
+
             if j5 + 1 >= self.m_maxY.get()
             {
                 world.neighborLightPropagationChanged(kind, k1, j5 + 1, l1, k5);
             }
+
             if l1 + 1 >= self.m_maxZ.get()
             {
                 world.neighborLightPropagationChanged(kind, k1, j5, l1 + 1, k5);
@@ -197,6 +216,7 @@ impl MetadataChunkBlock
     {
         let (mut minX, mut minY, mut minZ, mut maxX, mut maxY, mut maxZ): (i32, i32, i32, i32, i32, i32) =
             (minX, minY, minZ, maxX, maxY, maxZ);
+
         if minX >= self.m_minX.get()
             && minY >= self.m_minY.get()
             && minZ >= self.m_minZ.get()
@@ -218,26 +238,32 @@ impl MetadataChunkBlock
             let i: i32 = self.m_maxX.get() - self.m_minX.get();
             let j: i32 = self.m_maxY.get() - self.m_minY.get();
             let k: i32 = self.m_maxZ.get() - self.m_minZ.get();
+
             if minX > self.m_minX.get()
             {
                 minX = self.m_minX.get();
             }
+
             if minY > self.m_minY.get()
             {
                 minY = self.m_minY.get();
             }
+
             if minZ > self.m_minZ.get()
             {
                 minZ = self.m_minZ.get();
             }
+
             if maxX < self.m_maxX.get()
             {
                 maxX = self.m_maxX.get();
             }
+
             if maxY < self.m_maxY.get()
             {
                 maxY = self.m_maxY.get();
             }
+
             if maxZ < self.m_maxZ.get()
             {
                 maxZ = self.m_maxZ.get();
@@ -259,6 +285,7 @@ impl MetadataChunkBlock
                 return true;
             }
         }
+
         false
     }
 }

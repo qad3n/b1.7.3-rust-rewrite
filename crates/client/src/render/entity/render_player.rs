@@ -1,8 +1,10 @@
 use crate::client::Minecraft;
 use crate::gui::FontRenderer;
 use crate::model::{ModelBase, ModelBiped};
+use crate::render::RenderManager;
 use crate::render::entity::render_biped::{modelBipedMain, moveToRightHand, rendersAsBlock, transformHeldItem};
-use crate::render::entity::render_living::{
+use crate::render::entity::render_living::
+{
     self, RENDER_LIVING, labelBackground, renderLivingLabel, setRenderPassModel,
 };
 use crate::render::entity::{Render, RenderClass};
@@ -32,7 +34,8 @@ fn ext(this: &Render) -> &PlayerRenderExt { this.ext::<PlayerRenderExt>() }
 
 pub fn new() -> Rc<Render>
 {
-    let playerExt: PlayerRenderExt = PlayerRenderExt {
+    let playerExt: PlayerRenderExt = PlayerRenderExt
+    {
         m_modelArmorChestplate: Rc::new(ModelBiped::new(1.0, 0.0)),
         m_modelArmor: Rc::new(ModelBiped::new(0.5, 0.0)),
     };
@@ -56,7 +59,9 @@ fn shouldRenderPass(this: &Rc<Render>, entity: &Rc<Entity>, layer: i32, _tickDel
     {
         return false;
     };
+
     let renderIndex: i32 = item_armor::fields(&item).m_renderIndex;
+
     // mod armor names its own texture sheets
     match modloader::content::armorTexture(item.m_shiftedIndex, layer)
     {
@@ -74,6 +79,7 @@ fn shouldRenderPass(this: &Rc<Render>, entity: &Rc<Entity>, layer: i32, _tickDel
         (tint >> 8 & 0xFF) as f32 / 255.0,
         (tint & 0xFF) as f32 / 255.0,
     );
+
     let modelbiped: &Rc<ModelBiped> = if layer == 2
     {
         &ext(this).m_modelArmor
@@ -106,18 +112,21 @@ fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, dx: f64, dy: f64, dz: f64, y
 {
     let itemstack: Option<Rc<ItemStack>> = entity_player::inventory(entity).getCurrentItem();
     setPose(this, itemstack.is_some(), entity.isSneaking());
+
     let mut d0: f64 = dy - entity.m_yOffset.get() as f64;
+
     if entity.isSneaking() && !entity.instanceOf("EntityPlayerSP")
     {
         d0 -= 0.125;
     }
+
     (RENDER_LIVING.doRender)(this, entity, dx, d0, dz, yaw, tickDelta);
     setPose(this, false, false);
 }
 
 fn passSpecialRender(this: &Rc<Render>, entity: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 {
-    let manager = this.renderManager();
+    let manager: Rc<RenderManager> = this.renderManager();
     let camera: Option<Rc<Entity>> = manager.m_livingPlayer.get();
     if !Minecraft::isGuiEnabled() || camera.as_ref().is_some_and(|camera| Rc::ptr_eq(camera, entity))
     {
@@ -131,7 +140,9 @@ fn passSpecialRender(this: &Rc<Render>, entity: &Rc<Entity>, dx: f64, dy: f64, d
     {
         return;
     }
+
     let s: String = username(entity);
+
     if !entity.isSneaking()
     {
         let labelY: f64 = if entity.isPlayerSleeping()
@@ -145,7 +156,9 @@ fn passSpecialRender(this: &Rc<Render>, entity: &Rc<Entity>, dx: f64, dy: f64, d
         renderLivingLabel(this, entity, &s, dx, labelY, dz, 64);
         return;
     }
+
     let fontrenderer: Rc<FontRenderer> = this.getFontRendererFromRenderManager().orNpe();
+
     GL11::glPushMatrix();
     GL11::glTranslatef(dx as f32 + 0.0, dy as f32 + 2.3, dz as f32);
     GL11::glNormal3f(0.0, 1.0, 0.0);
@@ -173,11 +186,13 @@ fn lerpDouble(previous: f64, current: f64, tickDelta: f32) -> f64 { previous + (
 fn renderEars(this: &Render, entity: &Rc<Entity>, tickDelta: f32)
 {
     let living: &entity_living::LivingFields = entity_living::fields(entity);
+
     for i in 0..2
     {
         let f1: f32 = lerp(entity.m_prevRotationYaw.get(), entity.m_rotationYaw.get(), tickDelta)
             - lerp(living.m_prevRenderYawOffset.get(), living.m_renderYawOffset.get(), tickDelta);
         let f2: f32 = lerp(entity.m_prevRotationPitch.get(), entity.m_rotationPitch.get(), tickDelta);
+
         GL11::glPushMatrix();
         GL11::glRotatef(f1, 0.0, 1.0, 0.0);
         GL11::glRotatef(f2, 1.0, 0.0, 0.0);
@@ -185,6 +200,7 @@ fn renderEars(this: &Render, entity: &Rc<Entity>, tickDelta: f32)
         GL11::glTranslatef(0.0, -0.375, 0.0);
         GL11::glRotatef(-f2, 1.0, 0.0, 0.0);
         GL11::glRotatef(-f1, 0.0, 1.0, 0.0);
+
         let f3: f32 = 1.3333334;
         GL11::glScalef(f3, f3, f3);
         modelBipedMain(this).renderEars(MODEL_SCALE);
@@ -203,8 +219,10 @@ fn renderCloakWith(this: &Render, entity: &Rc<Entity>, tickDelta: f32, model: &c
     let _ = this;
     let player: &entity_player::PlayerFields = entity_player::fields(entity);
     let living: &entity_living::LivingFields = entity_living::fields(entity);
+
     GL11::glPushMatrix();
     GL11::glTranslatef(0.0, 0.0, 0.125);
+
     let d3: f64 = lerpDouble(player.m_lastCapeX.get(), player.m_capeX.get(), tickDelta)
         - lerpDouble(entity.m_prevPosX.get(), entity.posX(), tickDelta);
     let d4: f64 = lerpDouble(player.m_lastCapeY.get(), player.m_capeY.get(), tickDelta)
@@ -217,19 +235,24 @@ fn renderCloakWith(this: &Render, entity: &Rc<Entity>, tickDelta: f32, model: &c
     let mut f5: f32 = (d4 as f32 * 10.0).clamp(-6.0, 32.0);
     let mut f6: f32 = (d3 * d1 + d0 * d2) as f32 * 100.0;
     let f7: f32 = (d3 * d2 - d0 * d1) as f32 * 100.0;
+
     if f6 < 0.0
     {
         f6 = 0.0;
     }
+
     let f8: f32 = lerp(player.m_lastBob.get(), player.m_bob.get(), tickDelta);
+
     f5 += math_helper::sin(
         lerp(entity.m_prevDistanceWalkedModified.get(), entity.m_distanceWalkedModified.get(), tickDelta) * 6.0,
     ) * 32.0
         * f8;
+
     if entity.isSneaking()
     {
         f5 += 25.0;
     }
+
     GL11::glRotatef(6.0 + f6 / 2.0 + f5, 1.0, 0.0, 0.0);
     GL11::glRotatef(f7 / 2.0, 0.0, 0.0, 1.0);
     GL11::glRotatef(-f7 / 2.0, 0.0, 1.0, 0.0);
@@ -241,43 +264,54 @@ fn renderCloakWith(this: &Render, entity: &Rc<Entity>, tickDelta: f32, model: &c
 fn renderEquippedItems(this: &Rc<Render>, entity: &Rc<Entity>, tickDelta: f32)
 {
     // rewrite: mod layers such as worn accessories and capes follow the player model's pose
-    crate::modded::player_layers::render(modelBipedMain(this), entity, |cloak| {
+    crate::modded::player_layers::render(modelBipedMain(this), entity, |cloak|
+    {
         renderCloakWith(this, entity, tickDelta, cloak);
     });
+
     if let Some(itemstack) = entity_player::inventory(entity).armorItemInSlot(HELMET_SLOT)
         && itemstack.getItem().m_shiftedIndex < BLOCK_ITEM_LIMIT
     {
         GL11::glPushMatrix();
         modelBipedMain(this).m_bipedHead.postRender(MODEL_SCALE);
+
         if rendersAsBlock(itemstack.m_itemID.get())
         {
             let f: f32 = 0.625;
+
             GL11::glTranslatef(0.0, -0.25, 0.0);
             GL11::glRotatef(180.0, 0.0, 1.0, 0.0);
             GL11::glScalef(f, -f, f);
         }
+
         this.renderManager().m_itemRenderer.get().orNpe().renderItem(entity, &itemstack);
         GL11::glPopMatrix();
     }
+
     let skinUrl: Option<String> = entity.m_skinUrl.get().map(|url| JString::display(Some(&url)));
     if username(entity) == "deadmau5" && this.loadDownloadableImageTexture(skinUrl.as_deref(), None)
     {
         renderEars(this, entity, tickDelta);
     }
+
     let cloakUrl: Option<String> =
         entity_player::fields(entity).m_playerCloakUrl.get().map(|url| JString::display(Some(&url)));
+
     if this.loadDownloadableImageTexture(cloakUrl.as_deref(), None)
     {
         renderCloak(this, entity, tickDelta);
     }
+
     if let Some(mut itemstack1) = entity_player::inventory(entity).getCurrentItem()
     {
         GL11::glPushMatrix();
         moveToRightHand(modelBipedMain(this));
+
         if entity_player::fields(entity).m_fishEntity.with(Option::is_some)
         {
             itemstack1 = ItemStack::withItem(&Item::stick());
         }
+
         transformHeldItem(&itemstack1, true);
         this.renderManager().m_itemRenderer.get().orNpe().renderItem(entity, &itemstack1);
         GL11::glPopMatrix();
@@ -325,14 +359,16 @@ fn rotateCorpse(this: &Rc<Render>, entity: &Rc<Entity>, bob: f32, bodyYaw: f32, 
     }
 }
 
-pub const RENDER_PLAYER: RenderClass = RenderClass {
+pub const RENDER_PLAYER: RenderClass = RenderClass
+{
     m_name: "RenderPlayer",
     m_parent: Some(&RENDER_LIVING),
     shouldRenderPass,
     doRender,
     passSpecialRender,
     renderEquippedItems,
-    preRenderCallback: |_, _, _| {
+    preRenderCallback: |_, _, _|
+    {
         let f: f32 = 0.9375;
         GL11::glScalef(f, f, f);
     },

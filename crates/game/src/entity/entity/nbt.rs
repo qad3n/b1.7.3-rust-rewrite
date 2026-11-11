@@ -1,16 +1,18 @@
 use crate::entity::Entity;
 use common::nbt::{NBTBase, NBTTagCompound, NBTTagDouble, NBTTagFloat, NBTTagList};
+use jvm::string::JString;
 use std::rc::Rc;
 
 impl Entity
 {
     pub fn addEntityID(self: &Rc<Self>, nbt: &NBTTagCompound) -> bool
     {
-        let string = self.getEntityString();
+        let string: Option<JString> = self.getEntityString();
         if self.m_isDead.get() || string.is_none()
         {
             return false;
         }
+
         nbt.setString("id", string);
         self.writeToNBT(nbt);
         true
@@ -41,17 +43,21 @@ impl Entity
         let double =
             |list: &Rc<NBTBase>, index: i32| -> f64 { list.list().tagAt(index).doubleTag().m_doubleValue.get() };
         let float = |list: &Rc<NBTBase>, index: i32| -> f32 { list.list().tagAt(index).floatTag().m_floatValue.get() };
+
         self.m_motionX.set(double(&nbttaglist1, 0));
         self.m_motionY.set(double(&nbttaglist1, 1));
         self.m_motionZ.set(double(&nbttaglist1, 2));
+
         if self.m_motionX.get().abs() > 10.0
         {
             self.m_motionX.set(0.0);
         }
+
         if self.m_motionY.get().abs() > 10.0
         {
             self.m_motionY.set(0.0);
         }
+
         if self.m_motionZ.get().abs() > 10.0
         {
             self.m_motionZ.set(0.0);
@@ -61,17 +67,21 @@ impl Entity
         self.m_posX.set(x);
         self.m_lastTickPosX.set(x);
         self.m_prevPosX.set(x);
+
         let y: f64 = double(&nbttaglist, 1);
         self.m_posY.set(y);
         self.m_lastTickPosY.set(y);
         self.m_prevPosY.set(y);
+
         let z: f64 = double(&nbttaglist, 2);
         self.m_posZ.set(z);
         self.m_lastTickPosZ.set(z);
         self.m_prevPosZ.set(z);
+
         let yaw: f32 = float(&nbttaglist2, 0);
         self.m_rotationYaw.set(yaw);
         self.m_prevRotationYaw.set(yaw);
+
         let pitch: f32 = float(&nbttaglist2, 1);
         self.m_rotationPitch.set(pitch);
         self.m_prevRotationPitch.set(pitch);
@@ -89,20 +99,24 @@ impl Entity
     pub fn newDoubleNBTList(&self, values: &[f64]) -> Rc<NBTBase>
     {
         let nbttaglist: Rc<NBTBase> = NBTTagList::create();
+
         for &d0 in values
         {
             nbttaglist.list().setTag(NBTTagDouble::create(d0));
         }
+
         nbttaglist
     }
 
     pub fn newFloatNBTList(&self, values: &[f32]) -> Rc<NBTBase>
     {
         let nbttaglist: Rc<NBTBase> = NBTTagList::create();
+
         for &f in values
         {
             nbttaglist.list().setTag(NBTTagFloat::create(f));
         }
+
         nbttaglist
     }
 }

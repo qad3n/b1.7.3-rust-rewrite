@@ -7,7 +7,7 @@ use std::panic::{self, AssertUnwindSafe};
 pub struct ThrowableClass
 {
     pub m_name: &'static str,
-    pub m_parent: Option<&'static ThrowableClass>,
+    pub m_parent: Option<&'static Self>,
 }
 
 pub static THROWABLE: ThrowableClass = ThrowableClass { m_name: "java.lang.Throwable", m_parent: None };
@@ -60,7 +60,8 @@ const GAME_SOURCES: [&str; 2] = ["crates/", "vendor/"];
 const THROW_SOURCE: &str = "crates/jvm/src/throwable.rs";
 const MAX_FRAMES: usize = 48;
 
-thread_local! {
+thread_local!
+{
     // the trace of the panic now unwinding, taken by whoever catches it
     static THROWN: RefCell<Option<Trace>> = const { RefCell::new(None) };
 }
@@ -81,6 +82,7 @@ impl Trace
         let text: String = self.m_frames.to_string();
         let mut frames: Vec<String> = Vec::new();
         let mut name: &str = "";
+
         for line in text.lines().map(str::trim)
         {
             let Some(location) = line.strip_prefix("at ")
@@ -96,6 +98,7 @@ impl Trace
                 frames.push(format!("{name} ({source})"));
             }
         }
+
         frames.truncate(MAX_FRAMES);
         frames
     }
@@ -134,8 +137,10 @@ impl Throwable
             {
                 return true;
             }
+
             current = candidate.m_parent;
         }
+
         false
     }
 
@@ -149,6 +154,7 @@ impl Throwable
     pub fn stackTrace(&self) -> String
     {
         let mut text: String = format!("{self}\n");
+
         let Some(trace) = &self.m_trace
         else
         {
@@ -156,20 +162,24 @@ impl Throwable
         };
 
         text += &format!("\tthrown at {}\n", relative(&trace.m_location));
+
         for frame in trace.frames()
         {
             text += &format!("\tat {frame}\n");
         }
+
         if trace.m_context.is_empty()
         {
             return text;
         }
 
         text += "while\n";
+
         for context in &trace.m_context
         {
             text += &format!("\t{context}\n");
         }
+
         text
     }
 }
@@ -230,6 +240,7 @@ pub fn catchThrowable<R>(class: &ThrowableClass, body: impl FnOnce() -> R) -> Re
     match panic::catch_unwind(AssertUnwindSafe(body))
     {
         Ok(value) => Ok(value),
+
         Err(payload) =>
         {
             let throwable: Throwable = fromPayload(payload);
@@ -237,6 +248,7 @@ pub fn catchThrowable<R>(class: &ThrowableClass, body: impl FnOnce() -> R) -> Re
             {
                 return Err(throwable);
             }
+
             rethrow(throwable)
         }
     }
@@ -250,18 +262,22 @@ pub fn fromPayload(payload: Box<dyn Any + Send>) -> Throwable
         Ok(throwable) => *throwable,
         Err(other) => fromRustPanic(panicText(other.as_ref()).unwrap_or_default()),
     };
+
     let thrown: Option<Trace> = THROWN.with(RefCell::take);
+
     if throwable.m_trace.is_none()
     {
         throwable.m_trace = thrown.map(Box::new);
     }
+
     throwable
 }
 
 // records what unwinding code was doing, call from a drop guard while std::thread::panicking
 pub fn noteUnwind(context: impl FnOnce() -> String)
 {
-    THROWN.with(|slot| {
+    THROWN.with(|slot|
+    {
         if let Ok(mut thrown) = slot.try_borrow_mut()
             && let Some(trace) = thrown.as_mut()
         {
@@ -283,6 +299,7 @@ fn panicText(payload: &(dyn Any + Send)) -> Option<&str>
 fn fromRustPanic(text: &str) -> Throwable
 {
     const INDEX_PREFIX: &str = "index out of bounds: the len is ";
+
     if let Some(rest) = text.strip_prefix(INDEX_PREFIX)
     {
         let index: &str = rest.rsplit(' ').next().unwrap_or_default();
@@ -323,15 +340,20 @@ pub(crate) fn standsForJava(payload: &(dyn Any + Send)) -> bool
 pub fn installHook()
 {
     let previous = panic::take_hook();
-    panic::set_hook(Box::new(move |info| {
+
+    panic::set_hook(Box::new(move |info|
+    {
         let location: String = info.location().map_or_else(String::new, ToString::to_string);
         let trace: Trace = Trace { m_location: location, m_frames: Backtrace::force_capture(), m_context: Vec::new() };
-        THROWN.with(|slot| {
+
+        THROWN.with(|slot|
+        {
             if let Ok(mut thrown) = slot.try_borrow_mut()
             {
                 *thrown = Some(trace);
             }
         });
+
         if !standsForJava(info.payload())
         {
             previous(info);

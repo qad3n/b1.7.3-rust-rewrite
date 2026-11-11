@@ -8,10 +8,10 @@ pub struct WorldGenTaiga2;
 
 impl WorldGenTaiga2
 {
-    pub fn new() -> WorldGenTaiga2 { WorldGenTaiga2 }
+    pub fn new() -> Self { Self }
 }
 
-pub(super) fn canGrowSpruce(world: &Rc<World>, x: i32, y: i32, z: i32, height: i32, trunk: i32, radius: i32) -> bool
+pub(crate) fn canGrowSpruce(world: &Rc<World>, x: i32, y: i32, z: i32, height: i32, trunk: i32, radius: i32) -> bool
 {
     let mut bl: bool = true;
     let mut n7: i32 = y;
@@ -38,10 +38,13 @@ pub(super) fn canGrowSpruce(world: &Rc<World>, x: i32, y: i32, z: i32, height: i
                 }
                 n4 += 1;
             }
+
             n5 += 1;
         }
+
         n7 += 1;
     }
+
     bl
 }
 
@@ -53,6 +56,7 @@ impl WorldGenerator for WorldGenTaiga2
         let n9: i32 = 1 + random.nextIntBounded(2);
         let n10: i32 = n8 - n9;
         let n11: i32 = 2 + random.nextIntBounded(2);
+
         if y < 1 || y + n8 + 1 > 128
         {
             return false;
@@ -66,16 +70,21 @@ impl WorldGenerator for WorldGenTaiga2
         {
             return false;
         }
+
         world.setBlock(x, y - 1, z, Block::DIRT);
+
         let mut n6: i32 = random.nextIntBounded(2);
         let mut n5: i32 = 1;
         let mut n4: i32 = 0;
+
         for n3 in 0..=n10
         {
             let n2: i32 = y + n8 - n3;
+
             for n in x - n6..=x + n6
             {
                 let n12: i32 = n - x;
+
                 for i in z - n6..=z + n6
                 {
                     let n13: i32 = i - z;
@@ -84,9 +93,11 @@ impl WorldGenerator for WorldGenTaiga2
                     {
                         continue;
                     }
+
                     world.setBlockAndMetadata(n, n2, i, Block::LEAVES, 1);
                 }
             }
+
             if n6 >= n5
             {
                 n6 = n4;
@@ -96,11 +107,14 @@ impl WorldGenerator for WorldGenTaiga2
                 {
                     continue;
                 }
+
                 n5 = n11;
                 continue;
             }
+
             n6 += 1;
         }
+
         let n3: i32 = random.nextIntBounded(3);
         for n2 in 0..n8 - n3
         {
@@ -109,8 +123,10 @@ impl WorldGenerator for WorldGenTaiga2
             {
                 continue;
             }
+
             world.setBlockAndMetadata(x, y + n2, z, Block::WOOD, 1);
         }
+
         true
     }
 }

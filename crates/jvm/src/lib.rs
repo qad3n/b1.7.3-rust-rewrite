@@ -29,8 +29,10 @@ mod unicode_data;
 pub mod zip;
 
 #[macro_export]
-macro_rules! pending {
-    ($what:expr) => {
+macro_rules! pending
+{
+    ($what:expr) =>
+    {
         panic!("not ported yet: {}", $what)
     };
 }

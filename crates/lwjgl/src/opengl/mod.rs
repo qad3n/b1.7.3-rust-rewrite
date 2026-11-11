@@ -14,15 +14,18 @@ use std::cell::RefCell;
 use std::rc::Rc;
 pub use texture_scale::TextureScale;
 
-thread_local! {
+thread_local!
+{
     static GL: RefCell<Option<Rc<bindings::Gl>>> = const { RefCell::new(None) };
     static CAPABILITIES: RefCell<Option<Rc<ContextCapabilities>>> = const { RefCell::new(None) };
 }
 
 // SAFETY: the bindings were loaded from the current context and every pointer argument comes from a live
 // buffer of the size the call reads or writes, as lwjgl's own checks guarantee
-macro_rules! glCall {
-    ($function:ident($($argument:expr),* $(,)?)) => {
+macro_rules! glCall
+{
+    ($function:ident($($argument:expr),* $(,)?)) =>
+    {
         $crate::opengl::gl(|gl| unsafe { gl.$function($($argument),*) })
     };
 }
@@ -55,9 +58,12 @@ impl GLContext
     pub(crate) fn load(loader: impl FnMut(&'static str) -> *const std::ffi::c_void)
     {
         GL.with(|gl| *gl.borrow_mut() = Some(Rc::new(bindings::Gl::load_with(loader))));
+
         let extensions: String = GL11::glGetString(GL11::GL_EXTENSIONS).unwrap_or_default();
         let has = |name: &str| -> bool { extensions.split_ascii_whitespace().any(|extension| extension == name) };
-        let capabilities: ContextCapabilities = ContextCapabilities {
+
+        let capabilities: ContextCapabilities = ContextCapabilities
+        {
             GL_ARB_occlusion_query: has("GL_ARB_occlusion_query"),
             GL_ARB_vertex_buffer_object: has("GL_ARB_vertex_buffer_object"),
             GL_NV_fog_distance: has("GL_NV_fog_distance"),
@@ -73,7 +79,8 @@ impl GLContext
 
     pub fn getCapabilities() -> Rc<ContextCapabilities>
     {
-        CAPABILITIES.with(|current| current.borrow().clone()).unwrap_or_else(|| {
+        CAPABILITIES.with(|current| current.borrow().clone()).unwrap_or_else(||
+        {
             jvm::throwable::throw(&jvm::throwable::RUNTIME, "No OpenGL context found in the current thread.")
         })
     }

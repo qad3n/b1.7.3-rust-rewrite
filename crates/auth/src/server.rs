@@ -1,9 +1,11 @@
 use crate::suite::{self, CONTEXT, SUITE_VERSION, Suite};
 use crate::vault::{self, Account, Vault};
 use crate::{Keys, Message, Mode, canonical};
-use opaque_ke::{
+use opaque_ke::errors::ProtocolError;
+use opaque_ke::
+{
     CredentialFinalization, CredentialRequest, RegistrationRequest, RegistrationUpload, ServerLogin,
-    ServerLoginParameters, ServerRegistration,
+    ServerLoginParameters, ServerLoginStartResult, ServerRegistration,
 };
 use rand_core::OsRng;
 
@@ -54,16 +56,18 @@ pub struct Handshake
 impl Handshake
 {
     // op names always need an invite so nobody can register an op account before its owner does
-    pub fn join(vault: &Vault, name: &str, policy: Registration, op: bool) -> Result<(Handshake, Message), String>
+    pub fn join(vault: &Vault, name: &str, policy: Registration, op: bool) -> Result<(Self, Message), String>
     {
         let key: String = canonical(name).ok_or("Names may only use letters, digits and underscores (3 to 16)")?;
         let (mode, display, invite): (Mode, String, bool) = match vault.account(&key)
         {
             Some(account) => (Mode::Login, account.m_display.clone(), false),
+
             None if policy == Registration::Closed =>
             {
                 return Err(String::from("Registration is closed on this server"));
             }
+
             None => (Mode::Register, name.to_string(), policy == Registration::Invite || op),
         };
         let state: State = if mode == Mode::Login
@@ -74,14 +78,15 @@ impl Handshake
         {
             State::Register
         };
-        let handshake: Handshake =
-            Handshake { m_name: key, m_display: display, m_change: false, m_invite: invite, m_state: state };
+        let handshake: Self =
+            Self { m_name: key, m_display: display, m_change: false, m_invite: invite, m_state: state };
         Ok((handshake, Message::Start { mode, invite, key: vault.key() }))
     }
 
-    pub fn change(name: &str, display: &str) -> Handshake
+    pub fn change(name: &str, display: &str) -> Self
     {
-        Handshake {
+        Self
+        {
             m_name: name.to_string(),
             m_display: display.to_string(),
             m_change: true,
@@ -100,10 +105,12 @@ impl Handshake
         match (state, message)
         {
             (State::Register, Message::RegisterRequest { invite, request }) => self.request(vault, invite, &request),
+
             (State::Verified, Message::RegisterRequest { request, .. }) if self.m_change =>
             {
                 self.request(vault, String::new(), &request)
             }
+
             (State::Upload { invite }, Message::RegisterUpload(body)) => self.upload(vault, &invite, &body),
             (State::Login, Message::Ke1(body)) => self.ke1(vault, &body),
             (State::Verify(login), Message::Ke3(body)) => self.ke3(*login, &body),
@@ -134,6 +141,7 @@ impl Handshake
                 self.m_state = State::Upload { invite };
                 Outcome::Send(Message::RegisterResponse(result.message.serialize().to_vec()))
             }
+
             Err(_) => Outcome::Refuse(String::from(PROTOCOL_ERROR)),
         }
     }
@@ -159,7 +167,9 @@ impl Handshake
         }
 
         let created: u64 = vault.account(&self.m_name).map_or_else(vault::unixNow, |account| account.m_created);
-        let account: Account = Account {
+
+        let account: Account = Account
+        {
             m_display: self.m_display.clone(),
             m_suite: SUITE_VERSION,
             m_record: ServerRegistration::<Suite>::finish(upload).serialize().to_vec(),
@@ -174,6 +184,7 @@ impl Handshake
         {
             return Outcome::Changed;
         }
+
         self.m_state = State::Login;
         Outcome::Wait
     }
@@ -183,13 +194,14 @@ impl Handshake
         let record: Option<ServerRegistration<Suite>> = vault
             .account(&self.m_name)
             .and_then(|account| ServerRegistration::<Suite>::deserialize(&account.m_record).ok());
+
         let (Some(record), Ok(request)) = (record, CredentialRequest::<Suite>::deserialize(body))
         else
         {
             return Outcome::Refuse(String::from(PROTOCOL_ERROR));
         };
 
-        let started = ServerLogin::start(
+        let started: Result<ServerLoginStartResult<Suite>, ProtocolError> = ServerLogin::start(
             &mut OsRng,
             vault.setup(),
             Some(record),
@@ -197,6 +209,7 @@ impl Handshake
             self.m_name.as_bytes(),
             self.parameters(),
         );
+
         match started
         {
             Ok(result) =>
@@ -204,6 +217,7 @@ impl Handshake
                 self.m_state = State::Verify(Box::new(result.state));
                 Outcome::Send(Message::Ke2(result.message.serialize().to_vec()))
             }
+
             Err(_) => Outcome::Refuse(String::from(PROTOCOL_ERROR)),
         }
     }
@@ -223,6 +237,7 @@ impl Handshake
                 self.m_state = State::Verified;
                 Outcome::Wait
             }
+
             Ok(result) => Outcome::Authed(Keys::derive(&result.session_key, true)),
             Err(_) => Outcome::Fail(String::from("Wrong password")),
         }

@@ -3,7 +3,7 @@ use game::loot::{LootEntry, LootTable};
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{LootEntrySpec, LootSpec};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::BTreeMap;
 
 struct Merged
@@ -12,7 +12,8 @@ struct Merged
     m_entries: Vec<LootEntrySpec>,
 }
 
-thread_local! {
+thread_local!
+{
     // every mod's loot for one block or entity merged in load order, a replace drops what came before
     static LOOT: RefCell<BTreeMap<(RegistryKind, Identifier), Merged>> = const { RefCell::new(BTreeMap::new()) };
 }
@@ -24,17 +25,21 @@ pub fn add(registry: RegistryKind, target: Identifier, spec: LootSpec) -> Result
         return Err("loot is for blocks and entities".to_owned());
     }
 
-    LOOT.with(|loot| {
-        let mut loot = loot.borrow_mut();
+    LOOT.with(|loot|
+    {
+        let mut loot: RefMut<BTreeMap<(RegistryKind, Identifier), Merged>> = loot.borrow_mut();
         let merged: &mut Merged =
             loot.entry((registry, target)).or_insert_with(|| Merged { m_keepBeta: true, m_entries: Vec::new() });
+
         if spec.replace
         {
             merged.m_keepBeta = false;
             merged.m_entries.clear();
         }
+
         merged.m_entries.extend(spec.entries);
     });
+
     Ok(())
 }
 
@@ -42,12 +47,17 @@ pub fn add(registry: RegistryKind, target: Identifier, spec: LootSpec) -> Result
 pub fn push(report: bool)
 {
     game::loot::clear();
+
     let mut problems: Vec<String> = Vec::new();
-    LOOT.with(|loot| {
-        crate::registry::with(|registries| {
+
+    LOOT.with(|loot|
+    {
+        crate::registry::with(|registries|
+        {
             for ((registry, target), merged) in loot.borrow().iter()
             {
-                let table: LootTable = LootTable {
+                let table: LootTable = LootTable
+                {
                     m_keepBeta: merged.m_keepBeta,
                     m_entries: merged
                         .m_entries
@@ -55,6 +65,7 @@ pub fn push(report: bool)
                         .filter_map(|entry| resolve(registries, entry, &mut problems))
                         .collect(),
                 };
+
                 match registry
                 {
                     RegistryKind::Block => match registries.m_blocks.numeric(target)
@@ -62,6 +73,7 @@ pub fn push(report: bool)
                         Some(block) => game::loot::setBlock(block, table),
                         None => problems.push(format!("loot for block {target}, which is not registered")),
                     },
+
                     _ => match registries.m_entities.get(target)
                     {
                         Some(row) => game::loot::setEntity(&row.m_value.m_saveKey, table),
@@ -71,6 +83,7 @@ pub fn push(report: bool)
             }
         })
     });
+
     if !report
     {
         return;
@@ -91,7 +104,8 @@ fn resolve(registries: &Registries, entry: &LootEntrySpec, problems: &mut Vec<St
         return None;
     };
 
-    Some(LootEntry {
+    Some(LootEntry
+    {
         m_item: item,
         m_meta: entry.meta,
         m_min: entry.count,

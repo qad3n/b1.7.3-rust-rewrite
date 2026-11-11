@@ -25,9 +25,10 @@ pub struct ModelBiped
 
 impl ModelBiped
 {
-    pub fn new(reduction: f32, pivotPoint: f32) -> ModelBiped
+    pub fn new(reduction: f32, pivotPoint: f32) -> Self
     {
-        ModelBiped {
+        Self
+        {
             m_base: ModelBaseFields::default(),
             m_bipedCloak: ModelRenderer::new(0, 0).withBox(-5.0, 0.0, -1.0, 10, 16, 1, reduction),
             m_bipedEars: ModelRenderer::new(24, 0).withBox(-3.0, -6.0, -1.0, 6, 6, 1, reduction),
@@ -101,6 +102,7 @@ impl ModelBiped
         let leftArm: &ModelRenderer = &self.m_bipedLeftArm;
         let rightLeg: &ModelRenderer = &self.m_bipedRightLeg;
         let leftLeg: &ModelRenderer = &self.m_bipedLeftLeg;
+
         head.m_rotateAngleY.set(yaw / DEGREES_PER_RADIAN);
         head.m_rotateAngleX.set(pitch / DEGREES_PER_RADIAN);
         self.m_bipedHeadwear.m_rotateAngleY.set(head.m_rotateAngleY.get());
@@ -113,6 +115,7 @@ impl ModelBiped
         leftLeg.m_rotateAngleX.set(math_helper::cos(walk * 0.6662 + PI) * 1.4 * walkSpeed);
         rightLeg.m_rotateAngleY.set(0.0);
         leftLeg.m_rotateAngleY.set(0.0);
+
         if self.m_base.m_isRiding.get()
         {
             rightArm.m_rotateAngleX.set(rightArm.m_rotateAngleX.get() + (-std::f64::consts::PI / 5.0) as f32);
@@ -122,21 +125,26 @@ impl ModelBiped
             rightLeg.m_rotateAngleY.set((std::f64::consts::PI / 10.0) as f32);
             leftLeg.m_rotateAngleY.set((-std::f64::consts::PI / 10.0) as f32);
         }
+
         if self.m_itemInLeftHand.get()
         {
             leftArm.m_rotateAngleX.set(leftArm.m_rotateAngleX.get() * 0.5 - (std::f64::consts::PI / 10.0) as f32);
         }
+
         if self.m_itemInRightHand.get()
         {
             rightArm.m_rotateAngleX.set(rightArm.m_rotateAngleX.get() * 0.5 - (std::f64::consts::PI / 10.0) as f32);
         }
+
         rightArm.m_rotateAngleY.set(0.0);
         leftArm.m_rotateAngleY.set(0.0);
+
         let onGround: f32 = self.m_base.m_onGround.get();
         if onGround > NO_SWING
         {
             let mut f: f32 = onGround;
             body.m_rotateAngleY.set(math_helper::sin(math_helper::sqrt_float(f) * PI * 2.0) * 0.2);
+
             let bodyYaw: f32 = body.m_rotateAngleY.get();
             rightArm.m_rotationPointZ.set(math_helper::sin(bodyYaw) * 5.0);
             rightArm.m_rotationPointX.set(-math_helper::cos(bodyYaw) * 5.0);
@@ -155,6 +163,7 @@ impl ModelBiped
             rightArm.m_rotateAngleY.set(rightArm.m_rotateAngleY.get() + bodyYaw * 2.0);
             rightArm.m_rotateAngleZ.set(math_helper::sin(onGround * PI) * -0.4);
         }
+
         if self.m_isSneak.get()
         {
             body.m_rotateAngleX.set(0.5);
@@ -184,6 +193,7 @@ impl ModelBiped
     {
         let rightArm: &ModelRenderer = &self.m_bipedRightArm;
         let leftArm: &ModelRenderer = &self.m_bipedLeftArm;
+
         rightArm.m_rotateAngleZ.set(rightArm.m_rotateAngleZ.get() + (math_helper::cos(bob * 0.09) * 0.05 + 0.05));
         leftArm.m_rotateAngleZ.set(leftArm.m_rotateAngleZ.get() - (math_helper::cos(bob * 0.09) * 0.05 + 0.05));
         rightArm.m_rotateAngleX.set(rightArm.m_rotateAngleX.get() + math_helper::sin(bob * 0.067) * 0.05);

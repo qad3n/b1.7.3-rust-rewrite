@@ -5,10 +5,11 @@ use common::world::NibbleArray;
 use jvm::throwable::OrNpe;
 use std::rc::Rc;
 
-pub fn generateHeightMap(this: &Rc<Chunk>)
+pub(crate) fn generateHeightMap(this: &Rc<Chunk>)
 {
     let top: i32 = this.height() - 1;
     let mut i: i32 = top;
+
     for j in 0..16
     {
         for k in 0..16
@@ -19,23 +20,27 @@ pub fn generateHeightMap(this: &Rc<Chunk>)
             {
                 l -= 1;
             }
+
             this.m_heightMap.update(|map| map[(k << 4 | j) as usize] = l as i16);
+
             if l < i
             {
                 i = l;
             }
         }
     }
+
     this.m_lowestBlockHeight.set(i);
     this.m_isModified.set(true);
 }
 
-pub fn populateHeightMap(this: &Rc<Chunk>)
+pub(crate) fn populateHeightMap(this: &Rc<Chunk>)
 {
     let top: i32 = this.height() - 1;
     let mut lowestBlockHeight: i32 = top;
     let hasNoSky: bool = this.world().worldProvider().m_hasNoSky.get();
     let skylight: Rc<NibbleArray> = this.skylight();
+
     for i in 0..16
     {
         for j in 0..16
@@ -46,15 +51,19 @@ pub fn populateHeightMap(this: &Rc<Chunk>)
             {
                 n -= 1;
             }
+
             this.m_heightMap.update(|map| map[(j << 4 | i) as usize] = n as i16);
+
             if n < lowestBlockHeight
             {
                 lowestBlockHeight = n;
             }
+
             if !hasNoSky
             {
                 let mut value: i32 = 15;
                 let mut y: i32 = top;
+
                 loop
                 {
                     value -= Block::lightOpacity(this.blockAt(n2 + y));
@@ -62,6 +71,7 @@ pub fn populateHeightMap(this: &Rc<Chunk>)
                     {
                         skylight.setNibble(i, y, j, value);
                     }
+
                     y -= 1;
                     if !(y > 0 && value > 0)
                     {
@@ -71,7 +81,9 @@ pub fn populateHeightMap(this: &Rc<Chunk>)
             }
         }
     }
+
     this.m_lowestBlockHeight.set(lowestBlockHeight);
+
     for k in 0..16
     {
         for l in 0..16
@@ -79,6 +91,7 @@ pub fn populateHeightMap(this: &Rc<Chunk>)
             lightGaps(this, k, l);
         }
     }
+
     this.m_isModified.set(true);
 }
 
@@ -114,15 +127,18 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
     let world: Rc<World> = this.world();
     let i: i32 = this.heightAt(localZ << 4 | localX);
     let mut j: i32 = i;
+
     if y > i
     {
         j = y;
     }
+
     let k: i32 = this.index(localX, 0, localZ);
     while j > 0 && Block::lightOpacity(this.blockAt(k + j - 1)) == 0
     {
         j -= 1;
     }
+
     if j == i
     {
         return;
@@ -130,6 +146,7 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
 
     world.markBlocksDirtyVertical(localX, localZ, j, i);
     this.m_heightMap.update(|map| map[(localZ << 4 | localX) as usize] = j as i16);
+
     if j < this.m_lowestBlockHeight.get()
     {
         this.m_lowestBlockHeight.set(j);
@@ -137,6 +154,7 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
     else
     {
         let mut l: i32 = this.height() - 1;
+
         for i1 in 0..16
         {
             for j1 in 0..16
@@ -147,12 +165,14 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
                 }
             }
         }
+
         this.m_lowestBlockHeight.set(l);
     }
 
     let skylight: Rc<NibbleArray> = this.skylight();
     let i2: i32 = this.m_xPosition * 16 + localX;
     let j2: i32 = this.m_zPosition * 16 + localZ;
+
     if j < i
     {
         for k2 in j..i
@@ -163,6 +183,7 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
     else
     {
         world.scheduleLightingUpdate(EnumSkyBlock::Sky, i2, i, j2, i2, j, j2);
+
         for l2 in i..j
         {
             skylight.setNibble(localX, l2, localZ, 0);
@@ -171,6 +192,7 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
 
     let mut i3: i32 = 15;
     let k1: i32 = j;
+
     while j > 0 && i3 > 0
     {
         j -= 1;
@@ -179,25 +201,37 @@ fn updateHeightMap(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32)
         {
             l1 = 1;
         }
+
         i3 -= l1;
         if i3 < 0
         {
             i3 = 0;
         }
+
         skylight.setNibble(localX, j, localZ, i3);
     }
+
     while j > 0 && Block::lightOpacity(this.getBlockID(localX, j - 1, localZ)) == 0
     {
         j -= 1;
     }
+
     if j != k1
     {
         world.scheduleLightingUpdate(EnumSkyBlock::Sky, i2 - 1, j, j2 - 1, i2 + 1, k1, j2 + 1);
     }
+
     this.m_isModified.set(true);
 }
 
-pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32, metadata: i32) -> bool
+pub(crate) fn setBlockIDWithMetadata(
+    this: &Rc<Chunk>,
+    localX: i32,
+    y: i32,
+    localZ: i32,
+    block: i32,
+    metadata: i32,
+) -> bool
 {
     let b0: i8 = block as i8;
     let i: i32 = this.heightAt(localZ << 4 | localX);
@@ -211,14 +245,18 @@ pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32
     let world: Rc<World> = this.world();
     let k: i32 = this.m_xPosition * 16 + localX;
     let l: i32 = this.m_zPosition * 16 + localZ;
+
     this.m_blocks.update(|blocks| blocks[index as usize] = (b0 as i32 & 0xFF) as i8);
     // ids above 255 keep their high bits in the Add nibbles
     this.setBlockHigh(index, block);
+
     if j != 0 && !world.m_multiplayerWorld.get()
     {
         Block::byId(j).orNpe().onBlockRemoval(&world, k, y, l);
     }
+
     this.data().setNibble(localX, y, localZ, metadata);
+
     if !world.worldProvider().m_hasNoSky.get()
     {
         if Block::lightOpacity(b0 as i32 & 0xFF) != 0
@@ -234,18 +272,21 @@ pub fn setBlockIDWithMetadata(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32
         }
         world.scheduleLightingUpdate(EnumSkyBlock::Sky, k, y, l, k, y, l);
     }
+
     world.scheduleLightingUpdate(EnumSkyBlock::Block, k, y, l, k, y, l);
     lightGaps(this, localX, localZ);
     this.data().setNibble(localX, y, localZ, metadata);
+
     if block != 0
     {
         Block::byId(block).orNpe().onBlockAdded(&world, k, y, l);
     }
+
     this.m_isModified.set(true);
     true
 }
 
-pub fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32) -> bool
+pub(crate) fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32) -> bool
 {
     let b0: i8 = block as i8;
     let i: i32 = this.heightAt(localZ << 4 | localX);
@@ -259,14 +300,18 @@ pub fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32
     let world: Rc<World> = this.world();
     let k: i32 = this.m_xPosition * 16 + localX;
     let l: i32 = this.m_zPosition * 16 + localZ;
+
     this.m_blocks.update(|blocks| blocks[index as usize] = (b0 as i32 & 0xFF) as i8);
     // ids above 255 keep their high bits in the Add nibbles
     this.setBlockHigh(index, block);
+
     if j != 0
     {
         Block::byId(j).orNpe().onBlockRemoval(&world, k, y, l);
     }
+
     this.data().setNibble(localX, y, localZ, 0);
+
     if Block::lightOpacity(b0 as i32 & 0xFF) != 0
     {
         if y >= i
@@ -281,15 +326,17 @@ pub fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, block: i32
     world.scheduleLightingUpdate(EnumSkyBlock::Sky, k, y, l, k, y, l);
     world.scheduleLightingUpdate(EnumSkyBlock::Block, k, y, l, k, y, l);
     lightGaps(this, localX, localZ);
+
     if block != 0 && !world.m_multiplayerWorld.get()
     {
         Block::byId(block).orNpe().onBlockAdded(&world, k, y, l);
     }
+
     this.m_isModified.set(true);
     true
 }
 
-pub fn getSavedLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: i32, localZ: i32) -> i32
+pub(crate) fn getSavedLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: i32, localZ: i32) -> i32
 {
     match kind
     {
@@ -298,9 +345,10 @@ pub fn getSavedLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: 
     }
 }
 
-pub fn setLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: i32, localZ: i32, light: i32)
+pub(crate) fn setLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: i32, localZ: i32, light: i32)
 {
     this.m_isModified.set(true);
+
     match kind
     {
         EnumSkyBlock::Sky => this.skylight().setNibble(localX, y, localZ, light),
@@ -308,23 +356,26 @@ pub fn setLightValue(this: &Rc<Chunk>, kind: EnumSkyBlock, localX: i32, y: i32, 
     }
 }
 
-pub fn getBlockLightValue(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, ambientDarkness: i32) -> i32
+pub(crate) fn getBlockLightValue(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, ambientDarkness: i32) -> i32
 {
     let mut i: i32 = this.skyAt(localX, y, localZ);
     if i > 0
     {
         IS_LIT.with(|lit| lit.set(true));
     }
+
     i -= ambientDarkness;
+
     let j: i32 = this.blockLightAt(localX, y, localZ);
     if j > i
     {
         i = j;
     }
+
     i
 }
 
-pub fn setChunkData(
+pub(crate) fn setChunkData(
     this: &Rc<Chunk>,
     data: &[i8],
     minX: i32,
@@ -337,19 +388,24 @@ pub fn setChunkData(
 ) -> i32
 {
     let mut size: i32 = size;
+
     for i in minX..maxX
     {
         for j in minZ..maxZ
         {
             let k: i32 = this.index(i, minY, j);
             let l: i32 = maxY - minY;
-            this.m_blocks.update(|blocks| {
+
+            this.m_blocks.update(|blocks|
+            {
                 blocks[k as usize..(k + l) as usize].copy_from_slice(&data[size as usize..(size + l) as usize])
             });
+
             this.clearHigh(k, l);
             size += l;
         }
     }
+
     this.generateHeightMap();
 
     for target in [this.data(), this.blocklight(), this.skylight()]
@@ -360,17 +416,21 @@ pub fn setChunkData(
             {
                 let k2: i32 = this.index(i1, minY, l1) >> 1;
                 let j3: i32 = (maxY - minY) / 2;
-                target.m_data.update(|nibbles| {
+
+                target.m_data.update(|nibbles|
+                {
                     nibbles[k2 as usize..(k2 + j3) as usize].copy_from_slice(&data[size as usize..(size + j3) as usize])
                 });
+
                 size += j3;
             }
         }
     }
+
     size
 }
 
-pub fn getChunkData(
+pub(crate) fn getChunkData(
     this: &Rc<Chunk>,
     data: &mut [i8],
     minX: i32,
@@ -390,25 +450,32 @@ pub fn getChunkData(
     {
         this.m_blocks.with(|blocks| data[size as usize..size as usize + blocks.len()].copy_from_slice(blocks));
         size += this.m_blocks.with(|blocks| blocks.len() as i32);
+
         for source in [this.data(), this.blocklight(), this.skylight()]
         {
             source.m_data.with(|nibbles| data[size as usize..size as usize + nibbles.len()].copy_from_slice(nibbles));
             size += source.m_data.with(|nibbles| nibbles.len() as i32);
         }
+
         return size;
     }
+
     for l in minX..maxX
     {
         for i1 in minZ..maxZ
         {
             let j1: i32 = this.index(l, minY, i1);
             let k1: i32 = maxY - minY;
-            this.m_blocks.with(|blocks| {
+
+            this.m_blocks.with(|blocks|
+            {
                 data[size as usize..(size + k1) as usize].copy_from_slice(&blocks[j1 as usize..(j1 + k1) as usize])
             });
+
             size += k1;
         }
     }
+
     for source in [this.data(), this.blocklight(), this.skylight()]
     {
         for l1 in minX..maxX
@@ -417,12 +484,16 @@ pub fn getChunkData(
             {
                 let j3: i32 = this.index(l1, minY, k2) >> 1;
                 let i4: i32 = (maxY - minY) / 2;
-                source.m_data.with(|nibbles| {
+
+                source.m_data.with(|nibbles|
+                {
                     data[size as usize..(size + i4) as usize].copy_from_slice(&nibbles[j3 as usize..(j3 + i4) as usize])
                 });
+
                 size += i4;
             }
         }
     }
+
     size
 }

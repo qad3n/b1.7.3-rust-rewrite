@@ -9,7 +9,7 @@ pub struct LWJGLException
 
 impl LWJGLException
 {
-    pub fn new(message: impl Into<String>) -> LWJGLException { LWJGLException { m_message: Some(message.into()) } }
+    pub fn new(message: impl Into<String>) -> Self { Self { m_message: Some(message.into()) } }
 
     pub fn getMessage(&self) -> Option<&str> { self.m_message.as_deref() }
 

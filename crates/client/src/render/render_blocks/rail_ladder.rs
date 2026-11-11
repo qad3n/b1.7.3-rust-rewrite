@@ -12,16 +12,20 @@ impl RenderBlocks
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let mut n: i32 = world.getBlockMetadata(x, y, z);
         let mut n2: i32 = block.getBlockTextureFromSideAndMetadata(0, n);
+
         if self.m_overrideBlockTexture >= 0
         {
             n2 = self.m_overrideBlockTexture;
         }
+
         if block_rail::getIsPowered(block)
         {
             n &= 7;
         }
+
         let f: f32 = block.getBlockBrightness(&*world, x, y, z);
         tessellator.setColorOpaque_F(f, f, f);
+
         let (n3, n4): (i32, i32) = spriteOrigin(n2);
         let d: f64 = (n3 as f32 / 256.0) as f64;
         let d2: f64 = ((n3 as f32 + 15.99) / 256.0) as f64;
@@ -35,6 +39,7 @@ impl RenderBlocks
         let mut f12: f32 = y as f32 + f2;
         let mut f13: f32 = y as f32 + f2;
         let mut f14: f32 = y as f32 + f2;
+
         if n == 1 || n == 2 || n == 3 || n == 7
         {
             (f3, f6, f4, f5) = (x1, x1, x0, x0);
@@ -50,6 +55,7 @@ impl RenderBlocks
             (f3, f6, f4, f5) = (x0, x0, x1, x1);
             (f7, f8, f9, f10) = (z0, z0, z1, z1);
         }
+
         if n == 2 || n == 4
         {
             f11 += 1.0;
@@ -78,12 +84,15 @@ impl RenderBlocks
         let world: Rc<dyn IBlockAccess> = self.world();
         let tessellator: Rc<Tessellator> = Tessellator::instance();
         let mut n: i32 = block.getBlockTextureFromSide(0);
+
         if self.m_overrideBlockTexture >= 0
         {
             n = self.m_overrideBlockTexture;
         }
+
         let f: f32 = block.getBlockBrightness(&*world, x, y, z);
         tessellator.setColorOpaque_F(f, f, f);
+
         let (n2, n3): (i32, i32) = spriteOrigin(n);
         let d: f64 = (n2 as f32 / 256.0) as f64;
         let d2: f64 = ((n2 as f32 + 15.99) / 256.0) as f64;
@@ -100,6 +109,7 @@ impl RenderBlocks
         let z1: f32 = (z + 1) as f32 + f2;
         let v =
             |x: f32, y: f32, z: f32, u: f64, w: f64| tessellator.addVertexWithUV(x as f64, y as f64, z as f64, u, w);
+
         if n4 == 5
         {
             let side: f32 = x as f32 + f3;
@@ -108,6 +118,7 @@ impl RenderBlocks
             v(side, y0, z0, d2, d4);
             v(side, y1, z0, d2, d3);
         }
+
         if n4 == 4
         {
             let side: f32 = (x + 1) as f32 - f3;
@@ -116,6 +127,7 @@ impl RenderBlocks
             v(side, y1, z0, d, d3);
             v(side, y0, z0, d, d4);
         }
+
         if n4 == 3
         {
             let side: f32 = z as f32 + f3;
@@ -124,6 +136,7 @@ impl RenderBlocks
             v(x0, y1, side, d, d3);
             v(x0, y0, side, d, d4);
         }
+
         if n4 == 2
         {
             let side: f32 = (z + 1) as f32 - f3;
@@ -132,6 +145,7 @@ impl RenderBlocks
             v(x0, y0, side, d2, d4);
             v(x0, y1, side, d2, d3);
         }
+
         true
     }
 }

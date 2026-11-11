@@ -9,25 +9,31 @@ use std::rc::Rc;
 fn onUpdate(this: &Rc<Entity>)
 {
     entity_fx::setPrevPosition(this);
+
     let fields: &FXFields = fx(this);
     this.m_motionY.set(this.m_motionY.get() - fields.m_particleGravity.get() as f64);
     entity_fx::moveByMotion(this);
     entity_fx::scaleMotion(this, 0.98f32 as f64);
+
     let maxAge: i32 = fields.m_particleMaxAge.get();
     fields.m_particleMaxAge.set(maxAge - 1);
+
     if maxAge <= 0
     {
         this.setEntityDead();
     }
+
     if this.m_onGround.get()
     {
         if math::random() < 0.5
         {
             this.setEntityDead();
         }
+
         this.m_motionX.set(this.m_motionX.get() * 0.7f32 as f64);
         this.m_motionZ.set(this.m_motionZ.get() * 0.7f32 as f64);
     }
+
     let world: Rc<World> = this.world();
     let x: i32 = floor_double(this.posX());
     let y: i32 = floor_double(this.posY());
@@ -43,10 +49,12 @@ fn onUpdate(this: &Rc<Entity>)
     }
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityRainFX",
     m_parent: Some(&entity_fx::CLASS),
-    renderParticle: |this, tessellator, tickDelta, dx, dy, dz, forwards, sideways| {
+    renderParticle: |this, tessellator, tickDelta, dx, dy, dz, forwards, sideways|
+    {
         (entity_fx::CLASS.renderParticle)(this, tessellator, tickDelta, dx, dy, dz, forwards, sideways)
     },
     onUpdate,
@@ -59,6 +67,7 @@ pub fn construct(class: &'static EntityClass, world: &Rc<World>, x: f64, y: f64,
     this.m_motionX.set(this.m_motionX.get() * 0.3f32 as f64);
     this.m_motionY.set((math::random() as f32 * 0.2 + 0.1) as f64);
     this.m_motionZ.set(this.m_motionZ.get() * 0.3f32 as f64);
+
     let fields: &FXFields = fx(&this);
     fields.m_particleRed.set(1.0);
     fields.m_particleGreen.set(1.0);

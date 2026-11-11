@@ -10,9 +10,9 @@ pub struct Canvas
 
 impl Canvas
 {
-    pub fn new(preferredWidth: i32, preferredHeight: i32) -> Canvas
+    pub fn new(preferredWidth: i32, preferredHeight: i32) -> Self
     {
-        Canvas { m_preferredWidth: preferredWidth, m_preferredHeight: preferredHeight }
+        Self { m_preferredWidth: preferredWidth, m_preferredHeight: preferredHeight }
     }
 }
 

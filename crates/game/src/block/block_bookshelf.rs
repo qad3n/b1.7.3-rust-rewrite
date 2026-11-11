@@ -1,10 +1,12 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockBookshelf",
     m_parent: Some(&BLOCK),
-    getBlockTextureFromSide: |this, face| {
+    getBlockTextureFromSide: |this, face|
+    {
         if face <= 1
         {
             4

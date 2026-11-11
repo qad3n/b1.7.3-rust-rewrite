@@ -30,10 +30,12 @@ pub fn describe(event: &GameEvent<'_>) -> Option<String>
         }
 
         GameEvent::ItemUse { player, stack, .. } => format!("{} used {}", name(player), stackName(stack)),
+
         GameEvent::ItemUseOnBlock { world, player, stack, x, y, z, face } =>
         {
             format!("{} used {} on {} face {face}", name(player), stackName(stack), at(world, *x, *y, *z))
         }
+
         GameEvent::ItemDestroyed { player, stack } => format!("{} wore out {}", name(player), stackName(stack)),
         GameEvent::ItemPickup { player, stack, .. } => format!("{} picked up {}", name(player), stackName(stack)),
         GameEvent::ItemToss { player, stack } => format!("{} dropped {}", name(player), stackName(stack)),
@@ -41,6 +43,7 @@ pub fn describe(event: &GameEvent<'_>) -> Option<String>
         GameEvent::ItemSmelted { player, stack } => format!("{} took smelted {}", name(player), stackName(stack)),
         GameEvent::BucketFill { player, stack, .. } => format!("{} filled {}", name(player), stackName(stack)),
         GameEvent::EntityJoinWorld { entity, .. } => format!("{} spawned at {}", name(entity), position(entity)),
+
         GameEvent::LivingAttack { entity, damage, amount } =>
         {
             format!("{} attacked {} for {amount} by {}", actor(damage.m_attacker), name(entity), damage.m_kind.name())
@@ -94,9 +97,11 @@ fn position(entity: &Entity) -> String
 
 fn blockName(block: i32, meta: i32) -> String
 {
-    let id: String = registry::with(|registries| {
+    let id: String = registry::with(|registries|
+    {
         registries.m_blocks.byNumeric(block).map_or_else(|| format!("block {block}"), |row| row.m_id.to_string())
     });
+
     if meta == 0
     {
         id
@@ -116,7 +121,8 @@ fn stackName(stack: &ItemStack) -> String
     }
     else
     {
-        registry::with(|registries| {
+        registry::with(|registries|
+        {
             registries.m_items.byNumeric(item).map_or_else(|| format!("item {item}"), |row| row.m_id.to_string())
         })
     };

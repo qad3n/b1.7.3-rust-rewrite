@@ -71,6 +71,7 @@ fn arrayIndex(index: i32, length: usize) -> usize
     {
         jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, &index.to_string());
     }
+
     index as usize
 }
 
@@ -92,7 +93,7 @@ fn parseFloat(s: &str) -> f32
 
 impl GameSettings
 {
-    fn alloc(minecraft: Option<Rc<Minecraft>>, optionsFile: Option<PathBuf>) -> GameSettings
+    fn alloc(minecraft: Option<Rc<Minecraft>>, optionsFile: Option<PathBuf>) -> Self
     {
         let keyBindForward: Rc<KeyBinding> = KeyBinding::new("key.forward", 17);
         let keyBindLeft: Rc<KeyBinding> = KeyBinding::new("key.left", 30);
@@ -116,7 +117,9 @@ impl GameSettings
             Rc::clone(&keyBindChat),
             Rc::clone(&keyBindToggleFog),
         ];
-        GameSettings {
+
+        Self
+        {
             m_musicVolume: Cell::new(1.0),
             m_soundVolume: Cell::new(1.0),
             m_mouseSensitivity: Cell::new(0.5),
@@ -158,14 +161,14 @@ impl GameSettings
         }
     }
 
-    pub fn new(minecraft: Rc<Minecraft>, dir: &Path) -> Rc<GameSettings>
+    pub fn new(minecraft: Rc<Minecraft>, dir: &Path) -> Rc<Self>
     {
-        let settings: Rc<GameSettings> = Rc::new(GameSettings::alloc(Some(minecraft), Some(dir.join("options.txt"))));
+        let settings: Rc<Self> = Rc::new(Self::alloc(Some(minecraft), Some(dir.join("options.txt"))));
         settings.loadOptions();
         settings
     }
 
-    pub fn empty() -> Rc<GameSettings> { Rc::new(GameSettings::alloc(None, None)) }
+    pub fn empty() -> Rc<Self> { Rc::new(Self::alloc(None, None)) }
 
     fn mc(&self) -> Rc<Minecraft> { self.m_mc.get().orNpe() }
 
@@ -199,11 +202,13 @@ impl GameSettings
                 self.m_musicVolume.set(value);
                 self.mc().m_sndManager.get().orNpe().onSoundOptionsChanged();
             }
+
             EnumOptions::Sound =>
             {
                 self.m_soundVolume.set(value);
                 self.mc().m_sndManager.get().orNpe().onSoundOptionsChanged();
             }
+
             EnumOptions::Sensitivity => self.m_mouseSensitivity.set(value),
             _ =>
             {}
@@ -218,28 +223,34 @@ impl GameSettings
             EnumOptions::RenderDistance => self.m_renderDistance.set((self.m_renderDistance.get() + value) & 3),
             EnumOptions::GuiScale => self.m_guiScale.set((self.m_guiScale.get() + value) & 3),
             EnumOptions::ViewBobbing => self.m_viewBobbing.set(!self.m_viewBobbing.get()),
+
             EnumOptions::AdvancedOpengl =>
             {
                 self.m_advancedOpengl.set(!self.m_advancedOpengl.get());
                 self.mc().m_renderGlobal.get().orNpe().loadRenderers();
             }
+
             EnumOptions::Anaglyph =>
             {
                 self.m_anaglyph.set(!self.m_anaglyph.get());
                 self.mc().m_renderEngine.get().orNpe().refreshTextures();
             }
+
             EnumOptions::FramerateLimit => self.m_limitFramerate.set((self.m_limitFramerate.get() + value + 3) % 3),
             EnumOptions::Difficulty => self.m_difficulty.set((self.m_difficulty.get() + value) & 3),
+
             EnumOptions::Graphics =>
             {
                 self.m_fancyGraphics.set(!self.m_fancyGraphics.get());
                 self.mc().m_renderGlobal.get().orNpe().loadRenderers();
             }
+
             EnumOptions::AmbientOcclusion =>
             {
                 self.m_ambientOcclusion.set(!self.m_ambientOcclusion.get());
                 self.mc().m_renderGlobal.get().orNpe().loadRenderers();
             }
+
             EnumOptions::Vsync =>
             {
                 self.m_vsync.set(!self.m_vsync.get());
@@ -250,6 +261,7 @@ impl GameSettings
             _ =>
             {}
         }
+
         self.saveOptions();
     }
 
@@ -283,9 +295,11 @@ impl GameSettings
     {
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         let string: String = format!("{}: ", stringTranslate.translateKey(option.getEnumString()));
+
         if option.getEnumFloat()
         {
             let f: f32 = self.getOptionFloatValue(option);
+
             if option == EnumOptions::Sensitivity
             {
                 if f == 0.0
@@ -296,14 +310,18 @@ impl GameSettings
                 {
                     return string + &stringTranslate.translateKey("options.sensitivity.max");
                 }
+
                 return format!("{string}{}%", (f * 200.0) as i32);
             }
+
             if f == 0.0
             {
                 return string + &stringTranslate.translateKey("options.off");
             }
+
             return format!("{string}{}%", (f * 100.0) as i32);
         }
+
         if option.getEnumBoolean()
         {
             let key: &str = if self.getOptionOrdinalValue(option)
@@ -316,6 +334,7 @@ impl GameSettings
             };
             return string + &stringTranslate.translateKey(key);
         }
+
         match option
         {
             EnumOptions::RenderDistance =>
@@ -323,21 +342,25 @@ impl GameSettings
                 let index: usize = arrayIndex(self.m_renderDistance.get(), RENDER_DISTANCES.len());
                 string + &stringTranslate.translateKey(RENDER_DISTANCES[index])
             }
+
             EnumOptions::Difficulty =>
             {
                 let index: usize = arrayIndex(self.m_difficulty.get(), DIFFICULTIES.len());
                 string + &stringTranslate.translateKey(DIFFICULTIES[index])
             }
+
             EnumOptions::GuiScale =>
             {
                 let index: usize = arrayIndex(self.m_guiScale.get(), GUISCALES.len());
                 string + &stringTranslate.translateKey(GUISCALES[index])
             }
+
             EnumOptions::FramerateLimit =>
             {
                 let index: usize = arrayIndex(self.m_limitFramerate.get(), LIMIT_FRAMERATES.len());
                 string + &StatCollector::translateToLocal(LIMIT_FRAMERATES[index])
             }
+
             EnumOptions::Graphics =>
             {
                 let key: &str = if self.m_fancyGraphics.get()
@@ -350,6 +373,7 @@ impl GameSettings
                 };
                 string + &stringTranslate.translateKey(key)
             }
+
             _ => string,
         }
     }
@@ -358,7 +382,9 @@ impl GameSettings
     {
         // port split drops trailing empty parts like java String.split
         let astring: Vec<&str> = text::split(line, ':');
-        let value = |index: usize| -> &str {
+
+        let value = |index: usize| -> &str
+        {
             match astring.get(index)
             {
                 Some(part) => part,
@@ -387,6 +413,7 @@ impl GameSettings
             _ =>
             {}
         }
+
         for keyBinding in &self.m_keyBindings
         {
             if value(0) == format!("key_{}", keyBinding.m_keyDescription)
@@ -409,6 +436,7 @@ impl GameSettings
                 jvm::system::println(&format!("Skipping bad option: {s}"));
             }
         }
+
         Ok(())
     }
 
@@ -421,6 +449,7 @@ impl GameSettings
             self.saveOptions();
             return;
         }
+
         if let Err(exception) = self.readOptions(optionsFile)
         {
             jvm::system::println("Failed to load options");
@@ -449,10 +478,12 @@ impl GameSettings
             format!("skin:{}", self.m_skin.get()),
             format!("lastServer:{}", self.m_lastServer.get()),
         ];
+
         for keyBinding in &self.m_keyBindings
         {
             lines.push(format!("key_{}:{}", keyBinding.m_keyDescription, keyBinding.m_keyCode.get()));
         }
+
         lines.iter().map(|line| format!("{line}\n")).collect()
     }
 
@@ -465,6 +496,7 @@ impl GameSettings
             {
                 let _ = std::io::Write::write_all(&mut file, &JString::from(self.optionsText().as_str()).getBytes());
             }
+
             Err(error) =>
             {
                 jvm::system::println("Failed to save options");

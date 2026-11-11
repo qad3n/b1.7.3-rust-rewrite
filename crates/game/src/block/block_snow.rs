@@ -14,6 +14,7 @@ fn canPlaceBlockAt(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return false;
     }
+
     world.getBlockMaterial(x, y - 1, z).getIsSolid()
 }
 
@@ -37,10 +38,12 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
     crate::stats::named::count(player, ContentStat::Mined, this.m_blockID, 1);
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockSnow",
     m_parent: Some(&BLOCK),
-    getCollisionBoundingBoxFromPool: |this, world, x, y, z| {
+    getCollisionBoundingBoxFromPool: |this, world, x, y, z|
+    {
         let n: i32 = world.getBlockMetadata(x, y, z) & 7;
         if n >= 3
         {
@@ -53,17 +56,20 @@ pub const CLASS: BlockClass = BlockClass {
                 z as f64 + this.m_maxZ.get(),
             ));
         }
+
         None
     },
     isOpaqueCube: |_| false,
     renderAsNormalBlock: |_| false,
-    setBlockBoundsBasedOnState: |this, world, x, y, z| {
+    setBlockBoundsBasedOnState: |this, world, x, y, z|
+    {
         let n: i32 = world.getBlockMetadata(x, y, z) & 7;
         let f: f32 = (2 * (1 + n)) as f32 / 16.0;
         this.setBlockBounds(0.0, 0.0, 0.0, 1.0, f, 1.0);
     },
     canPlaceBlockAt,
-    onNeighborBlockChange: |this, world, x, y, z, _| {
+    onNeighborBlockChange: |this, world, x, y, z, _|
+    {
         if !this.canPlaceBlockAt(world, x, y, z)
         {
             this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
@@ -73,14 +79,17 @@ pub const CLASS: BlockClass = BlockClass {
     harvestBlock,
     idDropped: |_, _, _| Item::snowball().m_shiftedIndex,
     quantityDropped: |_, _| 0,
-    updateTick: |this, world, x, y, z, _| {
+    updateTick: |this, world, x, y, z, _|
+    {
         if world.getSavedLightValue(EnumSkyBlock::Block, x, y, z) > 11
         {
             this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
             world.setBlockWithNotify(x, y, z, 0);
         }
     },
-    shouldSideBeRendered: |this, world, x, y, z, face| {
+
+    shouldSideBeRendered: |this, world, x, y, z, face|
+    {
         face == 1 || (BLOCK.shouldSideBeRendered)(this, world, x, y, z, face)
     },
     ..BLOCK

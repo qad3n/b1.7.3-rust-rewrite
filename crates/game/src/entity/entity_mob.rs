@@ -42,44 +42,59 @@ fn getCanSpawnHere(this: &Rc<Entity>) -> bool
     {
         return false;
     }
+
     let mut l: i32 = world.getBlockLightValue(i, j, k);
+
     if world.isThundering()
     {
         let i1: i32 = world.m_skylightSubtracted.get();
+
         world.m_skylightSubtracted.set(10);
         l = world.getBlockLightValue(i, j, k);
         world.m_skylightSubtracted.set(i1);
     }
+
     l <= this.m_rand.nextIntBounded(8) && (entity_creature::CLASS.getCanSpawnHere)(this)
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityMob",
     m_parent: Some(&entity_creature::CLASS),
     m_interfaces: &["IMob", "IAnimals"],
-    onLivingUpdate: |this| {
+    onLivingUpdate: |this|
+    {
         let f: f32 = this.getEntityBrightness(1.0);
         if f > 0.5
         {
             let living: &entity_living::LivingFields = entity_living::fields(this);
             living.m_entityAge.set(living.m_entityAge.get() + 2);
         }
+
         (entity_creature::CLASS.onLivingUpdate)(this);
     },
-    onUpdate: |this| {
+
+    onUpdate: |this|
+    {
         (entity_creature::CLASS.onUpdate)(this);
+
         let world: Rc<World> = this.world();
         if !world.m_multiplayerWorld.get() && world.m_difficultySetting.get() == 0
         {
             this.setEntityDead();
         }
     },
-    findPlayerToAttack: |this| {
+
+    findPlayerToAttack: |this|
+    {
         let entityPlayer: Option<Rc<Entity>> = this.world().getClosestPlayerToEntity(this, 16.0);
         entityPlayer.filter(|player| entity_living::canEntityBeSeen(this, player))
     },
-    attackEntityFrom: |this, damage, amount| {
+
+    attackEntityFrom: |this, damage, amount|
+    {
         let source: Option<&Rc<Entity>> = damage.m_attacker;
+
         if (entity_creature::CLASS.attackEntityFrom)(this, damage, amount)
         {
             // java compares references here and either side may be null
@@ -88,15 +103,20 @@ pub const CLASS: EntityClass = EntityClass {
             {
                 return true;
             }
+
             if !source.is_some_and(|source| Rc::ptr_eq(source, this))
             {
                 entity_creature::fields(this).m_playerToAttack.set(source.cloned());
             }
+
             return true;
         }
+
         false
     },
-    attackEntity: |this, target, distance| {
+
+    attackEntity: |this, target, distance|
+    {
         let living: &entity_living::LivingFields = entity_living::fields(this);
         if living.m_attackTime.get() <= 0
             && distance < 2.0

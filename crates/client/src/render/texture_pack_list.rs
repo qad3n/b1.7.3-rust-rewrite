@@ -25,7 +25,7 @@ pub struct TexturePackList
 
 impl TexturePackList
 {
-    pub fn new(minecraft: &Rc<Minecraft>, gameDir: &Path) -> Rc<TexturePackList>
+    pub fn new(minecraft: &Rc<Minecraft>, gameDir: &Path) -> Rc<Self>
     {
         let defaultPack: Rc<dyn TexturePackBase> = Rc::new(TexturePackDefault::new());
         let texturePackDir: PathBuf = gameDir.join("texturepacks");
@@ -33,8 +33,11 @@ impl TexturePackList
         {
             file::mkdirs(&texturePackDir);
         }
+
         let settings: Rc<GameSettings> = minecraft.m_gameSettings.get().orNpe();
-        let list: Rc<TexturePackList> = Rc::new(TexturePackList {
+
+        let list: Rc<Self> = Rc::new(Self
+        {
             m_availableTexturePacks: RefCell::new(Vec::new()),
             m_defaultTexturePack: defaultPack,
             m_selectedTexturePack: Field::new(None),
@@ -58,10 +61,12 @@ impl TexturePackList
         {
             return false;
         }
+
         self.selected().closeTexturePackFile();
         self.m_currentTexturePack.set(pack.pack().m_texturePackFileName.get().orNpe());
         info!("Switching texture pack to {}", self.m_currentTexturePack.get());
         self.m_selectedTexturePack.set(Some(Rc::clone(pack)));
+
         let settings: Rc<GameSettings> = self.m_mc.m_gameSettings.get().orNpe();
         settings.m_skin.set(self.m_currentTexturePack.get());
         settings.saveOptions();
@@ -72,8 +77,10 @@ impl TexturePackList
     pub fn updateAvaliableTexturePacks(&self)
     {
         let mut arraylist: Vec<Rc<dyn TexturePackBase>> = Vec::new();
+
         self.m_selectedTexturePack.set(None);
         arraylist.push(Rc::clone(&self.m_defaultTexturePack));
+
         if file::exists(&self.m_texturePackDir) && file::isDirectory(&self.m_texturePackDir)
         {
             let afile: Vec<PathBuf> = file::listFiles(&self.m_texturePackDir).orNpe();
@@ -84,31 +91,37 @@ impl TexturePackList
                 {
                     continue;
                 }
+
                 let s: String = format!("{name}:{}:{}", file::length(&file1), file::lastModified(&file1));
                 if !self.m_availablePacksByKey.borrow().contains_key(&s)
                 {
                     let texturepackcustom: Rc<dyn TexturePackBase> = Rc::new(TexturePackCustom::new(&file1));
                     texturepackcustom.pack().m_key.set(Some(s.clone()));
                     self.m_availablePacksByKey.borrow_mut().insert(s.clone(), Rc::clone(&texturepackcustom));
+
                     if let Err(error) = texturepackcustom.load(&self.m_mc)
                     {
                         error.printStackTrace();
                         continue;
                     }
                 }
+
                 let texturepackbase1: Rc<dyn TexturePackBase> = Rc::clone(&self.m_availablePacksByKey.borrow()[&s]);
                 if texturepackbase1.pack().m_texturePackFileName.get().as_deref()
                     == Some(self.m_currentTexturePack.get().as_str())
                 {
                     self.m_selectedTexturePack.set(Some(Rc::clone(&texturepackbase1)));
                 }
+
                 arraylist.push(texturepackbase1);
             }
         }
+
         if self.m_selectedTexturePack.with(Option::is_none)
         {
             self.m_selectedTexturePack.set(Some(Rc::clone(&self.m_defaultTexturePack)));
         }
+
         let removed: Vec<Rc<dyn TexturePackBase>> = self
             .m_availableTexturePacks
             .borrow()
@@ -116,9 +129,11 @@ impl TexturePackList
             .filter(|pack| !arraylist.iter().any(|kept| Rc::ptr_eq(kept, pack)))
             .cloned()
             .collect();
+
         for texturepackbase in removed
         {
             texturepackbase.unload(&self.m_mc);
+
             if let Some(key) = texturepackbase.pack().m_key.get()
             {
                 self.m_availablePacksByKey.borrow_mut().remove(&key);

@@ -10,7 +10,8 @@ mod weather;
 use crate::entity::Entity;
 use crate::math::AxisAlignedBB;
 use crate::tileentity::TileEntity;
-use crate::world::{
+use crate::world::
+{
     IChunkProvider, ISaveHandler, IWorldAccess, MapStorage, MetadataChunkBlock, WorldInfo, WorldProvider,
 };
 pub use class::{WORLD, WorldClass};
@@ -27,7 +28,8 @@ use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     pub(crate) static LIGHTING_UPDATES_SCHEDULED: Cell<i32> = const { Cell::new(0) };
 }
 
@@ -91,7 +93,9 @@ impl World
         let randomTickLCG: i32 = Random::new().nextInt();
         let rand: Random = Random::new();
         let soundCounter: i32 = rand.nextIntBounded(12000);
-        Self {
+
+        Self
+        {
             m_class: class,
             m_ext: ext,
             m_scheduledUpdatesAreImmediate: Cell::new(false),
@@ -171,6 +175,7 @@ impl World
     {
         let outer: bool = self.m_playerEdit.replace(true);
         let result: T = edit();
+
         self.m_playerEdit.set(outer);
         result
     }
@@ -218,7 +223,7 @@ impl World
         this.initWeather();
     }
 
-    pub fn newFromWorld(world: &Rc<World>, dimension: Rc<WorldProvider>) -> Rc<Self>
+    pub fn newFromWorld(world: &Rc<Self>, dimension: Rc<WorldProvider>) -> Rc<Self>
     {
         let this: Rc<Self> = Rc::new(Self::alloc(&WORLD, Box::new(())));
         this.m_lockTimestamp.set(world.m_lockTimestamp.get());
@@ -257,6 +262,7 @@ impl World
         this.m_savedDataStorage.set(Some(Rc::new(MapStorage::new(Rc::clone(&storage)))));
         this.m_worldInfo.set(storage.loadWorldInfo());
         this.m_isNewWorld.set(this.m_worldInfo.with(Option::is_none));
+
         let provider: Rc<WorldProvider> = match dimension
         {
             Some(dimension) => dimension,
@@ -269,6 +275,7 @@ impl World
         this.m_worldProvider.set(Some(Rc::clone(&provider)));
 
         let mut flag: bool = false;
+
         match this.m_worldInfo.get()
         {
             None =>
@@ -276,17 +283,21 @@ impl World
                 this.m_worldInfo.set(Some(Rc::new(WorldInfo::withSeed(seed, name))));
                 flag = true;
             }
+
             Some(info) => info.setWorldName(name),
         }
 
         provider.registerWorld(this);
         this.m_chunkProvider.set(Some(this.getChunkProvider()));
+
         if flag
         {
             this.getInitialSpawnLocation();
         }
+
         this.calculateInitialSkylight();
         this.initWeather();
+
         let state: &str = if this.m_isNewWorld.get()
         {
             "created"
@@ -319,6 +330,7 @@ impl World
     pub fn getInitialSpawnLocation(&self)
     {
         self.m_findingSpawnPoint.set(true);
+
         let mut i: i32 = 0;
         let b0: i8 = 64;
         let mut j: i32 = 0;
@@ -327,6 +339,7 @@ impl World
             i += self.m_rand.nextIntBounded(64) - self.m_rand.nextIntBounded(64);
             j += self.m_rand.nextIntBounded(64) - self.m_rand.nextIntBounded(64);
         }
+
         self.worldInfo().setSpawn(i, b0 as i32, j);
         self.m_findingSpawnPoint.set(false);
     }
@@ -338,6 +351,7 @@ impl World
         {
             i += 1;
         }
+
         self.getBlockId(x, i, z)
     }
 
@@ -346,7 +360,8 @@ impl World
     pub fn spawnPlayerWithLoadedChunks(self: &Rc<Self>, player: &Rc<Entity>)
     {
         let result: Result<(), jvm::throwable::Throwable> =
-            jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, || {
+            jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, ||
+            {
                 let info: Rc<WorldInfo> = self.worldInfo();
                 if let Some(nbttagcompound) = info.getPlayerNBTTagCompound()
                 {
@@ -360,8 +375,10 @@ impl World
                     let j: i32 = crate::math::math_helper::floor_float(player.posZ() as i32 as f32) >> 4;
                     provider.setCurrentChunkOver(i, j);
                 }
+
                 self.entityJoinedWorld(player);
             });
+
         if let Err(exception) = result
         {
             jvm::system::printStackTrace(&exception);
@@ -372,22 +389,29 @@ impl World
     {
         // mods save their world data alongside
         crate::hooks::fire(crate::hooks::GameEvent::WorldSave { world: self });
+
         let provider: Rc<dyn IChunkProvider> = self.chunkProvider();
         if !provider.canSave()
         {
             return;
         }
+
         let started: std::time::Instant = std::time::Instant::now();
+
         debug!("Saving world {} with {} players", self.summary(), self.m_playerEntities.size());
+
         if let Some(listener) = progressListener
         {
             listener.progressStartNoAbort("Saving level");
         }
+
         self.saveLevel();
+
         if let Some(listener) = progressListener
         {
             listener.displayLoadingString("Saving chunks");
         }
+
         provider.saveChunks(saveEntities, progressListener);
         debug!("World saved in {}", jvm::logging::took(started));
     }
@@ -407,10 +431,12 @@ impl World
         {
             return true;
         }
+
         if step == 0
         {
             self.saveLevel();
         }
+
         provider.saveChunks(false, None)
     }
 
@@ -480,6 +506,6 @@ impl World
     }
 }
 
-pub fn canModify(_this: &Rc<World>, _player: &Rc<Entity>, _x: i32, _y: i32, _z: i32) -> bool { true }
+pub(crate) fn canModify(_this: &Rc<World>, _player: &Rc<Entity>, _x: i32, _y: i32, _z: i32) -> bool { true }
 
-pub fn doEntityEvent(_this: &Rc<World>, _entity: &Rc<Entity>, _event: i8) {}
+pub(crate) fn doEntityEvent(_this: &Rc<World>, _entity: &Rc<Entity>, _event: i8) {}

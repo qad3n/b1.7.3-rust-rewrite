@@ -44,7 +44,8 @@ pub use json_listener_to_jdom_adapter::JsonListenerToJdomAdapter;
 pub use json_node::{JsonNode, JsonRootNode};
 pub use json_node_builder::JsonNodeBuilder;
 pub use json_node_builders::JsonNodeBuilders;
-pub use json_node_does_not_match_json_node_selector_exception::{
+pub use json_node_does_not_match_json_node_selector_exception::
+{
     CHAINED_EXCEPTION, ChainedMismatch, JSON_NODE_DOES_NOT_MATCH_JSON_NODE_SELECTOR_EXCEPTION, PATH_ELEMENTS_EXCEPTION,
 };
 pub use json_node_factories::JsonNodeFactories;

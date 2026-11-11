@@ -5,7 +5,8 @@ use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static INSTANCE: OnceCell<Rc<AchievementMap>> = const { OnceCell::new() };
 }
 
@@ -31,7 +32,9 @@ fn load(guidMap: &mut HashMap<i32, String>) -> Result<(), Throwable>
     {
         return Err(Throwable::new(&jvm::throwable::NULL_POINTER, None));
     };
+
     let mut bytes: Vec<u8> = Vec::new();
+
     loop
     {
         let value: i32 = stream.read()?;
@@ -39,6 +42,7 @@ fn load(guidMap: &mut HashMap<i32, String>) -> Result<(), Throwable>
         {
             break;
         }
+
         bytes.push(value as u8);
     }
     // port decodePlatform decodes in the platform charset like a java Reader
@@ -52,25 +56,24 @@ fn load(guidMap: &mut HashMap<i32, String>) -> Result<(), Throwable>
         let id: i32 = parseInt(element(&parts, 0)?)?;
         guidMap.insert(id, element(&parts, 1)?.to_owned());
     }
+
     Ok(())
 }
 
 impl AchievementMap
 {
-    fn new() -> AchievementMap
+    fn new() -> Self
     {
         let mut guidMap: HashMap<i32, String> = HashMap::new();
         if let Err(exception) = load(&mut guidMap)
         {
             exception.printStackTrace();
         }
-        AchievementMap { m_guidMap: RefCell::new(guidMap) }
+
+        Self { m_guidMap: RefCell::new(guidMap) }
     }
 
-    pub fn instance() -> Rc<AchievementMap>
-    {
-        INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(AchievementMap::new()))))
-    }
+    pub fn instance() -> Rc<Self> { INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(Self::new())))) }
 
-    pub fn getGuid(id: i32) -> Option<String> { AchievementMap::instance().m_guidMap.borrow().get(&id).cloned() }
+    pub fn getGuid(id: i32) -> Option<String> { Self::instance().m_guidMap.borrow().get(&id).cloned() }
 }

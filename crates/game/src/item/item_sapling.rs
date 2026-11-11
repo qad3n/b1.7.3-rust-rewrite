@@ -2,7 +2,8 @@ use crate::block::Block;
 use crate::item::{Item, ItemClass, item_block};
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemSapling",
     m_parent: Some(&item_block::CLASS),
     getPlacedBlockMetadata: |_, metadata| metadata,

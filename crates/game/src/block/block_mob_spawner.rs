@@ -2,7 +2,8 @@ use crate::block::{Block, BlockClass, Material, block_container};
 use crate::tileentity::tile_entity_mob_spawner;
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockMobSpawner",
     m_parent: Some(&block_container::CLASS),
     getBlockEntity: |_| tile_entity_mob_spawner::create(),

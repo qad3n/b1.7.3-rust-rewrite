@@ -98,8 +98,10 @@ impl Packet11PlayerPosition
 {
     pub fn new(x: f64, minY: f64, y: f64, z: f64, onGround: bool) -> Self
     {
-        Self {
-            m_flying: Packet10Flying {
+        Self
+        {
+            m_flying: Packet10Flying
+            {
                 m_xPosition: x,
                 m_yPosition: minY,
                 m_stance: y,
@@ -151,8 +153,10 @@ impl Packet13PlayerLookMove
 {
     pub fn new(x: f64, minY: f64, y: f64, z: f64, yaw: f32, pitch: f32, onGround: bool) -> Self
     {
-        Self {
-            m_flying: Packet10Flying {
+        Self
+        {
+            m_flying: Packet10Flying
+            {
                 m_xPosition: x,
                 m_yPosition: minY,
                 m_stance: y,
@@ -206,8 +210,10 @@ impl Packet12PlayerLook
 {
     pub fn new(yaw: f32, pitch: f32, onGround: bool) -> Self
     {
-        Self {
-            m_flying: Packet10Flying {
+        Self
+        {
+            m_flying: Packet10Flying
+            {
                 m_yaw: yaw,
                 m_pitch: pitch,
                 m_onGround: onGround,

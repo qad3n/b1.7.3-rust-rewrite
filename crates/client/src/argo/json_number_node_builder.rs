@@ -9,10 +9,7 @@ pub struct JsonNumberNodeBuilder
 
 impl JsonNumberNodeBuilder
 {
-    pub fn new(value: JString) -> JsonNumberNodeBuilder
-    {
-        JsonNumberNodeBuilder { m_value: JsonNodeFactories::number(value) }
-    }
+    pub fn new(value: JString) -> Self { Self { m_value: JsonNodeFactories::number(value) } }
 }
 
 impl JsonNodeBuilder for JsonNumberNodeBuilder

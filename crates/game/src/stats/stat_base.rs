@@ -27,9 +27,10 @@ impl StatBase
     pub const TIME_FORMATTER: &'static dyn IStatType = &StatTypeTime;
     pub const DISTANCE_FORMATTER: &'static dyn IStatType = &StatTypeDistance;
 
-    pub(super) fn new(id: i32, key: String, formatter: &'static dyn IStatType, ext: StatExt) -> Rc<StatBase>
+    pub(crate) fn new(id: i32, key: String, formatter: &'static dyn IStatType, ext: StatExt) -> Rc<Self>
     {
-        Rc::new(StatBase {
+        Rc::new(Self
+        {
             m_statId: id,
             m_statName: key,
             m_local: Cell::new(false),
@@ -39,31 +40,33 @@ impl StatBase
         })
     }
 
-    pub fn basic(id: i32, key: String, formatter: &'static dyn IStatType) -> Rc<StatBase>
+    pub fn basic(id: i32, key: String, formatter: &'static dyn IStatType) -> Rc<Self>
     {
-        StatBase::new(id, key, formatter, StatExt::Basic)
+        Self::new(id, key, formatter, StatExt::Basic)
     }
 
-    pub fn crafting(id: i32, name: String, item: i32) -> Rc<StatBase>
+    pub fn crafting(id: i32, name: String, item: i32) -> Rc<Self>
     {
-        StatBase::new(id, name, StatBase::NUMBER_FORMATTER, StatExt::Crafting(item))
+        Self::new(id, name, Self::NUMBER_FORMATTER, StatExt::Crafting(item))
     }
 
-    pub fn setLocal(self: &Rc<Self>) -> Rc<StatBase>
+    pub fn setLocal(self: &Rc<Self>) -> Rc<Self>
     {
         self.m_local.set(true);
         Rc::clone(self)
     }
 
-    pub fn registerStat(self: &Rc<Self>) -> Rc<StatBase>
+    pub fn registerStat(self: &Rc<Self>) -> Rc<Self>
     {
         self.registerStatBase();
+
         match &self.m_ext
         {
             StatExt::Basic => StatList::general().add(Rc::clone(self)),
             StatExt::Crafting(_) => true,
             StatExt::Achievement(_) => achievement::register(self),
         };
+
         Rc::clone(self)
     }
 

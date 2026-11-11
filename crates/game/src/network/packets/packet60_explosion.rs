@@ -21,7 +21,8 @@ impl Packet60Explosion
 {
     pub fn new(x: f64, y: f64, z: f64, power: f32, damagedBlocks: &JHashSet<ChunkPosition>) -> Self
     {
-        Self {
+        Self
+        {
             m_explosionX: x,
             m_explosionY: y,
             m_explosionZ: z,
@@ -42,13 +43,16 @@ impl Packet for Packet60Explosion
         self.m_explosionY = input.readDouble()?;
         self.m_explosionZ = input.readDouble()?;
         self.m_explosionSize = input.readFloat()?;
+
         let n: i32 = input.readInt()?;
         let mut positions: JHashSet<ChunkPosition> = JHashSet::new();
         let n2: i32 = self.m_explosionX as i32;
         let n3: i32 = self.m_explosionY as i32;
         let n4: i32 = self.m_explosionZ as i32;
         let mut i: i32 = 0;
-        let read: IoResult<()> = (|| {
+
+        let read: IoResult<()> = (||
+        {
             while i < n
             {
                 let n5: i32 = (input.readByte()? as i32).wrapping_add(n2);
@@ -57,6 +61,7 @@ impl Packet for Packet60Explosion
                 positions.add(ChunkPosition::new(n5, n6, n7));
                 i += 1;
             }
+
             Ok(())
         })();
         *self.m_destroyedBlockPositions.get_mut() = Some(positions);
@@ -67,23 +72,28 @@ impl Packet for Packet60Explosion
     {
         let guard: std::cell::Ref<'_, Option<JHashSet<ChunkPosition>>> = self.m_destroyedBlockPositions.borrow();
         let positions: &JHashSet<ChunkPosition> = guard.as_ref().orNpe();
+
         output.writeDouble(self.m_explosionX)?;
         output.writeDouble(self.m_explosionY)?;
         output.writeDouble(self.m_explosionZ)?;
         output.writeFloat(self.m_explosionSize)?;
         output.writeInt(positions.size())?;
+
         let n: i32 = self.m_explosionX as i32;
         let n2: i32 = self.m_explosionY as i32;
         let n3: i32 = self.m_explosionZ as i32;
+
         for chunkPosition in positions.items()
         {
             let n4: i32 = chunkPosition.m_x.wrapping_sub(n);
             let n5: i32 = chunkPosition.m_y.wrapping_sub(n2);
             let n6: i32 = chunkPosition.m_z.wrapping_sub(n3);
+
             output.writeByte(n4)?;
             output.writeByte(n5)?;
             output.writeByte(n6)?;
         }
+
         Ok(())
     }
 

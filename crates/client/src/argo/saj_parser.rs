@@ -32,19 +32,23 @@ impl SajParser
                 jsonListener.startDocument();
                 self.objectString(&mut reader, jsonListener)?;
             }
+
             0x5B =>
             {
                 reader.unread(c);
                 jsonListener.startDocument();
                 self.arrayString(&mut reader, jsonListener)?;
             }
+
             _ => return Err(syntax(&reader, format!("Expected either [ or {{ but got [{}].", show(c)))),
         }
+
         let n: i32 = self.readNextNonWhitespaceChar(&mut reader);
         if n != -1
         {
             return Err(syntax(&reader, format!("Got unexpected trailing character [{}].", show(n as u16))));
         }
+
         jsonListener.endDocument();
         Ok(())
     }
@@ -60,13 +64,17 @@ impl SajParser
         {
             return Err(syntax(reader, format!("Expected object to start with [ but got [{}].", show(c0))));
         }
+
         jsonListener.startArray();
+
         let c1: u16 = self.readNextNonWhitespaceChar(reader) as u16;
         reader.unread(c1);
+
         if c1 != 0x5D
         {
             self.aJsonValue(reader, jsonListener)?;
         }
+
         loop
         {
             let c2: u16 = self.readNextNonWhitespaceChar(reader) as u16;
@@ -77,6 +85,7 @@ impl SajParser
                 _ => return Err(syntax(reader, format!("Expected either , or ] but got [{}].", show(c2)))),
             }
         }
+
         jsonListener.endArray();
         Ok(())
     }
@@ -92,13 +101,17 @@ impl SajParser
         {
             return Err(syntax(reader, format!("Expected object to start with {{ but got [{}].", show(c0))));
         }
+
         jsonListener.startObject();
+
         let c1: u16 = self.readNextNonWhitespaceChar(reader) as u16;
         reader.unread(c1);
+
         if c1 != 0x7D
         {
             self.aFieldToken(reader, jsonListener)?;
         }
+
         loop
         {
             let c2: u16 = self.readNextNonWhitespaceChar(reader) as u16;
@@ -109,6 +122,7 @@ impl SajParser
                 _ => return Err(syntax(reader, format!("Expected either , or }} but got [{}].", show(c2)))),
             }
         }
+
         jsonListener.endObject();
         Ok(())
     }
@@ -127,9 +141,12 @@ impl SajParser
                 format!("Expected object identifier to begin with [\"] but got [{}].", show(c)),
             ));
         }
+
         reader.unread(c);
+
         let name: JString = self.stringToken(reader)?;
         jsonListener.startField(name);
+
         let c2: u16 = self.readNextNonWhitespaceChar(reader) as u16;
         if c2 != 0x3A
         {
@@ -138,6 +155,7 @@ impl SajParser
                 format!("Expected object identifier to be followed by : but got [{}].", show(c2)),
             ));
         }
+
         self.aJsonValue(reader, jsonListener)?;
         jsonListener.endField();
         Ok(())
@@ -151,6 +169,7 @@ impl SajParser
         if n != expected.len() as i32 || cArray != expected
         {
             reader.uncount(&cArray);
+
             let wanted: Vec<String> = rest.chars().map(String::from).collect();
             return Err(syntax(
                 reader,
@@ -161,6 +180,7 @@ impl SajParser
                 ),
             ));
         }
+
         Ok(())
     }
 
@@ -176,42 +196,52 @@ impl SajParser
             0x22 =>
             {
                 reader.unread(c);
+
                 let value: JString = self.stringToken(reader)?;
                 jsonListener.stringValue(value);
             }
+
             0x74 =>
             {
                 self.literalTail(reader, 't', "rue")?;
                 jsonListener.trueValue();
             }
+
             0x66 =>
             {
                 self.literalTail(reader, 'f', "alse")?;
                 jsonListener.falseValue();
             }
+
             0x6E =>
             {
                 self.literalTail(reader, 'n', "ull")?;
                 jsonListener.nullValue();
             }
+
             0x2D | 0x30..=0x39 =>
             {
                 reader.unread(c);
+
                 let value: JString = self.numberToken(reader)?;
                 jsonListener.numberValue(value);
             }
+
             0x7B =>
             {
                 reader.unread(c);
                 self.objectString(reader, jsonListener)?;
             }
+
             0x5B =>
             {
                 reader.unread(c);
                 self.arrayString(reader, jsonListener)?;
             }
+
             _ => return Err(syntax(reader, format!("Invalid character at start of value [{}].", show(c)))),
         }
+
         Ok(())
     }
 
@@ -257,6 +287,7 @@ impl SajParser
         {
             return Err(syntax(reader, format!("Expected a digit 1 - 9 but got [{}].", show(c2))));
         }
+
         Ok(c2)
     }
 
@@ -267,12 +298,14 @@ impl SajParser
         {
             return Err(syntax(reader, format!("Expected a digit 1 - 9 but got [{}].", show(c2))));
         }
+
         Ok(c2)
     }
 
     fn digitString(&self, reader: &mut PositionTrackingPushbackReader) -> Vec<u16>
     {
         let mut builder: Vec<u16> = Vec::new();
+
         loop
         {
             let c0: u16 = reader.read() as u16;
@@ -281,6 +314,7 @@ impl SajParser
                 reader.unread(c0);
                 return builder;
             }
+
             builder.push(c0);
         }
     }
@@ -327,6 +361,7 @@ impl SajParser
         {
             return vec![c];
         }
+
         reader.unread(c);
         Vec::new()
     }
@@ -338,7 +373,9 @@ impl SajParser
         {
             return Err(syntax(reader, format!("Expected [\"] but got [{}].", show(c0))));
         }
+
         let mut builder: Vec<u16> = Vec::new();
+
         loop
         {
             let c1: u16 = reader.read() as u16;
@@ -378,16 +415,20 @@ impl SajParser
             {
                 jvm::throwable::throw(&jvm::throwable::STRING_INDEX, &format!("String index out of range: {n2}"));
             }
+
             let got: String = String::from_utf16_lossy(&cArray[..n2 as usize]);
             return Err(syntax(
                 reader,
                 format!("Expected a 4 digit hexidecimal number but got only [{n2}], namely [{got}]."),
             ));
         }
+
         let text: String = String::from_utf16_lossy(&cArray);
+
         match jvm::integer::parseIntRadix(&JString::fromUtf16(cArray.clone()), 16)
         {
             Ok(value) => Ok(value),
+
             _ =>
             {
                 reader.uncount(&cArray);

@@ -57,6 +57,7 @@ fn backgroundBlock(j4: i32, depth: i32, random: &Random) -> Rc<Block>
     {
         return Block::bedrock();
     }
+
     match j4
     {
         22 =>
@@ -70,6 +71,7 @@ fn backgroundBlock(j4: i32, depth: i32, random: &Random) -> Rc<Block>
                 Block::oreRedstone()
             }
         }
+
         10 => Block::oreIron(),
         8 => Block::oreCoal(),
         _ if j4 > 4 => Block::stone(),
@@ -85,10 +87,12 @@ fn clampScroll(value: i32, min: i32, max: i32) -> i32
     {
         value = min;
     }
+
     if value >= max
     {
         value = max - 1;
     }
+
     value
 }
 
@@ -103,17 +107,20 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
         minColumn(),
         maxColumn(),
     );
+
     let j: i32 = clampScroll(
         math_helper::floor_double(ext.m_mouseY.get() + (ext.m_scaledMouseDy.get() - ext.m_mouseY.get()) * delta),
         minRow(),
         maxRow(),
     );
+
     let k: i32 = renderEngine.getTexture("/terrain.png");
     let l: i32 = renderEngine.getTexture("/achievement/bg.png");
     let i1: i32 = (this.m_width.get() - ext.m_iconWidth) / 2;
     let j1: i32 = (this.m_height.get() - ext.m_iconHeight) / 2;
     let k1: i32 = i1 + 16;
     let l1: i32 = j1 + 17;
+
     this.m_gui.m_zLevel.set(0.0);
     GL11::glDepthFunc(518);
     GL11::glPushMatrix();
@@ -123,6 +130,7 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
     GL11::glEnable(32826);
     GL11::glEnable(2903);
     renderEngine.bindTexture(k);
+
     let i2: i32 = i + 288 >> 4;
     let j2: i32 = j + 288 >> 4;
     let k2: i32 = (i + 288) % 16;
@@ -133,23 +141,29 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
     {
         let f: f32 = 0.6 - (j2 + l3) as f32 / 25.0 * 0.3;
         GL11::glColor4f(f, f, f, 1.0);
+
         let mut i4: i32 = 0;
         while i4 * 16 - k2 < 224
         {
             random.setSeed((1234 + i2 + i4) as i64);
             random.nextInt();
+
             let j4: i32 = random.nextIntBounded(1 + j2 + l3) + (j2 + l3) / 2;
             let k4: i32 = backgroundBlock(j4, j2 + l3, &random).m_blockIndexInTexture.get();
             this.m_gui.drawTexturedModalRect(k1 + i4 * 16 - k2, l1 + l3 * 16 - l2, k4 % 16 << 4, k4 >> 4 << 4, 16, 16);
             i4 += 1;
         }
+
         l3 += 1;
     }
+
     GL11::glEnable(2929);
     GL11::glDepthFunc(515);
     GL11::glDisable(3553);
+
     let achievements: Vec<Rc<StatBase>> = AchievementList::achievementList().toVec();
     let stats: &StatFileWriter = &ext.m_stats;
+
     for achievement1 in &achievements
     {
         let details: &Achievement = Achievement::of(achievement1);
@@ -163,6 +177,7 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
             let flag: bool = stats.hasAchievementUnlocked(achievement1);
             let flag1: bool = stats.hasParentAchievement(achievement1);
             let k7: i32 = if blinkPhase() > 0.6 { 255 } else { 130 };
+
             let k3: i32 = if flag
             {
                 -9408400
@@ -179,9 +194,11 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
             this.m_gui.drawVerticalLine(i3, l2, j3, k3);
         }
     }
+
     let mut achievement: Option<Rc<StatBase>> = None;
     let renderitem: RenderItem = RenderItem::new();
     let customColor: &std::cell::Cell<bool> = renderitem.useCustomDisplayColor();
+
     GL11::glPushMatrix();
     GL11::glRotatef(180.0, 1.0, 0.0, 0.0);
     RenderHelper::enableStandardItemLighting();
@@ -189,7 +206,9 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
     GL11::glDisable(2896);
     GL11::glEnable(32826);
     GL11::glEnable(2903);
+
     let fontRenderer: Rc<FontRenderer> = mc.m_fontRenderer.get().orNpe();
+
     for achievement3 in &achievements
     {
         let details: &Achievement = Achievement::of(achievement3);
@@ -199,6 +218,7 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
         {
             continue;
         }
+
         let color: f32 = if stats.hasAchievementUnlocked(achievement3)
         {
             1.0
@@ -213,8 +233,10 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
         };
         GL11::glColor4f(color, color, color, 1.0);
         renderEngine.bindTexture(l);
+
         let i6: i32 = k1 + j5;
         let k6: i32 = l1 + k5;
+
         let u: i32 = if Achievement::getSpecial(achievement3)
         {
             26
@@ -224,21 +246,26 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
             0
         };
         this.m_gui.drawTexturedModalRect(i6 - 2, k6 - 2, u, 202, 26, 26);
+
         if !stats.hasParentAchievement(achievement3)
         {
             let f4: f32 = 0.1;
             GL11::glColor4f(f4, f4, f4, 1.0);
             customColor.set(false);
         }
+
         GL11::glEnable(2896);
         GL11::glEnable(2884);
         renderitem.renderItemIntoGUI(&fontRenderer, &renderEngine, Some(&details.m_theItemStack), i6 + 3, k6 + 3);
         GL11::glDisable(2896);
+
         if !stats.hasParentAchievement(achievement3)
         {
             customColor.set(true);
         }
+
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
         if mouseX >= k1
             && mouseY >= l1
             && mouseX < k1 + 224
@@ -251,6 +278,7 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
             achievement = Some(Rc::clone(achievement3));
         }
     }
+
     GL11::glDisable(2929);
     GL11::glEnable(3042);
     GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
@@ -262,10 +290,12 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
     GL11::glDisable(2929);
     GL11::glEnable(3553);
     (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickdelta);
+
     if let Some(achievement2) = achievement
     {
         drawTooltip(this, &achievement2, mouseX, mouseY);
     }
+
     GL11::glEnable(2929);
     GL11::glEnable(2896);
     RenderHelper::disableStandardItemLighting();
@@ -292,12 +322,15 @@ fn drawTooltip(this: &GuiScreen, achievement2: &Rc<StatBase>, mouseX: i32, mouse
     {
         let l6: i32 = font.getStringWidth(s).max(120);
         let mut j7: i32 = font.splitAndGetHeight(&s1, l6);
+
         if stats.hasAchievementUnlocked(achievement2)
         {
             j7 += 12;
         }
+
         this.m_gui.drawGradientRect(l5 - 3, j6 - 3, l5 + l6 + 3, j6 + j7 + 3 + 12, -1073741824, -1073741824);
         font.splitAndDraw(&s1, l5, j6 + 12, l6, -6250336);
+
         if stats.hasAchievementUnlocked(achievement2)
         {
             font.drawStringWithShadow(&StatCollector::translateToLocal("achievement.taken"), l5, j6 + j7 + 4, -7302913);
@@ -327,11 +360,13 @@ fn drawTooltip(this: &GuiScreen, achievement2: &Rc<StatBase>, mouseX: i32, mouse
 fn dragMap(this: &GuiScreen, mouseX: i32, mouseY: i32)
 {
     let ext: &AchievementsExt = fields(this);
+
     if !Mouse::isButtonDown(0)
     {
         ext.m_scroll.set(0);
         return;
     }
+
     let k: i32 = (this.m_width.get() - ext.m_iconWidth) / 2 + 8;
     let l: i32 = (this.m_height.get() - ext.m_iconHeight) / 2 + 17;
     if (ext.m_scroll.get() == 0 || ext.m_scroll.get() == 1)
@@ -356,29 +391,35 @@ fn dragMap(this: &GuiScreen, mouseX: i32, mouseY: i32)
         ext.m_prevMouseX.set(mouseX);
         ext.m_prevMouseY.set(mouseY);
     }
+
     if ext.m_scrollX.get() < minColumn() as f64
     {
         ext.m_scrollX.set(minColumn() as f64);
     }
+
     if ext.m_scrollY.get() < minRow() as f64
     {
         ext.m_scrollY.set(minRow() as f64);
     }
+
     if ext.m_scrollX.get() >= maxColumn() as f64
     {
         ext.m_scrollX.set((maxColumn() - 1) as f64);
     }
+
     if ext.m_scrollY.get() >= maxRow() as f64
     {
         ext.m_scrollY.set((maxRow() - 1) as f64);
     }
 }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiAchievements",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         this.m_controlList.clear();
         this.m_controlList.add(GuiButton::smallWithSize(
             1,
@@ -389,14 +430,19 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             &StatCollector::translateToLocal("gui.done"),
         ));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if button.m_id.get() == 1
         {
             closeToGame(&this.mc());
         }
+
         (GUI_SCREEN.actionPerformed)(this, button);
     },
-    keyTyped: |this, chr, key| {
+
+    keyTyped: |this, chr, key|
+    {
         let mc: Rc<Minecraft> = this.mc();
         if key == mc.m_gameSettings.get().orNpe().m_keyBindInventory.m_keyCode.get()
         {
@@ -407,7 +453,9 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             (GUI_SCREEN.keyTyped)(this, chr, key);
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         dragMap(this, mouseX, mouseY);
         this.drawDefaultBackground();
         renderIcons(this, mouseX, mouseY, tickDelta);
@@ -417,10 +465,13 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         GL11::glEnable(2896);
         GL11::glEnable(2929);
     },
-    updateScreen: |this| {
+
+    updateScreen: |this|
+    {
         let ext: &AchievementsExt = fields(this);
         ext.m_mouseX.set(ext.m_scaledMouseDx.get());
         ext.m_mouseY.set(ext.m_scaledMouseDy.get());
+
         let d0: f64 = ext.m_scrollX.get() - ext.m_scaledMouseDx.get();
         let d1: f64 = ext.m_scrollY.get() - ext.m_scaledMouseDy.get();
         if d0 * d0 + d1 * d1 < 4.0
@@ -450,7 +501,9 @@ impl GuiAchievements
         let short2: i32 = 141;
         let x: f64 = (details.m_displayColumn * 24 - short1 / 2 - 12) as f64;
         let y: f64 = (details.m_displayRow * 24 - short2 / 2) as f64;
-        let ext: AchievementsExt = AchievementsExt {
+
+        let ext: AchievementsExt = AchievementsExt
+        {
             m_iconWidth: 256,
             m_iconHeight: 202,
             m_prevMouseX: Cell::new(0),

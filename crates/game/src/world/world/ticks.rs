@@ -8,10 +8,11 @@ use jvm::random::Random;
 use jvm::throwable::OrNpe;
 use std::rc::Rc;
 
-pub fn scheduleBlockUpdate(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32, delay: i32)
+pub(crate) fn scheduleBlockUpdate(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32, delay: i32)
 {
     let mut nextticklistentry: NextTickListEntry = NextTickListEntry::new(x, y, z, block);
     let b0: i32 = 8;
+
     if this.m_scheduledUpdatesAreImmediate.get()
     {
         let entry: &NextTickListEntry = &nextticklistentry;
@@ -39,6 +40,7 @@ pub fn scheduleBlockUpdate(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32,
         {
             nextticklistentry = nextticklistentry.setScheduledTime(delay as i64 + this.worldInfo().getWorldTime());
         }
+
         if !this.m_scheduledTickSet.with(|set| set.contains(&nextticklistentry))
         {
             this.m_scheduledTickSet.update(|set| set.add(nextticklistentry.clone()));
@@ -47,13 +49,14 @@ pub fn scheduleBlockUpdate(this: &Rc<World>, x: i32, y: i32, z: i32, block: i32,
     }
 }
 
-pub fn TickUpdates(this: &Rc<World>, flush: bool) -> bool
+pub(crate) fn TickUpdates(this: &Rc<World>, flush: bool) -> bool
 {
     let mut i: i32 = this.m_scheduledTickTreeSet.with(|set| set.len()) as i32;
     if i != this.m_scheduledTickSet.with(|set| set.size())
     {
         jvm::throwable::throw(&jvm::throwable::ILLEGAL_STATE, "TickNextTick list out of synch");
     }
+
     if i > 1000
     {
         i = 1000;
@@ -73,6 +76,7 @@ pub fn TickUpdates(this: &Rc<World>, flush: bool) -> bool
 
         this.m_scheduledTickTreeSet.update(|set| set.remove(&nextticklistentry));
         this.m_scheduledTickSet.update(|set| set.remove(&nextticklistentry));
+
         let b0: i32 = 8;
         let entry: &NextTickListEntry = &nextticklistentry;
         if this.checkChunksExist(
@@ -91,6 +95,7 @@ pub fn TickUpdates(this: &Rc<World>, flush: bool) -> bool
             }
         }
     }
+
     this.m_scheduledTickTreeSet.with(|set| !set.is_empty())
 }
 
@@ -100,9 +105,10 @@ fn nextLcg(this: &World) -> i32
     this.m_randomTickLCG.get()
 }
 
-pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
+pub(crate) fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
 {
     this.m_positionsToUpdate.update(|set| set.clear());
+
     let mut i: i32 = 0;
     while i < this.m_playerEntities.size()
     {
@@ -117,6 +123,7 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
                 this.m_positionsToUpdate.update(|set| set.add(ChunkCoordIntPair::new(l + j, i1 + k)));
             }
         }
+
         i += 1;
     }
 
@@ -133,6 +140,7 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
         let j2: i32 = chunkcoordintpair.m_chunkZPos * 16;
         let chunk: Rc<Chunk> =
             this.getChunkFromChunkCoords(chunkcoordintpair.m_chunkXPos, chunkcoordintpair.m_chunkZPos);
+
         if this.m_soundCounter.get() == 0
         {
             let k2: i32 = nextLcg(this) >> 2;
@@ -140,6 +148,7 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
             let mut j1: i32 = k2 >> 8 & 15;
             let k1: i32 = (k2 >> 16).rem_euclid(chunk.height());
             let l1: i32 = chunk.getBlockID(k3, k1, j1);
+
             k3 += i2;
             j1 += j2;
             if l1 == 0
@@ -194,6 +203,7 @@ pub fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
                 {
                     this.setBlockWithNotify(i4 + i2, k5, l4 + j2, Block::SNOW);
                 }
+
                 if i6 == Block::WATER_STILL && chunk.getBlockMetadata(i4, k5 - 1, l4) == 0
                 {
                     this.setBlockWithNotify(i4 + i2, k5 - 1, l4 + j2, Block::ICE);
@@ -222,6 +232,7 @@ impl World
     {
         let b0: i32 = 16;
         let random: Random = Random::new();
+
         for _ in 0..1000
         {
             let j: i32 = x + self.m_rand.nextIntBounded(b0) - self.m_rand.nextIntBounded(b0);
@@ -241,16 +252,20 @@ impl World
     pub fn changeTime(&self, time: i64)
     {
         let i: i64 = time - self.worldInfo().getWorldTime();
+
         // the tree set holds the entries java shifts through the hash set, the hash set copies only key by position
-        self.m_scheduledTickTreeSet.update(|set| {
+        self.m_scheduledTickTreeSet.update(|set|
+        {
             *set = std::mem::take(set)
                 .into_iter()
-                .map(|mut nextticklistentry| {
+                .map(|mut nextticklistentry|
+                {
                     nextticklistentry.m_scheduledTime += i;
                     nextticklistentry
                 })
                 .collect();
         });
+
         self.setWorldTime(time);
     }
 }

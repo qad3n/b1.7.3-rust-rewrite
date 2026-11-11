@@ -7,13 +7,14 @@ use std::rc::Rc;
 
 const PI_F: f32 = std::f32::consts::PI;
 
-pub fn setSpawnLocation(this: &Rc<World>)
+pub(crate) fn setSpawnLocation(this: &Rc<World>)
 {
     let info: Rc<WorldInfo> = this.worldInfo();
     if info.getSpawnY() <= 0
     {
         info.setSpawnY(64);
     }
+
     let mut i: i32 = info.getSpawnX();
     let mut j: i32 = info.getSpawnZ();
     while this.getFirstUncoveredBlock(i, j) == 0
@@ -21,20 +22,24 @@ pub fn setSpawnLocation(this: &Rc<World>)
         i += this.m_rand.nextIntBounded(8) - this.m_rand.nextIntBounded(8);
         j += this.m_rand.nextIntBounded(8) - this.m_rand.nextIntBounded(8);
     }
+
     info.setSpawnX(i);
     info.setSpawnZ(j);
 }
 
-pub fn tick(this: &Rc<World>)
+pub(crate) fn tick(this: &Rc<World>)
 {
     this.updateWeather();
+
     if this.isAllPlayersFullyAsleep()
     {
         let mut flag: bool = false;
+
         if this.m_spawnHostileMobs.get() && this.m_difficultySetting.get() >= 1
         {
             flag = crate::entity::SpawnerAnimals::performSleepSpawning(this, &this.m_playerEntities.toVec());
         }
+
         if !flag
         {
             let i: i64 = this.worldInfo().getWorldTime() + 24000;
@@ -45,10 +50,12 @@ pub fn tick(this: &Rc<World>)
 
     crate::entity::SpawnerAnimals::performSpawning(this, this.m_spawnHostileMobs.get(), this.m_spawnPeacefulMobs.get());
     this.chunkProvider().unload100OldestChunks();
+
     let j: i32 = this.calculateSkylightSubtracted(1.0);
     if j != this.m_skylightSubtracted.get()
     {
         this.m_skylightSubtracted.set(j);
+
         let mut k: i32 = 0;
         while k < this.m_worldAccesses.size()
         {
@@ -62,12 +69,13 @@ pub fn tick(this: &Rc<World>)
     {
         this.saveWorld(false, None);
     }
+
     this.worldInfo().setWorldTime(l);
     this.TickUpdates(false);
     this.updateBlocksAndPlayCaveSounds();
 }
 
-pub fn updateWeather(this: &Rc<World>)
+pub(crate) fn updateWeather(this: &Rc<World>)
 {
     if this.worldProvider().m_hasNoSky.get()
     {
@@ -75,6 +83,7 @@ pub fn updateWeather(this: &Rc<World>)
     }
 
     let info: Rc<WorldInfo> = this.worldInfo();
+
     if this.m_thunderCooldown.get() > 0
     {
         this.m_thunderCooldown.set(this.m_thunderCooldown.get() - 1);
@@ -96,6 +105,7 @@ pub fn updateWeather(this: &Rc<World>)
     {
         i -= 1;
         info.setThunderTime(i);
+
         if i <= 0
         {
             info.setThundering(!info.getThundering());
@@ -118,6 +128,7 @@ pub fn updateWeather(this: &Rc<World>)
     {
         j -= 1;
         info.setRainTime(j);
+
         if j <= 0
         {
             info.setRaining(!info.getRaining());
@@ -125,6 +136,7 @@ pub fn updateWeather(this: &Rc<World>)
     }
 
     this.m_prevRainingStrength.set(this.m_rainingStrength.get());
+
     if info.getRaining()
     {
         this.m_rainingStrength.set((this.m_rainingStrength.get() as f64 + 0.01) as f32);
@@ -133,16 +145,19 @@ pub fn updateWeather(this: &Rc<World>)
     {
         this.m_rainingStrength.set((this.m_rainingStrength.get() as f64 - 0.01) as f32);
     }
+
     if this.m_rainingStrength.get() < 0.0
     {
         this.m_rainingStrength.set(0.0);
     }
+
     if this.m_rainingStrength.get() > 1.0
     {
         this.m_rainingStrength.set(1.0);
     }
 
     this.m_prevThunderingStrength.set(this.m_thunderingStrength.get());
+
     if info.getThundering()
     {
         this.m_thunderingStrength.set((this.m_thunderingStrength.get() as f64 + 0.01) as f32);
@@ -151,10 +166,12 @@ pub fn updateWeather(this: &Rc<World>)
     {
         this.m_thunderingStrength.set((this.m_thunderingStrength.get() as f64 - 0.01) as f32);
     }
+
     if this.m_thunderingStrength.get() < 0.0
     {
         this.m_thunderingStrength.set(0.0);
     }
+
     if this.m_thunderingStrength.get() > 1.0
     {
         this.m_thunderingStrength.set(1.0);
@@ -168,10 +185,12 @@ fn clamp01(value: f32) -> f32
     {
         value = 0.0;
     }
+
     if value > 1.0
     {
         value = 1.0;
     }
+
     value
 }
 
@@ -183,6 +202,7 @@ impl World
         if info.getRaining()
         {
             self.m_rainingStrength.set(1.0);
+
             if info.getThundering()
             {
                 self.m_thunderingStrength.set(1.0);
@@ -222,9 +242,11 @@ impl World
         let mut f3: f32 = (k >> 16 & 0xFF) as f32 / 255.0;
         let mut f4: f32 = (k >> 8 & 0xFF) as f32 / 255.0;
         let mut f5: f32 = (k & 0xFF) as f32 / 255.0;
+
         f3 *= f1;
         f4 *= f1;
         f5 *= f1;
+
         let f6: f32 = self.getRain(tickDelta);
         if f6 > 0.0
         {
@@ -234,6 +256,7 @@ impl World
             f4 = f4 * f8 + f7 * (1.0 - f8);
             f5 = f5 * f8 + f7 * (1.0 - f8);
         }
+
         let f10: f32 = self.getThunder(tickDelta);
         if f10 > 0.0
         {
@@ -243,6 +266,7 @@ impl World
             f4 = f4 * f9 + f11 * (1.0 - f9);
             f5 = f5 * f9 + f11 * (1.0 - f9);
         }
+
         if self.m_lightningCooldown.get() > 0
         {
             let mut f12: f32 = self.m_lightningCooldown.get() as f32 - tickDelta;
@@ -250,11 +274,13 @@ impl World
             {
                 f12 = 1.0;
             }
+
             f12 *= 0.45;
             f3 = f3 * (1.0 - f12) + 0.8 * f12;
             f4 = f4 * (1.0 - f12) + 0.8 * f12;
             f5 = f5 * (1.0 - f12) + 1.0 * f12;
         }
+
         Vec3D::createVector(f3 as f64, f4 as f64, f5 as f64)
     }
 
@@ -280,9 +306,11 @@ impl World
             f3 = f3 * f7 + f6 * (1.0 - f7);
             f4 = f4 * f7 + f6 * (1.0 - f7);
         }
+
         f2 *= f1 * 0.9 + 0.1;
         f3 *= f1 * 0.9 + 0.1;
         f4 *= f1 * 0.85 + 0.15;
+
         let f9: f32 = self.getThunder(tickDelta);
         if f9 > 0.0
         {
@@ -292,6 +320,7 @@ impl World
             f3 = f3 * f8 + f10 * (1.0 - f8);
             f4 = f4 * f8 + f10 * (1.0 - f8);
         }
+
         Vec3D::createVector(f2 as f64, f3 as f64, f4 as f64)
     }
 
@@ -336,6 +365,7 @@ impl World
         {
             return false;
         }
+
         let biomegenbase: Rc<BiomeGenBase> = self.getWorldChunkManager().getBiomeGenAt(x, z);
         if biomegenbase.getEnableSnow()
         {

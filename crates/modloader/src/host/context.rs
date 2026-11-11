@@ -6,7 +6,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
-thread_local! {
+thread_local!
+{
     static WORLDS: RefCell<HashMap<i32, Weak<World>>> = RefCell::new(HashMap::new());
     static CURRENT: RefCell<Vec<Rc<World>>> = const { RefCell::new(Vec::new()) };
     // max health mods set, by entity id, entities never raised heal to the vanilla 20
@@ -66,14 +67,17 @@ pub fn currentDimension() -> i32
 pub fn withWorld<R>(world: &Rc<World>, body: impl FnOnce() -> R) -> R
 {
     CURRENT.with(|stack| stack.borrow_mut().push(Rc::clone(world)));
+
     let result: R = body();
+
     CURRENT.with(|stack| stack.borrow_mut().pop());
     result
 }
 
 pub fn blockCtx(world: &Rc<World>, block: i32, x: i32, y: i32, z: i32) -> BlockCtx
 {
-    BlockCtx {
+    BlockCtx
+    {
         world: dimension(world),
         pos: BlockPos::new(x, y, z),
         block,
@@ -97,7 +101,9 @@ pub fn entityIn(dimension: i32, id: i32) -> Option<Rc<Entity>>
 pub fn entityKind(entity: &Entity) -> Option<Identifier>
 {
     let key: String = game::entity::EntityList::getEntityString(entity)?.to_string();
-    crate::registry::with(|registries| {
+
+    crate::registry::with(|registries|
+    {
         registries.m_entities.rows().find(|row| row.m_value.m_saveKey == key).map(|row| row.m_id.clone())
     })
 }
@@ -105,7 +111,9 @@ pub fn entityKind(entity: &Entity) -> Option<Identifier>
 pub fn entityInfo(entity: &Rc<Entity>) -> EntityInfo
 {
     let isPlayer: bool = entity.instanceOf("EntityPlayer");
-    EntityInfo {
+
+    EntityInfo
+    {
         id: entity.m_entityId.get(),
         world: entity.m_worldObj.get().map_or(0, |world| dimension(&world)),
         kind: if isPlayer

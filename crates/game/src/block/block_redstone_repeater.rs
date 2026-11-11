@@ -20,6 +20,7 @@ fn powered(this: &Block) -> bool { this.ext::<RepeaterExt>().m_isRepeaterPowered
 fn shouldBePowered(world: &Rc<World>, x: i32, y: i32, z: i32, metadata: i32) -> bool
 {
     let wire: i32 = Block::REDSTONE_WIRE;
+
     match metadata & 3
     {
         0 =>
@@ -27,21 +28,25 @@ fn shouldBePowered(world: &Rc<World>, x: i32, y: i32, z: i32, metadata: i32) -> 
             world.isBlockIndirectlyProvidingPowerTo(x, y, z + 1, 3)
                 || world.getBlockId(x, y, z + 1) == wire && world.getBlockMetadata(x, y, z + 1) > 0
         }
+
         2 =>
         {
             world.isBlockIndirectlyProvidingPowerTo(x, y, z - 1, 2)
                 || world.getBlockId(x, y, z - 1) == wire && world.getBlockMetadata(x, y, z - 1) > 0
         }
+
         3 =>
         {
             world.isBlockIndirectlyProvidingPowerTo(x + 1, y, z, 5)
                 || world.getBlockId(x + 1, y, z) == wire && world.getBlockMetadata(x + 1, y, z) > 0
         }
+
         1 =>
         {
             world.isBlockIndirectlyProvidingPowerTo(x - 1, y, z, 4)
                 || world.getBlockId(x - 1, y, z) == wire && world.getBlockMetadata(x - 1, y, z) > 0
         }
+
         _ => false,
     }
 }
@@ -57,6 +62,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
     else if !powered(this)
     {
         world.setBlockAndMetadataWithNotify(x, y, z, Block::REDSTONE_REPEATER_ACTIVE, n);
+
         if !bl
         {
             let n2: i32 = (n & 0xC) >> 2;
@@ -71,6 +77,7 @@ fn isPoweringTo(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i
     {
         return false;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z) & 3;
     n == 0 && dir == 3 || n == 1 && dir == 4 || n == 2 && dir == 2 || n == 3 && dir == 5
 }
@@ -83,9 +90,11 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
         world.setBlockWithNotify(x, y, z, 0);
         return;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     let bl: bool = shouldBePowered(world, x, y, z, n);
     let n2: i32 = (n & 0xC) >> 2;
+
     if powered(this) && !bl || !powered(this) && bl
     {
         world.scheduleBlockUpdate(x, y, z, this.m_blockID, DELAY_SETTINGS[n2 as usize] * 2);
@@ -98,12 +107,14 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     {
         return;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     let d: f64 = (x as f32 + 0.5) as f64 + (random.nextFloat() - 0.5) as f64 * 0.2;
     let d2: f64 = (y as f32 + 0.4) as f64 + (random.nextFloat() - 0.5) as f64 * 0.2;
     let d3: f64 = (z as f32 + 0.5) as f64 + (random.nextFloat() - 0.5) as f64 * 0.2;
     let mut d4: f64 = 0.0;
     let mut d5: f64 = 0.0;
+
     if random.nextIntBounded(2) == 0
     {
         match n & 3
@@ -117,6 +128,7 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     else
     {
         let n2: usize = ((n & 0xC) >> 2) as usize;
+
         match n & 3
         {
             0 => d5 = RANDOM_DISPLAY[n2],
@@ -128,14 +140,18 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     world.spawnParticle("reddust", d + d4, d2, d3 + d5, 0.0, 0.0, 0.0);
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockRedstoneRepeater",
     m_parent: Some(&BLOCK),
     renderAsNormalBlock: |_| false,
-    canPlaceBlockAt: |this, world, x, y, z| {
+    canPlaceBlockAt: |this, world, x, y, z|
+    {
         world.isBlockNormalCube(x, y - 1, z) && (BLOCK.canPlaceBlockAt)(this, world, x, y, z)
     },
-    canBlockStay: |this, world, x, y, z| {
+
+    canBlockStay: |this, world, x, y, z|
+    {
         world.isBlockNormalCube(x, y - 1, z) && (BLOCK.canBlockStay)(this, world, x, y, z)
     },
     updateTick,
@@ -152,6 +168,7 @@ pub const CLASS: BlockClass = BlockClass {
                 115
             }
         }
+
         1 =>
         {
             if powered(this)
@@ -163,6 +180,7 @@ pub const CLASS: BlockClass = BlockClass {
                 131
             }
         }
+
         _ => 5,
     },
     shouldSideBeRendered: |_, _, _, _, _, face| face != 0 && face != 1,
@@ -171,7 +189,8 @@ pub const CLASS: BlockClass = BlockClass {
     isIndirectlyPoweringTo: |this, world, x, y, z, dir| this.isPoweringTo(&**world, x, y, z, dir),
     isPoweringTo,
     onNeighborBlockChange,
-    blockActivated: |_, world, x, y, z, _| {
+    blockActivated: |_, world, x, y, z, _|
+    {
         let n: i32 = world.getBlockMetadata(x, y, z);
         let mut n2: i32 = (n & 0xC) >> 2;
         n2 = n2 + 1 << 2 & 0xC;
@@ -179,15 +198,19 @@ pub const CLASS: BlockClass = BlockClass {
         true
     },
     canProvidePower: |_| false,
-    onBlockPlacedBy: |this, world, x, y, z, entity| {
+    onBlockPlacedBy: |this, world, x, y, z, entity|
+    {
         let n: i32 = ((math_helper::floor_double((entity.m_rotationYaw.get() * 4.0 / 360.0) as f64 + 0.5) & 3) + 2) % 4;
         world.setBlockMetadataWithNotify(x, y, z, n);
+
         if shouldBePowered(world, x, y, z, n)
         {
             world.scheduleBlockUpdate(x, y, z, this.m_blockID, 1);
         }
     },
-    onBlockAdded: |this, world, x, y, z| {
+
+    onBlockAdded: |this, world, x, y, z|
+    {
         let id: i32 = this.m_blockID;
         world.notifyBlocksOfNeighborChange(x + 1, y, z, id);
         world.notifyBlocksOfNeighborChange(x - 1, y, z, id);

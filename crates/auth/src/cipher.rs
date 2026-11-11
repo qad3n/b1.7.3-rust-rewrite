@@ -21,11 +21,12 @@ pub struct Keys
 
 impl Keys
 {
-    pub fn derive(session: &[u8], server: bool) -> Keys
+    pub fn derive(session: &[u8], server: bool) -> Self
     {
         let hkdf: Hkdf<Sha256> = Hkdf::new(None, session);
         let toServer: ChaCha20Poly1305 = expand(&hkdf, CLIENT_TO_SERVER);
         let toClient: ChaCha20Poly1305 = expand(&hkdf, SERVER_TO_CLIENT);
+
         let (seal, open): (ChaCha20Poly1305, ChaCha20Poly1305) = if server
         {
             (toClient, toServer)
@@ -34,7 +35,7 @@ impl Keys
         {
             (toServer, toClient)
         };
-        Keys { m_seal: Sealer { m_cipher: seal, m_counter: 0 }, m_open: Opener { m_cipher: open, m_counter: 0 } }
+        Self { m_seal: Sealer { m_cipher: seal, m_counter: 0 }, m_open: Opener { m_cipher: open, m_counter: 0 } }
     }
 }
 
@@ -50,6 +51,7 @@ fn nonce(counter: &mut u64) -> AuthResult<Nonce>
 {
     let current: u64 = *counter;
     *counter = current.checked_add(1).ok_or("session cipher counter exhausted")?;
+
     let mut bytes: [u8; 12] = [0; 12];
     bytes[4..].copy_from_slice(&current.to_le_bytes());
     Ok(*Nonce::from_slice(&bytes))

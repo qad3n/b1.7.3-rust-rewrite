@@ -3,7 +3,8 @@ use crate::player::{EntityTracker, ItemInWorldManager};
 use crate::server::MinecraftServer;
 use crate::world::world_server;
 use common::world::ChunkCoordIntPair;
-use game::container::{
+use game::container::
+{
     Container, ICrafting, container_chest, container_dispenser, container_furnace, container_workbench,
 };
 use game::damage::DamageSource;
@@ -14,7 +15,8 @@ use game::inventory::{IInventory, InventoryPlayer};
 use game::item::{Item, ItemStack};
 use game::locale::StringTranslate;
 use game::network::packet::Packet;
-use game::network::packets::{
+use game::network::packets::
+{
     Packet3Chat, Packet5PlayerInventory, Packet8UpdateHealth, Packet17Sleep, Packet18Animation, Packet22Collect,
     Packet39AttachEntity, Packet51MapChunk, Packet100OpenWindow, Packet101CloseWindow, Packet103SetSlot,
     Packet104WindowItems, Packet105UpdateProgressbar, Packet200Statistic,
@@ -107,7 +109,8 @@ pub fn new(
     interactionManager: &Rc<ItemInWorldManager>,
 ) -> Rc<Entity>
 {
-    let ext: PlayerMPExt = PlayerMPExt {
+    let ext: PlayerMPExt = PlayerMPExt
+    {
         m_living: LivingFields::default(),
         m_player: PlayerFields::default(),
         m_playerNetServerHandler: Field::new(None),
@@ -127,16 +130,19 @@ pub fn new(
     entity_player::init(&this, Rc::clone(world));
     interactionManager.m_thisPlayer.set(Some(Rc::clone(&this)));
     fields(&this).m_itemInWorldManager.set(Some(Rc::clone(interactionManager)));
+
     let chunkcoordinates: ChunkCoordinates = world.getSpawnPoint();
     let mut i: i32 = chunkcoordinates.m_x;
     let mut j: i32 = chunkcoordinates.m_z;
     let mut k: i32 = chunkcoordinates.m_y;
+
     if !world.worldProvider().m_hasNoSky.get()
     {
         i += this.m_rand.nextIntBounded(20) - 10;
         k = world.findTopSolidBlockServer(i, j);
         j += this.m_rand.nextIntBounded(20) - 10;
     }
+
     this.setLocationAndAngles(i as f64 + 0.5, k as f64, j as f64 + 0.5, 0.0, 0.0);
     fields(&this).m_mcServer.set(Some(Rc::clone(server)));
     this.m_stepHeight.set(0.0);
@@ -148,6 +154,7 @@ pub fn new(
 fn setWorld(this: &Rc<Entity>, world: Option<Rc<World>>)
 {
     (entity_player::CLASS.setWorld)(this, world.clone());
+
     let manager: Rc<ItemInWorldManager> = ItemInWorldManager::new(&world.orNpe());
     fields(this).m_itemInWorldManager.set(Some(Rc::clone(&manager)));
     manager.m_thisPlayer.set(Some(Rc::clone(this)));
@@ -158,9 +165,11 @@ pub fn initMenu(this: &Rc<Entity>) { craftingInventory(this).onCraftGuiOpened(&a
 fn onUpdate(this: &Rc<Entity>)
 {
     itemInWorldManager(this).tick();
+
     let ext: &PlayerMPExt = fields(this);
     ext.m_ticksOfInvuln.set(ext.m_ticksOfInvuln.get() - 1);
     craftingInventory(this).updateCraftingResults();
+
     for i in 0..5
     {
         let itemstack: Option<Rc<ItemStack>> = getEquipmentInSlot(this, i);
@@ -179,20 +188,24 @@ fn onUpdate(this: &Rc<Entity>)
 pub fn getEquipmentInSlot(this: &Entity, slot: i32) -> Option<Rc<ItemStack>>
 {
     let inventory: Rc<InventoryPlayer> = entity_player::inventory(this);
+
     if slot == 0
     {
         return inventory.getCurrentItem();
     }
+
     inventory.m_armorInventory.borrow()[(slot - 1) as usize].clone()
 }
 
 fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bool
 {
     let source: Option<&Rc<Entity>> = damage.m_attacker;
+
     if fields(this).m_ticksOfInvuln.get() > 0
     {
         return false;
     }
+
     if !mcServer(this).m_pvpOn.get()
     {
         if let Some(source) = source
@@ -201,6 +214,7 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bo
             {
                 return false;
             }
+
             if source.instanceOf("EntityArrow")
             {
                 let owner: Option<Rc<Entity>> = game::entity::entity_arrow::fields(source).m_owner.get();
@@ -211,12 +225,14 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bo
             }
         }
     }
+
     (entity_player::CLASS.attackEntityFrom)(this, damage, amount)
 }
 
 pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
 {
     (entity_player::CLASS.onUpdate)(this);
+
     let inventory: Rc<InventoryPlayer> = entity_player::inventory(this);
     let mut i: i32 = 0;
     while i < inventory.getSizeInventory()
@@ -228,25 +244,31 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
         {
             let packet: Option<Box<dyn Packet>> =
                 Item::byIdOrNpe(itemstack.m_itemID.get()).getUpdatePacket(&itemstack, &this.world(), this);
+
             if let Some(packet) = packet
             {
                 netServerHandler(this).sendPacket(packet);
             }
         }
+
         i += 1;
     }
+
     let ext: &PlayerMPExt = fields(this);
     if syncChunks && !ext.m_loadedChunks.isEmpty()
     {
         let chunkcoordintpair: ChunkCoordIntPair = nearestChunk(this, &ext.m_loadedChunks);
         let mut flag: bool = false;
+
         if netServerHandler(this).getNumChunkDataPackets() < 4
         {
             flag = true;
         }
+
         if flag
         {
             let worldserver: Rc<World> = mcServer(this).getWorldManager(entity_player::fields(this).m_dimension.get());
+
             ext.m_loadedChunks.remove(&chunkcoordintpair);
             netServerHandler(this).sendPacket(Box::new(Packet51MapChunk::new(
                 chunkcoordintpair.m_chunkXPos * 16,
@@ -257,6 +279,7 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
                 16,
                 &worldserver,
             )));
+
             let list: Vec<Rc<TileEntity>> = world_server::getTileEntityList(
                 &worldserver,
                 chunkcoordintpair.m_chunkXPos * 16,
@@ -266,12 +289,14 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
                 worldserver.height(),
                 chunkcoordintpair.m_chunkZPos * 16 + 16,
             );
+
             for tileentity in &list
             {
                 getTileEntityInfo(this, Some(tileentity));
             }
         }
     }
+
     let player: &PlayerFields = entity_player::fields(this);
     if player.m_inPortal.get()
     {
@@ -284,6 +309,7 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
             {
                 this.closeScreen();
             }
+
             if let Some(riding) = this.m_ridingEntity.get()
             {
                 this.mountEntity(Some(&riding));
@@ -291,6 +317,7 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
             else
             {
                 player.m_timeInPortal.set(player.m_timeInPortal.get() + 0.0125);
+
                 if player.m_timeInPortal.get() >= 1.0
                 {
                     player.m_timeInPortal.set(1.0);
@@ -307,15 +334,18 @@ pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
         {
             player.m_timeInPortal.set(player.m_timeInPortal.get() - 0.05);
         }
+
         if player.m_timeInPortal.get() < 0.0
         {
             player.m_timeInPortal.set(0.0);
         }
     }
+
     if player.m_timeUntilPortal.get() > 0
     {
         player.m_timeUntilPortal.set(player.m_timeUntilPortal.get() - 1);
     }
+
     let health: i32 = entity_living::fields(this).m_health.get();
     if health != ext.m_lastHealth.get()
     {
@@ -330,6 +360,7 @@ fn nearestChunk(this: &Entity, chunks: &JArrayList<ChunkCoordIntPair>) -> ChunkC
     let x: i32 = this.m_posX.get() as i32 >> 4;
     let z: i32 = this.m_posZ.get() as i32 >> 4;
     let mut nearest: ChunkCoordIntPair = chunks.get(0);
+
     for i in 1..chunks.size()
     {
         let chunk: ChunkCoordIntPair = chunks.get(i);
@@ -338,6 +369,7 @@ fn nearestChunk(this: &Entity, chunks: &JArrayList<ChunkCoordIntPair>) -> ChunkC
             nearest = chunk;
         }
     }
+
     nearest
 }
 
@@ -358,6 +390,7 @@ fn onItemPickup(this: &Rc<Entity>, item: &Rc<Entity>, count: i32)
     if !item.m_isDead.get()
     {
         let entitytracker: Rc<EntityTracker> = entityTracker(this);
+
         if item.instanceOf("EntityItem")
         {
             entitytracker.sendPacketToTrackedPlayers(
@@ -365,6 +398,7 @@ fn onItemPickup(this: &Rc<Entity>, item: &Rc<Entity>, count: i32)
                 Box::new(Packet22Collect::new(item.m_entityId.get(), this.m_entityId.get())),
             );
         }
+
         if item.instanceOf("EntityArrow")
         {
             entitytracker.sendPacketToTrackedPlayers(
@@ -373,6 +407,7 @@ fn onItemPickup(this: &Rc<Entity>, item: &Rc<Entity>, count: i32)
             );
         }
     }
+
     (entity_player::CLASS.onItemPickup)(this, item, count);
     craftingInventory(this).updateCraftingResults();
 }
@@ -384,6 +419,7 @@ fn swingItem(this: &Rc<Entity>)
     {
         player.m_swingProgressInt.set(-1);
         player.m_isSwinging.set(true);
+
         let entitytracker: Rc<EntityTracker> = entityTracker(this);
         entitytracker.sendPacketToTrackedPlayers(this, Box::new(Packet18Animation::new(this, 1)));
     }
@@ -393,8 +429,8 @@ pub fn afterRespawn(_this: &Rc<Entity>) {}
 
 fn sleepInBedAt(this: &Rc<Entity>, x: i32, y: i32, z: i32) -> EnumStatus
 {
-    let entityplayer_enumstatus: EnumStatus = (entity_player::CLASS.sleepInBedAt)(this, x, y, z);
-    if entityplayer_enumstatus == EnumStatus::Ok
+    let status: EnumStatus = (entity_player::CLASS.sleepInBedAt)(this, x, y, z);
+    if status == EnumStatus::Ok
     {
         let entitytracker: Rc<EntityTracker> = entityTracker(this);
         entitytracker.sendPacketToTrackedPlayers(this, Box::new(Packet17Sleep::new(this, 0, x, y, z)));
@@ -407,7 +443,8 @@ fn sleepInBedAt(this: &Rc<Entity>, x: i32, y: i32, z: i32) -> EnumStatus
         );
         netServerHandler(this).sendPacket(Box::new(Packet17Sleep::new(this, 0, x, y, z)));
     }
-    entityplayer_enumstatus
+
+    status
 }
 
 fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSleeping: bool, setSpawnPoint: bool)
@@ -417,7 +454,9 @@ fn wakeUpPlayer(this: &Rc<Entity>, resetSleepTimer: bool, updateAllPlayersSleepi
         let entitytracker: Rc<EntityTracker> = entityTracker(this);
         entitytracker.sendPacketToTrackedPlayersAndTrackedEntity(this, Box::new(Packet18Animation::new(this, 3)));
     }
+
     (entity_player::CLASS.wakeUpPlayer)(this, resetSleepTimer, updateAllPlayersSleeping, setSpawnPoint);
+
     if let Some(handler) = fields(this).m_playerNetServerHandler.get()
     {
         handler.teleportTo(
@@ -478,6 +517,7 @@ fn displayWorkbenchGUI(this: &Rc<Entity>, x: i32, y: i32, z: i32)
 fn displayGUIChest(this: &Rc<Entity>, inventory: Option<&Rc<dyn IInventory>>)
 {
     getNextWidowId(this);
+
     let inventory: &Rc<dyn IInventory> = inventory.orNpe();
     netServerHandler(this).sendPacket(Box::new(Packet100OpenWindow::new(
         fields(this).m_currentWindowId.get(),
@@ -491,6 +531,7 @@ fn displayGUIChest(this: &Rc<Entity>, inventory: Option<&Rc<dyn IInventory>>)
 fn displayGUIFurnace(this: &Rc<Entity>, furnace: Option<&Rc<TileEntity>>)
 {
     getNextWidowId(this);
+
     let furnace: &Rc<TileEntity> = furnace.orNpe();
     netServerHandler(this).sendPacket(Box::new(Packet100OpenWindow::new(
         fields(this).m_currentWindowId.get(),
@@ -504,6 +545,7 @@ fn displayGUIFurnace(this: &Rc<Entity>, furnace: Option<&Rc<TileEntity>>)
 fn displayGUIDispenser(this: &Rc<Entity>, dispenser: Option<&Rc<TileEntity>>)
 {
     getNextWidowId(this);
+
     let dispenser: &Rc<TileEntity> = dispenser.orNpe();
     netServerHandler(this).sendPacket(Box::new(Packet100OpenWindow::new(
         fields(this).m_currentWindowId.get(),
@@ -524,6 +566,7 @@ fn updateCraftingInventorySlot(this: &Rc<Entity>, menu: &Rc<Container>, slot: i3
     {
         return;
     }
+
     netServerHandler(this).sendPacket(Box::new(Packet103SetSlot::new(menu.m_windowId.get(), slot, item)));
 }
 
@@ -556,6 +599,7 @@ pub fn updateHeldItem(this: &Rc<Entity>)
     {
         return;
     }
+
     netServerHandler(this).sendPacket(Box::new(Packet103SetSlot::new(
         -1,
         -1,
@@ -566,6 +610,7 @@ pub fn updateHeldItem(this: &Rc<Entity>)
 pub fn closeCraftingGui(this: &Rc<Entity>)
 {
     craftingInventory(this).onCraftGuiClosed(this);
+
     let player: &PlayerFields = entity_player::fields(this);
     player.m_craftingInventory.set(player.m_inventorySlots.get());
 }
@@ -596,7 +641,9 @@ fn addStat(this: &Rc<Entity>, stat: Option<&Rc<StatBase>>, amount: i32)
     {
         return;
     };
+
     let mut amount: i32 = amount;
+
     if !stat.m_local.get()
     {
         while amount > 100
@@ -604,6 +651,7 @@ fn addStat(this: &Rc<Entity>, stat: Option<&Rc<StatBase>>, amount: i32)
             netServerHandler(this).sendPacket(Box::new(Packet200Statistic::new(stat.m_statId, 100)));
             amount -= 100;
         }
+
         netServerHandler(this).sendPacket(Box::new(Packet200Statistic::new(stat.m_statId, amount)));
     }
 }
@@ -614,10 +662,12 @@ pub fn onDisconnect(this: &Rc<Entity>)
     {
         this.mountEntity(Some(&riding));
     }
+
     if let Some(rider) = this.m_riddenByEntity.get()
     {
         rider.mountEntity(Some(this));
     }
+
     if entity_player::fields(this).m_sleeping.get()
     {
         this.wakeUpPlayer(true, false, false);
@@ -633,7 +683,8 @@ fn addChatMessage(this: &Rc<Entity>, message: &str)
     netServerHandler(this).sendPacket(Box::new(Packet3Chat::new(JString::from(s.as_str()))));
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityPlayerMP",
     m_parent: Some(&entity_player::CLASS),
     m_interfaces: &["ICrafting"],

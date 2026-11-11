@@ -27,7 +27,9 @@ impl Packet20NamedEntitySpawn
     pub fn new(player: &Entity) -> Self
     {
         let itemStack: Option<Rc<ItemStack>> = entity_player::inventory(player).getCurrentItem();
-        Self {
+
+        Self
+        {
             m_entityId: player.m_entityId.get(),
             m_name: entity_player::fields(player).m_username.get(),
             m_xPosition: math_helper::encodePos(player.m_posX.get()),

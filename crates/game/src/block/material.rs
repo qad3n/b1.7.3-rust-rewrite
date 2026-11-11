@@ -22,8 +22,10 @@ pub struct Material
     m_mobilityFlag: i32,
 }
 
-macro_rules! materials {
-    ($($name:ident),* $(,)?) => {
+macro_rules! materials
+{
+    ($($name:ident),* $(,)?) =>
+    {
         pub struct Materials
         {
             $(pub $name: Rc<Material>,)*
@@ -67,7 +69,8 @@ materials!(
     PISTON,
 );
 
-thread_local! {
+thread_local!
+{
     static MATERIALS: Materials = Materials::create();
 }
 
@@ -75,7 +78,8 @@ impl Material
 {
     fn new(kind: MaterialKind, color: &Rc<MapColor>) -> Self
     {
-        let mut material: Self = Self {
+        let mut material: Self = Self
+        {
             m_kind: kind,
             m_canBurn: false,
             m_groundCover: false,
@@ -84,6 +88,7 @@ impl Material
             m_canHarvest: true,
             m_mobilityFlag: 0,
         };
+
         match kind
         {
             MaterialKind::Liquid =>
@@ -91,16 +96,18 @@ impl Material
                 material = material.setIsGroundCover();
                 material = material.setNoPushMobility();
             }
+
             MaterialKind::Transparent => material = material.setIsGroundCover(),
             _ => (),
         }
+
         material
     }
 
     // a fresh liquid material for a mod fluid, so beta's water and lava checks never see it
-    pub fn liquid(color: &Rc<MapColor>) -> Rc<Material>
+    pub fn liquid(color: &Rc<MapColor>) -> Rc<Self>
     {
-        Rc::new(Material::new(MaterialKind::Liquid, color).setNoPushMobility())
+        Rc::new(Self::new(MaterialKind::Liquid, color).setNoPushMobility())
     }
 
     pub fn getIsLiquid(&self) -> bool { self.m_kind == MaterialKind::Liquid }
@@ -173,10 +180,13 @@ impl Materials
     fn create() -> Self
     {
         use MaterialKind::*;
+
         let c: Rc<MapColors> = MapColor::colors();
         let m = |kind: MaterialKind, color: &Rc<MapColor>| crate::block::material::Material::new(kind, color);
         let rc = Rc::new;
-        Self {
+
+        Self
+        {
             air: rc(m(Transparent, &c.m_airColor)),
             grassMaterial: rc(m(Material, &c.m_grassColor)),
             ground: rc(m(Material, &c.m_dirtColor)),

@@ -2,7 +2,8 @@ use crate::block::{Block, BlockClass, block_flower};
 use crate::tags::{self, Tag};
 use std::rc::Rc;
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockDeadBush",
     m_parent: Some(&block_flower::CLASS),
     canThisPlantGrowOnThisBlockID: |_, block| tags::has(Tag::DeadBushSoil, block),

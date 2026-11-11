@@ -20,45 +20,56 @@ impl CompactJsonFormatter
     fn formatNode(&self, jsonNode: &Rc<JsonNode>, writer: &mut String)
     {
         let mut bl: bool = true;
+
         match jsonNode.getType()
         {
             EnumJsonNodeType::Array =>
             {
                 writer.push('[');
+
                 for element in jsonNode.getElements()
                 {
                     if !bl
                     {
                         writer.push(',');
                     }
+
                     bl = false;
                     self.formatNode(&element, writer);
                 }
+
                 writer.push(']');
             }
+
             EnumJsonNodeType::Object =>
             {
                 writer.push('{');
+
                 let mut keys: Vec<JsonStringNode> = jsonNode.getFields().keys();
                 keys.sort_by(|a, b| a.compareTo(b));
                 keys.dedup_by(|a, b| a.compareTo(b).is_eq());
+
                 for key in keys
                 {
                     if !bl
                     {
                         writer.push(',');
                     }
+
                     bl = false;
                     writer.push_str(&format!("\"{}\"", escape(&key.getText().to_string())));
                     writer.push(':');
                     self.formatNode(&jsonNode.getFields().get(&key).orNpe(), writer);
                 }
+
                 writer.push('}');
             }
+
             EnumJsonNodeType::String =>
             {
                 writer.push_str(&format!("\"{}\"", escape(&jsonNode.getText().to_string())));
             }
+
             EnumJsonNodeType::Number => writer.push_str(&jsonNode.getText().to_string()),
             EnumJsonNodeType::False => writer.push_str("false"),
             EnumJsonNodeType::True => writer.push_str("true"),

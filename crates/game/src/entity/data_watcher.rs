@@ -65,7 +65,8 @@ impl WatchableObject
 {
     pub fn new(objectType: i32, id: i32, value: WatchedValue) -> Self
     {
-        Self {
+        Self
+        {
             m_objectType: objectType,
             m_dataValueId: id,
             m_watchedObject: Field::new(value),
@@ -99,14 +100,17 @@ impl DataWatcher
     pub fn addObject(&self, id: i32, value: WatchedValue)
     {
         let integer: i32 = value.typeId();
+
         if id > 31
         {
             throwable::throw(&throwable::ILLEGAL_ARGUMENT, &format!("Data value id is too big with {id}! (Max is 31)"));
         }
+
         if self.m_watchedObjects.with(|map| map.containsKey(&id))
         {
             throwable::throw(&throwable::ILLEGAL_ARGUMENT, &format!("Duplicate id value for {id}!"));
         }
+
         let object: Rc<WatchableObject> = Rc::new(WatchableObject::new(integer, id, value));
         self.m_watchedObjects.update(|map| map.put(id, object));
     }
@@ -170,23 +174,26 @@ impl DataWatcher
                 Self::writeWatchableObject(output, entry)?;
             }
         }
+
         output.writeByte(127)
     }
 
     pub fn getChangedObjects(&self) -> Option<Vec<Rc<WatchableObject>>>
     {
         let mut arraylist: Option<Vec<Rc<WatchableObject>>> = None;
+
         if self.m_objectChanged.get()
         {
-            for datawatcher_watchableobject in self.m_watchedObjects.with(JHashMap::values)
+            for watched in self.m_watchedObjects.with(JHashMap::values)
             {
-                if datawatcher_watchableobject.getWatching()
+                if watched.getWatching()
                 {
-                    datawatcher_watchableobject.setWatching(false);
-                    arraylist.get_or_insert_with(Vec::new).push(datawatcher_watchableobject);
+                    watched.setWatching(false);
+                    arraylist.get_or_insert_with(Vec::new).push(watched);
                 }
             }
         }
+
         self.m_objectChanged.set(false);
         arraylist
     }
@@ -197,6 +204,7 @@ impl DataWatcher
         {
             Self::writeWatchableObject(output, &entry)?;
         }
+
         output.writeByte(127)
     }
 
@@ -205,6 +213,7 @@ impl DataWatcher
     {
         let i: i32 = (entry.getObjectType() << 5 | entry.getDataValueId() & 31) & 0xFF;
         output.writeByte(i)?;
+
         match entry.getObject()
         {
             WatchedValue::Byte(value) => output.writeByte(value as i32),
@@ -212,12 +221,14 @@ impl DataWatcher
             WatchedValue::Int(value) => output.writeInt(value),
             WatchedValue::Float(value) => output.writeFloat(value),
             WatchedValue::String(value) => packet::writeString(&value, output),
+
             WatchedValue::ItemStack(itemstack) =>
             {
                 output.writeShort(itemstack.getItem().m_shiftedIndex)?;
                 output.writeByte(itemstack.m_stackSize.get())?;
                 output.writeShort(itemstack.getItemDamage())
             }
+
             WatchedValue::ChunkCoordinates(coordinates) =>
             {
                 output.writeInt(coordinates.m_x)?;
@@ -238,6 +249,7 @@ impl DataWatcher
             let list: &mut Vec<Option<Rc<WatchableObject>>> = arraylist.get_or_insert_with(Vec::new);
             let i: i32 = (b0 as i32 & 224) >> 5;
             let j: i32 = b0 as i32 & 31;
+
             let value: Option<WatchedValue> = match i
             {
                 0 => Some(WatchedValue::Byte(input.readByte()?)),
@@ -245,6 +257,7 @@ impl DataWatcher
                 2 => Some(WatchedValue::Int(input.readInt()?)),
                 3 => Some(WatchedValue::Float(input.readFloat()?)),
                 4 => Some(WatchedValue::String(packet::readString(input, 64)?)),
+
                 5 =>
                 {
                     let short1: i16 = input.readShort()?;
@@ -252,6 +265,7 @@ impl DataWatcher
                     let short2: i16 = input.readShort()?;
                     Some(WatchedValue::ItemStack(ItemStack::withDamage(short1 as i32, b1 as i32, short2 as i32)))
                 }
+
                 6 =>
                 {
                     let k: i32 = input.readInt()?;
@@ -259,11 +273,13 @@ impl DataWatcher
                     let i1: i32 = input.readInt()?;
                     Some(WatchedValue::ChunkCoordinates(ChunkCoordinates::new(k, l, i1)))
                 }
+
                 _ => None,
             };
             list.push(value.map(|value| Rc::new(WatchableObject::new(i, j, value))));
             b0 = input.readByte()?;
         }
+
         Ok(arraylist)
     }
 

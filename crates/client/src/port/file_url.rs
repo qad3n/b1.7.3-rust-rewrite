@@ -10,7 +10,9 @@ pub fn fileUrl(file: &Path) -> String
     {
         path.push('/');
     }
+
     let mut url: String = "file:".to_owned();
+
     for c in path.chars()
     {
         if isUriChar(c)
@@ -26,5 +28,6 @@ pub fn fileUrl(file: &Path) -> String
             }
         }
     }
+
     url
 }

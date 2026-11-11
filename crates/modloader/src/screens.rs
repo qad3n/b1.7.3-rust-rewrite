@@ -1,6 +1,8 @@
 use crate::state;
+use crate::state::ModRuntime;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{
+use mod_protocol::abi::
+{
     BlockPos, DrawList, GuestCall, GuestReply, Handle, OverlayOp, ScreenOp, ScreenSpec, StackData,
 };
 use std::cell::RefCell;
@@ -41,7 +43,8 @@ struct Screens
     m_opener: Option<Opener>,
 }
 
-thread_local! {
+thread_local!
+{
     static SCREENS: RefCell<Screens> = RefCell::new(Screens::default());
 }
 
@@ -98,7 +101,8 @@ pub fn worldOps(partial: f32, camera: [f64; 3]) -> Vec<Vec<mod_protocol::abi::Mo
     let handlers: Vec<(usize, Handle)> = SCREENS.with(|screens| screens.borrow().m_worldRenders.clone());
     handlers
         .into_iter()
-        .filter_map(|(owner, handler)| {
+        .filter_map(|(owner, handler)|
+        {
             match state::modAt(owner)?.call(&GuestCall::WorldRender { handler, partial, camera })
             {
                 Some(GuestReply::Pose(pose)) => Some(pose.model),
@@ -110,8 +114,9 @@ pub fn worldOps(partial: f32, camera: [f64; 3]) -> Vec<Vec<mod_protocol::abi::Mo
 
 pub fn drawWorld(partial: f32)
 {
-    SCREENS.with(|screens| {
-        let screens = screens.borrow();
+    SCREENS.with(|screens|
+    {
+        let screens: std::cell::Ref<Screens> = screens.borrow();
         if let Some(drawer) = screens.m_worldDrawer.as_ref()
         {
             drawer(partial);
@@ -124,21 +129,25 @@ pub fn tooltipLines(stack: &StackData) -> Vec<String>
 {
     let handlers: Vec<(usize, Handle)> = SCREENS.with(|screens| screens.borrow().m_tooltips.clone());
     let mut lines: Vec<String> = Vec::new();
+
     for (owner, handler) in handlers
     {
         let reply: Option<GuestReply> =
             state::modAt(owner).and_then(|runtime| runtime.call(&GuestCall::Tooltip { handler, stack: stack.clone() }));
+
         if let Some(GuestReply::Lines(added)) = reply
         {
             lines.extend(added);
         }
     }
+
     lines
 }
 
 fn overlaysOn(target: &str) -> Vec<(usize, Handle)>
 {
-    SCREENS.with(|screens| {
+    SCREENS.with(|screens|
+    {
         screens
             .borrow()
             .m_overlays
@@ -180,7 +189,8 @@ pub fn drawOverlays(target: &str, size: [i32; 2], mouse: [i32; 2]) -> Vec<DrawLi
 // the first overlay to take a click keeps it from the screen under it
 pub fn clickOverlays(target: &str, x: i32, y: i32, button: i32) -> bool
 {
-    shownOn(target).into_iter().any(|(owner, handler)| {
+    shownOn(target).into_iter().any(|(owner, handler)|
+    {
         matches!(callOverlay(owner, handler, OverlayOp::Mouse { x, y, button }), Some(GuestReply::Bool(true)))
     })
 }
@@ -204,6 +214,7 @@ fn askOverlay(owner: usize, handler: Handle, op: OverlayOp) -> bool
     {
         return false;
     };
+
     runtime.apiMinor() >= since(&op)
         && matches!(runtime.call(&GuestCall::Overlay { handler, op }), Some(GuestReply::Bool(true)))
 }
@@ -239,11 +250,13 @@ pub fn playerLayers(player: &Rc<game::entity::Entity>) -> Vec<mod_protocol::abi:
     {
         return Vec::new();
     }
+
     let info = crate::host::context::entityInfo(player);
     layers
         .into_iter()
-        .filter_map(|(owner, handler)| {
-            let runtime = state::modAt(owner)?;
+        .filter_map(|(owner, handler)|
+        {
+            let runtime: Rc<ModRuntime> = state::modAt(owner)?;
             let synced: Vec<u8> = crate::entities::synced(player, runtime.id());
             match runtime.call(&GuestCall::PlayerLayers { handler, player: info.clone(), synced })?
             {
@@ -268,13 +281,14 @@ pub fn openLocal(request: OpenRequest) -> bool
             opener(request);
             true
         }
+
         None => false,
     })
 }
 
 pub fn call(screen: &ScreenType, op: ScreenOp) -> Option<DrawList>
 {
-    let runtime = state::modAt(screen.m_mod)?;
+    let runtime: Rc<ModRuntime> = state::modAt(screen.m_mod)?;
     match runtime.call(&GuestCall::Screen { handler: screen.m_handler, op })?
     {
         GuestReply::Draw(list) => Some(list),
@@ -286,8 +300,9 @@ pub fn drawHuds(partial: f32, width: i32, height: i32) -> Vec<DrawList>
 {
     let huds: Vec<(usize, Handle)> = SCREENS.with(|screens| screens.borrow().m_huds.clone());
     huds.into_iter()
-        .filter_map(|(modIndex, handler)| {
-            let runtime = state::modAt(modIndex)?;
+        .filter_map(|(modIndex, handler)|
+        {
+            let runtime: Rc<ModRuntime> = state::modAt(modIndex)?;
             match runtime.call(&GuestCall::Hud { handler, partial, width, height })?
             {
                 GuestReply::Draw(list) => Some(list),

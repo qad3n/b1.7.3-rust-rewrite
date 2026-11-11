@@ -13,20 +13,27 @@ pub fn format(pattern: &str, args: &[String]) -> String
             index += 1;
             continue;
         }
+
         let start: usize = index;
+
         index += 1;
+
         let mut digits: String = String::new();
+
         while index < chars.len() && chars[index].is_ascii_digit()
         {
             digits.push(chars[index]);
             index += 1;
         }
+
         let mut explicit: Option<usize> = None;
+
         if index < chars.len() && chars[index] == '$' && !digits.is_empty()
         {
             explicit = digits.parse::<usize>().ok();
             index += 1;
         }
+
         let Some(&conversion) = chars.get(index)
         else
         {
@@ -35,16 +42,20 @@ pub fn format(pattern: &str, args: &[String]) -> String
                 &format!("UnknownFormatConversionException: Conversion = '{}'", &pattern[start..]),
             );
         };
+
         index += 1;
+
         match conversion
         {
             '%' => out.push('%'),
             'n' => out.push('\n'),
+
             's' | 'S' | 'd' =>
             {
                 let argument: usize = match explicit
                 {
                     Some(position) => position - 1,
+
                     None =>
                     {
                         ordinary += 1;
@@ -62,6 +73,7 @@ pub fn format(pattern: &str, args: &[String]) -> String
                         ),
                     );
                 };
+
                 if conversion == 'S'
                 {
                     out.push_str(&value.to_uppercase());
@@ -71,11 +83,13 @@ pub fn format(pattern: &str, args: &[String]) -> String
                     out.push_str(value);
                 }
             }
+
             other => crate::throwable::throw(
                 &crate::throwable::ILLEGAL_ARGUMENT,
                 &format!("UnknownFormatConversionException: Conversion = '{other}'"),
             ),
         }
     }
+
     out
 }

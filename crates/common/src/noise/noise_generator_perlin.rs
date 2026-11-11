@@ -20,16 +20,19 @@ impl NoiseGeneratorPerlin
         let xCoord: f64 = random.nextDouble() * 256.0;
         let yCoord: f64 = random.nextDouble() * 256.0;
         let zCoord: f64 = random.nextDouble() * 256.0;
+
         for i in 0..256
         {
             permutations[i] = i as i32;
         }
+
         for j in 0..256
         {
             let n: usize = (random.nextIntBounded(256 - j as i32) + j as i32) as usize;
             permutations.swap(j, n);
             permutations[j + 256] = permutations[j];
         }
+
         Self { m_permutations: permutations, m_xCoord: xCoord, m_yCoord: yCoord, m_zCoord: zCoord }
     }
 
@@ -43,18 +46,22 @@ impl NoiseGeneratorPerlin
         let mut n4: i32 = n as i32;
         let mut n5: i32 = n2 as i32;
         let mut n6: i32 = n3 as i32;
+
         if n < n4 as f64
         {
             n4 = n4.wrapping_sub(1);
         }
+
         if n2 < n5 as f64
         {
             n5 = n5.wrapping_sub(1);
         }
+
         if n3 < n6 as f64
         {
             n6 = n6.wrapping_sub(1);
         }
+
         let n7: i32 = n4 & 0xFF;
         let n8: i32 = n5 & 0xFF;
         let n9: i32 = n6 & 0xFF;
@@ -103,6 +110,7 @@ impl NoiseGeneratorPerlin
     {
         let n: i32 = hash & 0xF;
         let n2: f64 = (1 - ((n & 0x8) >> 3)) as f64 * x;
+
         let n3: f64 = if n < 4
         {
             0.0
@@ -122,6 +130,7 @@ impl NoiseGeneratorPerlin
     {
         let n: i32 = hash & 0xF;
         let n2: f64 = if n < 8 { x } else { y };
+
         let n3: f64 = if n < 4
         {
             y
@@ -158,6 +167,7 @@ impl NoiseGeneratorPerlin
         {
             let mut n: usize = 0;
             let n2: f64 = 1.0 / noiseScale;
+
             for i in 0..sizeX
             {
                 let n3: f64 = (x + i as f64) * scaleX + self.m_xCoord;
@@ -166,9 +176,11 @@ impl NoiseGeneratorPerlin
                 {
                     n4 = n4.wrapping_sub(1);
                 }
+
                 let n5: i32 = n4 & 0xFF;
                 let n6: f64 = n3 - n4 as f64;
                 let n7: f64 = fade(n6);
+
                 for j in 0..sizeZ
                 {
                     let n8: f64 = (z + j as f64) * scaleZ + self.m_zCoord;
@@ -177,6 +189,7 @@ impl NoiseGeneratorPerlin
                     {
                         n9 = n9.wrapping_sub(1);
                     }
+
                     let n10: i32 = n9 & 0xFF;
                     let n11: f64 = n8 - n9 as f64;
                     let delta: f64 = fade(n11);
@@ -199,6 +212,7 @@ impl NoiseGeneratorPerlin
                     n += 1;
                 }
             }
+
             return;
         }
 
@@ -209,6 +223,7 @@ impl NoiseGeneratorPerlin
         let mut lerp3: f64 = 0.0;
         let mut lerp4: f64 = 0.0;
         let mut lerp5: f64 = 0.0;
+
         for k in 0..sizeX
         {
             let n18: f64 = (x + k as f64) * scaleX + self.m_xCoord;
@@ -217,9 +232,11 @@ impl NoiseGeneratorPerlin
             {
                 n19 = n19.wrapping_sub(1);
             }
+
             let n20: i32 = n19 & 0xFF;
             let n21: f64 = n18 - n19 as f64;
             let n22: f64 = fade(n21);
+
             for l in 0..sizeZ
             {
                 let n23: f64 = (z + l as f64) * scaleZ + self.m_zCoord;
@@ -228,9 +245,11 @@ impl NoiseGeneratorPerlin
                 {
                     n24 = n24.wrapping_sub(1);
                 }
+
                 let n25: i32 = n24 & 0xFF;
                 let n26: f64 = n23 - n24 as f64;
                 let delta2: f64 = fade(n26);
+
                 for n27 in 0..sizeY
                 {
                     let n28: f64 = (y + n27 as f64) * scaleY + self.m_yCoord;
@@ -239,18 +258,22 @@ impl NoiseGeneratorPerlin
                     {
                         n29 = n29.wrapping_sub(1);
                     }
+
                     let n30: i32 = n29 & 0xFF;
                     let n31: f64 = n28 - n29 as f64;
                     let n32: f64 = fade(n31);
+
                     if n27 == 0 || n30 != n17
                     {
                         n17 = n30;
+
                         let n33: i32 = self.p(n20) + n30;
                         let n34: i32 = self.p(n33) + n25;
                         let n35: i32 = self.p(n33 + 1) + n25;
                         let n36: i32 = self.p(n20 + 1) + n30;
                         let n37: i32 = self.p(n36) + n25;
                         let n38: i32 = self.p(n36 + 1) + n25;
+
                         lerp2 = self.lerp(
                             n22,
                             self.grad(self.p(n34), n21, n31, n26),
@@ -272,6 +295,7 @@ impl NoiseGeneratorPerlin
                             self.grad(self.p(n38 + 1), n21 - 1.0, n31 - 1.0, n26 - 1.0),
                         );
                     }
+
                     let lerp6: f64 = self.lerp(delta2, self.lerp(n32, lerp2, lerp3), self.lerp(n32, lerp4, lerp5));
                     values[n15] += lerp6 * n16;
                     n15 += 1;

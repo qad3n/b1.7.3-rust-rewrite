@@ -1,6 +1,6 @@
 use crate::object::JavaObject;
 use crate::throwable::{self, ARRAY_INDEX, CONCURRENT_MODIFICATION, INDEX_OUT_OF_BOUNDS, NO_SUCH_ELEMENT};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 
 // java.util.ArrayList of jdk 6 shared by reference, the modCount drives fail fast iteration like the original
 pub struct JArrayList<T>
@@ -26,6 +26,7 @@ impl<T: Clone> JArrayList<T>
         {
             throwable::throw(&INDEX_OUT_OF_BOUNDS, &format!("Index: {index}, Size: {size}"));
         }
+
         if index < 0
         {
             throwable::throw(&ARRAY_INDEX, &index.to_string());
@@ -58,6 +59,7 @@ impl<T: Clone> JArrayList<T>
         {
             throwable::throw(&INDEX_OUT_OF_BOUNDS, &format!("Index: {index}, Size: {size}"));
         }
+
         self.bump();
         self.m_items.borrow_mut().insert(index as usize, value);
     }
@@ -98,7 +100,7 @@ impl<T: Clone + JavaObject> JArrayList<T>
 {
     pub fn indexOf(&self, value: &T) -> i32
     {
-        let items = self.m_items.borrow();
+        let items: Ref<Vec<T>> = self.m_items.borrow();
         items.iter().position(|item| value.javaEquals(item)).map_or(-1, |index| index as i32)
     }
 
@@ -111,13 +113,14 @@ impl<T: Clone + JavaObject> JArrayList<T>
         {
             return false;
         }
+
         self.bump();
         self.m_items.borrow_mut().remove(index as usize);
         true
     }
 
     // AbstractCollection.removeAll walks its own iterator and asks the argument for contains
-    pub fn removeAll(&self, values: &JArrayList<T>) -> bool
+    pub fn removeAll(&self, values: &Self) -> bool
     {
         let mut modified: bool = false;
         let mut iterator: ListIterator = self.iterator();
@@ -129,6 +132,7 @@ impl<T: Clone + JavaObject> JArrayList<T>
                 modified = true;
             }
         }
+
         modified
     }
 }
@@ -144,6 +148,7 @@ impl<U: ?Sized> JArrayList<std::rc::Rc<U>>
         {
             return false;
         };
+
         self.bump();
         self.m_items.borrow_mut().remove(index);
         true
@@ -183,6 +188,7 @@ impl ListIterator
     pub fn next<T: Clone>(&mut self, list: &JArrayList<T>) -> T
     {
         self.check(list);
+
         if self.m_cursor < 0 || self.m_cursor >= list.size()
         {
             self.check(list);
@@ -190,6 +196,7 @@ impl ListIterator
         }
 
         let value: T = list.get(self.m_cursor);
+
         self.m_lastRet = self.m_cursor;
         self.m_cursor += 1;
         value
@@ -204,10 +211,12 @@ impl ListIterator
 
         self.check(list);
         list.removeAt(self.m_lastRet);
+
         if self.m_lastRet < self.m_cursor
         {
             self.m_cursor -= 1;
         }
+
         self.m_lastRet = -1;
         self.m_expectedModCount = list.m_modCount.get();
     }

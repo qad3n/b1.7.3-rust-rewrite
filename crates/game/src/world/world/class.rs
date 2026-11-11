@@ -3,8 +3,10 @@ use crate::entity::Entity;
 use crate::world::{ChunkProvider, Explosion, IChunkProvider, World};
 use std::rc::Rc;
 
-crate::vtable! {
-    WorldClass for World {
+crate::vtable!
+{
+    WorldClass for World
+    {
         fn TickUpdates(flush: bool) -> bool;
         fn addWeatherEffect(entity: Rc<Entity>) -> bool;
         fn canModify(player: &Rc<Entity>, x: i32, y: i32, z: i32) -> bool;
@@ -36,7 +38,8 @@ fn getChunkProvider(this: &Rc<World>) -> Rc<dyn IChunkProvider>
     ChunkProvider::new(this, ichunkloader, Some(provider.getChunkProvider()))
 }
 
-pub const WORLD: WorldClass = WorldClass {
+pub const WORLD: WorldClass = WorldClass
+{
     m_name: "World",
     m_parent: None,
     m_interfaces: &[],

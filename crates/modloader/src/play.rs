@@ -1,4 +1,5 @@
 use crate::host::context::{self, dimension, withWorld};
+use crate::state::ModRuntime;
 use crate::{events, state};
 use game::entity::{Entity, entity_player};
 use game::world::World;
@@ -14,11 +15,13 @@ pub fn worldChanged(previous: Option<&Rc<World>>, world: Option<&Rc<World>>)
     {
         return;
     }
+
     if let Some(previous) = previous
     {
         withWorld(previous, || events::post(EventKind::WorldUnload, EventData::World { world: dimension(previous) }));
         context::forgetWorld(previous);
     }
+
     let Some(world) = world
     else
     {
@@ -35,12 +38,15 @@ pub fn worldLoaded(world: &Rc<World>)
     {
         return;
     }
+
     context::rememberWorld(world);
+
     if crate::side::isAuthority(world)
     {
         crate::remap::onWorldLoad(world);
         crate::persist::loadWorld(world);
     }
+
     withWorld(world, || events::post(EventKind::WorldLoad, EventData::World { world: dimension(world) }));
 }
 
@@ -59,10 +65,12 @@ pub fn tick(pre: bool) -> bool
     {
         return false;
     }
+
     if !pre
     {
         crate::netplay::flushTeleports();
     }
+
     events::post(
         if pre
         {
@@ -92,7 +100,9 @@ pub fn key(key: i32, down: bool)
     {
         return;
     }
+
     crate::keybinds::pressed(key, down);
+
     if events::hasListeners(EventKind::KeyInput)
     {
         events::post(EventKind::KeyInput, EventData::Key { key, pressed: down });
@@ -103,7 +113,8 @@ fn sender(player: Option<&Rc<Entity>>, op: bool) -> Sender
 {
     match player
     {
-        Some(player) => Sender {
+        Some(player) => Sender
+        {
             player: Some(player.m_entityId.get()),
             name: entity_player::fields(player).m_username.get().map(|name| name.to_string()).unwrap_or_default(),
             world: player.m_worldObj.get().map_or(0, |world| dimension(&world)),
@@ -123,8 +134,10 @@ pub fn command(line: &str, player: Option<&Rc<Entity>>, op: bool) -> Option<Stri
 
     let source: String = player.map_or_else(|| String::from("console"), crate::gamelog::name);
     crate::log::debug(crate::log::GAME, &format!("{source} ran command {line}"));
+
     let world: Option<Rc<World>> = player.and_then(|player| player.m_worldObj.get());
     let run = || crate::commands::execute(line, sender(player, op));
+
     match world
     {
         Some(world) => withWorld(&world, run),
@@ -143,10 +156,12 @@ pub fn chat(player: &Rc<Entity>, message: &str) -> Option<String>
         EventKind::PlayerChat,
         EventData::Chat { player: player.m_entityId.get(), message: message.to_owned() },
     );
+
     if envelope.canceled
     {
         return None;
     }
+
     match envelope.data
     {
         EventData::Chat { message, .. } => Some(message),
@@ -168,6 +183,7 @@ pub fn player(kind: EventKind, player: &Rc<Entity>)
     {
         return;
     }
+
     if kind == EventKind::PlayerLogin
     {
         resync(player);
@@ -181,10 +197,12 @@ pub fn player(kind: EventKind, player: &Rc<Entity>)
         _ => "changed",
     };
     crate::log::debug(crate::log::GAME, &format!("{} {action}", crate::gamelog::name(player)));
+
     if !events::hasListeners(kind)
     {
         return;
     }
+
     let world: i32 = player.m_worldObj.get().map_or(0, |world| dimension(&world));
     let name: String = entity_player::fields(player).m_username.get().map(|name| name.to_string()).unwrap_or_default();
     events::post(kind, EventData::Player { player: player.m_entityId.get(), world, name });
@@ -207,6 +225,7 @@ pub fn resync(player: &Rc<Entity>)
 pub fn dimensionChanged(player: &Rc<Entity>, from: i32, to: i32)
 {
     resync(player);
+
     if active()
     {
         let name: String = crate::gamelog::name(player);
@@ -225,7 +244,9 @@ pub fn blockBreak(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>
     {
         return false;
     }
-    game::hooks::fire(game::hooks::GameEvent::BlockBreak {
+
+    game::hooks::fire(game::hooks::GameEvent::BlockBreak
+    {
         world,
         x,
         y,
@@ -242,7 +263,9 @@ pub fn blockActivate(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Enti
     {
         return false;
     }
-    game::hooks::fire(game::hooks::GameEvent::BlockActivate {
+
+    game::hooks::fire(game::hooks::GameEvent::BlockActivate
+    {
         world,
         x,
         y,
@@ -258,6 +281,7 @@ pub fn interact(player: &Rc<Entity>, pos: BlockPos, face: i32) -> bool
     {
         return false;
     }
+
     let world: i32 = player.m_worldObj.get().map_or(0, |world| dimension(&world));
     let data: EventData =
         EventData::ItemUse { world, player: player.m_entityId.get(), stack: None, pos: Some(pos), face };
@@ -269,7 +293,7 @@ pub fn modAsset(path: &str) -> Option<Vec<u8>>
 {
     let rest: &str = path.strip_prefix("/mods/")?;
     let (namespace, file) = rest.split_once('/')?;
-    let runtime = state::byId(namespace)?;
+    let runtime: Rc<ModRuntime> = state::byId(namespace)?;
     let bytes: Option<Vec<u8>> = runtime.m_source.borrow_mut().read(&format!("assets/{namespace}/{file}"));
     bytes
 }
@@ -282,6 +306,7 @@ pub fn hud(partial: f32, width: i32, height: i32) -> Vec<mod_protocol::abi::Draw
     {
         events::post(EventKind::RenderHud, EventData::Render { partial, width, height });
     }
+
     crate::screens::drawHuds(partial, width, height)
 }
 
@@ -299,10 +324,12 @@ pub fn renderWorldLast(partial: f32)
     {
         return;
     }
+
     if events::hasListeners(EventKind::RenderWorldLast)
     {
         events::post(EventKind::RenderWorldLast, EventData::Render { partial, width: 0, height: 0 });
     }
+
     crate::screens::drawWorld(partial);
 }
 
@@ -312,7 +339,9 @@ pub fn blockHighlight(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
     {
         return false;
     }
-    let data: EventData = EventData::Block {
+
+    let data: EventData = EventData::Block
+    {
         world: dimension(world),
         pos: BlockPos::new(x, y, z),
         block: world.getBlockId(x, y, z),
@@ -334,7 +363,9 @@ pub fn itemUseFirst(
     {
         return false;
     }
-    let data: EventData = EventData::ItemUse {
+
+    let data: EventData = EventData::ItemUse
+    {
         world: dimension(world),
         player: player.m_entityId.get(),
         stack: stack.map(|stack| crate::host::context::stackData(stack)),

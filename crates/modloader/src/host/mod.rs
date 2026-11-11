@@ -25,6 +25,7 @@ pub fn handle(modIndex: usize, call: HostCall) -> HostReply
     {
         return HostReply::Error(format!("unknown mod index {modIndex}"));
     };
+
     match register::handle(&runtime, call)
     {
         Ok(reply) => reply,

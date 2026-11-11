@@ -43,12 +43,15 @@ impl GLU
         {
             return;
         }
+
         let cotangent: f32 = jvm::math::cos(radians as f64) as f32 / sine;
         let matrix: FloatBuffer = BufferUtils::createFloatBuffer(16);
+
         for i in 0..4
         {
             matrix.putAt(i * 4 + i, 1.0);
         }
+
         matrix.putAt(0 * 4 + 0, cotangent / aspect);
         matrix.putAt(1 * 4 + 1, cotangent);
         matrix.putAt(2 * 4 + 2, -(zFar + zNear) / deltaZ);

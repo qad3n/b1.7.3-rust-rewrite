@@ -43,8 +43,11 @@ fn onUpdate(this: &Rc<Entity>)
 {
     let slime: &SlimeExt = fields(this);
     slime.m_lastStretch.set(slime.m_stretch.get());
+
     let flag: bool = this.m_onGround.get();
+
     (entity_living::CLASS.onUpdate)(this);
+
     if this.m_onGround.get() && !flag
     {
         let world: Rc<World> = this.world();
@@ -65,19 +68,23 @@ fn onUpdate(this: &Rc<Entity>)
                 0.0,
             );
         }
+
         if i > 2
         {
             let pitch: f32 = ((this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0) / 0.8;
             world.playSoundAtEntity(this, "mob.slime", this.getSoundVolume(), pitch);
         }
+
         slime.m_stretch.set(-0.5);
     }
+
     slime.m_stretch.set(slime.m_stretch.get() * 0.6);
 }
 
 fn updatePlayerActionState(this: &Rc<Entity>)
 {
     entity_living::checkDespawn(this);
+
     let slime: &SlimeExt = fields(this);
     let living: &entity_living::LivingFields = entity_living::fields(this);
     let world: Rc<World> = this.world();
@@ -86,7 +93,9 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     {
         entity_living::faceEntity(this, player, 10.0, 20.0);
     }
-    let jump: bool = this.m_onGround.get() && {
+
+    let jump: bool = this.m_onGround.get() &&
+    {
         let delay: i32 = slime.m_slimeJumpDelay.get();
         slime.m_slimeJumpDelay.set(delay - 1);
         delay <= 0
@@ -94,16 +103,20 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     if jump
     {
         slime.m_slimeJumpDelay.set(this.m_rand.nextIntBounded(20) + 10);
+
         if entityplayer.is_some()
         {
             slime.m_slimeJumpDelay.set(slime.m_slimeJumpDelay.get() / 3);
         }
+
         living.m_isJumping.set(true);
+
         if getSlimeSize(this) > 1
         {
             let pitch: f32 = ((this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0) * 0.8;
             world.playSoundAtEntity(this, "mob.slime", this.getSoundVolume(), pitch);
         }
+
         slime.m_stretch.set(1.0);
         living.m_moveStrafing.set(1.0 - this.m_rand.nextFloat() * 2.0);
         living.m_moveForward.set((1 * getSlimeSize(this)) as f32);
@@ -111,6 +124,7 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     else
     {
         living.m_isJumping.set(false);
+
         if this.m_onGround.get()
         {
             living.m_moveForward.set(0.0);
@@ -141,6 +155,7 @@ fn setEntityDead(this: &Rc<Entity>)
             world.entityJoinedWorld(&entityslime);
         }
     }
+
     (entity_living::CLASS.setEntityDead)(this);
 }
 
@@ -171,19 +186,25 @@ fn getCanSpawnHere(this: &Rc<Entity>) -> bool
         && this.posY() < 16.0
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntitySlime",
     m_parent: Some(&entity_living::CLASS),
     m_interfaces: &["IMob", "IAnimals"],
-    entityInit: |this| {
+    entityInit: |this|
+    {
         (entity_living::CLASS.entityInit)(this);
         this.m_dataWatcher.addObject(16, WatchedValue::Byte(1));
     },
-    writeEntityToNBT: |this, nbt| {
+
+    writeEntityToNBT: |this, nbt|
+    {
         (entity_living::CLASS.writeEntityToNBT)(this, nbt);
         nbt.setInteger("Size", getSlimeSize(this) - 1);
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         (entity_living::CLASS.readEntityFromNBT)(this, nbt);
         setSlimeSize(this, nbt.getInteger("Size") + 1);
     },
@@ -193,11 +214,13 @@ pub const CLASS: EntityClass = EntityClass {
     onCollideWithPlayer,
     getHurtSound: |_| Some("mob.slime".to_string()),
     getDeathSound: |_| Some("mob.slime".to_string()),
-    getDropItemId: |this| {
+    getDropItemId: |this|
+    {
         if getSlimeSize(this) == 1
         {
             return Item::slimeBall().m_shiftedIndex;
         }
+
         0
     },
     getCanSpawnHere,
@@ -211,7 +234,9 @@ pub fn new(world: Option<Rc<World>>) -> Rc<Entity>
     entity_living::init(&entity, world);
     fields(&entity).m_slimeJumpDelay.set(0);
     entity_living::fields(&entity).m_texture.set(Some(JString::from("/mob/slime.png")));
+
     let i: i32 = 1 << entity.m_rand.nextIntBounded(3);
+
     entity.m_yOffset.set(0.0);
     fields(&entity).m_slimeJumpDelay.set(entity.m_rand.nextIntBounded(20) + 10);
     setSlimeSize(&entity, i);

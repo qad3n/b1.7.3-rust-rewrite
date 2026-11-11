@@ -1,7 +1,8 @@
 use jvm::image::BufferedImage;
 use mod_protocol::Identifier;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet};
+use std::iter::Copied;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -87,7 +88,8 @@ struct State
     m_slices: BTreeMap<(Atlas, Identifier), Slice>,
 }
 
-thread_local! {
+thread_local!
+{
     static STATE: RefCell<State> = RefCell::new(State::default());
 }
 
@@ -114,8 +116,11 @@ pub fn requestTiles(atlas: Atlas, texture: &str, columns: i32, rows: i32) -> Res
     {
         return Err(format!("a texture cuts into 1 to {} tiles each way, asked {columns}x{rows}", tiles::MOST));
     }
+
     let source: Identifier = Identifier::parse(texture).map_err(|error| format!("texture {texture}: {error:?}"))?;
+
     request(atlas, texture);
+
     for column in 0..columns
     {
         for row in 0..rows
@@ -123,13 +128,16 @@ pub fn requestTiles(atlas: Atlas, texture: &str, columns: i32, rows: i32) -> Res
             let id: Identifier = tileId(&source, column, row)?;
             let slice: Slice =
                 Slice { m_source: source.clone(), m_columns: columns, m_rows: rows, m_column: column, m_row: row };
-            STATE.with(|state| {
-                let mut state = state.borrow_mut();
+
+            STATE.with(|state|
+            {
+                let mut state: RefMut<crate::atlas::State> = state.borrow_mut();
                 state.m_requested.insert((atlas, id.clone()));
                 state.m_slices.insert((atlas, id), slice);
             });
         }
     }
+
     Ok(())
 }
 
@@ -137,11 +145,15 @@ pub fn requestTiles(atlas: Atlas, texture: &str, columns: i32, rows: i32) -> Res
 // the vanilla placeholder slots fill first, then whole rows grow below the 256 vanilla tiles
 pub fn assign()
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::atlas::State> = state.borrow_mut();
         let requested: Vec<(Atlas, Identifier)> = state.m_requested.iter().cloned().collect();
-        let mut terrain = TERRAIN_FREE.iter().copied().chain(VANILLA_TILES..);
-        let mut items = ITEMS_FREE.iter().copied().chain(VANILLA_TILES..);
+        let mut terrain: std::iter::Chain<Copied<std::slice::Iter<i32>>, std::ops::RangeFrom<i32>> =
+            TERRAIN_FREE.iter().copied().chain(VANILLA_TILES..);
+        let mut items: std::iter::Chain<Copied<std::slice::Iter<i32>>, std::ops::RangeFrom<i32>> =
+            ITEMS_FREE.iter().copied().chain(VANILLA_TILES..);
+
         for key in requested
         {
             let slot: Option<i32> = match key.0
@@ -160,7 +172,8 @@ pub fn assign()
 // tile rows of a sheet, 16 for vanilla and more once mod sprites spill past slot 255
 pub fn rows(atlas: Atlas) -> i32
 {
-    STATE.with(|state| {
+    STATE.with(|state|
+    {
         let last: i32 = state
             .borrow()
             .m_slots
@@ -198,7 +211,8 @@ pub fn metaPath(id: &Identifier) -> String { format!("{}.mcmeta", texturePath(id
 // the two .mcmeta fields an animation needs, frametime and a frames list of plain indices
 fn parseMeta(text: &str) -> (u32, Vec<usize>)
 {
-    let number = |key: &str| -> Option<u32> {
+    let number = |key: &str| -> Option<u32>
+    {
         let rest: &str = &text[text.find(key)? + key.len()..];
         let digits: String = rest
             .trim_start_matches(|c: char| c == '"' || c == ':' || c.is_whitespace())
@@ -210,7 +224,8 @@ fn parseMeta(text: &str) -> (u32, Vec<usize>)
     let frameTime: u32 = number("\"frametime\"").unwrap_or(1).max(1);
     let order: Vec<usize> = text
         .find("\"frames\"")
-        .and_then(|start| {
+        .and_then(|start|
+        {
             let rest: &str = &text[start..];
             let open: usize = rest.find('[')?;
             let close: usize = rest.find(']')?;
@@ -224,6 +239,7 @@ fn decode(bytes: &[u8], meta: Option<&str>) -> Result<Sprite, String>
 {
     let mut decoder: png::Decoder<&[u8]> = png::Decoder::new(bytes);
     decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+
     let mut reader: png::Reader<&[u8]> = decoder.read_info().map_err(|error| error.to_string())?;
     let mut buffer: Vec<u8> = vec![0; reader.output_buffer_size()];
     let info: png::OutputInfo = reader.next_frame(&mut buffer).map_err(|error| error.to_string())?;
@@ -234,10 +250,12 @@ fn decode(bytes: &[u8], meta: Option<&str>) -> Result<Sprite, String>
             info.width, info.height
         ));
     }
+
     let channels: usize = info.color_type.samples();
     let argb: Vec<i32> = buffer[..info.buffer_size()]
         .chunks(channels)
-        .map(|pixel| {
+        .map(|pixel|
+        {
             let (red, green, blue, alpha): (u8, u8, u8, u8) = match channels
             {
                 4 => (pixel[0], pixel[1], pixel[2], pixel[3]),
@@ -251,13 +269,17 @@ fn decode(bytes: &[u8], meta: Option<&str>) -> Result<Sprite, String>
     let area: usize = (info.width * info.width) as usize;
     let frames: Vec<Vec<i32>> = argb.chunks(area).map(<[i32]>::to_vec).collect();
     let first: Vec<i32> = frames[0].clone();
-    let animation: Option<Animation> = (frames.len() > 1).then(|| {
+
+    let animation: Option<Animation> = (frames.len() > 1).then(||
+    {
         let (frameTime, mut order): (u32, Vec<usize>) = meta.map(parseMeta).unwrap_or((1, Vec::new()));
         order.retain(|frame| *frame < frames.len());
+
         if order.is_empty()
         {
             order = (0..frames.len()).collect();
         }
+
         Animation { m_frames: frames, m_order: order, m_frameTime: frameTime }
     });
     Ok(Sprite { m_size: info.width, m_argb: first, m_animation: animation })
@@ -269,11 +291,14 @@ pub fn loadSprites(
     readMeta: &dyn Fn(&Identifier) -> Option<String>,
 ) -> Vec<String>
 {
-    let keys: Vec<(Atlas, Identifier)> = STATE.with(|state| {
-        let state = state.borrow();
+    let keys: Vec<(Atlas, Identifier)> = STATE.with(|state|
+    {
+        let state: std::cell::Ref<crate::atlas::State> = state.borrow();
         state.m_slots.keys().filter(|key| !state.m_slices.contains_key(*key)).cloned().collect()
     });
+
     let mut problems: Vec<String> = Vec::new();
+
     for key in keys
     {
         let sprite: Result<Sprite, String> = match read(&key.1)
@@ -287,6 +312,7 @@ pub fn loadSprites(
             Err(reason) => problems.push(format!("texture {}: {reason}", key.1)),
         }
     }
+
     problems
 }
 
@@ -304,12 +330,14 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
     {
         return image;
     }
+
     STATE.with(|state| state.borrow_mut().m_tiles.insert(atlas, tile));
+
     let rows: i32 = rows(atlas);
     let image: Rc<BufferedImage> = if rows * tile > image.getHeight()
     {
         let grown: BufferedImage = BufferedImage::new(image.getWidth(), rows * tile, image.getType());
-        let source = image.rasterData();
+        let source: RefMut<Vec<i32>> = image.rasterData();
         grown.rasterData()[..source.len()].copy_from_slice(&source);
         drop(source);
         Rc::new(grown)
@@ -318,8 +346,10 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
     {
         image
     };
-    STATE.with(|state| {
-        let state = state.borrow();
+
+    STATE.with(|state|
+    {
+        let state: std::cell::Ref<crate::atlas::State> = state.borrow();
         for ((sheet, id), sprite) in &state.m_sprites
         {
             if *sheet != atlas
@@ -331,8 +361,10 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
             {
                 continue;
             };
+
             let originX: i32 = (slot % SHEET_TILES) * tile;
             let originY: i32 = (slot / SHEET_TILES) * tile;
+
             for y in 0..tile
             {
                 for x in 0..tile
@@ -345,6 +377,7 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
             }
         }
     });
+
     paintSlices(atlas, &image, tile);
     image
 }
@@ -356,14 +389,16 @@ fn sourceSlot(state: &State, atlas: Atlas, source: &Identifier) -> Option<i32>
     {
         return source.path().rsplit_once('/').and_then(|(_, index)| index.parse().ok());
     }
+
     state.m_slots.get(&(atlas, source.clone())).copied()
 }
 
 // each tile is read from its source already in the sheet and blown up pixel by pixel to a whole slot
 fn paintSlices(atlas: Atlas, image: &BufferedImage, tile: i32)
 {
-    STATE.with(|state| {
-        let state = state.borrow();
+    STATE.with(|state|
+    {
+        let state: std::cell::Ref<crate::atlas::State> = state.borrow();
         for ((sheet, id), slice) in &state.m_slices
         {
             if *sheet != atlas
@@ -376,11 +411,13 @@ fn paintSlices(atlas: Atlas, image: &BufferedImage, tile: i32)
             {
                 continue;
             };
+
             let (width, height): (i32, i32) = (tile / slice.m_columns, tile / slice.m_rows);
             let sourceX: i32 = (from % SHEET_TILES) * tile + slice.m_column * width;
             let sourceY: i32 = (from / SHEET_TILES) * tile + slice.m_row * height;
             let originX: i32 = (slot % SHEET_TILES) * tile;
             let originY: i32 = (slot / SHEET_TILES) * tile;
+
             for y in 0..tile
             {
                 for x in 0..tile
@@ -396,6 +433,7 @@ fn paintSlices(atlas: Atlas, image: &BufferedImage, tile: i32)
 fn scaled(frame: &[i32], size: u32, tile: i32) -> Vec<u8>
 {
     let mut rgba: Vec<u8> = Vec::with_capacity((tile * tile * 4) as usize);
+
     for y in 0..tile
     {
         for x in 0..tile
@@ -405,25 +443,32 @@ fn scaled(frame: &[i32], size: u32, tile: i32) -> Vec<u8>
             rgba.extend_from_slice(&[(pixel >> 16) as u8, (pixel >> 8) as u8, pixel as u8, (pixel >> 24) as u8]);
         }
     }
+
     rgba
 }
 
 // advances every animated sprite one tick and hands back the tiles whose frame changed
 pub fn animate(atlas: Atlas) -> Vec<AnimatedTile>
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::atlas::State> = state.borrow_mut();
+
         if atlas == Atlas::Terrain
         {
             state.m_ticks = state.m_ticks.wrapping_add(1);
         }
+
         let ticks: u32 = state.m_ticks;
+
         let Some(tile) = state.m_tiles.get(&atlas).copied()
         else
         {
             return Vec::new();
         };
+
         let mut due: Vec<AnimatedTile> = Vec::new();
+
         for ((sheet, id), sprite) in &state.m_sprites
         {
             let Some(animation) = sprite.m_animation.as_ref().filter(|_| *sheet == atlas)
@@ -440,15 +485,19 @@ pub fn animate(atlas: Atlas) -> Vec<AnimatedTile>
             {
                 continue;
             };
+
             let step: usize = (ticks / animation.m_frameTime) as usize % animation.m_order.len();
             let frame: &[i32] = &animation.m_frames[animation.m_order[step]];
-            due.push(AnimatedTile {
+
+            due.push(AnimatedTile
+            {
                 m_x: (slot % SHEET_TILES) * tile,
                 m_y: (slot / SHEET_TILES) * tile,
                 m_size: tile,
                 m_rgba: scaled(frame, sprite.m_size, tile),
             });
         }
+
         due
     })
 }

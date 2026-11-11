@@ -2,7 +2,7 @@ use crate::registry::{self, BlockEntry};
 use mod_protocol::Identifier;
 use mod_protocol::abi::StateData;
 use mod_protocol::spec::{BlockStatesSpec, PropertySpec, StateVariantSpec};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 // a chunk stores 4 bits of metadata, so each block id carries 16 states and larger blocks span more ids
@@ -23,7 +23,7 @@ pub struct StateTable
 
 impl StateTable
 {
-    fn new(spec: &BlockStatesSpec) -> Result<StateTable, String>
+    fn new(spec: &BlockStatesSpec) -> Result<Self, String>
     {
         let mut names: BTreeSet<&str> = BTreeSet::new();
         let mut properties: Vec<PropertySpec> = Vec::new();
@@ -33,7 +33,9 @@ impl StateTable
             {
                 return Err(format!("property {} is empty or listed twice", property.name));
             }
+
             let mut values: Vec<String> = property.values.clone();
+
             if let Some(default) = spec.default.get(&property.name)
             {
                 let at: usize = values
@@ -42,13 +44,16 @@ impl StateTable
                     .ok_or_else(|| format!("default {default} is not a value of {}", property.name))?;
                 values.rotate_left(at);
             }
+
             properties.push(PropertySpec { name: property.name.clone(), values });
         }
+
         if let Some(unknown) = spec.default.keys().find(|key| !names.contains(key.as_str()))
         {
             return Err(format!("default names unknown property {unknown}"));
         }
-        let table: StateTable = StateTable { m_properties: properties, m_variants: spec.variants.clone() };
+
+        let table: Self = Self { m_properties: properties, m_variants: spec.variants.clone() };
         if table.pages() > pages::MAX_PAGES
         {
             return Err(format!(
@@ -57,6 +62,7 @@ impl StateTable
                 pages::MAX_PAGES * pages::STATES_PER_ID
             ));
         }
+
         Ok(table)
     }
 
@@ -67,7 +73,8 @@ impl StateTable
     // the last property changes fastest, an absent or unknown value counts as the default
     pub fn index(&self, values: &BTreeMap<String, String>) -> usize
     {
-        self.m_properties.iter().fold(0, |index, property| {
+        self.m_properties.iter().fold(0, |index, property|
+        {
             let value: usize = values
                 .get(&property.name)
                 .and_then(|value| property.values.iter().position(|known| known == value))
@@ -80,11 +87,13 @@ impl StateTable
     {
         let mut rest: usize = index;
         let mut values: BTreeMap<String, String> = BTreeMap::new();
+
         for property in self.m_properties.iter().rev()
         {
             values.insert(property.name.clone(), property.values[rest % property.values.len()].clone());
             rest /= property.values.len();
         }
+
         values
     }
 
@@ -102,20 +111,24 @@ struct State
     m_ids: HashMap<Identifier, Vec<i32>>,
 }
 
-thread_local! {
+thread_local!
+{
     static STATE: RefCell<State> = RefCell::new(State::default());
 }
 
 pub fn register(block: Identifier, spec: &BlockStatesSpec) -> Result<(), String>
 {
     let table: StateTable = StateTable::new(spec).map_err(|reason| format!("states of {block}: {reason}"))?;
+
     for texture in spec.variants.iter().flat_map(variantTextures)
     {
         crate::atlas::request(crate::atlas::Atlas::Terrain, &texture);
     }
+
     STATE.with(|state| match state.borrow_mut().m_tables.entry(block.clone())
     {
         std::collections::btree_map::Entry::Occupied(_) => Err(format!("states of {block} are registered twice")),
+
         std::collections::btree_map::Entry::Vacant(slot) =>
         {
             slot.insert(table);
@@ -131,6 +144,7 @@ fn variantTextures(variant: &StateVariantSpec) -> Vec<String>
     {
         textures.extend([&faces.top, &faces.bottom, &faces.side, &faces.front].into_iter().flatten().cloned());
     }
+
     textures
 }
 
@@ -150,19 +164,23 @@ pub fn registerPages() -> Vec<(String, String)>
     let tables: Vec<(Identifier, usize)> =
         STATE.with(|state| state.borrow().m_tables.iter().map(|(id, table)| (id.clone(), table.pages())).collect());
     let mut problems: Vec<(String, String)> = Vec::new();
+
     for (block, pages) in tables
     {
-        let result: Result<(), String> = registry::with(|registries| {
+        let result: Result<(), String> = registry::with(|registries|
+        {
             let base: &registry::Row<BlockEntry> =
                 registries.m_blocks.get(&block).ok_or_else(|| format!("states name unknown block {block}"))?;
             let (owner, spec): (String, Option<mod_protocol::spec::BlockSpec>) =
                 (base.m_owner.clone(), base.m_value.m_spec.clone());
+
             for page in 1..pages
             {
                 let id: Identifier = pageId(&block, page).ok_or("a page id is a valid identifier")?;
                 let entry: BlockEntry = BlockEntry { m_spec: spec.clone(), m_page: Some((block.clone(), page)) };
                 registries.m_blocks.register(id, &owner, entry).map_err(|error| error.to_string())?;
             }
+
             Ok(())
         });
         if let Err(reason) = result
@@ -170,13 +188,15 @@ pub fn registerPages() -> Vec<(String, String)>
             problems.push((block.namespace().to_owned(), reason));
         }
     }
+
     problems
 }
 
 pub fn clearBindings()
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::states::State> = state.borrow_mut();
         state.m_pages.clear();
         state.m_ids.clear();
     });
@@ -186,7 +206,8 @@ pub fn clearBindings()
 pub fn pageIds(block: &Identifier) -> Vec<i32>
 {
     // unbound pages hold 0, which is air
-    STATE.with(|state| {
+    STATE.with(|state|
+    {
         state
             .borrow()
             .m_ids
@@ -198,14 +219,17 @@ pub fn pageIds(block: &Identifier) -> Vec<i32>
 
 pub fn bindPage(numeric: i32, block: &Identifier, page: usize)
 {
-    STATE.with(|state| {
-        let mut state = state.borrow_mut();
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::states::State> = state.borrow_mut();
         state.m_pages.insert(numeric, (block.clone(), page));
+
         let ids: &mut Vec<i32> = state.m_ids.entry(block.clone()).or_default();
         if ids.len() <= page
         {
             ids.resize(page + 1, 0);
         }
+
         ids[page] = numeric;
     });
 }
@@ -213,8 +237,9 @@ pub fn bindPage(numeric: i32, block: &Identifier, page: usize)
 // the block and state index a numeric id and metadata hold, for blocks with named states
 pub fn stateAt(numeric: i32, meta: i32) -> Option<(Identifier, usize)>
 {
-    STATE.with(|state| {
-        let state = state.borrow();
+    STATE.with(|state|
+    {
+        let state: std::cell::Ref<crate::states::State> = state.borrow();
         let (block, page): (Identifier, usize) = state.m_pages.get(&numeric).cloned()?;
         let index: usize = page * pages::STATES_PER_ID + (meta as usize & (pages::STATES_PER_ID - 1));
         // metadata past the named states, as an older version of the mod wrote, stays raw metadata
@@ -227,7 +252,8 @@ pub fn page(numeric: i32) -> Option<usize> { STATE.with(|state| state.borrow().m
 // the numeric id and metadata a state of a block is stored as
 pub fn locate(block: &Identifier, index: usize) -> Option<(i32, i32)>
 {
-    STATE.with(|state| {
+    STATE.with(|state|
+    {
         let numeric: i32 = *state.borrow().m_ids.get(block)?.get(index / pages::STATES_PER_ID)?;
         Some((numeric, (index % pages::STATES_PER_ID) as i32))
     })
@@ -265,6 +291,7 @@ pub fn describe(numeric: i32, meta: i32) -> Option<StateData>
         let properties: BTreeMap<String, String> = table(&block)?.properties(index);
         return Some(StateData { block, properties });
     }
+
     let block: Identifier = STATE
         .with(|state| state.borrow().m_pages.get(&numeric).map(|(block, _)| block.clone()))
         .or_else(|| registry::with(|registries| registries.m_blocks.byNumeric(numeric).map(|row| row.m_id.clone())))?;
@@ -283,6 +310,7 @@ pub fn resolve(state: &StateData) -> Option<(i32, i32)>
     {
         return Some((base, meta & 15));
     }
+
     let numeric: i32 = registry::with(|registries| registries.blockId(&state.block))?;
     let meta: i32 = state.properties.get(META_PROPERTY).and_then(|meta| meta.parse().ok()).unwrap_or(0);
     Some((numeric, meta & 15))

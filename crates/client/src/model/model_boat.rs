@@ -9,7 +9,7 @@ pub struct ModelBoat
 
 impl ModelBoat
 {
-    pub fn new() -> ModelBoat
+    pub fn new() -> Self
     {
         let n: i32 = 24;
         let n2: i32 = 6;
@@ -19,6 +19,7 @@ impl ModelBoat
             .withBox((-n / 2) as f32, (-n3 / 2 + 2) as f32, -3.0, n, n3 - 4, 4, 0.0)
             .at(0.0, n4, 0.0);
         bottom.m_rotateAngleX.set(1.5707964);
+
         let sides: [ModelRenderer; 4] = [
             side(n, n2).at((-n / 2 + 1) as f32, n4, 0.0),
             side(n, n2).at((n / 2 - 1) as f32, n4, 0.0),
@@ -28,9 +29,10 @@ impl ModelBoat
         sides[0].m_rotateAngleY.set(4.712389);
         sides[1].m_rotateAngleY.set(1.5707964);
         sides[2].m_rotateAngleY.set(std::f32::consts::PI);
+
         let mut boatSides: Vec<ModelRenderer> = vec![bottom];
         boatSides.extend(sides);
-        ModelBoat { m_base: ModelBaseFields::default(), m_boatSides: boatSides }
+        Self { m_base: ModelBaseFields::default(), m_boatSides: boatSides }
     }
 }
 

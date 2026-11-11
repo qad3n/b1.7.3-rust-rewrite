@@ -8,10 +8,12 @@ pub struct MinecartExt
     pub m_minecartType: i32,
 }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemMinecart",
     m_parent: Some(&ITEM),
-    onItemUse: |this, stack, _, world, x, y, z, _| {
+    onItemUse: |this, stack, _, world, x, y, z, _|
+    {
         let n: i32 = world.getBlockId(x, y, z);
         if block_rail::isRailBlock(n)
         {
@@ -26,9 +28,11 @@ pub const CLASS: ItemClass = ItemClass {
                 );
                 world.entityJoinedWorld(&cart);
             }
+
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
             return true;
         }
+
         false
     },
     ..ITEM

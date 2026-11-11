@@ -13,15 +13,18 @@ fn canBlockStay(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) ->
     {
         return false;
     }
+
     let n: i32 = world.getBlockId(x, y - 1, z);
     n == Block::CACTUS || n == Block::SAND
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockCactus",
     m_parent: Some(&BLOCK),
     updateTick: |this, world, x, y, z, _| block_reed::growUp(this, world, x, y, z),
-    getCollisionBoundingBoxFromPool: |_, _, x, y, z| {
+    getCollisionBoundingBoxFromPool: |_, _, x, y, z|
+    {
         let f: f32 = 0.0625;
         Some(AxisAlignedBB::getBoundingBoxFromPool(
             (x as f32 + f) as f64,
@@ -32,7 +35,9 @@ pub const CLASS: BlockClass = BlockClass {
             ((z + 1) as f32 - f) as f64,
         ))
     },
-    getSelectedBoundingBoxFromPool: |_, _, x, y, z| {
+
+    getSelectedBoundingBoxFromPool: |_, _, x, y, z|
+    {
         let f: f32 = 0.0625;
         AxisAlignedBB::getBoundingBoxFromPool(
             (x as f32 + f) as f64,
@@ -43,6 +48,7 @@ pub const CLASS: BlockClass = BlockClass {
             ((z + 1) as f32 - f) as f64,
         )
     },
+
     getBlockTextureFromSide: |this, face| match face
     {
         1 => this.m_blockIndexInTexture.get() - 1,
@@ -52,10 +58,13 @@ pub const CLASS: BlockClass = BlockClass {
     renderAsNormalBlock: |_| false,
     isOpaqueCube: |_| false,
     getRenderType: |_| 13,
-    canPlaceBlockAt: |this, world, x, y, z| {
+    canPlaceBlockAt: |this, world, x, y, z|
+    {
         (BLOCK.canPlaceBlockAt)(this, world, x, y, z) && this.canBlockStay(world, x, y, z)
     },
-    onNeighborBlockChange: |this, world, x, y, z, _| {
+
+    onNeighborBlockChange: |this, world, x, y, z, _|
+    {
         if !this.canBlockStay(world, x, y, z)
         {
             this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
@@ -63,7 +72,8 @@ pub const CLASS: BlockClass = BlockClass {
         }
     },
     canBlockStay,
-    onEntityCollidedWithBlock: |_, _, _, _, _, entity| {
+    onEntityCollidedWithBlock: |_, _, _, _, _, entity|
+    {
         entity.attackEntityFrom(&DamageSource::new(DamageKind::Cactus), 1);
     },
     ..BLOCK

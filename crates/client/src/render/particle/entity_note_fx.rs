@@ -7,7 +7,8 @@ use std::cell::Cell;
 use std::f64::consts::PI;
 use std::rc::Rc;
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityNoteFX",
     m_parent: Some(&entity_fx::CLASS),
     renderParticle: entity_heart_fx::renderGrowing,
@@ -40,6 +41,7 @@ pub fn newScaled(
     let this: Rc<Entity> = entity_fx::construct(&CLASS, Box::new(size), world, x, y, z, 0.0, 0.0, 0.0);
     entity_fx::scaleMotion(&this, 0.01f32 as f64);
     this.m_motionY.set(this.m_motionY.get() + 0.2);
+
     let fields: &FXFields = fx(&this);
     fields.m_particleRed.set(noteColor(velocityX, 0.0));
     fields.m_particleGreen.set(noteColor(velocityX, 0.33333334));

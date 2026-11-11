@@ -1,5 +1,6 @@
 use crate::block::Block;
-use crate::worldgen::{
+use crate::worldgen::
+{
     BIOME_GEN_DESERT, BIOME_GEN_RAINFOREST, BIOME_GEN_SWAMP, EnumCreatureType, SpawnListEntry, WorldGenBigTree,
     WorldGenTrees, WorldGenerator,
 };
@@ -9,8 +10,10 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
-crate::vtable! {
-    BiomeGenBaseClass for BiomeGenBase {
+crate::vtable!
+{
+    BiomeGenBaseClass for BiomeGenBase
+    {
         fn getRandomWorldGenForTrees(random: &Random) -> Box<dyn WorldGenerator>;
         fn getSkyColorByTemp(temperature: f32) -> i32;
     }
@@ -54,12 +57,15 @@ mod lookup
     pub const MAX: f32 = 63.0;
 }
 
-thread_local! {
+thread_local!
+{
     static BIOMES: Biomes = Biomes::init();
 }
 
-macro_rules! named_biomes {
-    ($($name:ident => $field:ident,)*) => {
+macro_rules! named_biomes
+{
+    ($($name:ident => $field:ident,)*) =>
+    {
         impl BiomeGenBase
         {
             $(pub fn $name() -> Rc<BiomeGenBase> { BIOMES.with(|biomes| Rc::clone(&biomes.$field)) })*
@@ -67,7 +73,8 @@ macro_rules! named_biomes {
     };
 }
 
-named_biomes! {
+named_biomes!
+{
     rainforest => m_rainforest,
     swampland => m_swampland,
     seasonalForest => m_seasonalForest,
@@ -85,9 +92,10 @@ named_biomes! {
 
 impl Biomes
 {
-    fn init() -> Biomes
+    fn init() -> Self
     {
-        let mut biomes: Biomes = Biomes {
+        let mut biomes: Self = Self
+        {
             m_rainforest: BiomeGenBase::alloc(&BIOME_GEN_RAINFOREST)
                 .setColor(588342)
                 .setBiomeName("Rainforest")
@@ -136,6 +144,7 @@ impl Biomes
                     Some(self.getBiome(i as f32 / lookup::MAX, j as f32 / lookup::MAX));
             }
         }
+
         let sand: i8 = Block::SAND as i8;
         self.m_desert.m_fillerBlock.set(sand);
         self.m_desert.m_topBlock.set(sand);
@@ -146,6 +155,7 @@ impl Biomes
     fn getBiome(&self, temperature: f32, mut downfall: f32) -> Rc<BiomeGenBase>
     {
         downfall *= temperature;
+
         let biome: &Rc<BiomeGenBase> = if temperature < 0.1f32
         {
             &self.m_tundra
@@ -202,9 +212,10 @@ impl Biomes
 
 impl BiomeGenBase
 {
-    pub fn alloc(class: &'static BiomeGenBaseClass) -> Rc<BiomeGenBase>
+    pub fn alloc(class: &'static BiomeGenBaseClass) -> Rc<Self>
     {
-        let biome: BiomeGenBase = BiomeGenBase {
+        let biome: Self = Self
+        {
             m_class: class,
             m_biomeName: Cell::new(""),
             m_color: Cell::new(0),
@@ -253,14 +264,14 @@ impl BiomeGenBase
         self
     }
 
-    pub fn getBiomeFromLookup(temperature: f64, downfall: f64) -> Rc<BiomeGenBase>
+    pub fn getBiomeFromLookup(temperature: f64, downfall: f64) -> Rc<Self>
     {
         let n: i32 = (temperature * lookup::MAX as f64) as i32;
         let n2: i32 = (downfall * lookup::MAX as f64) as i32;
         BIOMES.with(|biomes| biomes.m_biomeLookupTable[(n + n2 * lookup::SIZE) as usize].clone()).orNpe()
     }
 
-    pub fn getBiome(temperature: f32, downfall: f32) -> Rc<BiomeGenBase>
+    pub fn getBiome(temperature: f32, downfall: f32) -> Rc<Self>
     {
         BIOMES.with(|biomes| biomes.getBiome(temperature, downfall))
     }
@@ -284,6 +295,7 @@ impl BiomeGenBase
         {
             return false;
         }
+
         self.m_enableRain.get()
     }
 }
@@ -294,6 +306,7 @@ fn getRandomWorldGenForTrees(_this: &Rc<BiomeGenBase>, random: &Random) -> Box<d
     {
         return Box::new(WorldGenBigTree::new());
     }
+
     Box::new(WorldGenTrees::new())
 }
 
@@ -304,17 +317,21 @@ fn getSkyColorByTemp(_this: &Rc<BiomeGenBase>, mut temperature: f32) -> i32
     {
         temperature = -1.0f32;
     }
+
     if temperature > 1.0f32
     {
         temperature = 1.0f32;
     }
+
     hsbToRgb(0.62222224f32 - temperature * 0.05f32, 0.5f32 + temperature * 0.1f32, 1.0f32)
 }
 
 fn hsbToRgb(hue: f32, saturation: f32, brightness: f32) -> i32
 {
     const OPAQUE: u32 = 0xFF000000;
+
     let channel = |value: f32| -> i32 { (value * 255.0f32 + 0.5f32) as i32 };
+
     let (r, g, b): (i32, i32, i32) = if saturation == 0.0f32
     {
         let value: i32 = channel(brightness);
@@ -327,6 +344,7 @@ fn hsbToRgb(hue: f32, saturation: f32, brightness: f32) -> i32
         let p: f32 = brightness * (1.0f32 - saturation);
         let q: f32 = brightness * (1.0f32 - saturation * f);
         let t: f32 = brightness * (1.0f32 - saturation * (1.0f32 - f));
+
         match h as i32
         {
             0 => (channel(brightness), channel(t), channel(p)),
@@ -341,7 +359,8 @@ fn hsbToRgb(hue: f32, saturation: f32, brightness: f32) -> i32
     (OPAQUE as i32) | (r << 16) | (g << 8) | b
 }
 
-pub const BIOME_GEN_BASE: BiomeGenBaseClass = BiomeGenBaseClass {
+pub const BIOME_GEN_BASE: BiomeGenBaseClass = BiomeGenBaseClass
+{
     m_name: "BiomeGenBase",
     m_parent: None,
     m_interfaces: &[],

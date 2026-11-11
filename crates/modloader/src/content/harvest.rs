@@ -40,6 +40,7 @@ pub fn canHarvest(block: &Rc<Block>, stack: Option<&Rc<ItemStack>>) -> Option<bo
     {
         return None;
     }
+
     let tool: ToolSpec = toolFor(block)?;
     let held: Option<(ToolClass, i32)> = stack.and_then(|stack| toolOf(&stack.getItem()));
     Some(held.is_some_and(|(class, level)| class == tool.class && level >= tool.level))
@@ -63,6 +64,7 @@ pub fn strVsBlock(block: &Rc<Block>, stack: Option<&Rc<ItemStack>>) -> Option<f3
     {
         return Some(modTool.speed);
     }
+
     toolSpeed(&item)
 }
 

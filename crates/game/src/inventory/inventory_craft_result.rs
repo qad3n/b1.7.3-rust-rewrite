@@ -12,7 +12,7 @@ pub struct InventoryCraftResult
 
 impl InventoryCraftResult
 {
-    pub fn new() -> InventoryCraftResult { InventoryCraftResult { m_stackResult: RefCell::new(vec![None; 1]) } }
+    pub fn new() -> Self { Self { m_stackResult: RefCell::new(vec![None; 1]) } }
 }
 
 impl Default for InventoryCraftResult
@@ -29,6 +29,7 @@ impl IInventory for InventoryCraftResult
     fn decrStackSize(&self, index: i32, _amount: i32) -> Option<Rc<ItemStack>>
     {
         let itemstack: Rc<ItemStack> = slot(&self.m_stackResult, index)?;
+
         setSlot(&self.m_stackResult, index, None);
         Some(itemstack)
     }

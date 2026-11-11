@@ -62,10 +62,12 @@ fn zipError(error: &std::io::Error) -> Throwable
         {
             Throwable::new(&throwable::EOF, Some("Unexpected end of ZLIB input stream".to_owned()))
         }
+
         std::io::ErrorKind::InvalidInput | std::io::ErrorKind::InvalidData =>
         {
             Throwable::new(&ZIP, Some(error.to_string()))
         }
+
         _ => io::ioError(&throwable::IO, &error.to_string()),
     }
 }
@@ -87,6 +89,7 @@ fn readSlice(reader: &mut impl Read, buf: &mut [u8], off: i32, len: i32) -> IoRe
     {
         return Ok(0);
     }
+
     match reader.read(&mut buf[off as usize..(off + len) as usize])
     {
         Ok(0) => Ok(-1),
@@ -117,6 +120,7 @@ impl<S: InputStream> GZIPInputStream<S>
                 return Err(io::ioError(&ZIP, "Not in GZIP format"));
             }
         }
+
         Ok(Self { m_decoder: decoder })
     }
 }
@@ -168,6 +172,7 @@ impl<S: OutputStream> GZIPOutputStream<S>
     {
         let mut output: S = output;
         output.writeFrom(&GZIP_HEADER, 0, GZIP_HEADER.len() as i32)?;
+
         let encoder: flate2::write::DeflateEncoder<StdWrite<S>> =
             flate2::write::DeflateEncoder::new(StdWrite { m_out: output }, Compression::new(DEFAULT_LEVEL));
         Ok(Self { m_encoder: Some(encoder), m_crc: Crc::new() })
@@ -207,6 +212,7 @@ impl<S: OutputStream> OutputStream for GZIPOutputStream<S>
         {
             return Ok(());
         };
+
         let mut sink: StdWrite<S> = encoder.finish().map_err(|error| zipError(&error))?;
         let mut trailer: Vec<u8> = self.m_crc.sum().to_le_bytes().to_vec();
         trailer.extend_from_slice(&self.m_crc.amount().to_le_bytes());
@@ -224,7 +230,8 @@ impl<S: OutputStream> DeflaterOutputStream<S>
 {
     pub fn new(output: S) -> Self
     {
-        Self {
+        Self
+        {
             m_encoder: Some(flate2::write::ZlibEncoder::new(
                 StdWrite { m_out: output },
                 Compression::new(DEFAULT_LEVEL),
@@ -249,6 +256,7 @@ impl<S: OutputStream> OutputStream for DeflaterOutputStream<S>
             {
                 encoder.write_all(&buf[off as usize..(off + len) as usize]).map_err(|error| zipError(&error))
             }
+
             None => Err(io::ioError(&throwable::IO, "write beyond end of stream")),
         }
     }
@@ -260,6 +268,7 @@ impl<S: OutputStream> OutputStream for DeflaterOutputStream<S>
         {
             return Ok(());
         };
+
         let mut sink: StdWrite<S> = encoder.finish().map_err(|error| zipError(&error))?;
         sink.m_out.close()
     }
@@ -296,6 +305,7 @@ impl Deflater
     {
         let consumed: usize = self.m_compress.total_in() as usize;
         let before: u64 = self.m_compress.total_out();
+
         let flush: flate2::FlushCompress = if self.m_finish
         {
             flate2::FlushCompress::Finish
@@ -306,6 +316,7 @@ impl Deflater
         };
         let pending: Vec<u8> = self.m_input[consumed.min(self.m_input.len())..].to_vec();
         let _status: Result<flate2::Status, flate2::CompressError> = self.m_compress.compress(&pending, output, flush);
+
         (self.m_compress.total_out() - before) as i32
     }
 

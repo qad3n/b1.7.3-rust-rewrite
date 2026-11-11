@@ -26,7 +26,8 @@ impl Packet24MobSpawn
 {
     pub fn new(entity: &Entity) -> Self
     {
-        Self {
+        Self
+        {
             m_entityId: entity.m_entityId.get(),
             m_type: EntityList::getEntityID(entity) as i8,
             m_xPosition: math_helper::encodePos(entity.m_posX.get()),
@@ -71,6 +72,7 @@ impl Packet for Packet24MobSpawn
         output.writeInt(self.m_zPosition)?;
         output.writeByte(self.m_yaw as i32)?;
         output.writeByte(self.m_pitch as i32)?;
+
         match &self.m_metaData
         {
             None => jvm::throwable::npe(),

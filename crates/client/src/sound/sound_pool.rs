@@ -22,9 +22,10 @@ fn stringIndex(index: i64) -> !
 
 impl SoundPool
 {
-    pub fn new() -> SoundPool
+    pub fn new() -> Self
     {
-        SoundPool {
+        Self
+        {
             m_rand: Random::new(),
             m_nameToSoundPoolEntriesMapping: RefCell::new(HashMap::new()),
             m_allSoundPoolEntries: RefCell::new(Vec::new()),
@@ -36,11 +37,13 @@ impl SoundPool
     pub fn addSound(&self, path: &str, file: &Path) -> Rc<SoundPoolEntry>
     {
         let path2: String = path.to_owned();
+
         let mut path: String = match path.find('.')
         {
             Some(index) => path[..index].to_owned(),
             None => stringIndex(-1),
         };
+
         if self.m_trimTrailingDigits.get()
         {
             loop
@@ -53,6 +56,7 @@ impl SoundPool
                 }
             }
         }
+
         path = path.replace('/', ".");
         // port fileUrl is java File.toURI().toURL()
         let soundPoolEntry: Rc<SoundPoolEntry> = Rc::new(SoundPoolEntry::new(path2, file_url::fileUrl(file)));
@@ -77,6 +81,7 @@ impl SoundPool
         {
             return None;
         }
+
         Some(Rc::clone(&entries[self.m_rand.nextIntBounded(entries.len() as i32) as usize]))
     }
 }

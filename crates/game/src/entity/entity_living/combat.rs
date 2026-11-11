@@ -24,6 +24,7 @@ pub fn playLivingSound(this: &Rc<Entity>)
 pub fn spawnExplosionParticle(this: &Rc<Entity>)
 {
     let world: Rc<World> = this.world();
+
     for _ in 0..20
     {
         let d0: f64 = this.m_rand.nextGaussian() * 0.02;
@@ -38,13 +39,14 @@ pub fn spawnExplosionParticle(this: &Rc<Entity>)
     }
 }
 
-pub fn heal(this: &Rc<Entity>, amount: i32)
+pub(crate) fn heal(this: &Rc<Entity>, amount: i32)
 {
     let living: &LivingFields = fields(this);
     if living.m_health.get() <= 0
     {
         return;
     }
+
     living.m_health.set(living.m_health.get() + amount);
     // rewrite: the cap of 20 comes from the max health hook so mods can raise it
     let max: i32 = crate::hooks::maxHealth(this);
@@ -52,10 +54,11 @@ pub fn heal(this: &Rc<Entity>, amount: i32)
     {
         living.m_health.set(max);
     }
+
     this.m_heartsLife.set(living.m_heartsHalvesLife.get() / 2);
 }
 
-pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bool
+pub(crate) fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bool
 {
     let source: Option<&Rc<Entity>> = damage.m_attacker;
     let living: &LivingFields = fields(this);
@@ -64,25 +67,32 @@ pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -
     {
         return false;
     }
+
     // mods may cancel an attack or change its damage
     let mut amount: i32 = amount;
     if crate::hooks::fire(crate::hooks::GameEvent::LivingAttack { entity: this, damage, amount: &mut amount })
     {
         return false;
     }
+
     living.m_entityAge.set(0);
+
     if living.m_health.get() <= 0
     {
         return false;
     }
+
     living.m_walkAnimationSpeed.set(1.5);
+
     let mut flag: bool = true;
+
     if this.m_heartsLife.get() as f32 > living.m_heartsHalvesLife.get() as f32 / 2.0
     {
         if amount <= living.m_prevDamageTaken.get()
         {
             return false;
         }
+
         this.damageEntity(amount - living.m_prevDamageTaken.get());
         living.m_prevDamageTaken.set(amount);
         flag = false;
@@ -97,10 +107,12 @@ pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -
         living.m_hurtTime.set(10);
     }
     living.m_attackedAtYaw.set(0.0);
+
     if flag
     {
         world.doEntityEvent(this, 2);
         this.setBeenAttacked();
+
         if let Some(source) = source
         {
             let mut d0: f64 = source.posX() - this.posX();
@@ -110,6 +122,7 @@ pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -
                 d0 = (math::random() - math::random()) * 0.01;
                 d1 = (math::random() - math::random()) * 0.01;
             }
+
             living.m_attackedAtYaw.set(
                 (math::atan2(d1, d0) * 180.0 / std::f64::consts::PI as f32 as f64) as f32 - this.m_rotationYaw.get(),
             );
@@ -120,6 +133,7 @@ pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -
             living.m_attackedAtYaw.set(((math::random() * 2.0) as i32 * 180) as f32);
         }
     }
+
     if living.m_health.get() <= 0
     {
         if flag
@@ -127,6 +141,7 @@ pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -
             // java may pass a null sound name so the port wrapper plays nothing for it
             playSoundAtEntity(&world, this, this.getDeathSound(), this.getSoundVolume(), randomPitch(this));
         }
+
         this.onDeath(source);
     }
     else if flag
@@ -148,42 +163,49 @@ pub fn knockBack(this: &Rc<Entity>, _attacker: &Rc<Entity>, _amount: i32, dx: f6
 
     let f: f32 = math_helper::sqrt_double(dx * dx + dz * dz);
     let f1: f32 = 0.4;
+
     this.m_motionX.set(this.m_motionX.get() / 2.0);
     this.m_motionY.set(this.m_motionY.get() / 2.0);
     this.m_motionZ.set(this.m_motionZ.get() / 2.0);
     this.m_motionX.set(this.m_motionX.get() - dx / f as f64 * f1 as f64);
     this.m_motionY.set(this.m_motionY.get() + 0.4f32 as f64);
     this.m_motionZ.set(this.m_motionZ.get() - dz / f as f64 * f1 as f64);
+
     if this.m_motionY.get() > 0.4f32 as f64
     {
         this.m_motionY.set(0.4f32 as f64);
     }
 }
 
-pub fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
+pub(crate) fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
 {
     // mods may cancel a death
     if crate::hooks::fire(crate::hooks::GameEvent::LivingDeath { entity: this, source: killer })
     {
         return;
     }
+
     let living: &LivingFields = fields(this);
     if living.m_scoreValue.get() >= 0
         && let Some(killer) = killer
     {
         killer.addToPlayerScore(Some(this), living.m_scoreValue.get());
     }
+
     if let Some(killer) = killer
     {
         killer.onKillEntity(this);
     }
+
     living.m_unused_flag.set(true);
+
     // mods may replace the drops of a death
     if !this.world().m_multiplayerWorld.get()
         && !crate::hooks::fire(crate::hooks::GameEvent::LivingDrops { entity: this, source: killer })
     {
         dropLoot(this, killer);
     }
+
     this.world().doEntityEvent(this, 3);
 }
 
@@ -195,6 +217,7 @@ fn dropLoot(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
     {
         this.dropFewItems();
     }
+
     let Some(table) = table
     else
     {
@@ -208,7 +231,7 @@ fn dropLoot(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
     }
 }
 
-pub fn dropFewItems(this: &Rc<Entity>)
+pub(crate) fn dropFewItems(this: &Rc<Entity>)
 {
     let i: i32 = this.getDropItemId();
     if i > 0
@@ -221,19 +244,22 @@ pub fn dropFewItems(this: &Rc<Entity>)
     }
 }
 
-pub fn fall(this: &Rc<Entity>, distance: f32)
+pub(crate) fn fall(this: &Rc<Entity>, distance: f32)
 {
     (ENTITY.fall)(this, distance);
+
     let i: i32 = math::ceil((distance - 3.0) as f64) as i32;
     if i > 0
     {
         this.attackEntityFrom(&DamageSource::new(DamageKind::Fall), i);
+
         let world: Rc<World> = this.world();
         let j: i32 = world.getBlockId(
             math_helper::floor_double(this.posX()),
             math_helper::floor_double(this.posY() - 0.2f32 as f64 - this.m_yOffset.get() as f64),
             math_helper::floor_double(this.posZ()),
         );
+
         if j > 0
         {
             let sound: Rc<StepSound> = Block::byId(j).orNpe().m_stepSound.get();
@@ -244,10 +270,11 @@ pub fn fall(this: &Rc<Entity>, distance: f32)
 
 pub fn onEntityDeath(_this: &Rc<Entity>) {}
 
-pub fn handleHealthUpdate(this: &Rc<Entity>, event: i8)
+pub(crate) fn handleHealthUpdate(this: &Rc<Entity>, event: i8)
 {
     let living: &LivingFields = fields(this);
     let world: Rc<World> = this.world();
+
     if event == 2
     {
         living.m_walkAnimationSpeed.set(1.5);

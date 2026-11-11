@@ -6,7 +6,7 @@ use jvm::string::JString;
 use std::cell::Cell;
 use std::rc::Rc;
 
-pub(super) fn isAllowedCharacter(chr: u16) -> bool
+pub(crate) fn isAllowedCharacter(chr: u16) -> bool
 {
     ChatAllowedCharacters::allowedCharacters().encode_utf16().any(|allowed| allowed == chr)
 }
@@ -40,9 +40,10 @@ impl GuiTextField
         width: i32,
         height: i32,
         message: &str,
-    ) -> GuiTextField
+    ) -> Self
     {
-        let field: GuiTextField = GuiTextField {
+        let field: Self = Self
+        {
             m_gui: Gui::new(),
             m_fontRenderer: textRenderer,
             m_xPos: x,
@@ -73,10 +74,12 @@ impl GuiTextField
         {
             return;
         }
+
         if chr == '\t' as u16
         {
             self.m_parentGuiScreen.selectNextField();
         }
+
         if chr == 0x16
         {
             let clipboard: JString = JString::from(GuiScreen::getClipboardString().unwrap_or_default().as_str());
@@ -89,11 +92,13 @@ impl GuiTextField
                 self.m_text.set(JString::fromUtf16(chars));
             }
         }
+
         let text: JString = self.m_text.get();
         if key == 14 && text.length() > 0
         {
             self.m_text.set(text.substring(0, text.length() - 1));
         }
+
         let text: JString = self.m_text.get();
         if isAllowedCharacter(chr)
             && (text.length() < self.m_maxStringLength.get() || self.m_maxStringLength.get() == 0)
@@ -119,6 +124,7 @@ impl GuiTextField
         {
             self.m_cursorCounter.set(0);
         }
+
         self.m_isFocused.set(focused);
     }
 
@@ -127,6 +133,7 @@ impl GuiTextField
         let (x, y, width, height): (i32, i32, i32, i32) = (self.m_xPos, self.m_yPos, self.m_width, self.m_height);
         self.m_gui.drawRect(x - 1, y - 1, x + width + 1, y + height + 1, -6250336);
         self.m_gui.drawRect(x, y, x + width, y + height, -16777216);
+
         let text: String = if self.m_masked.get()
         {
             "*".repeat(self.getText().length() as usize)
@@ -135,6 +142,7 @@ impl GuiTextField
         {
             self.getText().to_string()
         };
+
         if self.m_isEnabled.get()
         {
             let bl: bool = self.m_isFocused.get() && self.m_cursorCounter.get() / 6 % 2 == 0;

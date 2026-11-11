@@ -8,7 +8,7 @@ use crate::world::{IChunkLoader, ISaveHandler, WorldInfo, WorldProvider};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-pub const MC_REGION_VERSION: i32 = 19132;
+pub(crate) const MC_REGION_VERSION: i32 = 19132;
 
 pub struct SaveOldDir
 {
@@ -17,9 +17,9 @@ pub struct SaveOldDir
 
 impl SaveOldDir
 {
-    pub fn new(file: &Path, name: &str, createPlayerDataDir: bool) -> SaveOldDir
+    pub fn new(file: &Path, name: &str, createPlayerDataDir: bool) -> Self
     {
-        SaveOldDir { m_base: SaveHandler::new(file, name, createPlayerDataDir) }
+        Self { m_base: SaveHandler::new(file, name, createPlayerDataDir) }
     }
 }
 
@@ -40,12 +40,14 @@ impl ISaveHandler for SaveOldDir
             file::mkdirs(&folder);
             return Rc::new(McRegionChunkLoader::new(&folder));
         }
+
         if provider.instanceOf("WorldProviderHell")
         {
             let file2: PathBuf = file.join("DIM-1");
             file::mkdirs(&file2);
             return Rc::new(McRegionChunkLoader::new(&file2));
         }
+
         Rc::new(McRegionChunkLoader::new(file))
     }
 

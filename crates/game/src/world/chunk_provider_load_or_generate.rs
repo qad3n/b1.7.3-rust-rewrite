@@ -10,7 +10,7 @@ use std::rc::{Rc, Weak};
 #[derive(Default)]
 pub struct ChunkProviderLoadOrGenerate
 {
-    m_self: Field<Weak<ChunkProviderLoadOrGenerate>>,
+    m_self: Field<Weak<Self>>,
     m_blankChunk: Field<Option<Rc<Chunk>>>,
     m_chunkProvider: Field<Option<Rc<dyn IChunkProvider>>>,
     m_chunkLoader: Field<Option<Rc<dyn IChunkLoader>>>,
@@ -76,8 +76,10 @@ impl ChunkProviderLoadOrGenerate
         {
             return self.m_blankChunk.get();
         };
+
         let result: Result<jvm::io::IoResult<Option<Rc<Chunk>>>, throwable::Throwable> =
             throwable::catchThrowable(&throwable::EXCEPTION, || loader.loadChunk(&self.world(), chunkX, chunkZ));
+
         match result
         {
             Ok(Ok(chunk)) =>
@@ -86,8 +88,10 @@ impl ChunkProviderLoadOrGenerate
                 {
                     chunk.m_lastSaveTime.set(self.world().getWorldTime());
                 }
+
                 chunk
             }
+
             Ok(Err(exception)) | Err(exception) =>
             {
                 logThrown!(
@@ -107,8 +111,10 @@ impl ChunkProviderLoadOrGenerate
         {
             return;
         };
+
         let result: Result<jvm::io::IoResult<()>, throwable::Throwable> =
             throwable::catchThrowable(&throwable::EXCEPTION, || loader.saveExtraChunkData(&self.world(), chunk));
+
         if let Ok(Err(exception)) | Err(exception) = result
         {
             let (x, z): (i32, i32) = (chunk.m_xPosition, chunk.m_zPosition);
@@ -123,7 +129,9 @@ impl ChunkProviderLoadOrGenerate
         {
             return;
         };
+
         chunk.m_lastSaveTime.set(self.world().getWorldTime());
+
         if let Err(exception) = loader.saveChunk(&self.world(), chunk)
         {
             let (x, z): (i32, i32) = (chunk.m_xPosition, chunk.m_zPosition);
@@ -148,10 +156,12 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         {
             return true;
         }
+
         let k: i32 = (chunkX & 31) + (chunkZ & 31) * 32;
         match self.slot(k)
         {
             None => false,
+
             Some(chunk) =>
             {
                 same(&Some(Rc::clone(&chunk)), &self.m_blankChunk.get()) || chunk.isAtLocation(chunkX, chunkZ)
@@ -175,6 +185,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         }
 
         let k: i32 = (chunkX & 31) + (chunkZ & 31) * 32;
+
         if !self.chunkExists(chunkX, chunkZ)
         {
             if let Some(old) = self.slot(k)
@@ -192,9 +203,11 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
                     trace!("Chunk {chunkX},{chunkZ} loaded from disk");
                     chunk
                 }
+
                 None => match self.m_chunkProvider.get()
                 {
                     None => self.m_blankChunk.get().orNpe(),
+
                     Some(generator) =>
                     {
                         let chunk: Rc<Chunk> = generator.provideChunk(chunkX, chunkZ);
@@ -210,6 +223,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
 
             let this: Rc<dyn IChunkProvider> = self.asDyn();
             let populated = |x: i32, z: i32| self.provideChunk(x, z).m_isTerrainPopulated.get();
+
             if !chunk.m_isTerrainPopulated.get()
                 && self.chunkExists(chunkX + 1, chunkZ + 1)
                 && self.chunkExists(chunkX, chunkZ + 1)
@@ -217,6 +231,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
             {
                 self.populate(&this, chunkX, chunkZ);
             }
+
             if self.chunkExists(chunkX - 1, chunkZ)
                 && !populated(chunkX - 1, chunkZ)
                 && self.chunkExists(chunkX - 1, chunkZ + 1)
@@ -225,6 +240,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
             {
                 self.populate(&this, chunkX - 1, chunkZ);
             }
+
             if self.chunkExists(chunkX, chunkZ - 1)
                 && !populated(chunkX, chunkZ - 1)
                 && self.chunkExists(chunkX + 1, chunkZ - 1)
@@ -233,6 +249,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
             {
                 self.populate(&this, chunkX, chunkZ - 1);
             }
+
             if self.chunkExists(chunkX - 1, chunkZ - 1)
                 && !populated(chunkX - 1, chunkZ - 1)
                 && self.chunkExists(chunkX - 1, chunkZ - 1)
@@ -245,6 +262,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
 
         self.m_lastQueriedChunkXPos.set(chunkX);
         self.m_lastQueriedChunkZPos.set(chunkZ);
+
         let chunk: Option<Rc<Chunk>> = self.slot(k);
         self.m_lastQueriedChunk.set(chunk.clone());
         chunk.orNpe()
@@ -257,7 +275,9 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         {
             return;
         }
+
         chunk.m_isTerrainPopulated.set(true);
+
         if let Some(generator) = self.m_chunkProvider.get()
         {
             generator.populate(source, chunkX, chunkZ);
@@ -270,6 +290,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         let mut i: i32 = 0;
         let mut j: i32 = 0;
         let length: i32 = self.m_chunks.with(|chunks| chunks.as_ref().orNpe().len()) as i32;
+
         if listener.is_some()
         {
             for k in 0..length
@@ -283,6 +304,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         }
 
         let mut i1: i32 = 0;
+
         for l in 0..length
         {
             let Some(chunk) = self.slot(l)
@@ -290,10 +312,12 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
             {
                 continue;
             };
+
             if saveEntities && !chunk.m_neverSave.get()
             {
                 self.saveExtraChunkData(&chunk);
             }
+
             if chunk.needsSaving(saveEntities)
             {
                 self.saveChunk(&chunk);
@@ -303,6 +327,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
                 {
                     return false;
                 }
+
                 if let Some(listener) = listener
                 {
                     i1 += 1;
@@ -317,13 +342,16 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         if saveEntities
         {
             debug!("Saved {i} of {length} cached chunks");
+
             let Some(loader) = self.m_chunkLoader.get()
             else
             {
                 return true;
             };
+
             loader.saveExtraData();
         }
+
         true
     }
 
@@ -333,6 +361,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
         {
             loader.tick();
         }
+
         self.m_chunkProvider.get().orNpe().unload100OldestChunks()
     }
 
@@ -341,6 +370,7 @@ impl IChunkProvider for ChunkProviderLoadOrGenerate
     fn releaseChunks(&self) -> Vec<Rc<Chunk>>
     {
         self.m_lastQueriedChunk.set(None);
+
         let chunks: Option<Vec<Option<Rc<Chunk>>>> = self.m_chunks.take();
         self.m_chunks.set(chunks.as_ref().map(|slots| vec![None; slots.len()]));
         chunks.into_iter().flatten().flatten().collect()

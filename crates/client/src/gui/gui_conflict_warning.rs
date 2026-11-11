@@ -4,15 +4,19 @@ use crate::gui::{GuiButton, GuiMainMenu, GuiScreen};
 use std::cell::Cell;
 use std::rc::Rc;
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiConflictWarning",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    updateScreen: |this| {
+    updateScreen: |this|
+    {
         let updateCounter: &Cell<i32> = this.ext::<Cell<i32>>();
         updateCounter.set(updateCounter.get() + 1);
     },
-    initGui: |this| {
+
+    initGui: |this|
+    {
         this.m_controlList.clear();
         this.m_controlList.add(GuiButton::new(
             0,
@@ -21,17 +25,22 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             "Back to title screen",
         ));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         if button.m_id.get() == 0
         {
             this.mc().displayGuiScreen(Some(GuiMainMenu::new()));
         }
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         drawWarning(
             this,
             "Level save conflict",

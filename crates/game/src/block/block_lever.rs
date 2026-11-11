@@ -21,6 +21,7 @@ fn canPlaceBlockOnSide(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: 
     {
         return true;
     }
+
     face == 5 && world.isBlockNormalCube(x - 1, y, z)
 }
 
@@ -42,6 +43,7 @@ fn canPlaceBlockAt(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return true;
     }
+
     world.isBlockNormalCube(x, y - 1, z)
 }
 
@@ -49,34 +51,42 @@ fn onBlockPlaced(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, fa
 {
     let mut n: i32 = world.getBlockMetadata(x, y, z);
     let n2: i32 = n & 8;
+
     n &= 7;
     n = -1;
+
     if face == 1 && world.isBlockNormalCube(x, y - 1, z)
     {
         n = 5 + world.m_rand.nextIntBounded(2);
     }
+
     if face == 2 && world.isBlockNormalCube(x, y, z + 1)
     {
         n = 4;
     }
+
     if face == 3 && world.isBlockNormalCube(x, y, z - 1)
     {
         n = 3;
     }
+
     if face == 4 && world.isBlockNormalCube(x + 1, y, z)
     {
         n = 2;
     }
+
     if face == 5 && world.isBlockNormalCube(x - 1, y, z)
     {
         n = 1;
     }
+
     if n == -1
     {
         this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
         world.setBlockWithNotify(x, y, z, 0);
         return;
     }
+
     world.setBlockMetadataWithNotify(x, y, z, n + n2);
 }
 
@@ -86,30 +96,37 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
     {
         let n: i32 = world.getBlockMetadata(x, y, z) & 7;
         let mut bl: bool = false;
+
         if !world.isBlockNormalCube(x - 1, y, z) && n == 1
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x + 1, y, z) && n == 2
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x, y, z - 1) && n == 3
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x, y, z + 1) && n == 4
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x, y - 1, z) && n == 5
         {
             bl = true;
         }
+
         if !world.isBlockNormalCube(x, y - 1, z) && n == 6
         {
             bl = true;
         }
+
         if bl
         {
             this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
@@ -126,6 +143,7 @@ fn checkIfAttachedToBlock(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z
         world.setBlockWithNotify(x, y, z, 0);
         return false;
     }
+
     true
 }
 
@@ -133,6 +151,7 @@ fn setBlockBoundsBasedOnState(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32
 {
     let n: i32 = world.getBlockMetadata(x, y, z) & 7;
     let mut f: f32 = 0.1875;
+
     if n == 1
     {
         this.setBlockBounds(0.0, 0.2, 0.5 - f, f * 2.0, 0.8, 0.5 + f);
@@ -186,6 +205,7 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _
     {
         return true;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     let n2: i32 = n & 7;
     let n3: i32 = 8 - (n & 8);
@@ -210,9 +230,11 @@ fn onBlockRemoval(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     if (n & 8) > 0
     {
         world.notifyBlocksOfNeighborChange(x, y, z, this.m_blockID);
+
         let n2: i32 = n & 7;
         notifyAttached(world, x, y, z, n2, this.m_blockID);
     }
+
     (BLOCK.onBlockRemoval)(this, world, x, y, z);
 }
 
@@ -244,10 +266,12 @@ fn isIndirectlyPoweringTo(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, 
     {
         return true;
     }
+
     n2 == 1 && dir == 5
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockLever",
     m_parent: Some(&BLOCK),
     getCollisionBoundingBoxFromPool: |_, _, _, _, _| None,
@@ -259,7 +283,8 @@ pub const CLASS: BlockClass = BlockClass {
     onBlockPlaced,
     onNeighborBlockChange,
     setBlockBoundsBasedOnState,
-    onBlockClicked: |this, world, x, y, z, player| {
+    onBlockClicked: |this, world, x, y, z, player|
+    {
         this.blockActivated(world, x, y, z, player);
     },
     blockActivated,

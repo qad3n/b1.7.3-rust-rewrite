@@ -4,7 +4,8 @@ use jvm::field::Field;
 use std::cell::OnceCell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static REGISTERED_BLOCKS_LIST: OnceCell<Rc<JArrayList<Rc<Block>>>> = const { OnceCell::new() };
 }
 
@@ -18,6 +19,7 @@ pub struct Session
 fn initRegisteredBlocks() -> Rc<JArrayList<Rc<Block>>>
 {
     let list: Rc<JArrayList<Rc<Block>>> = Rc::new(JArrayList::new());
+
     for block in [
         Block::stone(),
         Block::cobblestone(),
@@ -61,9 +63,9 @@ impl Session
         REGISTERED_BLOCKS_LIST.with(|list| Rc::clone(list.get_or_init(initRegisteredBlocks)))
     }
 
-    pub fn new(username: Option<String>, id: Option<String>) -> Session
+    pub fn new(username: Option<String>, id: Option<String>) -> Self
     {
-        Session::registeredBlocksList();
-        Session { m_username: Field::new(username), m_sessionId: Field::new(id), m_mpPassParameter: Field::new(None) }
+        Self::registeredBlocksList();
+        Self { m_username: Field::new(username), m_sessionId: Field::new(id), m_mpPassParameter: Field::new(None) }
     }
 }

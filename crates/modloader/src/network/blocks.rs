@@ -31,6 +31,7 @@ fn apply(message: ChunkExt)
     {
         return;
     };
+
     for (x, y, z, block, meta) in message.blocks
     {
         world.setBlockAndMetadata(x, y, z, block, meta);
@@ -45,7 +46,9 @@ pub fn register()
         Ok(message) => apply(message),
         Err(error) => crate::log::warn(crate::log::LOADER, &format!("bad chunk extension: {error}")),
     });
-    super::registerChannel(Channel {
+
+    super::registerChannel(Channel
+    {
         m_id: id(),
         m_version: "1".to_owned(),
         m_direction: ChannelDirection::ToClient,
@@ -65,6 +68,7 @@ fn collect(
 ) -> Vec<(i32, i32, i32, i32, i32)>
 {
     let mut found: Vec<(i32, i32, i32, i32, i32)> = Vec::new();
+
     for x in minX..minX + sizeX
     {
         for z in minZ..minZ + sizeZ
@@ -79,6 +83,7 @@ fn collect(
             }
         }
     }
+
     found
 }
 
@@ -102,6 +107,7 @@ pub fn outgoing(player: &Rc<Entity>, mut packet: Box<dyn Packet>) -> (Box<dyn Pa
     {
         return (packet, None);
     };
+
     let any: &mut dyn Any = &mut *packet;
     let blocks: Vec<(i32, i32, i32, i32, i32)> = if let Some(change) = any.downcast_mut::<Packet53BlockChange>()
     {
@@ -109,7 +115,9 @@ pub fn outgoing(player: &Rc<Entity>, mut packet: Box<dyn Packet>) -> (Box<dyn Pa
         {
             return (packet, None);
         }
-        let entry = (change.m_xPosition, change.m_yPosition, change.m_zPosition, change.m_type, change.m_metadata);
+
+        let entry: (i32, i32, i32, i32, i32) =
+            (change.m_xPosition, change.m_yPosition, change.m_zPosition, change.m_type, change.m_metadata);
         change.m_type = fallback(change.m_type);
         vec![entry]
     }
@@ -131,7 +139,8 @@ pub fn outgoing(player: &Rc<Entity>, mut packet: Box<dyn Packet>) -> (Box<dyn Pa
         coordinates
             .iter()
             .take(multi.m_size.max(0) as usize)
-            .filter_map(|packed| {
+            .filter_map(|packed|
+            {
                 let packed: i32 = *packed as i32;
                 let x: i32 = multi.m_xPosition * 16 + (packed >> 12 & 15);
                 let z: i32 = multi.m_zPosition * 16 + (packed >> 8 & 15);
@@ -145,10 +154,12 @@ pub fn outgoing(player: &Rc<Entity>, mut packet: Box<dyn Packet>) -> (Box<dyn Pa
     {
         return (packet, None);
     };
+
     if blocks.is_empty()
     {
         return (packet, None);
     }
+
     (packet, Some(ChunkExt { world: dimension(&world), blocks }))
 }
 

@@ -18,7 +18,8 @@ impl Packet40EntityMetadata
 {
     pub fn new(id: i32, syncedData: &DataWatcher) -> Self
     {
-        Self {
+        Self
+        {
             m_entityId: id,
             m_dataEntries: WatchableData::fromWatchableObjects(syncedData.getChangedObjects().as_deref()),
             ..Self::default()

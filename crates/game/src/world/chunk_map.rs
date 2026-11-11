@@ -29,6 +29,7 @@ impl<K: JavaObject + Clone> ChunkMap<K>
         {
             self.m_last.replace(Some((key.clone(), Rc::clone(chunk))));
         }
+
         chunk
     }
 

@@ -16,7 +16,8 @@ const SEED_UNIQUIFIER_START: i64 = 8682522807148012;
 static SEED_UNIQUIFIER: AtomicI64 = AtomicI64::new(SEED_UNIQUIFIER_START);
 static ORACLE_SEEDING: AtomicBool = AtomicBool::new(false);
 
-thread_local! {
+thread_local!
+{
     static THREAD_SEED_COUNT: Cell<i64> = const { Cell::new(0) };
 }
 
@@ -49,7 +50,8 @@ impl Random
 
     pub fn setSeed(&self, seed: i64)
     {
-        let mut gaussian = self.m_gaussian.lock().expect("random gaussian lock is never poisoned");
+        let mut gaussian: std::sync::MutexGuard<Option<f64>> =
+            self.m_gaussian.lock().expect("random gaussian lock is never poisoned");
         self.m_seed.store((seed ^ lcg::MULTIPLIER) & lcg::MASK, Ordering::Relaxed);
         *gaussian = None;
     }
@@ -111,7 +113,9 @@ impl Random
 
     pub fn nextGaussian(&self) -> f64
     {
-        let mut gaussian = self.m_gaussian.lock().expect("random gaussian lock is never poisoned");
+        let mut gaussian: std::sync::MutexGuard<Option<f64>> =
+            self.m_gaussian.lock().expect("random gaussian lock is never poisoned");
+
         if let Some(next) = gaussian.take()
         {
             return next;
@@ -144,7 +148,9 @@ pub fn setOracleSeeding(enabled: bool) { ORACLE_SEEDING.store(enabled, Ordering:
 fn oracleSeed() -> i64
 {
     let name: JString = thread::currentName();
-    let count: i64 = THREAD_SEED_COUNT.with(|count| {
+
+    let count: i64 = THREAD_SEED_COUNT.with(|count|
+    {
         count.set(count.get() + 1);
         count.get()
     });

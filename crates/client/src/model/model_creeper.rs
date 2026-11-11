@@ -18,13 +18,17 @@ pub struct ModelCreeper
 
 impl ModelCreeper
 {
-    pub fn new(reduction: f32) -> ModelCreeper
+    pub fn new(reduction: f32) -> Self
     {
         let n: f32 = 4.0;
-        let leg = |x: f32, z: f32| -> ModelRenderer {
+
+        let leg = |x: f32, z: f32| -> ModelRenderer
+        {
             ModelRenderer::new(0, 16).withBox(-2.0, 0.0, -2.0, 4, 6, 4, reduction).at(x, 12.0 + n, z)
         };
-        ModelCreeper {
+
+        Self
+        {
             m_base: ModelBaseFields::default(),
             m_head: ModelRenderer::new(0, 0).withBox(-4.0, -8.0, -4.0, 8, 8, 8, reduction).at(0.0, n, 0.0),
             m_hat: ModelRenderer::new(32, 0).withBox(-4.0, -8.0, -4.0, 8, 8, 8, reduction + 0.5).at(0.0, n, 0.0),
@@ -44,6 +48,7 @@ impl ModelBase for ModelCreeper
     fn render(&self, walk: f32, walkSpeed: f32, bob: f32, yaw: f32, pitch: f32, scale: f32)
     {
         self.setRotationAngles(walk, walkSpeed, bob, yaw, pitch, scale);
+
         for part in [&self.m_head, &self.m_body, &self.m_leg1, &self.m_leg2, &self.m_leg3, &self.m_leg4]
         {
             part.render(scale);

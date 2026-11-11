@@ -1,9 +1,11 @@
 pub fn runtimeMemory() -> (i64, i64, i64)
 {
-    let field = |path: &str, key: &str| -> i64 {
+    let field = |path: &str, key: &str| -> i64
+    {
         std::fs::read_to_string(path)
             .ok()
-            .and_then(|text| {
+            .and_then(|text|
+            {
                 text.lines()
                     .find(|line| line.starts_with(key))
                     .and_then(|line| line.split_whitespace().nth(1))

@@ -51,6 +51,7 @@ pub struct WorldRenderer
 fn identitySet(entities: &[Rc<TileEntity>]) -> Vec<Rc<TileEntity>>
 {
     let mut set: Vec<Rc<TileEntity>> = Vec::new();
+
     for entity in entities
     {
         if !set.iter().any(|existing| Rc::ptr_eq(existing, entity))
@@ -58,6 +59,7 @@ fn identitySet(entities: &[Rc<TileEntity>]) -> Vec<Rc<TileEntity>>
             set.push(Rc::clone(entity));
         }
     }
+
     set
 }
 
@@ -71,9 +73,10 @@ impl WorldRenderer
         originZ: i32,
         size: i32,
         glList: i32,
-    ) -> WorldRenderer
+    ) -> Self
     {
-        let renderer: WorldRenderer = WorldRenderer {
+        let renderer: Self = Self
+        {
             m_worldObj: Field::new(world),
             m_glRenderList: glList,
             m_posX: Cell::new(-999),
@@ -116,6 +119,7 @@ impl WorldRenderer
         {
             return;
         }
+
         self.setDontDraw();
         self.m_posX.set(x);
         self.m_posY.set(y);
@@ -129,6 +133,7 @@ impl WorldRenderer
         self.m_posXMinus.set(x - self.m_posXClip.get());
         self.m_posYMinus.set(y - self.m_posYClip.get());
         self.m_posZMinus.set(z - self.m_posZClip.get());
+
         let f: f32 = 6.0;
         self.m_rendererBoundingBox.set(Some(AxisAlignedBB::getBoundingBox(
             (x as f32 - f) as f64,
@@ -162,30 +167,39 @@ impl WorldRenderer
         {
             return;
         }
+
         CHUNKS_UPDATED.fetch_add(1, Ordering::Relaxed);
+
         let n: i32 = self.m_posX.get();
         let n2: i32 = self.m_posY.get();
         let n3: i32 = self.m_posZ.get();
         let n4: i32 = self.m_posX.get() + self.m_sizeWidth;
         let n5: i32 = self.m_posY.get() + self.m_sizeHeight;
         let n6: i32 = self.m_posZ.get() + self.m_sizeDepth;
+
         for pass in &self.m_skipRenderPass
         {
             pass.set(true);
         }
+
         IS_LIT.with(|lit| lit.set(false));
+
         let mut hashSet: Vec<Rc<TileEntity>> = identitySet(&self.m_tileEntityRenderers.toVec());
+
         self.m_tileEntityRenderers.clear();
+
         let n7: i32 = 1;
         let chunkCache: Rc<dyn IBlockAccess> =
             ChunkCache::new(&self.m_worldObj.get().orNpe(), n - n7, n2 - n7, n3 - n7, n4 + n7, n5 + n7, n6 + n7);
         let mut renderBlocks: RenderBlocks = RenderBlocks::new(Rc::clone(&chunkCache));
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         for i in 0..2
         {
             let mut bl: bool = false;
             let mut bl2: bool = false;
             let mut bl3: bool = false;
+
             for j in n2..n5
             {
                 for k in n3..n6
@@ -197,13 +211,16 @@ impl WorldRenderer
                         {
                             continue;
                         }
+
                         if !bl3
                         {
                             bl3 = true;
                             GL11::glNewList(self.m_glRenderList + i, 4864);
                             GL11::glPushMatrix();
                             self.setupGLTranslation();
+
                             let f: f32 = 1.000001;
+
                             GL11::glTranslatef(
                                 -self.m_sizeDepth as f32 / 2.0,
                                 -self.m_sizeHeight as f32 / 2.0,
@@ -222,6 +239,7 @@ impl WorldRenderer
                                 -self.m_posZ.get() as f64,
                             );
                         }
+
                         if i == 0 && Block::isBlockContainer(n9)
                         {
                             let tileEntity: Option<Rc<TileEntity>> = chunkCache.getBlockTileEntity(i2, j, k);
@@ -230,6 +248,7 @@ impl WorldRenderer
                                 self.m_tileEntityRenderers.add(tileEntity.orNpe());
                             }
                         }
+
                         let block: Rc<Block> = Block::byId(n9).orNpe();
                         let n8: i32 = block.getRenderBlockPass();
                         if n8 != i
@@ -237,10 +256,12 @@ impl WorldRenderer
                             bl = true;
                             continue;
                         }
+
                         bl2 |= renderBlocks.renderBlockByRenderType(&block, i2, j, k);
                     }
                 }
             }
+
             if bl3
             {
                 tessellator.draw();
@@ -252,15 +273,18 @@ impl WorldRenderer
             {
                 bl2 = false;
             }
+
             if bl2
             {
                 self.m_skipRenderPass[i as usize].set(false);
             }
+
             if !bl
             {
                 break;
             }
         }
+
         let renderers: Vec<Rc<TileEntity>> = self.m_tileEntityRenderers.toVec();
         let hashSet2: Vec<Rc<TileEntity>> = identitySet(&renderers)
             .into_iter()
@@ -268,11 +292,13 @@ impl WorldRenderer
             .collect();
         self.m_tileEntities.addAll(&hashSet2);
         hashSet.retain(|old| !renderers.iter().any(|entity| Rc::ptr_eq(old, entity)));
+
         for removed in &hashSet
         {
             while self.m_tileEntities.removeIdentity(removed)
             {}
         }
+
         self.m_isChunkLit.set(IS_LIT.with(Cell::get));
         self.m_isInitialized.set(true);
     }
@@ -291,6 +317,7 @@ impl WorldRenderer
         {
             pass.set(true);
         }
+
         self.m_isInFrustum.set(false);
         self.m_isInitialized.set(false);
     }
@@ -311,6 +338,7 @@ impl WorldRenderer
         {
             return self.m_glRenderList + layer;
         }
+
         -1
     }
 
@@ -327,6 +355,7 @@ impl WorldRenderer
         {
             return false;
         }
+
         self.m_skipRenderPass[0].get() && self.m_skipRenderPass[1].get()
     }
 

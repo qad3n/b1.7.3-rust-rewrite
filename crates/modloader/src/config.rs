@@ -71,14 +71,17 @@ fn kindText(kind: &ConfigKind) -> String
 pub fn describe(option: &ConfigOption) -> String
 {
     let mut parts: Vec<String> = vec![kindText(&option.kind), format!("default {}", option.kind.defaultText())];
+
     if option.scope == ConfigScope::Server
     {
         parts.push("set by the server while connected".to_owned());
     }
+
     if option.restart
     {
         parts.push("needs a restart".to_owned());
     }
+
     parts.join(", ")
 }
 
@@ -93,6 +96,7 @@ fn legacyKind(default: &str) -> ConfigKind
     {
         return ConfigKind::Int { default: value, min: i64::MIN, max: i64::MAX };
     }
+
     match default.parse::<f64>()
     {
         Ok(value) if value.is_finite() => ConfigKind::Float { default: value, min: f64::MIN, max: f64::MAX },
@@ -102,7 +106,8 @@ fn legacyKind(default: &str) -> ConfigKind
 
 fn legacyOption(entry: ConfigEntry) -> ConfigOption
 {
-    ConfigOption {
+    ConfigOption
+    {
         kind: legacyKind(&entry.default),
         key: entry.key,
         label: String::new(),
@@ -118,17 +123,21 @@ fn checkOption(option: &ConfigOption) -> Result<(), String>
     {
         return Err(format!("option key '{}' must be name or category.name with [a-z0-9_]", option.key));
     }
+
     match &option.kind
     {
         ConfigKind::Int { min, max, .. } if min > max => Err(format!("{}: min {min} is above max {max}", option.key)),
+
         ConfigKind::Float { min, max, .. } if !(min <= max) =>
         {
             Err(format!("{}: min {min} is above max {max}", option.key))
         }
+
         ConfigKind::Choice { choices, .. } if choices.is_empty() =>
         {
             Err(format!("{}: a choice needs options", option.key))
         }
+
         kind =>
         {
             kind.check(&kind.defaultText()).map(|_| ()).map_err(|reason| format!("{} default: {reason}", option.key))
@@ -159,19 +168,22 @@ fn literal(kind: &ConfigKind, value: &str) -> String
     match kind
     {
         ConfigKind::Bool { .. } | ConfigKind::Int { .. } => value.to_owned(),
+
         ConfigKind::Float { .. } =>
         {
             value.parse::<f64>().map_or_else(|_| value.to_owned(), |number| toml::Value::Float(number).to_string())
         }
+
         ConfigKind::Text { .. } | ConfigKind::Choice { .. } => toml::Value::String(value.to_owned()).to_string(),
     }
 }
 
 impl ModConfig
 {
-    pub fn new(configDir: &Path, modId: &str) -> ModConfig
+    pub fn new(configDir: &Path, modId: &str) -> Self
     {
-        ModConfig {
+        Self
+        {
             m_modId: modId.to_owned(),
             m_path: configDir.join(format!("{modId}.toml")),
             m_options: Vec::new(),
@@ -193,23 +205,29 @@ impl ModConfig
         {
             checkOption(option)?;
         }
+
         let mut merged: Vec<ConfigOption> = self.m_options.clone();
+
         for option in &options
         {
             merged.retain(|known| known.key != option.key);
             merged.push(option.clone());
         }
+
         if let Some(clash) =
             merged.iter().find(|option| merged.iter().any(|other| category(other) == Some(&option.key)))
         {
             return Err(format!("'{}' is both an option and a category", clash.key));
         }
+
         let existing: toml::Table = self.read();
+
         for option in &options
         {
             let value: String = match lookup(&existing, &option.key).map(valueText)
             {
-                Some(text) => option.kind.check(&text).unwrap_or_else(|reason| {
+                Some(text) => option.kind.check(&text).unwrap_or_else(|reason|
+                {
                     crate::log::warn(
                         &self.m_modId,
                         &format!("{} {}: {reason}, using the default", self.fileName(), option.key),
@@ -220,6 +238,7 @@ impl ModConfig
             };
             self.m_values.insert(option.key.clone(), value);
         }
+
         self.m_options = merged;
         self.save()
     }
@@ -231,22 +250,26 @@ impl ModConfig
         {
             Ok(text) => text,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return toml::Table::new(),
+
             Err(error) =>
             {
                 crate::log::warn(&self.m_modId, &format!("could not read {}: {error}", self.fileName()));
                 return toml::Table::new();
             }
         };
-        toml::from_str(&text).unwrap_or_else(|error| {
+        toml::from_str(&text).unwrap_or_else(|error|
+        {
             let backup: PathBuf = self.m_path.with_extension(BACKUP_EXTENSION);
             crate::log::error(
                 &self.m_modId,
                 &format!("{} is not valid toml, saved as {} and reset: {error}", self.fileName(), backup.display()),
             );
+
             if let Err(error) = std::fs::copy(&self.m_path, &backup)
             {
                 crate::log::error(&self.m_modId, &format!("could not back up {}: {error}", self.fileName()));
             }
+
             toml::Table::new()
         })
     }
@@ -254,11 +277,14 @@ impl ModConfig
     fn optionText(&self, option: &ConfigOption) -> String
     {
         let mut text: String = String::new();
+
         if !option.comment.is_empty()
         {
             text.push_str(&format!("# {}\n", option.comment));
         }
+
         text.push_str(&format!("# {}\n", describe(option)));
+
         let value: String = self.m_values.get(&option.key).cloned().unwrap_or_else(|| option.kind.defaultText());
         text.push_str(&format!("{} = {}\n\n", name(option), literal(&option.kind, &value)));
         text
@@ -267,11 +293,14 @@ impl ModConfig
     fn render(&self) -> String
     {
         let mut text: String = format!("# {} config, also editable in game from the mod menu\n\n", self.m_modId);
+
         for option in self.m_options.iter().filter(|option| category(option).is_none())
         {
             text.push_str(&self.optionText(option));
         }
+
         let mut categories: Vec<&str> = Vec::new();
+
         for found in self.m_options.iter().filter_map(category)
         {
             if !categories.contains(&found)
@@ -279,14 +308,17 @@ impl ModConfig
                 categories.push(found);
             }
         }
+
         for current in categories
         {
             text.push_str(&format!("[{current}]\n\n"));
+
             for option in self.m_options.iter().filter(|option| category(option) == Some(current))
             {
                 text.push_str(&self.optionText(option));
             }
         }
+
         text
     }
 
@@ -311,6 +343,7 @@ impl ModConfig
         {
             return Ok(false);
         }
+
         self.m_values.insert(key.to_owned(), canonical);
         self.save().map(|()| true)
     }
@@ -339,5 +372,6 @@ pub fn change(runtime: &ModRuntime, key: &str, value: &str) -> Result<(), String
     {
         runtime.call(&GuestCall::Lifecycle(Lifecycle::ConfigChanged(key.to_owned())));
     }
+
     Ok(())
 }

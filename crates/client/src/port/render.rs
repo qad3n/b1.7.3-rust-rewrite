@@ -12,5 +12,6 @@ pub fn castToRenderPlayer(render: Option<Rc<Render>>) -> Rc<Render>
             &format!("{} cannot be cast to RenderPlayer", render.className()),
         );
     }
+
     render
 }

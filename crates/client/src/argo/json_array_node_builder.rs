@@ -10,7 +10,7 @@ pub struct JsonArrayNodeBuilder
 
 impl JsonArrayNodeBuilder
 {
-    pub fn new() -> JsonArrayNodeBuilder { JsonArrayNodeBuilder::default() }
+    pub fn new() -> Self { Self::default() }
 
     pub fn withElement(&self, elementBuilder: Rc<dyn JsonNodeBuilder>) -> &Self
     {

@@ -76,6 +76,7 @@ fn bitsFor(count: usize) -> usize { (usize::BITS - (count - 1).leading_zeros()).
 fn pack(indices: &[usize], width: usize) -> Vec<i8>
 {
     let mut bytes: Vec<u8> = vec![0; (indices.len() * width).div_ceil(bits::BYTE)];
+
     for (entry, index) in indices.iter().enumerate()
     {
         for bit in (0..width).filter(|bit| index >> bit & 1 == 1)
@@ -84,12 +85,14 @@ fn pack(indices: &[usize], width: usize) -> Vec<i8>
             bytes[at >> bits::BYTE_SHIFT] |= 1 << (at & bits::BIT_IN_BYTE);
         }
     }
+
     bytes.into_iter().map(|byte| byte as i8).collect()
 }
 
 fn unpack(bytes: &[i8], width: usize, entry: usize) -> usize
 {
-    (0..width).fold(0, |index, bit| {
+    (0..width).fold(0, |index, bit|
+    {
         let at: usize = entry * width + bit;
         let set: usize =
             bytes.get(at >> bits::BYTE_SHIFT).map_or(0, |byte| (*byte as u8 >> (at & bits::BIT_IN_BYTE)) as usize & 1);
@@ -106,26 +109,33 @@ fn entryTag(stored: Stored) -> Rc<NBTBase>
     compound.setString(keys::NAME, Some(JString::from(name.as_str())));
     compound.setShort(keys::ID, stored.m_block as i16);
     compound.setByte(keys::META, stored.m_meta as i8);
+
     if !properties.is_empty()
     {
         let values: Rc<NBTBase> = NBTTagCompound::create();
+
         for (key, value) in &properties
         {
             values.compound().setString(key, Some(JString::from(value.as_str())));
         }
+
         compound.setCompoundTag(keys::PROPERTIES, &values);
     }
+
     tag
 }
 
 // a name the loader knows wins, otherwise the saved id and metadata come back as they were
 fn entryState(compound: &NBTTagCompound) -> Stored
 {
-    let hint: Stored = Stored {
+    let hint: Stored = Stored
+    {
         m_block: compound.getShort(keys::ID) as i32 & bits::BLOCK_ID_MASK,
         m_meta: compound.getByte(keys::META) as i32 & bits::NIBBLE_MASK,
     };
+
     let name: String = compound.getString(keys::NAME).map(|name| name.to_string()).unwrap_or_default();
+
     let properties: Properties = if compound.hasKey(keys::PROPERTIES)
     {
         let values: Rc<NBTBase> = compound.getCompoundTag(keys::PROPERTIES);
@@ -134,7 +144,8 @@ fn entryState(compound: &NBTTagCompound) -> Stored
             .getValues()
             .iter()
             .map(|tag| tag.getKey().to_string())
-            .map(|key| {
+            .map(|key|
+            {
                 let value: String =
                     values.compound().getString(&key).map(|value| value.to_string()).unwrap_or_default();
                 (key, value)
@@ -145,6 +156,7 @@ fn entryState(compound: &NBTTagCompound) -> Stored
     {
         Vec::new()
     };
+
     match crate::hooks::blockByName(&name, &properties, hint.m_block, hint.m_meta)
     {
         Some((block, meta)) => Stored { m_block: block, m_meta: meta },
@@ -152,53 +164,64 @@ fn entryState(compound: &NBTTagCompound) -> Stored
     }
 }
 
-pub fn present(nbt: &NBTTagCompound) -> bool { nbt.hasKey(keys::SECTIONS) }
+pub(crate) fn present(nbt: &NBTTagCompound) -> bool { nbt.hasKey(keys::SECTIONS) }
 
-pub fn write(chunk: &Chunk, nbt: &NBTTagCompound)
+pub(crate) fn write(chunk: &Chunk, nbt: &NBTTagCompound)
 {
     let blocks: Vec<i8> = chunk.m_blocks.get();
     let add: Option<Vec<u8>> = chunk.m_addBlocks.get();
     let data: Vec<u8> = chunk.data().m_data.get().into_iter().map(|byte| byte as u8).collect();
     let height: usize = chunk.height() as usize;
     let sections: Rc<NBTBase> = NBTTagList::create();
+
     for section in 0..chunk.height() / layout::SECTION_HEIGHT
     {
         let mut palette: Vec<Stored> = Vec::new();
         let mut lookup: HashMap<Stored, usize> = HashMap::new();
         let indices: Vec<usize> = (0..layout::SECTION_VOLUME)
-            .map(|entry| {
+            .map(|entry|
+            {
                 let at: usize = chunkIndex(height, section, entry);
                 let high: i32 = add.as_deref().map_or(0, |add| nibble(add, at));
                 let low: i32 = blocks[at] as i32 & bits::LOW_BYTE_MASK;
                 let stored: Stored = Stored { m_block: low | high << bits::BYTE, m_meta: nibble(&data, at) };
-                *lookup.entry(stored).or_insert_with(|| {
+                *lookup.entry(stored).or_insert_with(||
+                {
                     palette.push(stored);
                     palette.len() - 1
                 })
             })
             .collect();
+
         if palette == [Stored { m_block: 0, m_meta: 0 }]
         {
             continue;
         }
+
         let tag: Rc<NBTBase> = NBTTagCompound::create();
         tag.compound().setByte(keys::Y, section as i8);
+
         let entries: Rc<NBTBase> = NBTTagList::create();
+
         for stored in &palette
         {
             entries.list().setTag(entryTag(*stored));
         }
+
         tag.compound().setTag(keys::PALETTE, &entries);
+
         if palette.len() > 1
         {
             tag.compound().setByteArray(keys::STATES, Rc::new(pack(&indices, bitsFor(palette.len()))));
         }
+
         sections.list().setTag(tag);
     }
+
     nbt.setTag(keys::SECTIONS, &sections);
 }
 
-pub fn read(chunk: &Chunk, nbt: &NBTTagCompound)
+pub(crate) fn read(chunk: &Chunk, nbt: &NBTTagCompound)
 {
     let height: usize = chunk.height() as usize;
     let volume: usize = chunk.volume() as usize;
@@ -218,13 +241,16 @@ pub fn read(chunk: &Chunk, nbt: &NBTTagCompound)
         let entries: Rc<NBTBase> = tag.compound().getTagList(keys::PALETTE);
         let palette: Vec<Stored> =
             (0..entries.list().tagCount()).map(|entry| entryState(entries.list().tagAt(entry).compound())).collect();
+
         let Some(first) = palette.first().copied()
         else
         {
             continue;
         };
+
         let packed: Option<Rc<Vec<i8>>> = tag.compound().getByteArray(keys::STATES);
         let width: usize = bitsFor(palette.len());
+
         for entry in 0..layout::SECTION_VOLUME
         {
             let stored: Stored =
@@ -236,6 +262,7 @@ pub fn read(chunk: &Chunk, nbt: &NBTTagCompound)
             high |= stored.m_block > bits::LOW_BYTE_MASK;
         }
     }
+
     chunk.m_blocks.set(blocks);
     chunk.m_addBlocks.set(high.then_some(add));
     chunk.m_data.set(Some(Rc::new(NibbleArray::withData(data.into_iter().map(|byte| byte as i8).collect()))));

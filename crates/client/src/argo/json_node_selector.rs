@@ -8,10 +8,7 @@ pub struct JsonNodeSelector<T, U>
 
 impl<T: 'static, U: 'static> JsonNodeSelector<T, U>
 {
-    pub fn new(valueGetter: Rc<dyn Functor<T, U>>) -> JsonNodeSelector<T, U>
-    {
-        JsonNodeSelector { m_valueGetter: valueGetter }
-    }
+    pub fn new(valueGetter: Rc<dyn Functor<T, U>>) -> Self { Self { m_valueGetter: valueGetter } }
 
     pub fn matches(&self, jsonNode: &T) -> bool { self.m_valueGetter.matchesNode(jsonNode) }
 

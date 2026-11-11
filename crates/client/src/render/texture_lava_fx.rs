@@ -1,11 +1,11 @@
 use crate::render::{TILE_PIXELS, TextureFX, TextureFXFields};
 use game::block::Block;
 use game::math::math_helper;
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 
 const PI_F: f32 = std::f64::consts::PI as f32;
 
-pub struct LavaSimulation
+pub(crate) struct LavaSimulation
 {
     m_current: RefCell<Vec<f32>>,
     m_next: RefCell<Vec<f32>>,
@@ -15,9 +15,10 @@ pub struct LavaSimulation
 
 impl LavaSimulation
 {
-    pub fn new() -> LavaSimulation
+    pub(crate) fn new() -> Self
     {
-        LavaSimulation {
+        Self
+        {
             m_current: RefCell::new(vec![0.0; TILE_PIXELS]),
             m_next: RefCell::new(vec![0.0; TILE_PIXELS]),
             m_heat: RefCell::new(vec![0.0; TILE_PIXELS]),
@@ -25,13 +26,14 @@ impl LavaSimulation
         }
     }
 
-    pub fn step(&self)
+    pub(crate) fn step(&self)
     {
         {
-            let current = self.m_current.borrow();
-            let mut next = self.m_next.borrow_mut();
-            let mut heat = self.m_heat.borrow_mut();
-            let mut heatDelta = self.m_heatDelta.borrow_mut();
+            let current: Ref<Vec<f32>> = self.m_current.borrow();
+            let mut next: RefMut<Vec<f32>> = self.m_next.borrow_mut();
+            let mut heat: RefMut<Vec<f32>> = self.m_heat.borrow_mut();
+            let mut heatDelta: RefMut<Vec<f32>> = self.m_heatDelta.borrow_mut();
+
             for i in 0..16i32
             {
                 for j in 0..16i32
@@ -39,6 +41,7 @@ impl LavaSimulation
                     let mut f: f32 = 0.0;
                     let k: i32 = (math_helper::sin(j as f32 * PI_F * 2.0 / 16.0) * 1.2) as i32;
                     let l: i32 = (math_helper::sin(i as f32 * PI_F * 2.0 / 16.0) * 1.2) as i32;
+
                     for i1 in i - 1..=i + 1
                     {
                         for j1 in j - 1..=j + 1
@@ -48,6 +51,7 @@ impl LavaSimulation
                             f += current[(k1 + l1 * 16) as usize];
                         }
                     }
+
                     let at = |x: i32, y: i32| -> usize { ((x & 15) + (y & 15) * 16) as usize };
                     let index: usize = (i + j * 16) as usize;
                     next[index] = f / 10.0
@@ -58,7 +62,9 @@ impl LavaSimulation
                     {
                         heat[index] = 0.0;
                     }
+
                     heatDelta[index] -= 0.06;
+
                     if jvm::math::random() < 0.005
                     {
                         heatDelta[index] = 1.5;
@@ -69,9 +75,10 @@ impl LavaSimulation
         self.m_next.swap(&self.m_current);
     }
 
-    pub fn paint(&self, fx: &TextureFXFields, source: impl Fn(i32) -> i32)
+    pub(crate) fn paint(&self, fx: &TextureFXFields, source: impl Fn(i32) -> i32)
     {
-        let current = self.m_current.borrow();
+        let current: Ref<Vec<f32>> = self.m_current.borrow();
+
         for j2 in 0..TILE_PIXELS as i32
         {
             let f1: f32 = (current[source(j2) as usize] * 2.0).clamp(0.0, 1.0);
@@ -93,9 +100,10 @@ pub struct TextureLavaFX
 
 impl TextureLavaFX
 {
-    pub fn new() -> TextureLavaFX
+    pub fn new() -> Self
     {
-        TextureLavaFX {
+        Self
+        {
             m_fx: TextureFXFields::new(Block::lavaMoving().m_blockIndexInTexture.get()),
             m_simulation: LavaSimulation::new(),
         }

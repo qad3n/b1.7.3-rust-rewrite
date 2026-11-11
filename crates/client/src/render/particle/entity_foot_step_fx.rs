@@ -35,8 +35,10 @@ fn renderParticle(
     {
         f1 = 1.0;
     }
+
     f1 *= 0.2;
     GL11::glDisable(2896);
+
     let f2: f32 = 0.125;
     let f3: f32 = (this.posX() - interpPosX()) as f32;
     let f4: f32 = (this.posY() - interpPosY()) as f32;
@@ -60,13 +62,16 @@ fn renderParticle(
     GL11::glEnable(2896);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityFootStepFX",
     m_parent: Some(&entity_fx::CLASS),
     renderParticle,
-    onUpdate: |this| {
+    onUpdate: |this|
+    {
         let step: &FootStepFields = extra::<FootStepFields>(this);
         step.m_age.set(step.m_age.get() + 1);
+
         if step.m_age.get() == step.m_maxAge.get()
         {
             this.setEntityDead();

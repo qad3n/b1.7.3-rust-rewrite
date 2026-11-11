@@ -30,11 +30,13 @@ fn onCraftMatrixChanged(this: &Rc<Container>, _inventory: &dyn IInventory)
 fn onCraftGuiClosed(this: &Rc<Container>, player: &Rc<Entity>)
 {
     (CONTAINER.onCraftGuiClosed)(this, player);
+
     let ext: &WorkbenchExt = fields(this);
     if ext.m_world.m_multiplayerWorld.get()
     {
         return;
     }
+
     for i in 0..9
     {
         let stackInSlot: Option<Rc<ItemStack>> = ext.m_craftMatrix.getStackInSlot(i);
@@ -52,12 +54,14 @@ fn isUsableByPlayer(this: &Rc<Container>, player: &Rc<Entity>) -> bool
     {
         return false;
     }
+
     !(player.getDistanceSq(ext.m_x as f64 + 0.5, ext.m_y as f64 + 0.5, ext.m_z as f64 + 0.5) > 64.0)
 }
 
 fn getStackInSlot(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
 {
-    this.quickMove(slot, |itemStack2| {
+    this.quickMove(slot, |itemStack2|
+    {
         if slot == 0
         {
             this.moveItem(itemStack2, 10, 46, true);
@@ -77,7 +81,8 @@ fn getStackInSlot(this: &Rc<Container>, slot: i32) -> Option<Rc<ItemStack>>
     })
 }
 
-pub const CLASS: ContainerClass = ContainerClass {
+pub const CLASS: ContainerClass = ContainerClass
+{
     m_name: "ContainerWorkbench",
     m_parent: Some(&CONTAINER),
     m_interfaces: &[],
@@ -90,8 +95,10 @@ pub const CLASS: ContainerClass = ContainerClass {
 
 pub fn create(playerInventory: &Rc<InventoryPlayer>, world: &Rc<World>, x: i32, y: i32, z: i32) -> Rc<Container>
 {
-    let this: Rc<Container> = Container::construct(&CLASS, |this| {
-        Box::new(WorkbenchExt {
+    let this: Rc<Container> = Container::construct(&CLASS, |this|
+    {
+        Box::new(WorkbenchExt
+        {
             m_craftMatrix: Rc::new(InventoryCrafting::new(this, 3, 3)),
             m_craftResult: Rc::new(InventoryCraftResult::new()),
             m_world: Rc::clone(world),
@@ -111,6 +118,7 @@ pub fn create(playerInventory: &Rc<InventoryPlayer>, world: &Rc<World>, x: i32, 
         124,
         35,
     ));
+
     for n2 in 0..3
     {
         for n in 0..3
@@ -118,6 +126,7 @@ pub fn create(playerInventory: &Rc<InventoryPlayer>, world: &Rc<World>, x: i32, 
             this.addSlot(Slot::new(Rc::clone(&craftMatrix), n + n2 * 3, 30 + n * 18, 17 + n2 * 18));
         }
     }
+
     for n2 in 0..3
     {
         for n in 0..9
@@ -125,10 +134,12 @@ pub fn create(playerInventory: &Rc<InventoryPlayer>, world: &Rc<World>, x: i32, 
             this.addSlot(Slot::new(Rc::clone(&inventory), n + n2 * 9 + 9, 8 + n * 18, 84 + n2 * 18));
         }
     }
+
     for n2 in 0..9
     {
         this.addSlot(Slot::new(Rc::clone(&inventory), n2, 8 + n2 * 18, 142));
     }
+
     this.onCraftMatrixChanged(&*ext.m_craftMatrix);
     this
 }

@@ -1,7 +1,8 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static WATER_BUFFER: RefCell<Rc<RefCell<Vec<i32>>>> = RefCell::new(Rc::new(RefCell::new(vec![0; 65536])));
 }
 

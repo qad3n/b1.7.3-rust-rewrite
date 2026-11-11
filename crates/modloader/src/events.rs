@@ -1,8 +1,10 @@
 use crate::state;
+use crate::state::ModRuntime;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{EventData, EventEnvelope, EventKind, GuestCall, GuestReply, Handle, Priority};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 #[derive(Clone)]
 struct Listener
@@ -22,7 +24,8 @@ struct Bus
     m_custom: HashSet<Identifier>,
 }
 
-thread_local! {
+thread_local!
+{
     static BUS: RefCell<Bus> = RefCell::new(Bus::default());
 }
 
@@ -40,15 +43,19 @@ pub fn subscribe(
     {
         return Err(format!("custom event {id} is not defined, the defining mod must load first"));
     }
+
     let listener: Listener =
         Listener { m_mod: modIndex, m_handler: handler, m_priority: priority, m_receiveCanceled: receiveCanceled };
-    BUS.with(|bus| {
-        let mut bus = bus.borrow_mut();
+
+    BUS.with(|bus|
+    {
+        let mut bus: RefMut<Bus> = bus.borrow_mut();
         let list: &mut Vec<Listener> = bus.m_listeners.entry((kind, custom)).or_default();
         list.push(listener);
         // priority first, then mod load order, which both sides share
         list.sort_by_key(|listener| (listener.m_priority, listener.m_mod));
     });
+
     Ok(())
 }
 
@@ -67,7 +74,7 @@ fn listeners(key: &Key) -> Vec<Listener>
 
 fn deliver(listener: &Listener, envelope: &EventEnvelope) -> Option<EventEnvelope>
 {
-    let runtime = state::modAt(listener.m_mod)?;
+    let runtime: Rc<ModRuntime> = state::modAt(listener.m_mod)?;
     match runtime.call(&GuestCall::Event { handler: listener.m_handler, event: envelope.clone() })
     {
         Some(GuestReply::Event(changed)) => Some(changed),
@@ -88,24 +95,29 @@ fn dispatch(key: Key, mut envelope: EventEnvelope) -> EventEnvelope
         {
             continue;
         };
+
         // monitor listeners see the final state and cannot change it
         if listener.m_priority == Priority::Monitor
         {
             continue;
         }
+
         let result: Option<i32> = envelope.result.or(changed.result);
         envelope = EventEnvelope { result, ..changed };
     }
+
     envelope
 }
 
 pub fn post(kind: EventKind, data: EventData) -> EventEnvelope
 {
     let envelope: EventEnvelope = EventEnvelope { kind, canceled: false, result: None, data };
+
     if !hasListeners(kind)
     {
         return envelope;
     }
+
     dispatch((kind, None), envelope)
 }
 
@@ -115,7 +127,9 @@ pub fn postCustom(id: Identifier, data: Vec<u8>) -> Result<EventEnvelope, String
     {
         return Err(format!("custom event {id} is not defined"));
     }
-    let envelope: EventEnvelope = EventEnvelope {
+
+    let envelope: EventEnvelope = EventEnvelope
+    {
         kind: EventKind::Custom,
         canceled: false,
         result: None,
@@ -126,7 +140,8 @@ pub fn postCustom(id: Identifier, data: Vec<u8>) -> Result<EventEnvelope, String
 
 pub fn removeMod(modIndex: usize)
 {
-    BUS.with(|bus| {
+    BUS.with(|bus|
+    {
         for list in bus.borrow_mut().m_listeners.values_mut()
         {
             list.retain(|listener| listener.m_mod != modIndex);

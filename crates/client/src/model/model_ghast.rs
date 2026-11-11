@@ -14,14 +14,16 @@ pub struct ModelGhast
 
 impl ModelGhast
 {
-    pub fn new() -> ModelGhast
+    pub fn new() -> Self
     {
         let n: i32 = -16;
         let body: ModelRenderer = ModelRenderer::new(0, 0).withBox(-8.0, -8.0, -8.0, 16, 16, 16, 0.0);
         body.m_rotationPointY.set(body.m_rotationPointY.get() + (24 + n) as f32);
+
         let random: Random = Random::withSeed(TENTACLE_SEED);
         let tentacles: Vec<ModelRenderer> = (0..TENTACLES)
-            .map(|i| {
+            .map(|i|
+            {
                 let f: f32 = (((i % 3) as f32 - (i / 3 % 2) as f32 * 0.5 + 0.25) / 2.0 * 2.0 - 1.0) * 5.0;
                 let f2: f32 = ((i / 3) as f32 / 2.0 * 2.0 - 1.0) * 5.0;
                 let n2: i32 = random.nextIntBounded(7) + 8;
@@ -32,7 +34,7 @@ impl ModelGhast
                 tentacle
             })
             .collect();
-        ModelGhast { m_base: ModelBaseFields::default(), m_body: body, m_tentacles: tentacles }
+        Self { m_base: ModelBaseFields::default(), m_body: body, m_tentacles: tentacles }
     }
 }
 
@@ -52,6 +54,7 @@ impl ModelBase for ModelGhast
     {
         self.setRotationAngles(walk, walkSpeed, bob, yaw, pitch, scale);
         self.m_body.render(scale);
+
         for tentacle in &self.m_tentacles
         {
             tentacle.render(scale);

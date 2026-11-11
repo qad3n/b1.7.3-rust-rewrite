@@ -12,7 +12,7 @@ pub struct WorldGenFlowers
 
 impl WorldGenFlowers
 {
-    pub fn new(flower: i32) -> WorldGenFlowers { WorldGenFlowers { m_plantBlockId: flower } }
+    pub fn new(flower: i32) -> Self { Self { m_plantBlockId: flower } }
 }
 
 impl WorldGenerator for WorldGenFlowers
@@ -29,6 +29,7 @@ impl WorldGenerator for WorldGenFlowers
                 world.setBlock(j, k, l, self.m_plantBlockId);
             }
         }
+
         true
     }
 }

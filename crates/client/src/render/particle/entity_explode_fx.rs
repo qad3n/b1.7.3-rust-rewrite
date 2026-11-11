@@ -21,10 +21,12 @@ fn onUpdate(this: &Rc<Entity>)
     entity_fx::groundFriction(this);
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityExplodeFX",
     m_parent: Some(&entity_fx::CLASS),
-    renderParticle: |this, tessellator, tickDelta, dx, dy, dz, forwards, sideways| {
+    renderParticle: |this, tessellator, tickDelta, dx, dy, dz, forwards, sideways|
+    {
         (entity_fx::CLASS.renderParticle)(this, tessellator, tickDelta, dx, dy, dz, forwards, sideways)
     },
     onUpdate,
@@ -39,6 +41,7 @@ pub fn new(world: &Rc<World>, x: f64, y: f64, z: f64, velocityX: f64, velocityY:
     this.m_motionX.set(velocity(velocityX));
     this.m_motionY.set(velocity(velocityY));
     this.m_motionZ.set(velocity(velocityZ));
+
     let fields: &FXFields = fx(&this);
     let color: f32 = this.m_rand.nextFloat() * 0.3 + 0.7;
     fields.m_particleRed.set(color);

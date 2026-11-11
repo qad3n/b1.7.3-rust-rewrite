@@ -59,26 +59,33 @@ fn onLivingUpdate(this: &Rc<Entity>)
     {
         mc.m_guiAchievement.get().orNpe().queueAchievementInformation(&openInventory);
     }
+
     let player: &PlayerFields = entity_player::fields(this);
     player.m_prevTimeInPortal.set(player.m_timeInPortal.get());
+
     if player.m_inPortal.get()
     {
         if !this.world().m_multiplayerWorld.get() && this.m_ridingEntity.get().is_some()
         {
             this.mountEntity(None);
         }
+
         if mc.m_currentScreen.get().is_some()
         {
             mc.displayGuiScreen(None);
         }
+
         if player.m_timeInPortal.get() == 0.0
         {
             mc.m_sndManager.get().orNpe().playSoundFX("portal.trigger", 1.0, this.m_rand.nextFloat() * 0.4 + 0.8);
         }
+
         player.m_timeInPortal.set(player.m_timeInPortal.get() + 0.0125);
+
         if player.m_timeInPortal.get() >= 1.0
         {
             player.m_timeInPortal.set(1.0);
+
             if !this.world().m_multiplayerWorld.get()
             {
                 player.m_timeUntilPortal.set(10);
@@ -86,6 +93,7 @@ fn onLivingUpdate(this: &Rc<Entity>)
                 mc.usePortal();
             }
         }
+
         player.m_inPortal.set(false);
     }
     else
@@ -94,21 +102,26 @@ fn onLivingUpdate(this: &Rc<Entity>)
         {
             player.m_timeInPortal.set(player.m_timeInPortal.get() - 0.05);
         }
+
         if player.m_timeInPortal.get() < 0.0
         {
             player.m_timeInPortal.set(0.0);
         }
     }
+
     if player.m_timeUntilPortal.get() > 0
     {
         player.m_timeUntilPortal.set(player.m_timeUntilPortal.get() - 1);
     }
+
     let movementInput: Rc<MovementInput> = movementInput(this);
     movementInput.updatePlayerMoveState(this);
+
     if movementInput.m_sneak.get() && this.m_ySize.get() < 0.2
     {
         this.m_ySize.set(0.2);
     }
+
     let width: f64 = this.m_width.get() as f64;
     let minY: f64 = this.m_boundingBox.minY() + 0.5;
     this.pushOutOfBlocks(this.posX() - width * 0.35, minY, this.posZ() + width * 0.35);
@@ -137,6 +150,7 @@ pub fn setHealth(this: &Rc<Entity>, health: i32)
     if i <= 0
     {
         living.m_health.set(health);
+
         if i < 0
         {
             this.m_heartsLife.set(living.m_heartsHalvesLife.get() / 2);
@@ -160,7 +174,9 @@ pub fn addStat(this: &Rc<Entity>, stat: Option<&Rc<StatBase>>, amount: i32)
     {
         return;
     };
+
     let mc: &Rc<Minecraft> = mc(this);
+
     if stat.isAchievement()
     {
         let achievement: &Achievement = Achievement::of(stat);
@@ -175,6 +191,7 @@ pub fn addStat(this: &Rc<Entity>, stat: Option<&Rc<StatBase>>, amount: i32)
             {
                 mc.m_guiAchievement.get().orNpe().queueTakenAchievement(stat);
             }
+
             mc.m_statFileWriter.get().orNpe().readStat(stat, amount);
         }
     }
@@ -193,6 +210,7 @@ fn pushOutOfBlocks(this: &Rc<Entity>, x: f64, y: f64, z: f64) -> bool
     let n3: i32 = math_helper::floor_double(z);
     let d: f64 = x - n as f64;
     let d2: f64 = z - n3 as f64;
+
     if isBlockTranslucent(this, n, n2, n3) || isBlockTranslucent(this, n, n2 + 1, n3)
     {
         let bl: bool = !isBlockTranslucent(this, n - 1, n2, n3) && !isBlockTranslucent(this, n - 1, n2 + 1, n3);
@@ -206,21 +224,26 @@ fn pushOutOfBlocks(this: &Rc<Entity>, x: f64, y: f64, z: f64) -> bool
             d3 = d;
             n4 = 0;
         }
+
         if bl2 && 1.0 - d < d3
         {
             d3 = 1.0 - d;
             n4 = 1;
         }
+
         if bl3 && d2 < d3
         {
             d3 = d2;
             n4 = 4;
         }
+
         if bl4 && 1.0 - d2 < d3
         {
             n4 = 5;
         }
+
         let f: f32 = 0.1;
+
         match n4
         {
             0 => this.m_motionX.set(-f as f64),
@@ -231,17 +254,22 @@ fn pushOutOfBlocks(this: &Rc<Entity>, x: f64, y: f64, z: f64) -> bool
             {}
         }
     }
+
     false
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityPlayerSP",
     m_parent: Some(&entity_player::CLASS),
     moveEntity: |this, dx, dy, dz| (entity_player::CLASS.moveEntity)(this, dx, dy, dz),
-    updatePlayerActionState: |this| {
+    updatePlayerActionState: |this|
+    {
         (entity_player::CLASS.updatePlayerActionState)(this);
+
         let movementInput: Rc<MovementInput> = movementInput(this);
         let living: &LivingFields = entity_living::fields(this);
+
         // rewrite: 1.7 walks at a fifth of the speed while an item is in use
         let pace: f32 = if entity_player::isUsingItem(this)
         {
@@ -256,33 +284,47 @@ pub const CLASS: EntityClass = EntityClass {
         living.m_isJumping.set(movementInput.m_jump.get());
     },
     onLivingUpdate,
-    writeEntityToNBT: |this, nbt: &NBTTagCompound| {
+    writeEntityToNBT: |this, nbt: &NBTTagCompound|
+    {
         (entity_player::CLASS.writeEntityToNBT)(this, nbt);
         nbt.setInteger("Score", entity_player::fields(this).m_score.get());
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         (entity_player::CLASS.readEntityFromNBT)(this, nbt);
         entity_player::fields(this).m_score.set(nbt.getInteger("Score"));
     },
-    closeScreen: |this| {
+
+    closeScreen: |this|
+    {
         (entity_player::CLASS.closeScreen)(this);
         mc(this).displayGuiScreen(None);
     },
     displayGUIEditSign: |this, sign: &Rc<TileEntity>| mc(this).displayGuiScreen(Some(GuiEditSign::new(sign))),
-    displayGUIChest: |this, inventory: Option<&Rc<dyn IInventory>>| {
+    displayGUIChest: |this, inventory: Option<&Rc<dyn IInventory>>|
+    {
         let playerInventory: Rc<dyn IInventory> = entity_player::inventory(this);
         mc(this).displayGuiScreen(Some(GuiChest::new(playerInventory, inventory.cloned())));
     },
-    displayWorkbenchGUI: |this, x, y, z| {
+
+    displayWorkbenchGUI: |this, x, y, z|
+    {
         mc(this).displayGuiScreen(Some(GuiCrafting::new(&entity_player::inventory(this), &this.world(), x, y, z)));
     },
-    displayGUIFurnace: |this, furnace| {
+
+    displayGUIFurnace: |this, furnace|
+    {
         mc(this).displayGuiScreen(Some(GuiFurnace::new(&entity_player::inventory(this), furnace.cloned())));
     },
-    displayGUIDispenser: |this, dispenser| {
+
+    displayGUIDispenser: |this, dispenser|
+    {
         mc(this).displayGuiScreen(Some(GuiDispenser::new(&entity_player::inventory(this), dispenser.cloned())));
     },
-    onItemPickup: |this, item, _count| {
+
+    onItemPickup: |this, item, _count|
+    {
         let mc: &Rc<Minecraft> = mc(this);
         let fx: Rc<Entity> = entity_pickup_fx::new(&mc.m_theWorld.get().orNpe(), item, this, -0.5);
         mc.m_effectRenderer.get().orNpe().addEffect(fx);
@@ -302,6 +344,7 @@ pub fn init(this: &Rc<Entity>, world: &Rc<World>, session: Option<Rc<Session>>, 
 {
     entity_player::init(this, Rc::clone(world));
     entity_player::fields(this).m_dimension.set(dimension);
+
     if let Some(session) = &session
         && let Some(username) = session.m_username.get()
         && !username.is_empty()
@@ -309,13 +352,15 @@ pub fn init(this: &Rc<Entity>, world: &Rc<World>, session: Option<Rc<Session>>, 
         this.m_skinUrl
             .set(Some(JString::from(format!("http://s3.amazonaws.com/MinecraftSkins/{username}.png").as_str())));
     }
+
     let username: Option<String> = session.orNpe().m_username.get();
     entity_player::fields(this).m_username.set(username.map(|name| JString::from(name.as_str())));
 }
 
 pub fn spFields(minecraft: &Rc<Minecraft>) -> PlayerSPFields
 {
-    PlayerSPFields {
+    PlayerSPFields
+    {
         m_movementInput: Field::new(None),
         m_mc: Rc::clone(minecraft),
         m_field_21903_bJ: MouseFilter::new(),
@@ -326,7 +371,8 @@ pub fn spFields(minecraft: &Rc<Minecraft>) -> PlayerSPFields
 
 pub fn new(minecraft: &Rc<Minecraft>, world: &Rc<World>, session: Option<Rc<Session>>, dimension: i32) -> Rc<Entity>
 {
-    let ext: PlayerSPExt = PlayerSPExt {
+    let ext: PlayerSPExt = PlayerSPExt
+    {
         m_living: LivingFields::default(),
         m_player: PlayerFields::default(),
         m_sp: spFields(minecraft),

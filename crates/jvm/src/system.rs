@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::sync::OnceLock;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -20,12 +21,12 @@ pub fn currentTimeMillis() -> i64
 // System.out.println, java writes the platform line separator after the text
 pub fn println(line: &str)
 {
-    use std::io::Write;
     let mut out: std::io::StdoutLock = std::io::stdout().lock();
     if let Err(error) = writeln!(out, "{line}")
     {
         eprintln!("System.out write failed: {error}");
     }
+
     crate::log_files::write(&format!("{line}\n"));
 }
 

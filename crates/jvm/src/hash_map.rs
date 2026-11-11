@@ -39,7 +39,8 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
 {
     pub fn new() -> Self
     {
-        Self {
+        Self
+        {
             m_table: vec![None; DEFAULT_INITIAL_CAPACITY],
             m_entries: Vec::new(),
             m_free: Vec::new(),
@@ -97,8 +98,10 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
             {
                 return Some(index);
             }
+
             current = entry.m_next;
         }
+
         None
     }
 
@@ -118,6 +121,7 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
             {
                 return Some(std::mem::replace(&mut entry.m_value, value));
             }
+
             current = entry.m_next;
         }
 
@@ -130,6 +134,7 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
     {
         let next: Option<usize> = self.m_table[bucket];
         let entry: Entry<K, V> = Entry { m_hash: hash, m_key: key, m_value: value, m_next: next };
+
         let index: usize = match self.m_free.pop()
         {
             Some(index) =>
@@ -137,6 +142,7 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
                 self.m_entries[index] = Some(entry);
                 index
             }
+
             None =>
             {
                 self.m_entries.push(Some(entry));
@@ -146,7 +152,9 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
         self.m_table[bucket] = Some(index);
 
         let previous: i32 = self.m_size;
+
         self.m_size += 1;
+
         if previous >= self.m_threshold
         {
             self.resize(2 * self.m_table.len());
@@ -162,6 +170,7 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
         }
 
         let mut newTable: Vec<Option<usize>> = vec![None; newCapacity];
+
         for j in 0..self.m_table.len()
         {
             let mut current: Option<usize> = self.m_table[j].take();
@@ -189,22 +198,28 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
         while let Some(index) = current
         {
             let next: Option<usize> = self.entry(index).m_next;
+
             if self.entry(index).m_hash == hash && key.javaEquals(&self.entry(index).m_key)
             {
                 self.m_modCount = self.m_modCount.wrapping_add(1);
                 self.m_size -= 1;
+
                 match previous
                 {
                     None => self.m_table[bucket] = next,
                     Some(previous) => self.entryMut(previous).m_next = next,
                 }
+
                 let removed: Entry<K, V> = self.m_entries[index].take().expect("removed entry is live");
+
                 self.m_free.push(index);
                 return Some(removed.m_value);
             }
+
             previous = Some(index);
             current = next;
         }
+
         None
     }
 
@@ -221,10 +236,12 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
     {
         let mut cursor: HashCursor =
             HashCursor { m_next: None, m_index: 0, m_current: None, m_expectedModCount: self.m_modCount };
+
         if self.m_size > 0
         {
             cursor.advance(self);
         }
+
         cursor
     }
 
@@ -232,10 +249,12 @@ impl<K: JavaObject + Clone, V: Clone> JHashMap<K, V>
     {
         let mut cursor: HashCursor = self.cursor();
         let mut out: Vec<(K, V)> = Vec::with_capacity(self.m_size as usize);
+
         while cursor.hasNext()
         {
             out.push(cursor.nextEntry(self));
         }
+
         out
     }
 
@@ -266,11 +285,13 @@ impl HashCursor
         {
             self.m_next = map.m_table[self.m_index];
             self.m_index += 1;
+
             if self.m_next.is_some()
             {
                 return;
             }
         }
+
         self.m_next = None;
     }
 
@@ -295,6 +316,7 @@ impl HashCursor
         {
             self.advance(map);
         }
+
         self.m_current = Some(index);
         (entry.m_key.clone(), entry.m_value.clone())
     }
@@ -329,13 +351,15 @@ impl<K: JavaObject + Clone> JHashSet<K>
 {
     pub fn new() -> Self { Self { m_map: JHashMap::new() } }
 
-    pub fn copyOf(source: &JHashSet<K>) -> Self
+    pub fn copyOf(source: &Self) -> Self
     {
         let mut set: Self = Self { m_map: JHashMap::withCapacity(((source.size() as f32 / 0.75) as i32 + 1).max(16)) };
+
         for key in source.items()
         {
             set.add(key);
         }
+
         set
     }
 

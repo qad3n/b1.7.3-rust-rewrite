@@ -17,9 +17,9 @@ pub struct MapCoord
 
 impl MapCoord
 {
-    pub fn new(kind: i8, x: i8, z: i8, rotation: i8) -> MapCoord
+    pub fn new(kind: i8, x: i8, z: i8, rotation: i8) -> Self
     {
-        MapCoord { m_type: kind, m_x: x, m_z: z, m_rotation: rotation }
+        Self { m_type: kind, m_x: x, m_z: z, m_rotation: rotation }
     }
 }
 
@@ -35,9 +35,10 @@ pub struct MapInfo
 
 impl MapInfo
 {
-    pub fn new(player: &Rc<Entity>) -> Rc<MapInfo>
+    pub fn new(player: &Rc<Entity>) -> Rc<Self>
     {
-        Rc::new(MapInfo {
+        Rc::new(Self
+        {
             m_entityplayerObj: Rc::clone(player),
             m_dirtyMinY: RefCell::new([0; 128]),
             m_dirtyMaxY: RefCell::new([127; 128]),
@@ -50,10 +51,13 @@ impl MapInfo
     pub fn getUpdateData(&self, _item: &Rc<ItemStack>, outer: &MapData) -> Option<Vec<i8>>
     {
         let mut n: i32;
+
         self.m_cooldown.set(self.m_cooldown.get() - 1);
+
         if self.m_cooldown.get() < 0
         {
             self.m_cooldown.set(4);
+
             let decorations: Vec<MapCoord> = outer.m_decorations.borrow().clone();
             let mut byArray: Vec<i8> = vec![0; decorations.len() * 3 + 1];
             byArray[0] = 1;
@@ -67,7 +71,9 @@ impl MapInfo
                 byArray[(n * 3 + 3) as usize] = mapCoord.m_z;
                 n += 1;
             }
+
             n = 1;
+
             match &*self.m_decorations.borrow()
             {
                 Some(previous) if previous.len() == byArray.len() =>
@@ -78,42 +84,52 @@ impl MapInfo
                         {
                             continue;
                         }
+
                         n = 0;
                         break;
                     }
                 }
+
                 _ => n = 0,
             }
+
             if n == 0
             {
                 *self.m_decorations.borrow_mut() = Some(byArray.clone());
                 return Some(byArray);
             }
         }
+
         for _ in 0..10
         {
             n = self.m_nextDirtyPixel.get().wrapping_mul(11) % 128;
             self.m_nextDirtyPixel.set(self.m_nextDirtyPixel.get() + 1);
+
             let column: usize = n as usize;
             if self.m_dirtyMinY.borrow()[column] < 0
             {
                 continue;
             }
+
             let n2: i32 = self.m_dirtyMaxY.borrow()[column] - self.m_dirtyMinY.borrow()[column] + 1;
             let n3: i32 = self.m_dirtyMinY.borrow()[column];
             let mut byArray: Vec<i8> = vec![0; (n2 + 3) as usize];
             byArray[0] = 0;
             byArray[1] = n as i8;
             byArray[2] = n3 as i8;
+
             let colors: std::cell::Ref<'_, Vec<i8>> = outer.m_colors.borrow();
+
             for j in 0..byArray.len() - 3
             {
                 byArray[j + 3] = colors[((j as i32 + n3) * 128 + n) as usize];
             }
+
             self.m_dirtyMaxY.borrow_mut()[column] = -1;
             self.m_dirtyMinY.borrow_mut()[column] = -1;
             return Some(byArray);
         }
+
         None
     }
 }
@@ -133,9 +149,10 @@ pub struct MapData
 
 impl MapData
 {
-    pub fn new() -> MapData
+    pub fn new() -> Self
     {
-        MapData {
+        Self
+        {
             m_centerX: Cell::new(0),
             m_centerZ: Cell::new(0),
             m_dimension: Cell::new(0),
@@ -154,17 +171,21 @@ impl MapData
         self.m_centerX.set(nbt.getInteger("xCenter"));
         self.m_centerZ.set(nbt.getInteger("zCenter"));
         self.m_scale.set(nbt.getByte("scale"));
+
         if self.m_scale.get() < 0
         {
             self.m_scale.set(0);
         }
+
         if self.m_scale.get() > 4
         {
             self.m_scale.set(4);
         }
+
         let n: i32 = nbt.getShort("width") as i32;
         let n2: i32 = nbt.getShort("height") as i32;
         let colors: Vec<i8> = nbt.getByteArray("colors").map(|array| (*array).clone()).unwrap_or_default();
+
         if n == 128 && n2 == 128
         {
             *self.m_colors.borrow_mut() = colors;
@@ -175,9 +196,11 @@ impl MapData
             let mut target: Vec<i8> = vec![0; 16384];
             let n3: i32 = (128 - n) / 2;
             let n4: i32 = (128 - n2) / 2;
+
             for i in 0..n2
             {
                 let n5: i32 = i + n4;
+
                 for j in 0..n
                 {
                     let n6: i32 = j + n3;
@@ -208,12 +231,16 @@ impl MapData
             self.m_holdersByPlayer.borrow_mut().insert(key, Rc::clone(&mapInfo));
             self.m_holders.add(mapInfo);
         }
+
         self.m_decorations.borrow_mut().clear();
+
         let mut i: i32 = 0;
         while i < self.m_holders.size()
         {
             let mapInfo: Rc<MapInfo> = self.m_holders.get(i);
+
             i += 1;
+
             let holder: &Rc<Entity> = &mapInfo.m_entityplayerObj;
             if holder.m_isDead.get() || !entity_player::inventory(holder).contains(item)
             {
@@ -221,6 +248,7 @@ impl MapData
                 self.m_holders.removeIdentity(&mapInfo);
                 continue;
             }
+
             let scale: f32 = (1 << self.m_scale.get()) as f32;
             let f: f32 = (holder.m_posX.get() - self.m_centerX.get() as f64) as f32 / scale;
             let f2: f32 = (holder.m_posZ.get() - self.m_centerZ.get() as f64) as f32 / scale;
@@ -230,20 +258,24 @@ impl MapData
             {
                 continue;
             }
+
             let by: i8 = 0;
             let by2: i8 = ((f * 2.0) as f64 + 0.5) as i32 as i8;
             let by3: i8 = ((f2 * 2.0) as f64 + 0.5) as i32 as i8;
             let mut by4: i8 = ((player.m_rotationYaw.get() * 16.0 / 360.0) as f64 + 0.5) as i32 as i8;
+
             if self.m_dimension.get() < 0
             {
                 let n3: i32 = self.m_ticks.get() / 10;
                 by4 =
                     ((n3.wrapping_mul(n3).wrapping_mul(34187121).wrapping_add(n3.wrapping_mul(121)) >> 15) & 0xF) as i8;
             }
+
             if entity_player::fields(holder).m_dimension.get() != self.m_dimension.get() as i32
             {
                 continue;
             }
+
             self.m_decorations.borrow_mut().push(MapCoord::new(by, by2, by3, by4));
         }
     }
@@ -263,6 +295,7 @@ impl MapData
     pub fn markDirtyColumn(&self, base: &crate::world::MapDataBase, index: i32, minY: i32, maxY: i32)
     {
         base.markDirty();
+
         for i in 0..self.m_holders.size()
         {
             let mapInfo: Rc<MapInfo> = self.m_holders.get(i);
@@ -272,6 +305,7 @@ impl MapData
             {
                 dirtyMinY[column] = minY;
             }
+
             let mut dirtyMaxY: RefMut<[i32; 128]> = mapInfo.m_dirtyMaxY.borrow_mut();
             if dirtyMaxY[column] < 0 || dirtyMaxY[column] < maxY
             {
@@ -286,15 +320,18 @@ impl MapData
         {
             let n: i32 = data[1] as i32 & 0xFF;
             let n2: i32 = data[2] as i32 & 0xFF;
+
             for i in 0..data.len() as i32 - 3
             {
                 self.m_colors.borrow_mut()[((i + n2) * 128 + n) as usize] = data[(i + 3) as usize];
             }
+
             base.markDirty();
         }
         else if data[0] == 1
         {
             self.m_decorations.borrow_mut().clear();
+
             for i in 0..(data.len() as i32 - 1) / 3
             {
                 let by: i8 = data[(i * 3 + 1) as usize] % 16;

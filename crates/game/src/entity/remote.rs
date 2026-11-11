@@ -29,7 +29,8 @@ mod placement
     pub const SETTLE: f64 = 0.01;
 }
 
-thread_local! {
+thread_local!
+{
     static CLIENT_TICK: Cell<i32> = const { Cell::new(0) };
     static SERVER_TICK: Cell<Option<i32>> = const { Cell::new(None) };
 }
@@ -60,19 +61,20 @@ pub struct Pose
 
 impl Pose
 {
-    pub fn new(x: f64, y: f64, z: f64, yaw: f32, pitch: f32) -> Pose
+    pub fn new(x: f64, y: f64, z: f64, yaw: f32, pitch: f32) -> Self
     {
-        Pose { m_pos: [x, y, z], m_yaw: yaw, m_pitch: pitch }
+        Self { m_pos: [x, y, z], m_yaw: yaw, m_pitch: pitch }
     }
 
-    pub fn of(entity: &Entity) -> Pose
+    pub fn of(entity: &Entity) -> Self
     {
-        Pose::new(entity.posX(), entity.posY(), entity.posZ(), entity.m_rotationYaw.get(), entity.m_rotationPitch.get())
+        Self::new(entity.posX(), entity.posY(), entity.posZ(), entity.m_rotationYaw.get(), entity.m_rotationPitch.get())
     }
 
-    fn lerp(&self, to: &Pose, t: f64) -> Pose
+    fn lerp(&self, to: &Self, t: f64) -> Self
     {
-        Pose {
+        Self
+        {
             m_pos: math_helper::lerp3(self.m_pos, to.m_pos, t),
             m_yaw: math_helper::lerpDegrees(self.m_yaw, to.m_yaw, t),
             m_pitch: math_helper::lerpDegrees(self.m_pitch, to.m_pitch, t),
@@ -96,7 +98,7 @@ pub struct Track
 
 impl Track
 {
-    pub fn new() -> Track { Track::default() }
+    pub fn new() -> Self { Self::default() }
 
     fn interval(&self) -> i32
     {
@@ -124,6 +126,7 @@ impl Track
         self.m_last.set(tick);
         self.m_stamped.set(stamped);
         self.m_target.set(Some(pose));
+
         if !known || gap > 0
         {
             self.m_steps.set(self.interval());
@@ -199,6 +202,7 @@ impl Track
         }
 
         self.m_blend.set(self.m_blend.get() - 1);
+
         let [dx, dy, dz]: [f64; 3] = self.m_correction.get();
         this.setPosition(this.posX() + dx, this.posY() + dy, this.posZ() + dz);
     }
@@ -265,6 +269,7 @@ pub fn follow(this: &Rc<Entity>, pose: &Pose)
     let world: Rc<World> = this.world();
     let target: Rc<AxisAlignedBB> =
         this.m_boundingBox.getOffsetBoundingBox(x - this.posX(), y - this.posY(), z - this.posZ());
+
     if clearance(this, &world, &target) == 0.0
     {
         this.setPosition(x, y, z);
@@ -277,6 +282,7 @@ fn clearance(this: &Rc<Entity>, world: &Rc<World>, shape: &AxisAlignedBB) -> f64
     let boxes: Rc<JArrayList<Rc<AxisAlignedBB>>> =
         world.getCollidingBoundingBoxes(this, &shape.contract(placement::BORDER, 0.0, placement::BORDER));
     let mut top: f64 = shape.minY();
+
     for i in 0..boxes.size()
     {
         top = top.max(boxes.get(i).maxY());
@@ -292,20 +298,25 @@ fn sweep(this: &Rc<Entity>, world: &Rc<World>, dx: f64, dy: f64, dz: f64) -> [f6
     let solids: Vec<Rc<AxisAlignedBB>> = boxes.toVec();
 
     let mut dy: f64 = dy;
+
     for solid in &solids
     {
         dy = solid.calculateYOffset(&start, dy);
     }
+
     let shape: Rc<AxisAlignedBB> = start.getOffsetBoundingBox(0.0, dy, 0.0);
 
     let mut dx: f64 = dx;
+
     for solid in &solids
     {
         dx = solid.calculateXOffset(&shape, dx);
     }
+
     let shape: Rc<AxisAlignedBB> = shape.getOffsetBoundingBox(dx, 0.0, 0.0);
 
     let mut dz: f64 = dz;
+
     for solid in &solids
     {
         dz = solid.calculateZOffset(&shape, dz);

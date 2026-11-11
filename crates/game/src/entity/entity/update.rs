@@ -9,7 +9,7 @@ use crate::world::World;
 use jvm::array_list::JArrayList;
 use std::rc::Rc;
 
-pub fn onEntityUpdate(this: &Rc<Entity>)
+pub(crate) fn onEntityUpdate(this: &Rc<Entity>)
 {
     if let Some(riding) = this.m_ridingEntity.get()
         && riding.m_isDead.get()
@@ -25,7 +25,9 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
     this.m_prevRotationPitch.set(this.m_rotationPitch.get());
     this.m_prevRotationYaw.set(this.m_rotationYaw.get());
     this.m_remote.blend(this);
+
     let world: Rc<World> = this.world();
+
     if this.handleWaterMovement()
     {
         if !this.m_inWater.get() && !this.m_isFirstUpdate.get()
@@ -36,6 +38,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
             let mut f: f32 = math_helper::sqrt_double(
                 motionX * motionX * 0.2f32 as f64 + motionY * motionY + motionZ * motionZ * 0.2f32 as f64,
             ) * 0.2;
+
             if f > 1.0
             {
                 f = 1.0;
@@ -43,6 +46,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
 
             let pitch: f32 = 1.0 + (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.4;
             world.playSoundAtEntity(this, "random.splash", f, pitch);
+
             let f1: f32 = floor_double(this.m_boundingBox.minY()) as f32;
 
             let mut i: i32 = 0;
@@ -99,6 +103,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
         if this.m_isImmuneToFire.get()
         {
             this.m_fire.set(this.m_fire.get() - 4);
+
             if this.m_fire.get() < 0
             {
                 this.m_fire.set(0);
@@ -110,6 +115,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
             {
                 this.attackEntityFrom(&DamageSource::new(DamageKind::OnFire), 1);
             }
+
             this.m_fire.set(this.m_fire.get() - 1);
         }
     }
@@ -133,7 +139,7 @@ pub fn onEntityUpdate(this: &Rc<Entity>)
     this.m_isFirstUpdate.set(false);
 }
 
-pub fn setOnFireFromLava(this: &Rc<Entity>)
+pub(crate) fn setOnFireFromLava(this: &Rc<Entity>)
 {
     if !this.m_isImmuneToFire.get()
     {
@@ -142,14 +148,14 @@ pub fn setOnFireFromLava(this: &Rc<Entity>)
     }
 }
 
-pub fn addVelocity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
+pub(crate) fn addVelocity(this: &Rc<Entity>, dx: f64, dy: f64, dz: f64)
 {
     this.m_motionX.set(this.m_motionX.get() + dx);
     this.m_motionY.set(this.m_motionY.get() + dy);
     this.m_motionZ.set(this.m_motionZ.get() + dz);
 }
 
-pub fn applyEntityCollision(this: &Rc<Entity>, entity: &Rc<Entity>)
+pub(crate) fn applyEntityCollision(this: &Rc<Entity>, entity: &Rc<Entity>)
 {
     // java compares references here and either side may be null
     if sameObject(entity.m_riddenByEntity.get().as_ref(), Some(this))
@@ -171,6 +177,7 @@ pub fn applyEntityCollision(this: &Rc<Entity>, entity: &Rc<Entity>)
         {
             n4 = 1.0;
         }
+
         let n5: f64 = n2 * n4;
         let n6: f64 = n3 * n4;
         let n7: f64 = n5 * 0.05000000074505806;
@@ -182,13 +189,13 @@ pub fn applyEntityCollision(this: &Rc<Entity>, entity: &Rc<Entity>)
     }
 }
 
-pub fn attackEntityFrom(this: &Rc<Entity>, _damage: &DamageSource, _amount: i32) -> bool
+pub(crate) fn attackEntityFrom(this: &Rc<Entity>, _damage: &DamageSource, _amount: i32) -> bool
 {
     this.setBeenAttacked();
     false
 }
 
-pub fn dealFireDamage(this: &Rc<Entity>, amount: i32)
+pub(crate) fn dealFireDamage(this: &Rc<Entity>, amount: i32)
 {
     if !this.m_isImmuneToFire.get()
     {
@@ -196,7 +203,7 @@ pub fn dealFireDamage(this: &Rc<Entity>, amount: i32)
     }
 }
 
-pub fn fall(this: &Rc<Entity>, distance: f32)
+pub(crate) fn fall(this: &Rc<Entity>, distance: f32)
 {
     if let Some(rider) = this.m_riddenByEntity.get()
     {
@@ -204,19 +211,22 @@ pub fn fall(this: &Rc<Entity>, distance: f32)
     }
 }
 
-pub fn handleWaterMovement(this: &Rc<Entity>) -> bool
+pub(crate) fn handleWaterMovement(this: &Rc<Entity>) -> bool
 {
     let bb: Rc<AxisAlignedBB> = this.m_boundingBox.expand(0.0, -0.4f32 as f64, 0.0).contract(0.001, 0.001, 0.001);
     let world: Rc<World> = this.world();
     let mut wet: bool = world.handleMaterialAcceleration(&bb, Material::water(), this);
+
     // mod fluids that act like water push and wet entities too
-    fluid::eachModded(FluidStyle::Water, |fluid| {
+    fluid::eachModded(FluidStyle::Water, |fluid|
+    {
         wet |= world.handleMaterialAcceleration(&bb, Rc::clone(&fluid.m_material), this);
     });
+
     wet
 }
 
-pub fn getEntityBrightness(this: &Rc<Entity>, _tickDelta: f32) -> f32
+pub(crate) fn getEntityBrightness(this: &Rc<Entity>, _tickDelta: f32) -> f32
 {
     let i: i32 = floor_double(this.posX());
     let d0: f64 = (this.m_boundingBox.maxY() - this.m_boundingBox.minY()) * 0.66;
@@ -238,14 +248,16 @@ pub fn getEntityBrightness(this: &Rc<Entity>, _tickDelta: f32) -> f32
         {
             f = this.m_entityBrightness.get();
         }
+
         return f;
     }
     this.m_entityBrightness.get()
 }
 
-pub fn isEntityInsideOpaqueBlock(this: &Rc<Entity>) -> bool
+pub(crate) fn isEntityInsideOpaqueBlock(this: &Rc<Entity>) -> bool
 {
     let world: Rc<World> = this.world();
+
     for i in 0..8
     {
         let f: f32 = (((i >> 0) % 2) as f32 - 0.5) * this.m_width.get() * 0.9;
@@ -259,10 +271,11 @@ pub fn isEntityInsideOpaqueBlock(this: &Rc<Entity>) -> bool
             return true;
         }
     }
+
     false
 }
 
-pub fn isInRangeToRenderVec3D(this: &Rc<Entity>, cameraPos: &Vec3D) -> bool
+pub(crate) fn isInRangeToRenderVec3D(this: &Rc<Entity>, cameraPos: &Vec3D) -> bool
 {
     let d0: f64 = this.posX() - cameraPos.x();
     let d1: f64 = this.posY() - cameraPos.y();
@@ -271,24 +284,25 @@ pub fn isInRangeToRenderVec3D(this: &Rc<Entity>, cameraPos: &Vec3D) -> bool
     this.isInRangeToRenderDist(d3)
 }
 
-pub fn isInRangeToRenderDist(this: &Rc<Entity>, squaredDistanceToCamera: f64) -> bool
+pub(crate) fn isInRangeToRenderDist(this: &Rc<Entity>, squaredDistanceToCamera: f64) -> bool
 {
     let mut d0: f64 = this.m_boundingBox.getAverageEdgeLength();
     d0 *= 64.0 * this.m_renderDistanceWeight.get();
     squaredDistanceToCamera < d0 * d0
 }
 
-pub fn onStruckByLightning(this: &Rc<Entity>, _lightning: &Rc<Entity>)
+pub(crate) fn onStruckByLightning(this: &Rc<Entity>, _lightning: &Rc<Entity>)
 {
     this.dealFireDamage(5);
     this.m_fire.set(this.m_fire.get() + 1);
+
     if this.m_fire.get() == 0
     {
         this.m_fire.set(300);
     }
 }
 
-pub fn preparePlayerToSpawn(this: &Rc<Entity>)
+pub(crate) fn preparePlayerToSpawn(this: &Rc<Entity>)
 {
     let Some(world) = this.m_worldObj.get()
     else
@@ -299,10 +313,12 @@ pub fn preparePlayerToSpawn(this: &Rc<Entity>)
     while this.posY() > 0.0
     {
         this.setPosition(this.posX(), this.posY(), this.posZ());
+
         if world.getCollidingBoundingBoxes(this, &this.m_boundingBox).isEmpty()
         {
             break;
         }
+
         this.m_posY.set(this.posY() + 1.0);
     }
 

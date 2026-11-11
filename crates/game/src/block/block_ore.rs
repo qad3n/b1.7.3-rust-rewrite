@@ -17,14 +17,17 @@ fn idDropped(this: &Rc<Block>, _metadata: i32, _random: &Random) -> i32
     {
         return Item::dyePowder().m_shiftedIndex;
     }
+
     this.m_blockID
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockOre",
     m_parent: Some(&BLOCK),
     idDropped,
-    quantityDropped: |this, random| {
+    quantityDropped: |this, random|
+    {
         if this.m_blockID == Block::ORE_LAPIS
         {
             4 + random.nextIntBounded(5)
@@ -34,7 +37,9 @@ pub const CLASS: BlockClass = BlockClass {
             1
         }
     },
-    damageDropped: |this, _| {
+
+    damageDropped: |this, _|
+    {
         if this.m_blockID == Block::ORE_LAPIS
         {
             4

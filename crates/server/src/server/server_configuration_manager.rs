@@ -24,6 +24,7 @@ fn readAllLines(file: &Path) -> IoResult<Vec<JString>>
     let mut stream: FileInputStream = FileInputStream::open(file)?;
     let mut bytes: Vec<u8> = Vec::new();
     let mut buffer: [u8; 8192] = [0; 8192];
+
     loop
     {
         let count: i32 = stream.readInto(&mut buffer, 0, 8192)?;
@@ -31,9 +32,12 @@ fn readAllLines(file: &Path) -> IoResult<Vec<JString>>
         {
             break;
         }
+
         bytes.extend_from_slice(&buffer[..count as usize]);
     }
+
     stream.close()?;
+
     let text: String = game::port::text::decodePlatform(&bytes);
     Ok(game::port::text::readLines(&text).into_iter().map(JString::from).collect())
 }
@@ -43,6 +47,7 @@ fn writeAllLines(file: &Path, lines: &[JString]) -> IoResult<()>
     let mut printwriter: FileOutputStream = FileOutputStream::create(file, false)?;
     let separator: &str = if cfg!(windows) { "\r\n" } else { "\n" };
     let mut bytes: Vec<u8> = Vec::new();
+
     for s in lines
     {
         bytes.extend(JString::from(format!("{s}{separator}").as_str()).getBytes());
@@ -74,7 +79,7 @@ pub struct ServerConfigurationManager
 
 impl ServerConfigurationManager
 {
-    pub fn new(server: &Rc<MinecraftServer>) -> Rc<ServerConfigurationManager>
+    pub fn new(server: &Rc<MinecraftServer>) -> Rc<Self>
     {
         let playerEntities: JArrayList<Rc<Entity>> = JArrayList::new();
         let bannedPlayers: Field<JHashSet<JString>> = Field::new(JHashSet::new());
@@ -92,7 +97,9 @@ impl ServerConfigurationManager
             .collect();
         let maxPlayers: i32 = server.propertyManager().getIntProperty("max-players", 20);
         let whiteListEnforced: bool = server.propertyManager().getBooleanProperty("white-list", false);
-        let manager: Rc<ServerConfigurationManager> = Rc::new(ServerConfigurationManager {
+
+        let manager: Rc<Self> = Rc::new(Self
+        {
             m_playerEntities: playerEntities,
             m_mcServer: Rc::clone(server),
             m_playerManagerObj: managers,
@@ -140,8 +147,10 @@ impl ServerConfigurationManager
         {
             manager.removePlayer(player);
         }
+
         let dimension: i32 = entity_player::fields(player).m_dimension.get();
         self.getPlayerManager(dimension).addPlayer(player);
+
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(dimension);
         world_server::chunkProviderServer(&worldserver)
             .loadChunk(player.m_posX.get() as i32 >> 4, player.m_posZ.get() as i32 >> 4);
@@ -160,14 +169,17 @@ impl ServerConfigurationManager
     {
         modloader::play::player(modloader::EventKind::PlayerLogin, player);
         self.m_playerEntities.add(Rc::clone(player));
+
         let dimension: i32 = entity_player::fields(player).m_dimension.get();
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(dimension);
         world_server::chunkProviderServer(&worldserver)
             .loadChunk(player.m_posX.get() as i32 >> 4, player.m_posZ.get() as i32 >> 4);
+
         while worldserver.getCollidingBoundingBoxes(player, &player.m_boundingBox).size() != 0
         {
             player.setPosition(player.m_posX.get(), player.m_posY.get() + 1.0, player.m_posZ.get());
         }
+
         worldserver.entityJoinedWorld(player);
         self.getPlayerManager(dimension).addPlayer(player);
         debug!(
@@ -190,6 +202,7 @@ impl ServerConfigurationManager
         modloader::play::player(modloader::EventKind::PlayerLogout, player);
         modloader::netsync::serverPlayerLeft(player.m_entityId.get());
         self.playerNBTManagerObj().writePlayerData(player);
+
         let dimension: i32 = entity_player::fields(player).m_dimension.get();
         self.m_mcServer.getWorldManager(dimension).setEntityDead(player);
         self.m_playerEntities.remove(player);
@@ -205,11 +218,13 @@ impl ServerConfigurationManager
             networkHandler.kickUser("You are banned from this server!");
             return None;
         }
+
         if !self.isAllowedToLogin(name)
         {
             networkHandler.kickUser("You are not white-listed on this server!");
             return None;
         }
+
         let mut s: JString = JString::from(networkHandler.netManager().getRemoteAddress().as_str());
         s = s.substringFrom(s.indexOf(b'/' as u16) + 1);
         s = s.substring(0, s.indexOf(b':' as u16));
@@ -218,11 +233,13 @@ impl ServerConfigurationManager
             networkHandler.kickUser("Your IP address is banned from this server!");
             return None;
         }
+
         if self.m_playerEntities.size() >= self.m_maxPlayers
         {
             networkHandler.kickUser("The server is full!");
             return None;
         }
+
         let mut i: i32 = 0;
         while i < self.m_playerEntities.size()
         {
@@ -231,8 +248,10 @@ impl ServerConfigurationManager
             {
                 entity_player_mp::netServerHandler(&entityplayermp).kickPlayer("You logged in from another location");
             }
+
             i += 1;
         }
+
         Some(entity_player_mp::new(
             &self.m_mcServer,
             &self.m_mcServer.getWorldManager(0),
@@ -250,8 +269,11 @@ impl ServerConfigurationManager
         self.getPlayerManager(playerFields.m_dimension.get()).removePlayer(player);
         self.m_playerEntities.remove(player);
         self.m_mcServer.getWorldManager(playerFields.m_dimension.get()).removePlayer(player);
+
         let chunkcoordinates: Option<ChunkCoordinates> = entity_player::getPlayerSpawnCoordinate(player);
+
         playerFields.m_dimension.set(dimension);
+
         let entityplayermp: Rc<Entity> = entity_player_mp::new(
             &self.m_mcServer,
             &self.m_mcServer.getWorldManager(playerFields.m_dimension.get()),
@@ -264,12 +286,14 @@ impl ServerConfigurationManager
             .m_playerNetServerHandler
             .set(entity_player_mp::fields(player).m_playerNetServerHandler.get());
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(playerFields.m_dimension.get());
+
         if let Some(chunkcoordinates) = chunkcoordinates
         {
             let chunkcoordinates1: Option<ChunkCoordinates> = entity_player::loadSpawnPoint(
                 &self.m_mcServer.getWorldManager(playerFields.m_dimension.get()),
                 &chunkcoordinates,
             );
+
             match chunkcoordinates1
             {
                 Some(chunkcoordinates1) =>
@@ -283,11 +307,14 @@ impl ServerConfigurationManager
                     );
                     entity_player::setPlayerSpawnCoordinate(&entityplayermp, Some(chunkcoordinates));
                 }
+
                 None => entity_player_mp::netServerHandler(&entityplayermp).sendPacket(Box::new(Packet70Bed::new(0))),
             }
         }
+
         world_server::chunkProviderServer(&worldserver)
             .loadChunk(entityplayermp.m_posX.get() as i32 >> 4, entityplayermp.m_posZ.get() as i32 >> 4);
+
         while worldserver.getCollidingBoundingBoxes(&entityplayermp, &entityplayermp.m_boundingBox).size() != 0
         {
             entityplayermp.setPosition(
@@ -296,6 +323,7 @@ impl ServerConfigurationManager
                 entityplayermp.m_posZ.get(),
             );
         }
+
         let newDimension: i32 = entity_player::fields(&entityplayermp).m_dimension.get();
         let handler: Rc<NetServerHandler> = entity_player_mp::netServerHandler(&entityplayermp);
         handler.sendPacket(Box::new(Packet9Respawn::new(newDimension as i8)));
@@ -321,6 +349,7 @@ impl ServerConfigurationManager
     {
         let playerFields: &entity_player::PlayerFields = entity_player::fields(player);
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(playerFields.m_dimension.get());
+
         let b0: i8 = if playerFields.m_dimension.get() == -1
         {
             0
@@ -331,14 +360,17 @@ impl ServerConfigurationManager
         };
         playerFields.m_dimension.set(b0 as i32);
         info!("{} travelled to dimension {b0}", name(player));
+
         let worldserver1: Rc<World> = self.m_mcServer.getWorldManager(playerFields.m_dimension.get());
         let handler: Rc<NetServerHandler> = entity_player_mp::netServerHandler(player);
         handler.sendPacket(Box::new(Packet9Respawn::new(playerFields.m_dimension.get() as i8)));
         worldserver.removePlayer(player);
         player.m_isDead.set(false);
+
         let mut d0: f64 = player.m_posX.get();
         let mut d1: f64 = player.m_posZ.get();
         let d2: f64 = 8.0;
+
         if playerFields.m_dimension.get() == -1
         {
             d0 /= d2;
@@ -350,6 +382,7 @@ impl ServerConfigurationManager
                 player.m_rotationYaw.get(),
                 player.m_rotationPitch.get(),
             );
+
             if player.isEntityAlive()
             {
                 worldserver.updateEntityWithOptionalForce(player, false);
@@ -366,11 +399,13 @@ impl ServerConfigurationManager
                 player.m_rotationYaw.get(),
                 player.m_rotationPitch.get(),
             );
+
             if player.isEntityAlive()
             {
                 worldserver.updateEntityWithOptionalForce(player, false);
             }
         }
+
         if player.isEntityAlive()
         {
             worldserver1.entityJoinedWorld(player);
@@ -386,6 +421,7 @@ impl ServerConfigurationManager
             Teleporter::new().onDimensionChanged(&worldserver1, player);
             world_server::chunkProviderServer(&worldserver1).m_chunkLoadOverride.set(false);
         }
+
         self.onChangedDimension(player);
         handler.teleportTo(
             player.m_posX.get(),
@@ -435,6 +471,7 @@ impl ServerConfigurationManager
             {
                 entity_player_mp::netServerHandler(&entityplayermp).sendPacket(packet.clonePacket());
             }
+
             i += 1;
         }
     }
@@ -449,11 +486,13 @@ impl ServerConfigurationManager
             {
                 s.push_str(", ");
             }
+
             s.push_str(&JString::display(
                 entity_player::fields(&self.m_playerEntities.get(i)).m_username.get().as_ref(),
             ));
             i += 1;
         }
+
         s
     }
 
@@ -472,6 +511,7 @@ impl ServerConfigurationManager
     fn readBannedPlayers(&self)
     {
         self.m_bannedPlayers.update(JHashSet::clear);
+
         match readAllLines(&self.m_bannedPlayersFile)
         {
             Ok(lines) =>
@@ -481,6 +521,7 @@ impl ServerConfigurationManager
                     self.m_bannedPlayers.update(|set| set.add(s.trim().toLowerCase()));
                 }
             }
+
             Err(exception) => warning!("Failed to load ban list: {exception}"),
         }
     }
@@ -508,6 +549,7 @@ impl ServerConfigurationManager
     fn loadBannedList(&self)
     {
         self.m_bannedIPs.update(JHashSet::clear);
+
         match readAllLines(&self.m_ipBanFile)
         {
             Ok(lines) =>
@@ -517,6 +559,7 @@ impl ServerConfigurationManager
                     self.m_bannedIPs.update(|set| set.add(s.trim().toLowerCase()));
                 }
             }
+
             Err(exception) => warning!("Failed to load ip ban list: {exception}"),
         }
     }
@@ -544,6 +587,7 @@ impl ServerConfigurationManager
     fn loadOps(&self)
     {
         self.m_ops.update(JHashSet::clear);
+
         match readAllLines(&self.m_opFile)
         {
             Ok(lines) =>
@@ -553,6 +597,7 @@ impl ServerConfigurationManager
                     self.m_ops.update(|set| set.add(s.trim().toLowerCase()));
                 }
             }
+
             Err(exception) => warning!("Failed to load ip ban list: {exception}"),
         }
     }
@@ -568,6 +613,7 @@ impl ServerConfigurationManager
     fn loadWhiteList(&self)
     {
         self.m_whiteListedIPs.update(JHashSet::clear);
+
         match readAllLines(&self.m_whitelistPlayersFile)
         {
             Ok(lines) =>
@@ -577,6 +623,7 @@ impl ServerConfigurationManager
                     self.m_whiteListedIPs.update(|set| set.add(s.trim().toLowerCase()));
                 }
             }
+
             Err(exception) => warning!("Failed to load white-list: {exception}"),
         }
     }
@@ -615,8 +662,10 @@ impl ServerConfigurationManager
             {
                 return Some(entityplayermp);
             }
+
             i += 1;
         }
+
         None
     }
 
@@ -667,6 +716,7 @@ impl ServerConfigurationManager
                     entity_player_mp::netServerHandler(&entityplayermp).sendPacket(packet.clonePacket());
                 }
             }
+
             i += 1;
         }
     }
@@ -682,6 +732,7 @@ impl ServerConfigurationManager
             {
                 entity_player_mp::netServerHandler(&entityplayermp).sendPacket(Box::new(packet3chat.clone()));
             }
+
             i += 1;
         }
     }
@@ -695,6 +746,7 @@ impl ServerConfigurationManager
                 entity_player_mp::netServerHandler(&entityplayermp).sendPacket(packet);
                 true
             }
+
             None => false,
         }
     }
@@ -702,6 +754,7 @@ impl ServerConfigurationManager
     pub fn savePlayerStates(&self)
     {
         debug!("Saving {} players", self.m_playerEntities.size());
+
         let mut i: i32 = 0;
         while i < self.m_playerEntities.size()
         {
@@ -732,6 +785,7 @@ impl ServerConfigurationManager
     {
         let handler: Rc<NetServerHandler> = entity_player_mp::netServerHandler(player);
         handler.sendPacket(Box::new(Packet4UpdateTime::new(world.getWorldTime())));
+
         if world.isRaining()
         {
             handler.sendPacket(Box::new(Packet70Bed::new(1)));

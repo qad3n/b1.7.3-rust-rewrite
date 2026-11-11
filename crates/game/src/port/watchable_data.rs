@@ -43,7 +43,7 @@ impl WatchableData
         Rc::new(WatchableObject::new(self.m_objectType, self.m_dataValueId, value))
     }
 
-    fn fromWatchableObject(object: &WatchableObject) -> WatchableData
+    fn fromWatchableObject(object: &WatchableObject) -> Self
     {
         let value: WatchedData = match object.getObject()
         {
@@ -52,42 +52,41 @@ impl WatchableData
             WatchedValue::Int(value) => WatchedData::Int(value),
             WatchedValue::Float(value) => WatchedData::Float(value),
             WatchedValue::String(value) => WatchedData::String(value),
-            WatchedValue::ItemStack(item) => WatchedData::ItemStack(PacketItemStack {
+            WatchedValue::ItemStack(item) => WatchedData::ItemStack(PacketItemStack
+            {
                 m_itemID: item.getItem().m_shiftedIndex,
                 m_stackSize: item.m_stackSize.get(),
                 m_itemDamage: item.getItemDamage(),
             }),
+
             WatchedValue::ChunkCoordinates(coordinates) =>
             {
                 WatchedData::ChunkCoordinates(coordinates.m_x, coordinates.m_y, coordinates.m_z)
             }
         };
-        WatchableData {
-            m_objectType: object.getObjectType(),
-            m_dataValueId: object.getDataValueId(),
-            m_watchedObject: value,
-        }
+        Self { m_objectType: object.getObjectType(), m_dataValueId: object.getDataValueId(), m_watchedObject: value }
     }
 
-    pub fn fromWatchableObjects(entries: Option<&[Rc<WatchableObject>]>) -> Option<Vec<WatchableData>>
+    pub fn fromWatchableObjects(entries: Option<&[Rc<WatchableObject>]>) -> Option<Vec<Self>>
     {
-        entries.map(|entries| entries.iter().map(|entry| WatchableData::fromWatchableObject(entry)).collect())
+        entries.map(|entries| entries.iter().map(|entry| Self::fromWatchableObject(entry)).collect())
     }
 
-    pub fn toWatchableObjects(entries: Option<&[WatchableData]>) -> Option<Vec<Rc<WatchableObject>>>
+    pub fn toWatchableObjects(entries: Option<&[Self]>) -> Option<Vec<Rc<WatchableObject>>>
     {
-        entries.map(|entries| entries.iter().map(WatchableData::toWatchableObject).collect())
+        entries.map(|entries| entries.iter().map(Self::toWatchableObject).collect())
     }
 
-    pub fn readWatchableObjects(input: &mut PacketInput) -> IoResult<Option<Vec<WatchableData>>>
+    pub fn readWatchableObjects(input: &mut PacketInput) -> IoResult<Option<Vec<Self>>>
     {
-        let mut arraylist: Option<Vec<WatchableData>> = None;
+        let mut arraylist: Option<Vec<Self>> = None;
         let mut b0: i8 = input.readByte()?;
         while b0 != 127
         {
-            let list: &mut Vec<WatchableData> = arraylist.get_or_insert_with(Vec::new);
+            let list: &mut Vec<Self> = arraylist.get_or_insert_with(Vec::new);
             let i: i32 = (b0 as i32 & 224) >> 5;
             let j: i32 = b0 as i32 & 31;
+
             let value: Option<WatchedData> = match i
             {
                 0 => Some(WatchedData::Byte(input.readByte()?)),
@@ -95,17 +94,21 @@ impl WatchableData
                 2 => Some(WatchedData::Int(input.readInt()?)),
                 3 => Some(WatchedData::Float(input.readFloat()?)),
                 4 => Some(WatchedData::String(packet::readString(input, 64)?)),
+
                 5 =>
                 {
                     let short1: i16 = input.readShort()?;
                     let b1: i8 = input.readByte()?;
                     let short2: i16 = input.readShort()?;
-                    Some(WatchedData::ItemStack(PacketItemStack {
+
+                    Some(WatchedData::ItemStack(PacketItemStack
+                    {
                         m_itemID: short1 as i32,
                         m_stackSize: b1 as i32,
                         m_itemDamage: short2 as i32,
                     }))
                 }
+
                 6 =>
                 {
                     let k: i32 = input.readInt()?;
@@ -113,6 +116,7 @@ impl WatchableData
                     let i1: i32 = input.readInt()?;
                     Some(WatchedData::ChunkCoordinates(k, l, i1))
                 }
+
                 _ => None,
             };
             let Some(value) = value
@@ -120,13 +124,14 @@ impl WatchableData
             {
                 jvm::throwable::npe();
             };
-            list.push(WatchableData { m_objectType: i, m_dataValueId: j, m_watchedObject: value });
+            list.push(Self { m_objectType: i, m_dataValueId: j, m_watchedObject: value });
             b0 = input.readByte()?;
         }
+
         Ok(arraylist)
     }
 
-    pub fn writeObjectsInListToStream(entries: Option<&[WatchableData]>, output: &mut PacketOutput) -> IoResult<()>
+    pub fn writeObjectsInListToStream(entries: Option<&[Self]>, output: &mut PacketOutput) -> IoResult<()>
     {
         if let Some(entries) = entries
         {
@@ -134,6 +139,7 @@ impl WatchableData
             {
                 let i: i32 = (entry.m_objectType << 5 | entry.m_dataValueId & 31) & 0xFF;
                 output.writeByte(i)?;
+
                 match &entry.m_watchedObject
                 {
                     WatchedData::Byte(value) => output.writeByte(*value as i32)?,
@@ -142,6 +148,7 @@ impl WatchableData
                     WatchedData::Float(value) => output.writeFloat(*value)?,
                     WatchedData::String(value) => packet::writeString(value, output)?,
                     WatchedData::ItemStack(item) => PacketItemStack::write(Some(item), output)?,
+
                     WatchedData::ChunkCoordinates(x, y, z) =>
                     {
                         output.writeInt(*x)?;
@@ -151,6 +158,7 @@ impl WatchableData
                 }
             }
         }
+
         output.writeByte(127)
     }
 }

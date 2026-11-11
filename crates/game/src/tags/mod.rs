@@ -52,7 +52,8 @@ pub const ROWS: [TagRow; 17] = [
     TagRow { m_tag: Tag::Leaves, m_name: "leaves", m_registry: Registry::Block, m_seeds: &[Block::LEAVES] },
     TagRow { m_tag: Tag::Logs, m_name: "logs", m_registry: Registry::Block, m_seeds: &[Block::WOOD] },
     TagRow { m_tag: Tag::Infiniburn, m_name: "infiniburn", m_registry: Registry::Block, m_seeds: &[Block::NETHERRACK] },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::FlowerSoil,
         m_name: "flower_soil",
         m_registry: Registry::Block,
@@ -60,20 +61,23 @@ pub const ROWS: [TagRow; 17] = [
     },
     TagRow { m_tag: Tag::DeadBushSoil, m_name: "dead_bush_soil", m_registry: Registry::Block, m_seeds: &[Block::SAND] },
     TagRow { m_tag: Tag::CropSoil, m_name: "crop_soil", m_registry: Registry::Block, m_seeds: &[Block::TILLED_FIELD] },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::ReedSoil,
         m_name: "reed_soil",
         m_registry: Registry::Block,
         m_seeds: &[Block::GRASS, Block::DIRT],
     },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::AnimalsSpawnableOn,
         m_name: "animals_spawnable_on",
         m_registry: Registry::Block,
         m_seeds: &[Block::GRASS],
     },
     TagRow { m_tag: Tag::Fences, m_name: "fences", m_registry: Registry::Block, m_seeds: &[Block::FENCE] },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::MineablePickaxe,
         m_name: "mineable/pickaxe",
         m_registry: Registry::Block,
@@ -97,13 +101,15 @@ pub const ROWS: [TagRow; 17] = [
             Block::BLOCK_LAPIS,
         ],
     },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::MineableAxe,
         m_name: "mineable/axe",
         m_registry: Registry::Block,
         m_seeds: &[Block::PLANKS, Block::BOOK_SHELF, Block::WOOD, Block::CHEST],
     },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::MineableShovel,
         m_name: "mineable/shovel",
         m_registry: Registry::Block,
@@ -118,13 +124,15 @@ pub const ROWS: [TagRow; 17] = [
             Block::TILLED_FIELD,
         ],
     },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::NeedsStoneTool,
         m_name: "needs_stone_tool",
         m_registry: Registry::Block,
         m_seeds: &[Block::BLOCK_STEEL, Block::ORE_IRON, Block::BLOCK_LAPIS, Block::ORE_LAPIS],
     },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::NeedsIronTool,
         m_name: "needs_iron_tool",
         m_registry: Registry::Block,
@@ -137,7 +145,8 @@ pub const ROWS: [TagRow; 17] = [
             Block::ORE_REDSTONE_GLOWING,
         ],
     },
-    TagRow {
+    TagRow
+    {
         m_tag: Tag::NeedsDiamondTool,
         m_name: "needs_diamond_tool",
         m_registry: Registry::Block,
@@ -164,7 +173,8 @@ pub struct BiomeTagRow
 pub const BIOME_ROWS: [BiomeTagRow; 1] =
     [BiomeTagRow { m_tag: BiomeTag::Snowy, m_name: "snowy", m_seeds: &["Taiga", "Ice Desert", "Tundra"] }];
 
-static BIOMES: LazyLock<RwLock<Vec<BTreeSet<String>>>> = LazyLock::new(|| {
+static BIOMES: LazyLock<RwLock<Vec<BTreeSet<String>>>> = LazyLock::new(||
+{
     RwLock::new(BIOME_ROWS.iter().map(|row| row.m_seeds.iter().map(|name| (*name).to_owned()).collect()).collect())
 });
 
@@ -216,10 +226,12 @@ fn seeded(row: &TagRow) -> Vec<u64> { build(row.m_registry, row.m_seeds) }
 fn build(registry: Registry, ids: &[i32]) -> Vec<u64>
 {
     let mut bits: Vec<u64> = vec![0; limit(registry).div_ceil(WORD_BITS)];
+
     for index in ids.iter().filter_map(|id| slot(registry, *id))
     {
         bits[index / WORD_BITS] |= 1 << (index % WORD_BITS);
     }
+
     bits
 }
 

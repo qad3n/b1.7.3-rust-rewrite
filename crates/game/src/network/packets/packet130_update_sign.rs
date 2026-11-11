@@ -42,11 +42,13 @@ impl Packet for Packet130UpdateSign
         self.m_yPosition = input.readShort()? as i32;
         self.m_zPosition = input.readInt()?;
         self.m_signLines = Some(vec![None; 4]);
+
         for i in 0..4
         {
             let line: JString = packet::readString(input, 15)?;
             self.m_signLines.as_mut().orNpe()[i] = Some(line);
         }
+
         Ok(())
     }
 
@@ -55,11 +57,13 @@ impl Packet for Packet130UpdateSign
         output.writeInt(self.m_xPosition)?;
         output.writeShort(self.m_yPosition)?;
         output.writeInt(self.m_zPosition)?;
+
         let signLines: &Vec<Option<JString>> = self.m_signLines.as_ref().orNpe();
         for line in &signLines[..4]
         {
             packet::writeString(line.as_ref().orNpe(), output)?;
         }
+
         Ok(())
     }
 
@@ -69,10 +73,12 @@ impl Packet for Packet130UpdateSign
     {
         let signLines: &Vec<Option<JString>> = self.m_signLines.as_ref().orNpe();
         let mut n: i32 = 0;
+
         for line in &signLines[..4]
         {
             n += network::length(line);
         }
+
         n
     }
 }

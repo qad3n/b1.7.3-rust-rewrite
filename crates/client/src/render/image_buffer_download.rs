@@ -1,5 +1,6 @@
 use crate::render::ImageBuffer;
 use jvm::image::{BufferedImage, Graphics};
+use std::cell::RefMut;
 
 const SKIN_WIDTH: i32 = 64;
 const SKIN_HEIGHT: i32 = 32;
@@ -15,7 +16,7 @@ pub struct ImageBufferDownload
 
 impl ImageBufferDownload
 {
-    pub fn new() -> ImageBufferDownload { ImageBufferDownload::default() }
+    pub fn new() -> Self { Self::default() }
 
     fn setTransparent(&self, imageData: &mut [i32], u1: i32, v1: i32, u2: i32, v2: i32)
     {
@@ -23,6 +24,7 @@ impl ImageBufferDownload
         {
             return;
         }
+
         for i in u1..u2
         {
             for j in v1..v2
@@ -56,19 +58,22 @@ impl ImageBuffer for ImageBufferDownload
     fn parseUserSkin(&mut self, image: Option<BufferedImage>) -> Option<BufferedImage>
     {
         let image: BufferedImage = image?;
+
         self.m_imageWidth = SKIN_WIDTH;
         self.m_imageHeight = SKIN_HEIGHT;
         let bufferedimage: BufferedImage =
             BufferedImage::new(self.m_imageWidth, self.m_imageHeight, BufferedImage::TYPE_INT_ARGB);
         let graphics: Graphics<'_> = bufferedimage.getGraphics();
         graphics.drawImage(&image, 0, 0);
+
         graphics.dispose();
         {
-            let mut imageData = bufferedimage.rasterData();
+            let mut imageData: RefMut<Vec<i32>> = bufferedimage.rasterData();
             self.setOpaque(&mut imageData, 0, 0, 32, 16);
             self.setTransparent(&mut imageData, 32, 0, 64, 32);
             self.setOpaque(&mut imageData, 0, 16, 64, 32);
         }
+
         Some(bufferedimage)
     }
 }

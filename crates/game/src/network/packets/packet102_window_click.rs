@@ -29,7 +29,8 @@ impl Packet102WindowClick
         interactionId: i16,
     ) -> Self
     {
-        Self {
+        Self
+        {
             m_window_Id: menuId,
             m_inventorySlot: slotId,
             m_mouseClick: clickData,

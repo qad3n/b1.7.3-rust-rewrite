@@ -28,7 +28,9 @@ impl Achievement
     ) -> Rc<StatBase>
     {
         let statName: String = StatCollector::translateToLocal(&format!("achievement.{name}"));
-        let achievement: Achievement = Achievement {
+
+        let achievement: Self = Self
+        {
             m_displayColumn: column,
             m_displayRow: row,
             m_parentAchievement: parent,
@@ -37,6 +39,7 @@ impl Achievement
             m_theItemStack: icon,
             m_isSpecial: Cell::new(false),
         };
+
         AchievementList::updateDisplayBounds(column, row);
         StatBase::new(0x500000 + id, statName, StatBase::NUMBER_FORMATTER, StatExt::Achievement(achievement))
     }
@@ -44,7 +47,8 @@ impl Achievement
     // a stat that only carries a mod achievement's title and icon to beta's toast, never registered or saved
     pub fn display(title: String, description: String, icon: Rc<ItemStack>) -> Rc<StatBase>
     {
-        let achievement: Achievement = Achievement {
+        let achievement: Self = Self
+        {
             m_displayColumn: 0,
             m_displayRow: 0,
             m_parentAchievement: None,
@@ -56,7 +60,7 @@ impl Achievement
         StatBase::new(0, title, StatBase::NUMBER_FORMATTER, StatExt::Achievement(achievement))
     }
 
-    pub fn of(stat: &StatBase) -> &Achievement
+    pub fn of(stat: &StatBase) -> &Self
     {
         match &stat.m_ext
         {
@@ -67,13 +71,13 @@ impl Achievement
 
     pub fn setSpecial(this: &Rc<StatBase>) -> Rc<StatBase>
     {
-        Achievement::of(this).m_isSpecial.set(true);
+        Self::of(this).m_isSpecial.set(true);
         Rc::clone(this)
     }
 
     pub fn getDescription(this: &StatBase) -> String
     {
-        let achievement: &Achievement = Achievement::of(this);
+        let achievement: &Self = Self::of(this);
         match achievement.m_statStringFormatter.get()
         {
             Some(formatter) => formatter.formatString(&achievement.m_achievementDescription),
@@ -83,11 +87,11 @@ impl Achievement
 
     pub fn setStatStringFormatter(this: &Rc<StatBase>, formatter: Rc<dyn IStatStringFormat>) -> Rc<StatBase>
     {
-        Achievement::of(this).m_statStringFormatter.set(Some(formatter));
+        Self::of(this).m_statStringFormatter.set(Some(formatter));
         Rc::clone(this)
     }
 
-    pub fn getSpecial(this: &StatBase) -> bool { Achievement::of(this).m_isSpecial.get() }
+    pub fn getSpecial(this: &StatBase) -> bool { Self::of(this).m_isSpecial.get() }
 }
 
-pub(super) fn register(this: &Rc<StatBase>) -> bool { AchievementList::achievementList().add(Rc::clone(this)) }
+pub(crate) fn register(this: &Rc<StatBase>) -> bool { AchievementList::achievementList().add(Rc::clone(this)) }

@@ -16,9 +16,10 @@ pub struct Timer
 
 impl Timer
 {
-    pub fn new(tps: f32) -> Timer
+    pub fn new(tps: f32) -> Self
     {
-        Timer {
+        Self
+        {
             m_ticksPerSecond: Cell::new(tps),
             m_lastHRTime: Cell::new(0.0),
             m_elapsedTicks: Cell::new(0),
@@ -38,6 +39,7 @@ impl Timer
         let l2: i64 = l.wrapping_sub(self.m_lastSyncSysClock.get());
         let l3: i64 = jvm::system::nanoTime() / 1000000;
         let d: f64 = l3 as f64 / 1000.0;
+
         if !(0..=1000).contains(&l2)
         {
             self.m_lastHRTime.set(d);
@@ -45,6 +47,7 @@ impl Timer
         else
         {
             self.m_cumTickTime.set(self.m_cumTickTime.get() + l2);
+
             if self.m_cumTickTime.get() > 1000
             {
                 let l4: i64 = l3 - self.m_lastSyncHRClock.get();
@@ -54,13 +57,16 @@ impl Timer
                 self.m_lastSyncHRClock.set(l3);
                 self.m_cumTickTime.set(0);
             }
+
             if self.m_cumTickTime.get() < 0
             {
                 self.m_lastSyncHRClock.set(l3);
             }
         }
         self.m_lastSyncSysClock.set(l);
+
         let d3: f64 = ((d - self.m_lastHRTime.get()) * self.m_timeSyncAdjustment.get()).clamp(0.0, 1.0);
+
         self.m_lastHRTime.set(d);
         self.m_elapsedPartialTicks.set(
             (self.m_elapsedPartialTicks.get() as f64
@@ -68,10 +74,12 @@ impl Timer
         );
         self.m_elapsedTicks.set(self.m_elapsedPartialTicks.get() as i32);
         self.m_elapsedPartialTicks.set(self.m_elapsedPartialTicks.get() - self.m_elapsedTicks.get() as f32);
+
         if self.m_elapsedTicks.get() > 10
         {
             self.m_elapsedTicks.set(10);
         }
+
         self.m_renderPartialTicks.set(self.m_elapsedPartialTicks.get());
     }
 }

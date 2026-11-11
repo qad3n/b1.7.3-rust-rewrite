@@ -9,8 +9,8 @@ pub struct KeyBinding
 
 impl KeyBinding
 {
-    pub fn new(name: &str, keyCode: i32) -> Rc<KeyBinding>
+    pub fn new(name: &str, keyCode: i32) -> Rc<Self>
     {
-        Rc::new(KeyBinding { m_keyDescription: name.to_owned(), m_keyCode: Cell::new(keyCode) })
+        Rc::new(Self { m_keyDescription: name.to_owned(), m_keyCode: Cell::new(keyCode) })
     }
 }

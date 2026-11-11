@@ -11,8 +11,10 @@ use common::nbt::NBTTagCompound;
 use jvm::string::JString;
 use std::rc::Rc;
 
-crate::vtable! {
-    EntityClass for Entity {
+crate::vtable!
+{
+    EntityClass for Entity
+    {
         fn addToPlayerScore(victim: Option<&Rc<Entity>>, score: i32);
         fn addVelocity(dx: f64, dy: f64, dz: f64);
         fn applyEntityCollision(entity: &Rc<Entity>);
@@ -126,7 +128,8 @@ use crate::damage::DamageSource;
 use crate::port::abstractMethod;
 
 // abstract java methods get a slot that throws the AbstractMethodError java would
-pub const ENTITY: EntityClass = EntityClass {
+pub const ENTITY: EntityClass = EntityClass
+{
     m_name: "Entity",
     m_parent: None,
     m_interfaces: &[],
@@ -230,11 +233,14 @@ pub const ENTITY: EntityClass = EntityClass {
     setEntityDead: |this| this.m_isDead.set(true),
     setInPortal: |_| {},
     setPositionAndRotation2: movement::setPositionAndRotation2,
-    setSize: |this, width, height| {
+    setSize: |this, width, height|
+    {
         this.m_width.set(width);
         this.m_height.set(height);
     },
-    setVelocity: |this, x, y, z| {
+
+    setVelocity: |this, x, y, z|
+    {
         this.m_motionX.set(x);
         this.m_motionY.set(y);
         this.m_motionZ.set(z);

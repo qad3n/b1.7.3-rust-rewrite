@@ -1,8 +1,10 @@
 use crate::gui::FontRenderer;
-use crate::render::{
+use crate::render::
+{
     EntityRenderer, EntitySorter, ICamera, RenderGlobal, RenderHelper, RenderManager, RenderSorter, Tessellator,
     TileEntityRenderer, WorldRenderer,
 };
+use crate::settings::GameSettings;
 use game::block::Block;
 use game::entity::Entity;
 use game::item::ItemStack;
@@ -43,6 +45,7 @@ impl RenderGlobal
             self.m_renderEntitiesStartupCounter.set(self.m_renderEntitiesStartupCounter.get() - 1);
             return;
         }
+
         let world: Rc<World> = self.worldObj();
         let fontRenderer: Option<Rc<FontRenderer>> = self.m_mc.m_fontRenderer.get();
         let viewEntity: Option<Rc<Entity>> = self.m_mc.m_renderViewEntity.get();
@@ -64,6 +67,7 @@ impl RenderGlobal
         self.m_countEntitiesTotal.set(0);
         self.m_countEntitiesRendered.set(0);
         self.m_countEntitiesHidden.set(0);
+
         let entityliving: Rc<Entity> = self.renderViewEntity();
         let delta: f64 = tickDelta as f64;
         let x: f64 = interpolate(entityliving.m_lastTickPosX.get(), entityliving.posX(), delta);
@@ -71,19 +75,25 @@ impl RenderGlobal
         let z: f64 = interpolate(entityliving.m_lastTickPosZ.get(), entityliving.posZ(), delta);
         RenderManager::setRenderPos(x, y, z);
         TileEntityRenderer::setStaticPlayerPos(x, y, z);
+
         let list: Rc<JArrayList<Rc<Entity>>> = world.getLoadedEntityList();
         self.m_countEntitiesTotal.set(list.size());
+
         let mut i: i32 = 0;
         while i < world.m_weatherEffects.size()
         {
             let entity: Rc<Entity> = world.m_weatherEffects.get(i);
+
             self.m_countEntitiesRendered.set(self.m_countEntitiesRendered.get() + 1);
+
             if entity.isInRangeToRenderVec3D(cameraPos)
             {
                 RenderManager::instance().renderEntity(&entity, tickDelta);
             }
+
             i += 1;
         }
+
         let mut k: i32 = 0;
         while k < list.size()
         {
@@ -106,8 +116,10 @@ impl RenderGlobal
                     RenderManager::instance().renderEntity(&entity1, tickDelta);
                 }
             }
+
             k += 1;
         }
+
         let mut l: i32 = 0;
         while l < self.m_tileEntities.size()
         {
@@ -116,6 +128,7 @@ impl RenderGlobal
             {
                 TileEntityRenderer::instance().renderTileEntity(&tileEntity, tickDelta);
             }
+
             l += 1;
         }
     }
@@ -132,17 +145,21 @@ impl RenderGlobal
         {
             let length: i32 = self.m_worldRenderers.borrow().len() as i32;
             self.m_worldRenderersCheckIndex.set((self.m_worldRenderersCheckIndex.get() + 1) % length);
+
             let worldrenderer: Rc<WorldRenderer> =
                 Rc::clone(&self.m_worldRenderers.borrow()[self.m_worldRenderersCheckIndex.get() as usize]);
+
             if worldrenderer.m_needsUpdate.get() && !self.containsRenderer(&worldrenderer)
             {
                 self.m_worldRenderersToUpdate.add(Some(worldrenderer));
             }
         }
+
         if self.gameSettings().m_renderDistance.get() != self.m_renderDistance.get()
         {
             self.loadRenderers();
         }
+
         if layer == 0
         {
             self.m_renderersLoaded.set(0);
@@ -151,6 +168,7 @@ impl RenderGlobal
             self.m_renderersBeingRendered.set(0);
             self.m_renderersSkippingRenderPass.set(0);
         }
+
         let d5: f64 = interpolate(camera.m_lastTickPosX.get(), camera.posX(), tickDelta);
         let d0: f64 = interpolate(camera.m_lastTickPosY.get(), camera.posY(), tickDelta);
         let d1: f64 = interpolate(camera.m_lastTickPosZ.get(), camera.posZ(), tickDelta);
@@ -167,23 +185,30 @@ impl RenderGlobal
                 math_helper::floor_double(camera.posY()),
                 math_helper::floor_double(camera.posZ()),
             );
+
             let sorter: EntitySorter = EntitySorter::new(camera);
             jvm::sort::sort(&mut self.m_sortedWorldRenderers.borrow_mut(), &mut |a, b| sorter.compare(a, b));
         }
+
         RenderHelper::disableStandardItemLighting();
+
         let mut j: i32 = 0;
-        let settings = self.gameSettings();
+        let settings: Rc<GameSettings> = self.gameSettings();
         let sortedLength: i32 = self.m_sortedWorldRenderers.borrow().len() as i32;
+
         if self.m_occlusionEnabled && settings.m_advancedOpengl.get() && !settings.m_anaglyph.get() && layer == 0
         {
             let mut k: i32 = 0;
             let mut l: i32 = 16;
             self.checkOcclusionQueryResult(k, l);
+
             for i1 in k..l
             {
                 self.sorted(i1).m_isVisible.set(true);
             }
+
             j += self.renderSortedRenderers(k, l, layer, tickDelta);
+
             loop
             {
                 k = l;
@@ -192,6 +217,7 @@ impl RenderGlobal
                 {
                     l = sortedLength;
                 }
+
                 GL11::glDisable(3553);
                 GL11::glDisable(2896);
                 GL11::glDisable(3008);
@@ -200,9 +226,11 @@ impl RenderGlobal
                 GL11::glDepthMask(false);
                 self.checkOcclusionQueryResult(k, l);
                 GL11::glPushMatrix();
+
                 let mut f9: f32 = 0.0;
                 let mut f: f32 = 0.0;
                 let mut f1: f32 = 0.0;
+
                 for j1 in k..l
                 {
                     let renderer: Rc<WorldRenderer> = self.sorted(j1);
@@ -211,10 +239,12 @@ impl RenderGlobal
                         renderer.m_isInFrustum.set(false);
                         continue;
                     }
+
                     if !renderer.m_isInFrustum.get()
                     {
                         renderer.m_isVisible.set(true);
                     }
+
                     if renderer.m_isInFrustum.get() && !renderer.m_isWaitingOnOcclusionQuery.get()
                     {
                         let f2: f32 = math_helper::sqrt_float(renderer.distanceToEntitySquared(camera));
@@ -234,6 +264,7 @@ impl RenderGlobal
                                 f += f7;
                                 f1 += f8;
                             }
+
                             ARBOcclusionQuery::glBeginQueryARB(35092, renderer.m_glOcclusionQuery.get());
                             renderer.callOcclusionQueryList();
                             ARBOcclusionQuery::glEndQueryARB(35092);
@@ -241,7 +272,9 @@ impl RenderGlobal
                         }
                     }
                 }
+
                 GL11::glPopMatrix();
+
                 if settings.m_anaglyph.get()
                 {
                     if EntityRenderer::anaglyphField() == 0
@@ -262,6 +295,7 @@ impl RenderGlobal
                 GL11::glEnable(3008);
                 GL11::glEnable(2912);
                 j += self.renderSortedRenderers(k, l, layer, tickDelta);
+
                 if l >= sortedLength
                 {
                     break;
@@ -293,6 +327,7 @@ impl RenderGlobal
                     34919,
                     &self.m_occlusionResult,
                 );
+
                 if self.m_occlusionResult.getAt(0) != 0
                 {
                     renderer.m_isWaitingOnOcclusionQuery.set(false);
@@ -311,14 +346,18 @@ impl RenderGlobal
     fn renderSortedRenderers(&self, from: i32, to: i32, layer: i32, tickDelta: f64) -> i32
     {
         self.m_glRenderLists.clear();
+
         let mut i: i32 = 0;
+
         for j in from..to
         {
             let renderer: Rc<WorldRenderer> = self.sorted(j);
             let skip: bool = renderer.m_skipRenderPass[layer as usize].get();
+
             if layer == 0
             {
                 self.m_renderersLoaded.set(self.m_renderersLoaded.get() + 1);
+
                 if skip
                 {
                     self.m_renderersSkippingRenderPass.set(self.m_renderersSkippingRenderPass.get() + 1);
@@ -336,6 +375,7 @@ impl RenderGlobal
                     self.m_renderersBeingRendered.set(self.m_renderersBeingRendered.get() + 1);
                 }
             }
+
             if !skip
                 && renderer.m_isInFrustum.get()
                 && (!self.m_occlusionEnabled || renderer.m_isVisible.get())
@@ -345,19 +385,23 @@ impl RenderGlobal
                 i += 1;
             }
         }
+
         let entityliving: Rc<Entity> = self.renderViewEntity();
         let d2: f64 = interpolate(entityliving.m_lastTickPosX.get(), entityliving.posX(), tickDelta);
         let d0: f64 = interpolate(entityliving.m_lastTickPosY.get(), entityliving.posY(), tickDelta);
         let d1: f64 = interpolate(entityliving.m_lastTickPosZ.get(), entityliving.posZ(), tickDelta);
         let mut l: usize = 0;
+
         for list in &self.m_allRenderLists
         {
             list.clear();
         }
+
         for l1 in 0..self.m_glRenderLists.size()
         {
             let worldrenderer: Rc<WorldRenderer> = self.m_glRenderLists.get(l1);
             let mut j1: Option<usize> = None;
+
             for k1 in 0..l
             {
                 if self.m_allRenderLists[k1].isAt(
@@ -369,12 +413,15 @@ impl RenderGlobal
                     j1 = Some(k1);
                 }
             }
+
             let j1: usize = match j1
             {
                 Some(index) => index,
+
                 None =>
                 {
                     let index: usize = l;
+
                     l += 1;
                     self.m_allRenderLists[index].init(
                         worldrenderer.m_posXMinus.get(),
@@ -389,6 +436,7 @@ impl RenderGlobal
             };
             self.m_allRenderLists[j1].addGlList(worldrenderer.getGLCallListForPass(layer));
         }
+
         self.renderAllRenderLists(layer, tickDelta);
         i
     }
@@ -411,9 +459,11 @@ impl RenderGlobal
         let mut arraylist: Option<Vec<Rc<WorldRenderer>>> = None;
         let i: i32 = self.m_worldRenderersToUpdate.size();
         let mut j: i32 = 0;
+
         for k in 0..i
         {
             let worldrenderer: Rc<WorldRenderer> = self.m_worldRenderersToUpdate.get(k).orNpe();
+
             if !force
             {
                 if worldrenderer.distanceToEntitySquared(camera) > 256.0
@@ -426,12 +476,15 @@ impl RenderGlobal
                     {
                         l += 1;
                     }
+
                     l -= 1;
                     if l <= 0
                     {
                         continue;
                     }
+
                     let mut i1: i32 = l;
+
                     loop
                     {
                         i1 -= 1;
@@ -439,8 +492,10 @@ impl RenderGlobal
                         {
                             break;
                         }
+
                         aworldrenderer[(i1 - 1) as usize] = aworldrenderer[i1 as usize].clone();
                     }
+
                     aworldrenderer[l as usize] = Some(worldrenderer);
                     continue;
                 }
@@ -449,23 +504,28 @@ impl RenderGlobal
             {
                 continue;
             }
+
             j += 1;
             arraylist.get_or_insert_with(Vec::new).push(worldrenderer);
             self.m_worldRenderersToUpdate.set(k, None);
         }
+
         if let Some(mut arraylist) = arraylist
         {
             if arraylist.len() > 1
             {
                 jvm::sort::sort(&mut arraylist, &mut |a, b| rendersorter.compare(a, b));
             }
+
             for worldrenderer3 in arraylist.iter().rev()
             {
                 worldrenderer3.updateRenderer();
                 worldrenderer3.m_needsUpdate.set(false);
             }
         }
+
         let mut k2: i32 = 0;
+
         for l2 in (0..b0).rev()
         {
             if let Some(worldrenderer4) = aworldrenderer[l2].clone()
@@ -476,11 +536,13 @@ impl RenderGlobal
                     aworldrenderer[0] = None;
                     break;
                 }
+
                 worldrenderer4.updateRenderer();
                 worldrenderer4.m_needsUpdate.set(false);
                 k2 += 1;
             }
         }
+
         let mut i3: i32 = 0;
         let mut j3: i32 = 0;
         let k3: i32 = self.m_worldRenderersToUpdate.size();
@@ -491,17 +553,21 @@ impl RenderGlobal
                 let flag1: bool = aworldrenderer
                     .iter()
                     .any(|slot| slot.as_ref().is_some_and(|slot| Rc::ptr_eq(slot, &worldrenderer1)));
+
                 if !flag1
                 {
                     if j3 != i3
                     {
                         self.m_worldRenderersToUpdate.set(j3, Some(worldrenderer1));
                     }
+
                     j3 += 1;
                 }
             }
+
             i3 += 1;
         }
+
         loop
         {
             i3 -= 1;
@@ -509,8 +575,10 @@ impl RenderGlobal
             {
                 break;
             }
+
             self.m_worldRenderersToUpdate.removeAt(i3);
         }
+
         i == j + k2
     }
 
@@ -524,30 +592,38 @@ impl RenderGlobal
     )
     {
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glEnable(3042);
         GL11::glEnable(3008);
         GL11::glBlendFunc(770, 1);
+
         let time: f32 = jvm::system::currentTimeMillis() as f32;
         GL11::glColor4f(1.0, 1.0, 1.0, (math_helper::sin(time / 100.0) * 0.2 + 0.4) * 0.5);
+
         if var3 == 0
         {
             if self.m_damagePartialTime.get() > 0.0
             {
                 GL11::glBlendFunc(774, 768);
+
                 let i: i32 = self.m_renderEngine.getTexture("/terrain.png");
                 GL11::glBindTexture(3553, i);
                 GL11::glColor4f(1.0, 1.0, 1.0, 0.5);
                 GL11::glPushMatrix();
+
                 let j: i32 = self.worldObj().getBlockId(hit.m_blockX, hit.m_blockY, hit.m_blockZ);
                 let block: Option<Rc<Block>> = if j > 0 { Block::byId(j) } else { None };
+
                 GL11::glDisable(3008);
                 GL11::glPolygonOffset(-3.0, -3.0);
                 GL11::glEnable(32823);
+
                 let delta: f64 = tickDelta as f64;
                 let d0: f64 = interpolate(camera.m_lastTickPosX.get(), camera.posX(), delta);
                 let d1: f64 = interpolate(camera.m_lastTickPosY.get(), camera.posY(), delta);
                 let d2: f64 = interpolate(camera.m_lastTickPosZ.get(), camera.posZ(), delta);
                 let block: Rc<Block> = block.unwrap_or_else(Block::stone);
+
                 GL11::glEnable(3008);
                 tessellator.startDrawingQuads();
                 tessellator.setTranslationD(-d0, -d1, -d2);
@@ -572,8 +648,10 @@ impl RenderGlobal
         else if itemInHand.is_some()
         {
             GL11::glBlendFunc(770, 771);
+
             let f: f32 = math_helper::sin(jvm::system::currentTimeMillis() as f32 / 100.0) * 0.2 + 0.8;
             GL11::glColor4f(f, f, f, math_helper::sin(jvm::system::currentTimeMillis() as f32 / 200.0) * 0.2 + 0.5);
+
             let l: i32 = self.m_renderEngine.getTexture("/terrain.png");
             GL11::glBindTexture(3553, l);
         }
@@ -594,12 +672,14 @@ impl RenderGlobal
         {
             return;
         }
+
         GL11::glEnable(3042);
         GL11::glBlendFunc(770, 771);
         GL11::glColor4f(0.0, 0.0, 0.0, 0.4);
         GL11::glLineWidth(2.0);
         GL11::glDisable(3553);
         GL11::glDepthMask(false);
+
         let f: f32 = 0.002;
         let world: Rc<World> = self.worldObj();
         let i: i32 = world.getBlockId(hit.m_blockX, hit.m_blockY, hit.m_blockZ);
@@ -607,6 +687,7 @@ impl RenderGlobal
         {
             let block: Rc<Block> = Block::byId(i).orNpe();
             block.setBlockBoundsBasedOnState(&*world, hit.m_blockX, hit.m_blockY, hit.m_blockZ);
+
             let delta: f64 = tickDelta as f64;
             let d0: f64 = interpolate(camera.m_lastTickPosX.get(), camera.posX(), delta);
             let d1: f64 = interpolate(camera.m_lastTickPosY.get(), camera.posY(), delta);
@@ -617,6 +698,7 @@ impl RenderGlobal
                 .getOffsetBoundingBox(-d0, -d1, -d2);
             Self::drawOutlinedBoundingBox(&shape);
         }
+
         GL11::glDepthMask(true);
         GL11::glEnable(3553);
         GL11::glDisable(3042);
@@ -637,12 +719,15 @@ impl RenderGlobal
             tessellator.addVertex(minX, y, minZ);
             tessellator.draw();
         }
+
         tessellator.startDrawing(1);
+
         for (x, z) in [(minX, minZ), (maxX, minZ), (maxX, maxZ), (minX, maxZ)]
         {
             tessellator.addVertex(x, minY, z);
             tessellator.addVertex(x, maxY, z);
         }
+
         tessellator.draw();
     }
 

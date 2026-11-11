@@ -20,12 +20,14 @@ impl NBTTagCompound
         {
             NBTBase::writeTag(&nbtBase, output)?;
         }
+
         output.writeByte(0)
     }
 
     pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>) -> IoResult<()>
     {
         self.m_tagMap.update(JHashMap::clear);
+
         loop
         {
             let nbtBase: Rc<NBTBase> = NBTBase::readTag(input)?;
@@ -33,8 +35,10 @@ impl NBTTagCompound
             {
                 break;
             }
+
             self.m_tagMap.update(|map| map.put(nbtBase.getKey(), nbtBase));
         }
+
         Ok(())
     }
 
@@ -110,7 +114,8 @@ impl NBTTagCompound
     {
         match self.lookup(key)
         {
-            None => NBTTagCompound::create(),
+            None => Self::create(),
+
             Some(tag) =>
             {
                 tag.compound();
@@ -124,6 +129,7 @@ impl NBTTagCompound
         match self.lookup(key)
         {
             None => NBTTagList::create(),
+
             Some(tag) =>
             {
                 tag.list();

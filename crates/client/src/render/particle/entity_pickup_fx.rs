@@ -30,6 +30,7 @@ fn renderParticle(
     let pickup: &PickupFields = extra::<PickupFields>(this);
     let mut f: f32 = (pickup.m_age.get() as f32 + tickDelta) / pickup.m_lifetime.get() as f32;
     f *= f;
+
     let entity: &Rc<Entity> = &pickup.m_entity;
     let collector: &Rc<Entity> = &pickup.m_collector;
     let delta: f64 = tickDelta as f64;
@@ -48,6 +49,7 @@ fn renderParticle(
     let j: i32 = floor_double(d7 + (this.m_yOffset.get() / 2.0) as f64);
     let k: i32 = floor_double(d8);
     let f1: f32 = this.world().getLightBrightness(i, j, k);
+
     d6 -= interpPosX();
     d7 -= interpPosY();
     d8 -= interpPosZ();
@@ -62,13 +64,16 @@ fn renderParticle(
     );
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityPickupFX",
     m_parent: Some(&entity_fx::CLASS),
     renderParticle,
-    onUpdate: |this| {
+    onUpdate: |this|
+    {
         let pickup: &PickupFields = extra::<PickupFields>(this);
         pickup.m_age.set(pickup.m_age.get() + 1);
+
         if pickup.m_age.get() == pickup.m_lifetime.get()
         {
             this.setEntityDead();
@@ -80,7 +85,8 @@ pub const CLASS: EntityClass = EntityClass {
 
 pub fn new(world: &Rc<World>, entity: &Rc<Entity>, collector: &Rc<Entity>, offsetY: f32) -> Rc<Entity>
 {
-    let pickup: PickupFields = PickupFields {
+    let pickup: PickupFields = PickupFields
+    {
         m_entity: Rc::clone(entity),
         m_collector: Rc::clone(collector),
         m_age: Cell::new(0),

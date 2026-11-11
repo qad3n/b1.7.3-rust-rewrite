@@ -9,6 +9,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     {
         return;
     }
+
     let i: i32 = x + random.nextIntBounded(3) - 1;
     let j: i32 = y + random.nextIntBounded(2) - random.nextIntBounded(2);
     let k: i32 = z + random.nextIntBounded(3) - 1;
@@ -16,6 +17,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     {
         let _x: i32 = x + random.nextIntBounded(3) - 1;
         let _z: i32 = z + random.nextIntBounded(3) - 1;
+
         if world.isAirBlock(i, j, k) && this.canBlockStay(world, i, j, k)
         {
             world.setBlockWithNotify(i, j, k, this.m_blockID);
@@ -23,16 +25,19 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockMushroom",
     m_parent: Some(&block_flower::CLASS),
     updateTick,
     canThisPlantGrowOnThisBlockID: |_, block| Block::opaqueCubeLookup(block),
-    canBlockStay: |this, world, x, y, z| {
+    canBlockStay: |this, world, x, y, z|
+    {
         if y < 0 || y >= world.height()
         {
             return false;
         }
+
         world.getFullBlockLightValue(x, y, z) < 13 && this.canThisPlantGrowOnThisBlockID(world.getBlockId(x, y - 1, z))
     },
     ..block_flower::CLASS

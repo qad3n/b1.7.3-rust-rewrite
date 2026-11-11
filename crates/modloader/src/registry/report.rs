@@ -21,12 +21,14 @@ fn section<T>(registry: &Registry<T>, owner: &str, describe: fn(&T) -> String)
 {
     let rows: Vec<&Row<T>> =
         registry.rows().filter(|row| row.m_owner == owner || row.m_replacedBy.as_deref() == Some(owner)).collect();
+
     if rows.is_empty()
     {
         return;
     }
 
     log::debug(owner, &format!("{} {} entries", rows.len(), registry.name()));
+
     for row in rows
     {
         let replaced: &str = if row.m_owner == owner
@@ -101,6 +103,7 @@ fn block(entry: &BlockEntry) -> String
 fn item(entry: &ItemEntry) -> String
 {
     let form: String = part("block item of", entry.m_block.as_ref());
+
     let Some(spec) = &entry.m_spec
     else
     {
@@ -149,6 +152,7 @@ fn spawn(spec: &SpawnSpec) -> String
 fn entity(entry: &EntityEntry) -> String
 {
     let key: String = format!(" save key {}", entry.m_saveKey);
+
     let Some(spec) = &entry.m_spec
     else
     {
@@ -176,6 +180,7 @@ fn entity(entry: &EntityEntry) -> String
 fn tileEntity(entry: &TileEntityEntry) -> String
 {
     let key: String = format!(" save id {}", entry.m_saveId);
+
     let Some(spec) = &entry.m_spec
     else
     {

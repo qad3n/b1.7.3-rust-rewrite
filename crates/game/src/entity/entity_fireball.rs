@@ -26,7 +26,8 @@ fn alloc(world: Option<Rc<World>>) -> Rc<Entity>
 {
     let entity: Rc<Entity> = Entity::alloc(
         &CLASS,
-        Box::new(FireballFields {
+        Box::new(FireballFields
+        {
             m_throwable: ThrowableFields::new(),
             m_accelerationX: Cell::new(0.0),
             m_accelerationY: Cell::new(0.0),
@@ -100,12 +101,15 @@ fn onUpdate(this: &Rc<Entity>)
 {
     (ENTITY.onUpdate)(this);
     this.m_fire.set(10);
+
     let fireball: &FireballFields = fields(this);
     if tickInGround(this, &fireball.m_throwable)
     {
         return;
     }
+
     let world: Rc<World> = this.world();
+
     if let Some(hit) = traceHit(this, &fireball.m_throwable, 25, true)
     {
         if !world.m_multiplayerWorld.get()
@@ -116,19 +120,24 @@ fn onUpdate(this: &Rc<Entity>)
                 entityHit
                     .attackEntityFrom(&DamageSource::withProjectile(DamageKind::Fireball, this, thrower.as_ref()), 0);
             }
+
             world.newExplosion(None, this.posX(), this.posY(), this.posZ(), 1.0, true);
         }
+
         this.setEntityDead();
     }
 
     movePosition(this);
     rotateTowardsMotion(this);
+
     let mut f2: f32 = 0.95;
+
     if this.isInWater()
     {
         spawnBubbles(this);
         f2 = 0.8;
     }
+
     this.m_motionX.set(this.m_motionX.get() + fireball.m_accelerationX.get());
     this.m_motionY.set(this.m_motionY.get() + fireball.m_accelerationY.get());
     this.m_motionZ.set(this.m_motionZ.get() + fireball.m_accelerationZ.get());
@@ -137,7 +146,8 @@ fn onUpdate(this: &Rc<Entity>)
     this.setPosition(this.posX(), this.posY(), this.posZ());
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityFireball",
     m_parent: Some(&ENTITY),
     m_interfaces: &[],
@@ -148,23 +158,28 @@ pub const CLASS: EntityClass = EntityClass {
     readEntityFromNBT: entity_snowball::readEntityFromNBT,
     canBeCollidedWith: |_| true,
     getCollisionBorderSize: |_| 1.0,
-    attackEntityFrom: |this, damage, _amount| {
+    attackEntityFrom: |this, damage, _amount|
+    {
         this.setBeenAttacked();
+
         let Some(source) = damage.m_attacker
         else
         {
             return false;
         };
+
         if let Some(vec3d) = source.getLookVec()
         {
             this.m_motionX.set(vec3d.x());
             this.m_motionY.set(vec3d.y());
             this.m_motionZ.set(vec3d.z());
+
             let fireball: &FireballFields = fields(this);
             fireball.m_accelerationX.set(this.m_motionX.get() * 0.1);
             fireball.m_accelerationY.set(this.m_motionY.get() * 0.1);
             fireball.m_accelerationZ.set(this.m_motionZ.get() * 0.1);
         }
+
         true
     },
     getShadowSize: |_| 0.0,

@@ -21,8 +21,10 @@ pub struct StepSounds
     pub m_sand: Rc<StepSound>,
 }
 
-thread_local! {
-    static SOUNDS: StepSounds = StepSounds {
+thread_local!
+{
+    static SOUNDS: StepSounds = StepSounds
+    {
         m_powder: StepSound::new("stone", 1.0, 1.0, None),
         m_wood: StepSound::new("wood", 1.0, 1.0, None),
         m_gravel: StepSound::new("gravel", 1.0, 1.0, None),

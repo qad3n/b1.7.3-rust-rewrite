@@ -278,6 +278,7 @@ impl GL11
         {
             return None;
         }
+
         // SAFETY: a non null glGetString result is a nul terminated string the driver owns
         let text: &CStr = unsafe { CStr::from_ptr(text as *const c_char) };
         Some(text.to_string_lossy().into_owned())

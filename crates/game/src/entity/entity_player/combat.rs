@@ -1,4 +1,5 @@
-use super::{
+use super::
+{
     PlayerFields, addStat, destroyCurrentEquippedItem, dropPlayerItemWithRandomChoice, fields, getCurrentEquippedItem,
     inventory,
 };
@@ -15,17 +16,20 @@ use std::rc::Rc;
 
 const PI_F: f32 = std::f64::consts::PI as f32;
 
-pub fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
+pub(crate) fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
 {
     (entity_living::CLASS.onDeath)(this, killer);
     this.setSize(0.2, 0.2);
     this.setPosition(this.posX(), this.posY(), this.posZ());
     this.m_motionY.set(0.1f32 as f64);
+
     if fields(this).m_username.get().orNpe() == JString::from("Notch")
     {
         dropPlayerItemWithRandomChoice(this, Some(ItemStack::withItemCount(&Item::appleRed(), 1)), true);
     }
+
     inventory(this).dropAllItems();
+
     if killer.is_some()
     {
         let angle: f32 = (entity_living::fields(this).m_attackedAtYaw.get() + this.m_rotationYaw.get()) * PI_F / 180.0;
@@ -41,39 +45,47 @@ pub fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
     addStat(this, StatList::deathsStat(), 1);
 }
 
-pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -> bool
+pub(crate) fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i32) -> bool
 {
     let source: Option<&Rc<Entity>> = damage.m_attacker;
     let living: &entity_living::LivingFields = entity_living::fields(this);
     let world: Rc<World> = this.world();
+
     living.m_entityAge.set(0);
+
     if living.m_health.get() <= 0
     {
         return false;
     }
+
     if this.isPlayerSleeping() && !world.m_multiplayerWorld.get()
     {
         this.wakeUpPlayer(true, true, false);
     }
+
     if source.is_some_and(|source| source.instanceOf("EntityMob") || source.instanceOf("EntityArrow"))
     {
         if world.m_difficultySetting.get() == 0
         {
             amount = 0;
         }
+
         if world.m_difficultySetting.get() == 1
         {
             amount = amount / 3 + 1;
         }
+
         if world.m_difficultySetting.get() == 3
         {
             amount = amount * 3 / 2;
         }
     }
+
     if amount == 0
     {
         return false;
     }
+
     let mut entity: Option<Rc<Entity>> = source.cloned();
     if let Some(arrow) = &entity
         && arrow.instanceOf("EntityArrow")
@@ -81,16 +93,18 @@ pub fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amount: i3
     {
         entity = Some(owner);
     }
+
     if let Some(attacker) = &entity
         && attacker.instanceOf("EntityLiving")
     {
         alertWolves(this, attacker, false);
     }
+
     addStat(this, StatList::damageTakenStat(), amount);
     (entity_living::CLASS.attackEntityFrom)(this, damage, amount)
 }
 
-pub(super) fn pvpEnabled(_this: &Rc<Entity>) -> bool { false }
+pub(crate) fn pvpEnabled(_this: &Rc<Entity>) -> bool { false }
 
 pub fn alertWolves(this: &Rc<Entity>, target: &Rc<Entity>, wasAttackedByTarget: bool)
 {
@@ -103,6 +117,7 @@ pub fn alertWolves(this: &Rc<Entity>, target: &Rc<Entity>, wasAttackedByTarget: 
     {
         return;
     }
+
     if !target.instanceOf("EntityPlayer") || this.pvpEnabled()
     {
         let bounds: Rc<AxisAlignedBB> = AxisAlignedBB::getBoundingBoxFromPool(
@@ -114,6 +129,7 @@ pub fn alertWolves(this: &Rc<Entity>, target: &Rc<Entity>, wasAttackedByTarget: 
             this.posZ() + 1.0,
         )
         .expand(16.0, 4.0, 16.0);
+
         for wolf in this.world().getEntitiesWithinAABB("EntityWolf", &bounds)
         {
             if entity_wolf::isWolfTamed(&wolf)
@@ -128,11 +144,12 @@ pub fn alertWolves(this: &Rc<Entity>, target: &Rc<Entity>, wasAttackedByTarget: 
     }
 }
 
-pub fn damageEntity(this: &Rc<Entity>, mut amount: i32)
+pub(crate) fn damageEntity(this: &Rc<Entity>, mut amount: i32)
 {
     let player: &PlayerFields = fields(this);
     let i: i32 = 25 - attribute::whole(this, Attribute::Armor, inventory(this).getTotalArmorValue());
     let j: i32 = amount * i + player.m_damageRemainder.get();
+
     inventory(this).damageArmor(amount);
     amount = j / 25;
     player.m_damageRemainder.set(j % 25);
@@ -146,6 +163,7 @@ pub fn useCurrentItemOnEntity(this: &Rc<Entity>, target: &Rc<Entity>)
         && target.instanceOf("EntityLiving")
     {
         itemstack.useItemOnEntity(target);
+
         if itemstack.m_stackSize.get() <= 0
         {
             itemstack.onRemoved(this);
@@ -163,23 +181,28 @@ pub fn attackTargetEntityWithCurrentItem(this: &Rc<Entity>, target: &Rc<Entity>)
         {
             i += 1;
         }
+
         target.attackEntityFrom(&DamageSource::withAttacker(DamageKind::Player, Some(this)), i);
+
         if let Some(itemstack) = getCurrentEquippedItem(this)
             && target.instanceOf("EntityLiving")
         {
             itemstack.hitEntity(target, this);
+
             if itemstack.m_stackSize.get() <= 0
             {
                 itemstack.onRemoved(this);
                 destroyCurrentEquippedItem(this);
             }
         }
+
         if target.instanceOf("EntityLiving")
         {
             if target.isEntityAlive()
             {
                 alertWolves(this, target, true);
             }
+
             addStat(this, StatList::damageDealtStat(), i);
         }
     }

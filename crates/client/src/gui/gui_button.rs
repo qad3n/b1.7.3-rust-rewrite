@@ -8,8 +8,10 @@ use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
 
-game::vtable! {
-    GuiButtonClass for GuiButton {
+game::vtable!
+{
+    GuiButtonClass for GuiButton
+    {
         fn getHoverState(hovered: bool) -> i32;
         fn mouseDragged(minecraft: &Rc<Minecraft>, mouseX: i32, mouseY: i32);
         fn mousePressed(minecraft: &Rc<Minecraft>, mouseX: i32, mouseY: i32) -> bool;
@@ -40,11 +42,13 @@ mod sheet
     pub const WIDTH: i32 = 200;
 }
 
-pub const GUI_BUTTON: GuiButtonClass = GuiButtonClass {
+pub const GUI_BUTTON: GuiButtonClass = GuiButtonClass
+{
     m_name: "GuiButton",
     m_parent: None,
     m_interfaces: &[],
-    getHoverState: |this, hovered| {
+    getHoverState: |this, hovered|
+    {
         if !this.m_enabled.get()
         {
             0
@@ -82,9 +86,10 @@ impl GuiButton
         width: i32,
         height: i32,
         message: &str,
-    ) -> Rc<GuiButton>
+    ) -> Rc<Self>
     {
-        Rc::new(GuiButton {
+        Rc::new(Self
+        {
             m_class: class,
             m_ext: ext,
             m_gui: Gui::new(),
@@ -99,31 +104,25 @@ impl GuiButton
         })
     }
 
-    pub fn new(id: i32, x: i32, y: i32, message: &str) -> Rc<GuiButton>
+    pub fn new(id: i32, x: i32, y: i32, message: &str) -> Rc<Self> { Self::withSize(id, x, y, 200, 20, message) }
+
+    pub fn withSize(id: i32, x: i32, y: i32, width: i32, height: i32, message: &str) -> Rc<Self>
     {
-        GuiButton::withSize(id, x, y, 200, 20, message)
+        Self::construct(&GUI_BUTTON, Box::new(()), id, x, y, width, height, message)
     }
 
-    pub fn withSize(id: i32, x: i32, y: i32, width: i32, height: i32, message: &str) -> Rc<GuiButton>
-    {
-        GuiButton::construct(&GUI_BUTTON, Box::new(()), id, x, y, width, height, message)
-    }
+    pub fn small(id: i32, x: i32, y: i32, message: &str) -> Rc<Self> { Self::smallOption(id, x, y, None, message) }
 
-    pub fn small(id: i32, x: i32, y: i32, message: &str) -> Rc<GuiButton>
-    {
-        GuiButton::smallOption(id, x, y, None, message)
-    }
-
-    pub fn smallWithSize(id: i32, x: i32, y: i32, width: i32, height: i32, message: &str) -> Rc<GuiButton>
+    pub fn smallWithSize(id: i32, x: i32, y: i32, width: i32, height: i32, message: &str) -> Rc<Self>
     {
         let ext: Box<SmallButtonExt> = Box::new(SmallButtonExt { m_enumOptions: None });
-        GuiButton::construct(&GUI_SMALL_BUTTON, ext, id, x, y, width, height, message)
+        Self::construct(&GUI_SMALL_BUTTON, ext, id, x, y, width, height, message)
     }
 
-    pub fn smallOption(id: i32, x: i32, y: i32, option: Option<EnumOptions>, message: &str) -> Rc<GuiButton>
+    pub fn smallOption(id: i32, x: i32, y: i32, option: Option<EnumOptions>, message: &str) -> Rc<Self>
     {
         let ext: Box<SmallButtonExt> = Box::new(SmallButtonExt { m_enumOptions: option });
-        GuiButton::construct(&GUI_SMALL_BUTTON, ext, id, x, y, 150, 20, message)
+        Self::construct(&GUI_SMALL_BUTTON, ext, id, x, y, 150, 20, message)
     }
 
     pub fn ext<T: 'static>(&self) -> &T { self.m_ext.downcast_ref::<T>().expect("button ext matches its class") }
@@ -144,9 +143,12 @@ impl GuiButton
         {
             return;
         }
+
         let fontRenderer: Rc<FontRenderer> = minecraft.m_fontRenderer.get().orNpe();
+
         GL11::glBindTexture(3553, minecraft.m_renderEngine.get().orNpe().getTexture("/gui/gui.png"));
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
         let bl: bool = self.contains(mouseX, mouseY);
         let n: i32 = self.getHoverState(bl);
         let (x, y, width, height): (i32, i32, i32, i32) =
@@ -156,11 +158,13 @@ impl GuiButton
         let (right, bottom): (i32, i32) = (width - left, height - top);
         let v: i32 = sheet::FIRST_ROW + n * sheet::ROW;
         let (rightU, bottomV): (i32, i32) = (sheet::WIDTH - right, v + sheet::ROW - bottom);
+
         self.m_gui.drawTexturedModalRect(x, y, 0, v, left, top);
         self.m_gui.drawTexturedModalRect(x + left, y, rightU, v, right, top);
         self.m_gui.drawTexturedModalRect(x, y + top, 0, bottomV, left, bottom);
         self.m_gui.drawTexturedModalRect(x + left, y + top, rightU, bottomV, right, bottom);
         self.mouseDragged(minecraft, mouseX, mouseY);
+
         let color: i32 = if !self.m_enabled.get()
         {
             -6250336
@@ -173,6 +177,7 @@ impl GuiButton
         {
             0xE0E0E0
         };
+
         if let Some(displayString) = self.m_displayString.get()
         {
             self.m_gui.drawCenteredString(&fontRenderer, &displayString, x + width / 2, y + (height - 8) / 2, color);

@@ -12,7 +12,7 @@ pub struct ScaledResolution
 
 impl ScaledResolution
 {
-    pub fn new(options: &Rc<GameSettings>, width: i32, height: i32) -> ScaledResolution
+    pub fn new(options: &Rc<GameSettings>, width: i32, height: i32) -> Self
     {
         let mut scaleFactor: i32 = 1;
         let mut n: i32 = options.m_guiScale.get();
@@ -20,13 +20,17 @@ impl ScaledResolution
         {
             n = 1000;
         }
+
         while scaleFactor < n && width / (scaleFactor + 1) >= 320 && height / (scaleFactor + 1) >= 240
         {
             scaleFactor += 1;
         }
+
         let scaledWidthD: f64 = width as f64 / scaleFactor as f64;
         let scaledHeightD: f64 = height as f64 / scaleFactor as f64;
-        ScaledResolution {
+
+        Self
+        {
             m_scaledWidth: scaledWidthD.ceil() as i32,
             m_scaledHeight: scaledHeightD.ceil() as i32,
             m_scaledWidthD: scaledWidthD,

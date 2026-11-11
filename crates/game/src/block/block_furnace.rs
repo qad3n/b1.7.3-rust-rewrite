@@ -9,7 +9,8 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     static KEEP_FURNACE_INVENTORY: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -27,34 +28,41 @@ fn setDefaultDirection(world: &Rc<World>, x: i32, y: i32, z: i32)
     {
         return;
     }
+
     let n: i32 = world.getBlockId(x, y, z - 1);
     let n2: i32 = world.getBlockId(x, y, z + 1);
     let n3: i32 = world.getBlockId(x - 1, y, z);
     let n4: i32 = world.getBlockId(x + 1, y, z);
     let opaque = Block::opaqueCubeLookup;
     let mut n5: i32 = 3;
+
     if opaque(n) && !opaque(n2)
     {
         n5 = 3;
     }
+
     if opaque(n2) && !opaque(n)
     {
         n5 = 2;
     }
+
     if opaque(n3) && !opaque(n4)
     {
         n5 = 5;
     }
+
     if opaque(n4) && !opaque(n3)
     {
         n5 = 4;
     }
+
     world.setBlockMetadataWithNotify(x, y, z, n5);
 }
 
 fn getBlockTexture(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, face: i32) -> i32
 {
     let index: i32 = this.m_blockIndexInTexture.get();
+
     if face == 1
     {
         return index + 17;
@@ -72,6 +80,7 @@ fn getBlockTexture(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z
     {
         return index + 16;
     }
+
     index - 1
 }
 
@@ -81,12 +90,14 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     {
         return;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     let f: f32 = x as f32 + 0.5;
     let f2: f32 = y as f32 + 0.0 + random.nextFloat() * 6.0 / 16.0;
     let f3: f32 = z as f32 + 0.5;
     let f4: f32 = 0.52;
     let f5: f32 = random.nextFloat() * 0.6 - 0.3;
+
     let at: Option<(f32, f32)> = match n
     {
         4 => Some((f - f4, f3 + f5)),
@@ -105,6 +116,7 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
 fn getBlockTextureFromSide(this: &Rc<Block>, face: i32) -> i32
 {
     let index: i32 = this.m_blockIndexInTexture.get();
+
     if face == 1
     {
         return index + 17;
@@ -117,6 +129,7 @@ fn getBlockTextureFromSide(this: &Rc<Block>, face: i32) -> i32
     {
         return index - 1;
     }
+
     index
 }
 
@@ -124,7 +137,9 @@ pub fn updateFurnaceBlockState(lit: bool, world: &Rc<World>, x: i32, y: i32, z: 
 {
     let n: i32 = world.getBlockMetadata(x, y, z);
     let tileEntity: Option<Rc<TileEntity>> = world.getBlockTileEntity(x, y, z);
+
     KEEP_FURNACE_INVENTORY.with(|keep| keep.set(true));
+
     if lit
     {
         world.setBlockWithNotify(x, y, z, Block::STONE_OVEN_ACTIVE);
@@ -135,6 +150,7 @@ pub fn updateFurnaceBlockState(lit: bool, world: &Rc<World>, x: i32, y: i32, z: 
     }
     KEEP_FURNACE_INVENTORY.with(|keep| keep.set(false));
     world.setBlockMetadataWithNotify(x, y, z, n);
+
     let tileEntity: Rc<TileEntity> = tileEntity.orNpe();
     tileEntity.cancelRemoval();
     world.setBlockTileEntity(x, y, z, &tileEntity);
@@ -147,14 +163,17 @@ pub fn onBlockPlacedBy(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: 
     {
         world.setBlockMetadataWithNotify(x, y, z, 2);
     }
+
     if n == 1
     {
         world.setBlockMetadataWithNotify(x, y, z, 5);
     }
+
     if n == 2
     {
         world.setBlockMetadataWithNotify(x, y, z, 3);
     }
+
     if n == 3
     {
         world.setBlockMetadataWithNotify(x, y, z, 4);
@@ -171,25 +190,30 @@ fn onBlockRemoval(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
         // port spillInventory holds the slot spill java writes out in chest dispenser and furnace
         inventory::spillInventory(&furnace(this).m_furnaceRand, world, x, y, z, &tileEntityFurnace);
     }
+
     (block_container::CLASS.onBlockRemoval)(this, world, x, y, z);
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockFurnace",
     m_parent: Some(&block_container::CLASS),
     idDropped: |_, _, _| Block::STONE_OVEN_IDLE,
-    onBlockAdded: |this, world, x, y, z| {
+    onBlockAdded: |this, world, x, y, z|
+    {
         (block_container::CLASS.onBlockAdded)(this, world, x, y, z);
         setDefaultDirection(world, x, y, z);
     },
     getBlockTexture,
     randomDisplayTick,
     getBlockTextureFromSide,
-    blockActivated: |_, world, x, y, z, player| {
+    blockActivated: |_, world, x, y, z, player|
+    {
         if world.m_multiplayerWorld.get()
         {
             return true;
         }
+
         // port castNullable is the java tile entity cast that lets null through
         let tileEntityFurnace: Option<Rc<TileEntity>> =
             tile_entity::castNullable(world.getBlockTileEntity(x, y, z), "TileEntityFurnace");

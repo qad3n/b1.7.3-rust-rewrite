@@ -75,6 +75,7 @@ pub struct LivingFields
 fn armored(this: &Entity, amount: i32) -> i32
 {
     const FULL: i32 = 25;
+
     let armor: i32 = crate::attribute::whole(this, crate::attribute::Attribute::Armor, 0).clamp(0, FULL);
     if armor == 0
     {
@@ -129,6 +130,7 @@ fn initFields(living: &LivingFields)
 pub fn init(this: &Rc<Entity>, world: Option<Rc<World>>)
 {
     Entity::init(this, world);
+
     let living: &LivingFields = fields(this);
     initFields(living);
     living.m_health.set(10);
@@ -148,10 +150,12 @@ pub fn getSwingProgress(this: &Entity, tickDelta: f32) -> f32
     {
         f += 1.0;
     }
+
     living.m_prevSwingProgress.get() + f * tickDelta
 }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityLiving",
     m_parent: Some(&ENTITY),
     entityInit: |_| {},
@@ -161,13 +165,17 @@ pub const CLASS: EntityClass = EntityClass {
     getEyeHeight: |this| this.m_height.get() * 0.85,
     getTalkInterval: |_| 80,
     onEntityUpdate: update::onEntityUpdate,
-    updateRidden: |this| {
+    updateRidden: |this|
+    {
         (ENTITY.updateRidden)(this);
+
         let living: &LivingFields = fields(this);
         living.m_lastWalkProgress.set(living.m_walkProgress.get());
         living.m_walkProgress.set(0.0);
     },
-    setPositionAndRotation2: |this, x, y, z, yaw, pitch, _| {
+
+    setPositionAndRotation2: |this, x, y, z, yaw, pitch, _|
+    {
         this.m_yOffset.set(0.0);
         this.m_remote.push(Pose::new(x, y, z, yaw, pitch));
     },
@@ -175,7 +183,8 @@ pub const CLASS: EntityClass = EntityClass {
     setSize: |this, width, height| (ENTITY.setSize)(this, width, height),
     heal: combat::heal,
     attackEntityFrom: combat::attackEntityFrom,
-    performHurtAnimation: |this| {
+    performHurtAnimation: |this|
+    {
         let living: &LivingFields = fields(this);
         living.m_maxHurtTime.set(10);
         living.m_hurtTime.set(10);
@@ -192,7 +201,8 @@ pub const CLASS: EntityClass = EntityClass {
     fall: combat::fall,
     moveEntityWithHeading: update::moveEntityWithHeading,
     isOnLadder: update::isOnLadder,
-    writeEntityToNBT: |this, nbt| {
+    writeEntityToNBT: |this, nbt|
+    {
         let living: &LivingFields = fields(this);
         nbt.setShort("Health", living.m_health.get() as i16);
         nbt.setShort("HurtTime", living.m_hurtTime.get() as i16);
@@ -201,13 +211,17 @@ pub const CLASS: EntityClass = EntityClass {
         living.m_attributes.write(nbt);
         living.m_effects.write(nbt);
     },
-    readEntityFromNBT: |this, nbt| {
+
+    readEntityFromNBT: |this, nbt|
+    {
         let living: &LivingFields = fields(this);
         living.m_health.set(nbt.getShort("Health") as i32);
+
         if !nbt.hasKey("Health")
         {
             living.m_health.set(10);
         }
+
         living.m_hurtTime.set(nbt.getShort("HurtTime") as i32);
         living.m_deathTime.set(nbt.getShort("DeathTime") as i32);
         living.m_attackTime.set(nbt.getShort("AttackTime") as i32);
@@ -222,13 +236,16 @@ pub const CLASS: EntityClass = EntityClass {
     canDespawn: |_| true,
     updatePlayerActionState: ai::updatePlayerActionState,
     verticleLookSpeed: |_| 40,
-    getCanSpawnHere: |this| {
+    getCanSpawnHere: |this|
+    {
         let world: Rc<World> = this.world();
         world.checkIfAABBIsClear(&this.m_boundingBox)
             && world.getCollidingBoundingBoxes(this, &this.m_boundingBox).size() == 0
             && !world.getIsAnyLiquid(&this.m_boundingBox)
     },
-    kill: |this| {
+
+    kill: |this|
+    {
         this.attackEntityFrom(&DamageSource::new(DamageKind::Void), 4);
     },
     getLookVec: |this| Some(getLook(this, 1.0)),

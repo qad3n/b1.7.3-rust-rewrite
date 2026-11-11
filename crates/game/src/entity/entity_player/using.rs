@@ -1,5 +1,7 @@
 use super::{fields, inventory};
 use crate::entity::Entity;
+use crate::entity::entity_player::PlayerFields;
+use crate::inventory::InventoryPlayer;
 use crate::item::ItemStack;
 use crate::world::World;
 use std::rc::Rc;
@@ -19,19 +21,21 @@ pub fn itemInUseDuration(this: &Entity) -> i32
 
 pub fn setItemInUse(this: &Entity, stack: &Rc<ItemStack>, ticks: i32)
 {
-    let player = fields(this);
+    let player: &PlayerFields = fields(this);
+
     if ticks <= 0
     {
         clearItemInUse(this);
         return;
     }
+
     player.m_itemInUse.set(Some(Rc::clone(stack)));
     player.m_itemInUseCount.set(ticks);
 }
 
 pub fn clearItemInUse(this: &Entity)
 {
-    let player = fields(this);
+    let player: &PlayerFields = fields(this);
     player.m_itemInUse.set(None);
     player.m_itemInUseCount.set(0);
 }
@@ -44,17 +48,19 @@ pub fn stopUsingItem(this: &Rc<Entity>)
         let left: i32 = fields(this).m_itemInUseCount.get();
         stack.getItem().onPlayerStoppedUsing(&stack, &this.world(), this, left);
     }
+
     clearItemInUse(this);
 }
 
 // EntityPlayer.onUpdate's item in use, dropped when the held stack changes, finished when its ticks run out
-pub fn tick(this: &Rc<Entity>)
+pub(crate) fn tick(this: &Rc<Entity>)
 {
     let Some(stack) = fields(this).m_itemInUse.get()
     else
     {
         return;
     };
+
     let held: Option<Rc<ItemStack>> = inventory(this).getCurrentItem();
     if !held.is_some_and(|held| Rc::ptr_eq(&held, &stack))
     {
@@ -64,18 +70,22 @@ pub fn tick(this: &Rc<Entity>)
     // Forge's onUsingTick hears the count before this tick takes one off
     let count: i32 = fields(this).m_itemInUseCount.get();
     stack.getItem().onUsingItemTick(&stack, this, count);
+
     let left: i32 = count - 1;
     fields(this).m_itemInUseCount.set(left);
+
     if left > 0
     {
         return;
     }
+
     // the side that owns the world finishes the use, a multiplayer client only lets go and waits for its slot
     if this.world().m_multiplayerWorld.get()
     {
         clearItemInUse(this);
         return;
     }
+
     finish(this, &stack);
 }
 
@@ -87,12 +97,14 @@ fn finish(this: &Rc<Entity>, stack: &Rc<ItemStack>)
     let result: Option<Rc<ItemStack>> = stack.getItem().onItemUseFinish(stack, &world, this);
     let changed: bool =
         !result.as_ref().is_some_and(|result| Rc::ptr_eq(result, stack) && result.m_stackSize.get() == size);
+
     if changed
     {
-        let player = inventory(this);
+        let player: Rc<InventoryPlayer> = inventory(this);
         let slot: usize = player.m_currentItem.get() as usize;
         let kept: Option<Rc<ItemStack>> = result.filter(|result| result.m_stackSize.get() > 0);
         player.m_mainInventory.borrow_mut()[slot] = kept;
     }
+
     clearItemInUse(this);
 }

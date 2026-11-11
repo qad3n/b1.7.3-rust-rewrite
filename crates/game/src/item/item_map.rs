@@ -20,6 +20,7 @@ pub fn getMapData(mapId: i16, world: &Rc<World>) -> Rc<MapDataBase>
         world.setItemData(&string, Rc::clone(&data));
         mapData = Some(data);
     }
+
     mapData.orNpe()
 }
 
@@ -28,6 +29,7 @@ pub fn getSavedMapData(item: &ItemStack, world: &Rc<World>) -> Rc<MapDataBase>
     let mut string: String = format!("map_{}", item.getItemDamage());
     let mut mapData: Option<Rc<MapDataBase>> =
         world.loadItemData(MapDataKind::MapData, &format!("map_{}", item.getItemDamage()));
+
     if mapData.is_none()
     {
         item.setItemDamage(world.getUniqueDataId("map"));
@@ -41,6 +43,7 @@ pub fn getSavedMapData(item: &ItemStack, world: &Rc<World>) -> Rc<MapDataBase>
         world.setItemData(&string, Rc::clone(&data));
         mapData = Some(data);
     }
+
     mapData.orNpe()
 }
 
@@ -52,6 +55,7 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
     {
         return;
     }
+
     let n: i32 = 128;
     let n2: i32 = 128;
     let n3: i32 = 1 << data.m_scale.get();
@@ -60,26 +64,32 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
     let n6: i32 = math_helper::floor_double(entity.m_posX.get() - n4 as f64) / n3 + n / 2;
     let n7: i32 = math_helper::floor_double(entity.m_posZ.get() - n5 as f64) / n3 + n2 / 2;
     let mut n8: i32 = 128 / n3;
+
     if provider.m_hasNoSky.get()
     {
         n8 /= 2;
     }
+
     data.m_ticks.set(data.m_ticks.get() + 1);
+
     for i in n6 - n8 + 1..n6 + n8
     {
         if (i & 0xF) != (data.m_ticks.get() & 0xF)
         {
             continue;
         }
+
         let mut n9: i32 = 255;
         let mut n10: i32 = 0;
         let mut d: f64 = 0.0;
+
         for j in n7 - n8 - 1..n7 + n8
         {
             if i < 0 || j < -1 || i >= n || j >= n2
             {
                 continue;
             }
+
             let n16: i32 = i - n6;
             let n17: i32 = j - n7;
             let bl: bool = n16 * n16 + n17 * n17 > (n8 - 2) * (n8 - 2);
@@ -91,6 +101,7 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
             let n24: i32 = n19 & 0xF;
             let mut n25: i32 = 0;
             let mut d2: f64 = 0.0;
+
             if provider.m_hasNoSky.get()
             {
                 let mut n15: i32 = n18.wrapping_add(n19.wrapping_mul(231871));
@@ -113,11 +124,13 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
                     {
                         let mut n13: i32 = chunk.getHeightValue(n15 + n23, n14 + n24) + 1;
                         let mut n28: i32 = 0;
+
                         if n13 > 1
                         {
                             loop
                             {
                                 let mut n12: i32 = 1;
+
                                 n28 = chunk.getBlockID(n15 + n23, n13 - 1, n14 + n24);
                                 if n28 == 0
                                 {
@@ -132,21 +145,27 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
                                 {
                                     n12 = 0;
                                 }
+
                                 if n12 != 0
                                 {
                                     break;
                                 }
+
                                 n13 -= 1;
                                 n28 = chunk.getBlockID(n15 + n23, n13 - 1, n14 + n24);
                             }
+
                             if n28 != 0 && Block::byId(n28).orNpe().m_blockMaterial.getIsLiquid()
                             {
                                 let mut n11: i32 = n13 - 1;
+
                                 loop
                                 {
                                     let n29: i32 = chunk.getBlockID(n15 + n23, n11, n14 + n24);
+
                                     n11 -= 1;
                                     n25 += 1;
+
                                     if !(n11 > 0 && n29 != 0 && Block::byId(n29).orNpe().m_blockMaterial.getIsLiquid())
                                     {
                                         break;
@@ -154,34 +173,43 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
                                 }
                             }
                         }
+
                         d2 += n13 as f64 / (n3 * n3) as f64;
                         nArray[n28 as usize] += 1;
                     }
                 }
             }
             n25 /= n3 * n3;
+
             let mut n15: i32 = 0;
             let mut n14: i32 = 0;
+
             for (n13, &count) in nArray.iter().enumerate()
             {
                 if count <= n15
                 {
                     continue;
                 }
+
                 n14 = n13 as i32;
                 n15 = count;
             }
+
             let mut d3: f64 = (d2 - d) * 4.0 / (n3 + 4) as f64 + (((i + j) & 1) as f64 - 0.5) * 0.4;
             let mut n12: i32 = 1;
+
             if d3 > 0.6
             {
                 n12 = 2;
             }
+
             if d3 < -0.6
             {
                 n12 = 0;
             }
+
             let mut n11: i32 = 0;
+
             if n14 > 0
             {
                 let mapColor: Rc<MapColor> = Block::byId(n14).orNpe().m_blockMaterial.m_materialMapColor.clone();
@@ -189,18 +217,23 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
                 {
                     d3 = n25 as f64 * 0.1 + ((i + j) & 1) as f64 * 0.2;
                     n12 = 1;
+
                     if d3 < 0.5
                     {
                         n12 = 2;
                     }
+
                     if d3 > 0.9
                     {
                         n12 = 0;
                     }
                 }
+
                 n11 = mapColor.m_colorIndex;
             }
+
             d = d2;
+
             if j < 0 || n16 * n16 + n17 * n17 >= n8 * n8 || bl && ((i + j) & 1) == 0
             {
                 continue;
@@ -211,44 +244,57 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
             {
                 continue;
             }
+
             if n9 > j
             {
                 n9 = j;
             }
+
             if n10 < j
             {
                 n10 = j;
             }
+
             data.m_colors.borrow_mut()[(i + j * n) as usize] = by;
         }
+
         if n9 > n10
         {
             continue;
         }
+
         data.markDirtyColumn(base, i, n9, n10);
     }
 }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemMap",
     m_parent: Some(&item_map_base::CLASS),
-    onUpdate: |_, stack, world, entity, _, selected| {
+    onUpdate: |_, stack, world, entity, _, selected|
+    {
         if world.m_multiplayerWorld.get()
         {
             return;
         }
+
         let mapData: Rc<MapDataBase> = getSavedMapData(stack, world);
+
         if entity.instanceOf("EntityPlayer")
         {
             mapData.m_map.tickHolder(entity, stack);
         }
+
         if selected
         {
             update(world, entity, &mapData);
         }
     },
-    onCreated: |_, stack, world, player| {
+
+    onCreated: |_, stack, world, player|
+    {
         stack.setItemDamage(world.getUniqueDataId("map"));
+
         let string: String = format!("map_{}", stack.getItemDamage());
         let mapData: Rc<MapDataBase> = MapDataBase::newMap(&string);
         world.setItemData(&string, Rc::clone(&mapData));
@@ -258,7 +304,9 @@ pub const CLASS: ItemClass = ItemClass {
         mapData.m_map.m_dimension.set(world.worldProvider().m_worldType.get() as i8);
         mapData.markDirty();
     },
-    getUpdatePacket: |_, stack, world, player| {
+
+    getUpdatePacket: |_, stack, world, player|
+    {
         let byArray: Vec<i8> = getSavedMapData(stack, world).m_map.getUpdateData(stack, world, player)?;
         Some(Box::new(Packet131MapData::new(
             Item::mapItem().m_shiftedIndex as i16,

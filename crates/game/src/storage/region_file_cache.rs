@@ -19,7 +19,8 @@ impl JavaObject for FileKey
     fn javaHash(&self) -> i32 { JString::from(self.0.to_string_lossy().as_ref()).hashCode() ^ 1234321 }
 }
 
-thread_local! {
+thread_local!
+{
     // java soft references become strong ones that live until the cache is cleared
     static CACHE: RefCell<JHashMap<FileKey, Rc<RegionFile>>> = RefCell::new(JHashMap::new());
 }
@@ -37,14 +38,17 @@ impl RegionFileCache
         {
             return regionFile;
         }
+
         if !file::exists(&file1)
         {
             file::mkdirs(&file1);
         }
+
         if CACHE.with(|cache| cache.borrow().size()) >= MAX_OPEN_REGIONS
         {
             Self::flush();
         }
+
         let regionFile: Rc<RegionFile> = RegionFile::new(&file2);
         CACHE.with(|cache| cache.borrow_mut().put(key, Rc::clone(&regionFile)));
         regionFile
@@ -60,6 +64,7 @@ impl RegionFileCache
                 error.printStackTrace();
             }
         }
+
         CACHE.with(|cache| cache.borrow_mut().clear());
     }
 

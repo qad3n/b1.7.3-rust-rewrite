@@ -1,6 +1,9 @@
 #![cfg(feature = "golden")]
 
+use jvm::hash_map::{JHashMap, JHashSet};
+use jvm::integer::{parseInt, parseLong};
 use jvm::random::Random;
+use jvm::string::JString;
 use jvm::{math, strict_math};
 use std::path::PathBuf;
 
@@ -27,10 +30,12 @@ fn math_matches_oracle()
 {
     let text: String = golden("math.txt");
     let mut failures: Vec<String> = Vec::new();
+
     for line in text.lines()
     {
         let fields: Vec<&str> = line.split(' ').collect();
         let values: Vec<f64> = fields[1..].iter().map(|field| bits(field)).collect();
+
         let checks: Vec<(&str, f64, f64)> = if fields[0] == "u"
         {
             let x: f64 = values[0];
@@ -57,6 +62,7 @@ fn math_matches_oracle()
                 ("Math.pow", values[5], math::pow(x, y)),
             ]
         };
+
         for (name, expected, actual) in checks
         {
             if !same(expected, actual)
@@ -65,6 +71,7 @@ fn math_matches_oracle()
             }
         }
     }
+
     assert!(failures.is_empty(), "{} mismatches, first: {:?}", failures.len(), &failures[..failures.len().min(10)]);
 }
 
@@ -73,6 +80,7 @@ fn random_matches_oracle()
 {
     let text: String = golden("random.txt");
     let mut random: Random = Random::withSeed(0);
+
     for (number, line) in text.lines().enumerate()
     {
         let fields: Vec<&str> = line.split(' ').collect();
@@ -83,11 +91,13 @@ fn random_matches_oracle()
                 random = Random::withSeed(fields[1].parse().expect("seed"));
                 true
             }
+
             "s" =>
             {
                 random.setSeed(fields[1].parse().expect("seed"));
                 true
             }
+
             "i" => random.nextInt() == fields[1].parse::<i32>().expect("int"),
             "n" => random.nextIntBounded(fields[1].parse().expect("bound")) == fields[2].parse::<i32>().expect("int"),
             "l" => random.nextLong() == fields[1].parse::<i64>().expect("long"),
@@ -114,8 +124,10 @@ fn parsed<T>(parse: impl FnOnce() -> T, show: impl Fn(T) -> String) -> String
 fn floating_decimal_matches_oracle()
 {
     jvm::throwable::installHook();
+
     let text: String = golden("decimal.txt");
     let mut failures: Vec<String> = Vec::new();
+
     for line in text.lines()
     {
         let (kind, rest): (&str, &str) = line.split_at(2);
@@ -127,12 +139,14 @@ fn floating_decimal_matches_oracle()
                 let value: f64 = f64::from_bits(u64::from_str_radix(hex, 16).expect("hex"));
                 (shown.to_owned(), jvm::floating_decimal::doubleToString(value))
             }
+
             "f " =>
             {
                 let (hex, shown): (&str, &str) = rest.split_once(' ').expect("f line");
                 let value: f32 = f32::from_bits(u32::from_str_radix(hex, 16).expect("hex"));
                 (shown.to_owned(), jvm::floating_decimal::floatToString(value))
             }
+
             _ =>
             {
                 let fields: Vec<&str> = rest.splitn(3, '\t').collect();
@@ -149,6 +163,7 @@ fn floating_decimal_matches_oracle()
             failures.push(format!("{line} -> {actual}"));
         }
     }
+
     assert!(failures.is_empty(), "{} mismatches, first: {:#?}", failures.len(), &failures[..failures.len().min(10)]);
 }
 
@@ -157,18 +172,17 @@ fn joinInts(values: &[i32]) -> String { values.iter().map(i32::to_string).collec
 #[test]
 fn collections_match_oracle()
 {
-    use jvm::hash_map::{JHashMap, JHashSet};
-    use jvm::string::JString;
-
     let text: String = golden("collections.txt");
     let mut map: JHashMap<i32, i32> = JHashMap::new();
     let mut set: JHashSet<JString> = JHashSet::new();
     let mut longs: JHashMap<i64, i32> = JHashMap::new();
     let mut original: Vec<i32> = Vec::new();
+
     for (number, line) in text.lines().enumerate()
     {
         let fields: Vec<&str> = line.split(' ').collect();
         let fail = |actual: String| panic!("collections.txt line {} ({line}) got {actual}", number + 1);
+
         match fields[0]
         {
             "round" =>
@@ -177,27 +191,32 @@ fn collections_match_oracle()
                 set = JHashSet::new();
                 longs = JHashMap::new();
             }
+
             "p" =>
             {
                 map.put(fields[1].parse().expect("key"), fields[4].parse().expect("value"));
                 set.add(JString::from(fields[2]));
                 longs.put(fields[3].parse().expect("long"), fields[4].parse().expect("value"));
             }
+
             "r" =>
             {
                 map.remove(&fields[1].parse().expect("key"));
                 set.remove(&JString::from(fields[2]));
                 longs.remove(&fields[3].parse().expect("long"));
             }
+
             "m" =>
             {
                 let actual: String =
                     map.entries().iter().map(|(key, value)| format!(" {key}={value}")).collect::<String>();
+
                 if format!("m{actual}") != line
                 {
                     fail(actual);
                 }
             }
+
             "s" =>
             {
                 let actual: String = set.items().iter().map(|key| format!(" {key}")).collect::<String>();
@@ -206,6 +225,7 @@ fn collections_match_oracle()
                     fail(actual);
                 }
             }
+
             "l" =>
             {
                 let actual: String = longs.keys().iter().map(|key| format!(" {key}")).collect::<String>();
@@ -214,6 +234,7 @@ fn collections_match_oracle()
                     fail(actual);
                 }
             }
+
             "q" =>
             {
                 original = fields
@@ -226,11 +247,13 @@ fn collections_match_oracle()
                 original.push(i32::MIN);
                 original.extend(chaotic);
             }
+
             "n" =>
             {
                 let split: usize = original.iter().position(|value| *value == i32::MIN).expect("marker");
                 let mut natural: Vec<i32> = original[..split].to_vec();
-                jvm::sort::sort(&mut natural, &mut |a: &i32, b: &i32| {
+                jvm::sort::sort(&mut natural, &mut |a: &i32, b: &i32|
+                {
                     if a < b
                     {
                         -1
@@ -244,11 +267,13 @@ fn collections_match_oracle()
                         1
                     }
                 });
+
                 if fields.get(1).copied().unwrap_or_default() != joinInts(&natural)
                 {
                     fail(joinInts(&natural));
                 }
             }
+
             "c" =>
             {
                 let split: usize = original.iter().position(|value| *value == i32::MIN).expect("marker");
@@ -258,6 +283,7 @@ fn collections_match_oracle()
                     fail(chaotic);
                 }
             }
+
             other => panic!("unknown op {other}"),
         }
     }
@@ -269,12 +295,13 @@ fn utf16(units: &[u16]) -> jvm::string::JString { jvm::string::JString::fromUtf1
 #[test]
 fn parse_int_matches_java6()
 {
-    use jvm::integer::{parseInt, parseLong};
     assert_eq!(parseInt(&utf16(&[0x0661, 0x0662, 0x0663])).ok(), Some(123));
     assert_eq!(parseLong(&utf16(&[0xFF11, 0xFF12])).ok(), Some(12));
     assert_eq!(parseInt(&"-2147483648".into()).ok(), Some(i32::MIN));
+
     let overflow: jvm::throwable::Throwable = parseInt(&"2147483648".into()).expect_err("out of int range");
     assert_eq!(overflow.getMessage(), Some("For input string: \"2147483648\""));
+
     let plus: jvm::throwable::Throwable = parseInt(&"+1".into()).expect_err("java 6 rejects a plus sign");
     assert_eq!(plus.getMessage(), Some("For input string: \"+1\""));
     assert!(parseInt(&"-".into()).is_err());

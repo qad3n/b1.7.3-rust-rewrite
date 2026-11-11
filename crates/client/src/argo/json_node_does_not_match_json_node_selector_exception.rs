@@ -2,17 +2,20 @@ use crate::argo::Described;
 use jvm::throwable::{self, ILLEGAL_ARGUMENT, ThrowableClass};
 use std::rc::Rc;
 
-pub static JSON_NODE_DOES_NOT_MATCH_JSON_NODE_SELECTOR_EXCEPTION: ThrowableClass = ThrowableClass {
+pub static JSON_NODE_DOES_NOT_MATCH_JSON_NODE_SELECTOR_EXCEPTION: ThrowableClass = ThrowableClass
+{
     m_name: "net.minecraft.src.J_JsonNodeDoesNotMatchJsonNodeSelectorException",
     m_parent: Some(&ILLEGAL_ARGUMENT),
 };
 
-pub static CHAINED_EXCEPTION: ThrowableClass = ThrowableClass {
+pub static CHAINED_EXCEPTION: ThrowableClass = ThrowableClass
+{
     m_name: "net.minecraft.src.J_JsonNodeDoesNotMatchChainedJsonNodeSelectorException",
     m_parent: Some(&JSON_NODE_DOES_NOT_MATCH_JSON_NODE_SELECTOR_EXCEPTION),
 };
 
-pub static PATH_ELEMENTS_EXCEPTION: ThrowableClass = ThrowableClass {
+pub static PATH_ELEMENTS_EXCEPTION: ThrowableClass = ThrowableClass
+{
     m_name: "net.minecraft.src.J_JsonNodeDoesNotMatchPathElementsException",
     m_parent: Some(&JSON_NODE_DOES_NOT_MATCH_JSON_NODE_SELECTOR_EXCEPTION),
 };
@@ -25,27 +28,27 @@ pub struct ChainedMismatch
 
 impl ChainedMismatch
 {
-    pub fn createJsonNodeDoesNotMatchJsonNodeSelectorException(failedNode: Rc<dyn Described>) -> ChainedMismatch
+    pub fn createJsonNodeDoesNotMatchJsonNodeSelectorException(failedNode: Rc<dyn Described>) -> Self
     {
-        ChainedMismatch { m_failedNode: failedNode, m_failPath: Vec::new() }
+        Self { m_failedNode: failedNode, m_failPath: Vec::new() }
     }
 
     pub fn createChainedJsonNodeDoesNotMatchJsonNodeSelectorException(
-        e: &ChainedMismatch,
+        e: &Self,
         parentJsonNodeSelector: Rc<dyn Described>,
-    ) -> ChainedMismatch
+    ) -> Self
     {
         let mut failPath: Vec<Rc<dyn Described>> = e.m_failPath.clone();
         failPath.push(parentJsonNodeSelector);
-        ChainedMismatch { m_failedNode: Rc::clone(&e.m_failedNode), m_failPath: failPath }
+        Self { m_failedNode: Rc::clone(&e.m_failedNode), m_failPath: failPath }
     }
 
     pub fn createUnchainedJsonNodeDoesNotMatchJsonNodeSelectorException(
-        e: &ChainedMismatch,
+        e: &Self,
         parentJsonNodeSelector: Rc<dyn Described>,
-    ) -> ChainedMismatch
+    ) -> Self
     {
-        ChainedMismatch { m_failedNode: Rc::clone(&e.m_failedNode), m_failPath: vec![parentJsonNodeSelector] }
+        Self { m_failedNode: Rc::clone(&e.m_failedNode), m_failPath: vec![parentJsonNodeSelector] }
     }
 
     pub fn getShortFormFailPath(&self) -> String

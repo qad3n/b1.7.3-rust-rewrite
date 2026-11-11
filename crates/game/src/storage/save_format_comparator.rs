@@ -11,15 +11,10 @@ pub struct SaveFormatComparator
 
 impl SaveFormatComparator
 {
-    pub fn new(
-        fileName: String,
-        worldName: String,
-        lastPlayed: i64,
-        size: i64,
-        sameVersion: bool,
-    ) -> SaveFormatComparator
+    pub fn new(fileName: String, worldName: String, lastPlayed: i64, size: i64, sameVersion: bool) -> Self
     {
-        SaveFormatComparator {
+        Self
+        {
             m_fileName: fileName,
             m_displayName: worldName,
             m_lastPlayed: lastPlayed,
@@ -38,7 +33,7 @@ impl SaveFormatComparator
 
     pub fn getLastPlayed(&self) -> i64 { self.m_lastPlayed }
 
-    pub fn compareTo(&self, other: &SaveFormatComparator) -> Ordering
+    pub fn compareTo(&self, other: &Self) -> Ordering
     {
         if self.m_lastPlayed < other.m_lastPlayed
         {
@@ -48,6 +43,7 @@ impl SaveFormatComparator
         {
             return Ordering::Less;
         }
+
         self.m_fileName.encode_utf16().cmp(other.m_fileName.encode_utf16())
     }
 }

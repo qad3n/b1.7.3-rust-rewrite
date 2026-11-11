@@ -22,6 +22,7 @@ pub fn getTopSprite(this: &Block) -> i32
     {
         return 106;
     }
+
     107
 }
 
@@ -32,6 +33,7 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, face: i32, metadata: i32
     {
         return this.m_blockIndexInTexture.get();
     }
+
     if face == n
     {
         if isPowered(metadata)
@@ -44,12 +46,15 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, face: i32, metadata: i32
         {
             return 110;
         }
+
         return this.m_blockIndexInTexture.get();
     }
+
     if face == OPPOSITE[n as usize]
     {
         return 109;
     }
+
     108
 }
 
@@ -62,8 +67,10 @@ fn onBlockPlacedBy(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, 
             &format!("net.minecraft.src.{} cannot be cast to net.minecraft.src.EntityPlayer", entity.className()),
         );
     }
+
     let n: i32 = getFacingForPlacement(world, x, y, z, entity);
     world.setBlockMetadataWithNotify(x, y, z, n);
+
     if !world.m_multiplayerWorld.get()
     {
         checkExtended(this, world, x, y, z);
@@ -75,10 +82,12 @@ fn checkExtended(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
     let n: i32 = world.getBlockMetadata(x, y, z);
     let n2: i32 = getFacing(n);
     let bl: bool = shouldExtend(this, world, x, y, z, n2);
+
     if n == 7
     {
         return;
     }
+
     if bl && !isPowered(n)
     {
         if canExtend(world, x, y, z, n2)
@@ -140,6 +149,7 @@ fn shouldExtend(_this: &Block, world: &Rc<World>, x: i32, y: i32, z: i32, facing
     {
         return true;
     }
+
     world.isBlockIndirectlyProvidingPowerTo(x + 1, y + 1, z, 5)
 }
 
@@ -152,8 +162,10 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
 {
     let deaf: &Cell<bool> = &piston(this).m_deaf;
     deaf.set(true);
+
     let n: i32 = data;
     let dir: usize = n as usize;
+
     if kind == 0
     {
         if push(this, world, x, y, z, n)
@@ -176,6 +188,7 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
         {
             tile_entity_piston::finish(&tileEntity);
         }
+
         world.setBlockAndMetadata(x, y, z, Block::PISTON_MOVING, n);
         world.setBlockTileEntity(
             x,
@@ -183,6 +196,7 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
             z,
             &block_piston_moving::createMovingBlockEntity(this.m_blockID, n, n, false, true),
         );
+
         if piston(this).m_isSticky
         {
             let n2: i32 = x + X_OFFSET[dir] * 2;
@@ -191,6 +205,7 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
             let mut n5: i32 = world.getBlockId(n2, n3, n4);
             let mut n6: i32 = world.getBlockMetadata(n2, n3, n4);
             let mut bl: bool = false;
+
             if n5 == Block::PISTON_MOVING
                 && let Some(tileEntityPiston) = asPiston(world.getBlockTileEntity(n2, n3, n4))
                 && tile_entity_piston::getFacing(&tileEntityPiston) == n
@@ -201,6 +216,7 @@ fn playBlock(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z:
                 n6 = tileEntityPiston.getBlockMetadata();
                 bl = true;
             }
+
             if !bl
                 && n5 > 0
                 && canPushBlock(n5, world, n2, n3, n4, false)
@@ -289,6 +305,7 @@ fn getFacingForPlacement(_world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc
             return 0;
         }
     }
+
     let n2: i32 = math_helper::floor_double((player.m_rotationYaw.get() * 4.0 / 360.0) as f64 + 0.5) & 0x3;
     if n2 == 0
     {
@@ -306,6 +323,7 @@ fn getFacingForPlacement(_world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc
     {
         return 4;
     }
+
     0
 }
 
@@ -315,6 +333,7 @@ fn canPushBlock(block: i32, world: &Rc<World>, x: i32, y: i32, z: i32, allowBrea
     {
         return false;
     }
+
     if block == Block::PISTON_BASE || block == Block::PISTON_STICKY_BASE
     {
         if isPowered(world.getBlockMetadata(x, y, z))
@@ -346,6 +365,7 @@ fn canExtend(world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -> bool
     let mut n: i32 = x + X_OFFSET[dir];
     let mut n2: i32 = y + Y_OFFSET[dir];
     let mut n3: i32 = z + Z_OFFSET[dir];
+
     for i in 0..13
     {
         if n2 <= 0 || n2 >= world.height() - 1
@@ -369,10 +389,12 @@ fn canExtend(world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -> bool
         {
             return false;
         }
+
         n += X_OFFSET[dir];
         n2 += Y_OFFSET[dir];
         n3 += Z_OFFSET[dir];
     }
+
     true
 }
 
@@ -384,12 +406,14 @@ fn push(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -
     let mut n3: i32 = x + X_OFFSET[side];
     let mut n4: i32 = y + Y_OFFSET[side];
     let mut n5: i32 = z + Z_OFFSET[side];
+
     while n2 < 13
     {
         if n4 <= 0 || n4 >= world.height() - 1
         {
             return false;
         }
+
         n = world.getBlockId(n3, n4, n5);
         if n == 0
         {
@@ -399,29 +423,36 @@ fn push(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -
         {
             return false;
         }
+
         if Block::byId(n).orNpe().getMobilityFlag() == 1
         {
             Block::byId(n).orNpe().dropBlockAsItem(world, n3, n4, n5, world.getBlockMetadata(n3, n4, n5));
             world.setBlockWithNotify(n3, n4, n5, 0);
             break;
         }
+
         if n2 == 12
         {
             return false;
         }
+
         n3 += X_OFFSET[side];
         n4 += Y_OFFSET[side];
         n5 += Z_OFFSET[side];
         n2 += 1;
     }
+
     let sticky: i32 = if piston(this).m_isSticky { 8 } else { 0 };
+
     while n3 != x || n4 != y || n5 != z
     {
         n2 = n3 - X_OFFSET[side];
         n = n4 - Y_OFFSET[side];
+
         let n6: i32 = n5 - Z_OFFSET[side];
         let n7: i32 = world.getBlockId(n2, n, n6);
         let n8: i32 = world.getBlockMetadata(n2, n, n6);
+
         if n7 == this.m_blockID && n2 == x && n == y && n6 == z
         {
             world.setBlockAndMetadata(n3, n4, n5, Block::PISTON_MOVING, dir | sticky);
@@ -446,10 +477,12 @@ fn push(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, dir: i32) -
         n4 = n;
         n5 = n6;
     }
+
     true
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockPistonBase",
     m_parent: Some(&BLOCK),
     getBlockTextureFromSideAndMetadata,
@@ -457,13 +490,16 @@ pub const CLASS: BlockClass = BlockClass {
     isOpaqueCube: |_| false,
     blockActivated: |_, _, _, _, _, _| false,
     onBlockPlacedBy,
-    onNeighborBlockChange: |this, world, x, y, z, _| {
+    onNeighborBlockChange: |this, world, x, y, z, _|
+    {
         if !world.m_multiplayerWorld.get() && !piston(this).m_deaf.get()
         {
             checkExtended(this, world, x, y, z);
         }
     },
-    onBlockAdded: |this, world, x, y, z| {
+
+    onBlockAdded: |this, world, x, y, z|
+    {
         if !world.m_multiplayerWorld.get() && world.getBlockTileEntity(x, y, z).is_none()
         {
             checkExtended(this, world, x, y, z);
@@ -472,7 +508,8 @@ pub const CLASS: BlockClass = BlockClass {
     playBlock,
     setBlockBoundsBasedOnState,
     setBlockBoundsForItemRender: |this| this.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
-    getCollidingBoundingBoxes: |this, world, x, y, z, shape, collisions| {
+    getCollidingBoundingBoxes: |this, world, x, y, z, shape, collisions|
+    {
         this.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
         (BLOCK.getCollidingBoundingBoxes)(this, world, x, y, z, shape, collisions);
     },

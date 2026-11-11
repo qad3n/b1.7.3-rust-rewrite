@@ -7,7 +7,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-thread_local! {
+thread_local!
+{
     // mod achievement icons by achievement, resolved to item numbers on every content build
     static ICONS: RefCell<BTreeMap<String, Identifier>> = const { RefCell::new(BTreeMap::new()) };
 }
@@ -16,13 +17,16 @@ pub fn register(id: Identifier, spec: AchievementSpec)
 {
     let name: String = id.to_string();
     let text = |key: &str| super::lang::translate(key).unwrap_or_else(|| key.to_owned());
-    named::registerAchievement(ModAchievement {
+
+    named::registerAchievement(ModAchievement
+    {
         m_name: name.clone(),
         m_title: text(&spec.title),
         m_description: text(&spec.description),
         m_icon: Cell::new(0),
         m_parent: spec.parent.map(|parent| parent.to_string()),
     });
+
     ICONS.with(|icons| icons.borrow_mut().insert(name, spec.icon));
 }
 
@@ -30,6 +34,7 @@ pub fn push()
 {
     let icons: Vec<(String, Identifier)> =
         ICONS.with(|icons| icons.borrow().iter().map(|(name, icon)| (name.clone(), icon.clone())).collect());
+
     for (name, icon) in icons
     {
         let item: Option<i32> = crate::registry::with(|registries| registries.itemId(&icon));
@@ -48,6 +53,7 @@ pub fn unlock(player: &Rc<Entity>, achievement: &Identifier) -> bool
     {
         syncOwn(player);
     }
+
     newly
 }
 
@@ -66,7 +72,9 @@ pub fn syncOwn(player: &Rc<Entity>)
     }
 
     let progress: &named::Progress = &entity_player::fields(player).m_progress;
-    let message: ProgressSync = ProgressSync {
+
+    let message: ProgressSync = ProgressSync
+    {
         id: player.m_entityId.get(),
         stats: progress.stats().into_iter().collect(),
         achievements: progress.earned().into_iter().collect(),
@@ -81,6 +89,7 @@ pub fn received(message: ProgressSync)
     {
         return;
     };
+
     entity_player::fields(&player)
         .m_progress
         .replace(message.stats.into_iter().collect(), message.achievements.into_iter().collect());

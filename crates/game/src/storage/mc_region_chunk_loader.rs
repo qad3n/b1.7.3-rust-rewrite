@@ -16,7 +16,7 @@ pub struct McRegionChunkLoader
 
 impl McRegionChunkLoader
 {
-    pub fn new(dir: &Path) -> McRegionChunkLoader { McRegionChunkLoader { m_worldDir: dir.to_path_buf() } }
+    pub fn new(dir: &Path) -> Self { Self { m_worldDir: dir.to_path_buf() } }
 }
 
 impl IChunkLoader for McRegionChunkLoader
@@ -37,7 +37,9 @@ impl IChunkLoader for McRegionChunkLoader
     fn saveChunk(&self, world: &Rc<World>, chunk: &Rc<Chunk>) -> IoResult<()>
     {
         world.checkSessionLock();
-        catchException(|| {
+
+        catchException(||
+        {
             let mut dataOutputStream: ChunkOutputStream =
                 RegionFileCache::getChunkOutputStream(&self.m_worldDir, chunk.m_xPosition, chunk.m_zPosition).orNpe();
             let nbtTagCompound: Rc<NBTBase> = NBTTagCompound::create();
@@ -46,6 +48,7 @@ impl IChunkLoader for McRegionChunkLoader
             ChunkLoader::storeChunkInCompound(chunk, world, nbtTagCompound2.compound());
             CompressedStreamTools::write(&nbtTagCompound, &mut dataOutputStream)?;
             dataOutputStream.close()?;
+
             let worldInfo: Rc<WorldInfo> = world.getWorldInfo();
             let delta: i64 =
                 RegionFileCache::getSizeDelta(&self.m_worldDir, chunk.m_xPosition, chunk.m_zPosition) as i64;
@@ -56,6 +59,7 @@ impl IChunkLoader for McRegionChunkLoader
             );
             Ok(())
         });
+
         Ok(())
     }
 

@@ -41,10 +41,12 @@ fn initializeBlock(this: &Rc<Block>)
 fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
     let bl: bool = tags::has(Tag::Infiniburn, world.getBlockId(x, y - 1, z));
+
     if !this.canPlaceBlockAt(world, x, y, z)
     {
         world.setBlockWithNotify(x, y, z, 0);
     }
+
     if !bl
         && world.isRaining()
         && (world.canBlockBeRainedOn(x, y, z)
@@ -62,15 +64,19 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     {
         world.setBlockMetadata(x, y, z, n + random.nextIntBounded(3) / 2);
     }
+
     world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());
+
     if !bl && !hasFlammableNeighbor(this, world, x, y, z)
     {
         if !world.isBlockNormalCube(x, y - 1, z) || n > 3
         {
             world.setBlockWithNotify(x, y, z, 0);
         }
+
         return;
     }
+
     if !bl && !canBlockCatchFire(this, &**world, x, y - 1, z) && n == 15 && random.nextIntBounded(4) == 0
     {
         world.setBlockWithNotify(x, y, z, 0);
@@ -83,6 +89,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
     tryToCatchBlockOnFire(this, world, x, y + 1, z, 250, random, n);
     tryToCatchBlockOnFire(this, world, x, y, z - 1, 300, random, n);
     tryToCatchBlockOnFire(this, world, x, y, z + 1, 300, random, n);
+
     for i in (x - 1)..=(x + 1)
     {
         for j in (z - 1)..=(z + 1)
@@ -93,16 +100,20 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
                 {
                     continue;
                 }
+
                 let mut n4: i32 = 100;
+
                 if k > y + 1
                 {
                     n4 += (k - (y + 1)) * 100;
                 }
+
                 let n3: i32 = getChanceOfNeighborsEncouragingFire(this, world, i, k, j);
                 if n3 <= 0
                 {
                     continue;
                 }
+
                 let n2: i32 = (n3 + 40) / (n + 30);
                 if n2 <= 0
                     || random.nextIntBounded(n4) > n2
@@ -114,11 +125,13 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
                 {
                     continue;
                 }
+
                 let mut n5: i32 = n + random.nextIntBounded(5) / 4;
                 if n5 > 15
                 {
                     n5 = 15;
                 }
+
                 world.setBlockAndMetadataWithNotify(i, k, j, this.m_blockID, n5);
             }
         }
@@ -141,7 +154,9 @@ fn tryToCatchBlockOnFire(
     {
         return;
     }
+
     let flag: bool = world.getBlockId(x, y, z) == Block::TNT;
+
     if random.nextIntBounded(metadata + 10) < 5 && !world.canBlockBeRainedOn(x, y, z)
     {
         let mut j: i32 = metadata + random.nextIntBounded(5) / 4;
@@ -149,12 +164,14 @@ fn tryToCatchBlockOnFire(
         {
             j = 15;
         }
+
         world.setBlockAndMetadataWithNotify(x, y, z, this.m_blockID, j);
     }
     else
     {
         world.setBlockWithNotify(x, y, z, 0);
     }
+
     if flag
     {
         Block::tnt().onBlockDestroyedByPlayer(world, x, y, z, 1);
@@ -178,6 +195,7 @@ fn getChanceOfNeighborsEncouragingFire(this: &Block, world: &Rc<World>, x: i32, 
     {
         return 0;
     }
+
     let mut n: i32 = 0;
     n = getChanceToEncourageFire(this, world, x + 1, y, z, n);
     n = getChanceToEncourageFire(this, world, x - 1, y, z, n);
@@ -205,6 +223,7 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
     let access: &dyn IBlockAccess = &**world;
     let spawn =
         |fx: f32, fy: f32, fz: f32| world.spawnParticle("largesmoke", fx as f64, fy as f64, fz as f64, 0.0, 0.0, 0.0);
+
     if random.nextIntBounded(24) == 0
     {
         let volume: f32 = 1.0 + random.nextFloat();
@@ -228,6 +247,7 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
             let f6: f32 = z as f32 + random.nextFloat();
             spawn(f4, f5, f6);
         }
+
         return;
     }
 
@@ -241,6 +261,7 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
             spawn(f3, f2, f);
         }
     }
+
     if canBlockCatchFire(&fire, access, x + 1, y, z)
     {
         for _ in 0..2
@@ -251,6 +272,7 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
             spawn(f3, f2, f);
         }
     }
+
     if canBlockCatchFire(&fire, access, x, y, z - 1)
     {
         for _ in 0..2
@@ -261,6 +283,7 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
             spawn(f3, f2, f);
         }
     }
+
     if canBlockCatchFire(&fire, access, x, y, z + 1)
     {
         for _ in 0..2
@@ -271,10 +294,12 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
             spawn(f3, f2, f);
         }
     }
+
     if !canBlockCatchFire(&fire, access, x, y + 1, z)
     {
         return;
     }
+
     for _ in 0..2
     {
         let f3: f32 = x as f32 + random.nextFloat();
@@ -284,7 +309,8 @@ fn randomDisplayTick(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i3
     }
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockFire",
     m_parent: Some(&BLOCK),
     initializeBlock,
@@ -296,26 +322,33 @@ pub const CLASS: BlockClass = BlockClass {
     tickRate: |_| 40,
     updateTick,
     isCollidable: |_| false,
-    canPlaceBlockAt: |this, world, x, y, z| {
+    canPlaceBlockAt: |this, world, x, y, z|
+    {
         world.isBlockNormalCube(x, y - 1, z) || hasFlammableNeighbor(this, world, x, y, z)
     },
-    onNeighborBlockChange: |this, world, x, y, z, _| {
+
+    onNeighborBlockChange: |this, world, x, y, z, _|
+    {
         if !world.isBlockNormalCube(x, y - 1, z) && !hasFlammableNeighbor(this, world, x, y, z)
         {
             world.setBlockWithNotify(x, y, z, 0);
         }
     },
-    onBlockAdded: |this, world, x, y, z| {
+
+    onBlockAdded: |this, world, x, y, z|
+    {
         if world.getBlockId(x, y - 1, z) == Block::OBSIDIAN
             && crate::block::block_portal::tryToCreatePortal(world, x, y, z)
         {
             return;
         }
+
         if !world.isBlockNormalCube(x, y - 1, z) && !hasFlammableNeighbor(this, world, x, y, z)
         {
             world.setBlockWithNotify(x, y, z, 0);
             return;
         }
+
         world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());
     },
     randomDisplayTick,
@@ -324,7 +357,8 @@ pub const CLASS: BlockClass = BlockClass {
 
 pub fn create(id: i32, sprite: i32) -> Rc<Block>
 {
-    let ext: FireExt = FireExt {
+    let ext: FireExt = FireExt
+    {
         m_chanceToEncourageFire: RefCell::new([0; crate::block::BLOCK_IDS]),
         m_abilityToCatchFire: RefCell::new([0; crate::block::BLOCK_IDS]),
     };

@@ -12,11 +12,11 @@ pub struct TextureLavaFlowFX
 
 impl TextureLavaFlowFX
 {
-    pub fn new() -> TextureLavaFlowFX
+    pub fn new() -> Self
     {
         let fx: TextureFXFields = TextureFXFields::new(Block::lavaMoving().m_blockIndexInTexture.get() + 1);
         fx.m_tileSize.set(2);
-        TextureLavaFlowFX { m_fx: fx, m_simulation: LavaSimulation::new(), m_ticks: Cell::new(0) }
+        Self { m_fx: fx, m_simulation: LavaSimulation::new(), m_ticks: Cell::new(0) }
     }
 }
 
@@ -28,6 +28,7 @@ impl TextureFX for TextureLavaFlowFX
     {
         self.m_ticks.set(self.m_ticks.get() + 1);
         self.m_simulation.step();
+
         let ticks: i32 = self.m_ticks.get();
         self.m_simulation.paint(&self.m_fx, |index| index - ticks / 3 * 16 & 0xFF);
     }

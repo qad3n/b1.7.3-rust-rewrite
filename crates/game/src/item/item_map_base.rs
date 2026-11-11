@@ -2,7 +2,8 @@ use crate::item::{ITEM, Item, ItemClass};
 use std::any::Any;
 use std::rc::Rc;
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemMapBase",
     m_parent: Some(&ITEM),
     isNetworkSynced: |_| true,

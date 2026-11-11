@@ -12,6 +12,7 @@ pub fn mkdirs(path: &Path) -> bool
     {
         return false;
     }
+
     std::fs::create_dir_all(path).is_ok()
 }
 
@@ -21,6 +22,7 @@ pub fn delete(path: &Path) -> bool
     {
         return std::fs::remove_dir(path).is_ok();
     }
+
     std::fs::remove_file(path).is_ok()
 }
 
@@ -51,8 +53,10 @@ pub fn listFiles(path: &Path) -> Option<Vec<PathBuf>>
 pub fn toStringRadix36(value: i32) -> String
 {
     const DIGITS: &[u8; 36] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+
     let mut magnitude: i64 = (value as i64).abs();
     let mut digits: Vec<u8> = Vec::new();
+
     loop
     {
         digits.push(DIGITS[(magnitude % 36) as usize]);
@@ -62,10 +66,12 @@ pub fn toStringRadix36(value: i32) -> String
             break;
         }
     }
+
     if value < 0
     {
         digits.push(b'-');
     }
+
     digits.reverse();
     String::from_utf8(digits).expect("radix digits are ascii")
 }

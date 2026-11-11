@@ -43,6 +43,7 @@ pub fn sin(x: f64) -> f64
     {
         return x87::sin(x);
     }
+
     strict_math::sin(x)
 }
 
@@ -52,6 +53,7 @@ pub fn cos(x: f64) -> f64
     {
         return x87::cos(x);
     }
+
     strict_math::cos(x)
 }
 
@@ -68,6 +70,7 @@ pub fn log(x: f64) -> f64
     {
         return x87::log(x);
     }
+
     strict_math::log(x)
 }
 
@@ -95,6 +98,7 @@ pub fn maxFloat(a: f32, b: f32) -> f32
     {
         return b;
     }
+
     if a >= b { a } else { b }
 }
 
@@ -108,6 +112,7 @@ pub fn minFloat(a: f32, b: f32) -> f32
     {
         return b;
     }
+
     if a <= b { a } else { b }
 }
 
@@ -121,6 +126,7 @@ pub fn maxDouble(a: f64, b: f64) -> f64
     {
         return b;
     }
+
     if a >= b { a } else { b }
 }
 
@@ -134,6 +140,7 @@ pub fn minDouble(a: f64, b: f64) -> f64
     {
         return b;
     }
+
     if a <= b { a } else { b }
 }
 
@@ -151,8 +158,10 @@ mod x87
     pub fn sin(x: f64) -> f64
     {
         let mut value: f64 = x;
+
         // SAFETY: the asm only loads and stores the local through the pointer and clobbers the x87 stack it declares
-        unsafe {
+        unsafe
+        {
             asm!(
                 "fld qword ptr [{value}]",
                 "fsin",
@@ -163,14 +172,17 @@ mod x87
                 options(nostack),
             );
         }
+
         value
     }
 
     pub fn cos(x: f64) -> f64
     {
         let mut value: f64 = x;
+
         // SAFETY: the asm only loads and stores the local through the pointer and clobbers the x87 stack it declares
-        unsafe {
+        unsafe
+        {
             asm!(
                 "fld qword ptr [{value}]",
                 "fcos",
@@ -181,14 +193,17 @@ mod x87
                 options(nostack),
             );
         }
+
         value
     }
 
     pub fn log(x: f64) -> f64
     {
         let mut value: f64 = x;
+
         // SAFETY: the asm only loads and stores the local through the pointer and clobbers the x87 stack it declares
-        unsafe {
+        unsafe
+        {
             asm!(
                 "fldln2",
                 "fld qword ptr [{value}]",
@@ -200,6 +215,7 @@ mod x87
                 options(nostack),
             );
         }
+
         value
     }
 }

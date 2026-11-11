@@ -1,5 +1,6 @@
 use crate::argo::json_object::JsonFields;
-use crate::argo::{
+use crate::argo::
+{
     CompactJsonFormatter, EnumJsonNodeType, JsonArray, JsonFormatter, JsonNodeFactories, JsonNodeSelector,
     JsonNodeSelectors, JsonNumberNode, JsonObject, JsonStringNode, PATH_ELEMENTS_EXCEPTION, PathElement,
 };
@@ -32,15 +33,15 @@ fn noElements() -> !
 
 impl JsonNode
 {
-    pub fn equals(&self, other: &JsonNode) -> bool
+    pub fn equals(&self, other: &Self) -> bool
     {
         match (self, other)
         {
-            (JsonNode::Object(a), JsonNode::Object(b)) => a.equals(b),
-            (JsonNode::Array(a), JsonNode::Array(b)) => a.equals(b),
-            (JsonNode::String(a), JsonNode::String(b)) => a.getText() == b.getText(),
-            (JsonNode::Number(a), JsonNode::Number(b)) => a.equals(b),
-            (JsonNode::Constant(a), JsonNode::Constant(b)) => a == b,
+            (Self::Object(a), Self::Object(b)) => a.equals(b),
+            (Self::Array(a), Self::Array(b)) => a.equals(b),
+            (Self::String(a), Self::String(b)) => a.getText() == b.getText(),
+            (Self::Number(a), Self::Number(b)) => a.equals(b),
+            (Self::Constant(a), Self::Constant(b)) => a == b,
             _ => false,
         }
     }
@@ -49,11 +50,11 @@ impl JsonNode
     {
         match self
         {
-            JsonNode::Object(node) => node.hashCode(),
-            JsonNode::Array(node) => node.hashCode(),
-            JsonNode::String(node) => node.getText().hashCode(),
-            JsonNode::Number(node) => node.hashCode(),
-            JsonNode::Constant(kind) => *kind as i32,
+            Self::Object(node) => node.hashCode(),
+            Self::Array(node) => node.hashCode(),
+            Self::String(node) => node.getText().hashCode(),
+            Self::Number(node) => node.hashCode(),
+            Self::Constant(kind) => *kind as i32,
         }
     }
 
@@ -61,11 +62,11 @@ impl JsonNode
     {
         match self
         {
-            JsonNode::Object(_) => EnumJsonNodeType::Object,
-            JsonNode::Array(_) => EnumJsonNodeType::Array,
-            JsonNode::String(_) => EnumJsonNodeType::String,
-            JsonNode::Number(_) => EnumJsonNodeType::Number,
-            JsonNode::Constant(kind) => *kind,
+            Self::Object(_) => EnumJsonNodeType::Object,
+            Self::Array(_) => EnumJsonNodeType::Array,
+            Self::String(_) => EnumJsonNodeType::String,
+            Self::Number(_) => EnumJsonNodeType::Number,
+            Self::Constant(kind) => *kind,
         }
     }
 
@@ -73,8 +74,8 @@ impl JsonNode
     {
         match self
         {
-            JsonNode::String(node) => node.getText(),
-            JsonNode::Number(node) => node.getText(),
+            Self::String(node) => node.getText(),
+            Self::Number(node) => node.getText(),
             _ => noText(),
         }
     }
@@ -83,16 +84,16 @@ impl JsonNode
     {
         match self
         {
-            JsonNode::Object(node) => node.getFields(),
+            Self::Object(node) => node.getFields(),
             _ => noFields(),
         }
     }
 
-    pub fn getElements(&self) -> Vec<Rc<JsonNode>>
+    pub fn getElements(&self) -> Vec<Rc<Self>>
     {
         match self
         {
-            JsonNode::Array(node) => node.getElements(),
+            Self::Array(node) => node.getElements(),
             _ => noElements(),
         }
     }
@@ -102,23 +103,24 @@ impl JsonNode
         Self::wrapExceptionsFor(&JsonNodeSelectors::aStringNode(pathElements), self, pathElements)
     }
 
-    pub fn getArrayNode(self: &Rc<Self>, pathElements: &[PathElement]) -> Vec<Rc<JsonNode>>
+    pub fn getArrayNode(self: &Rc<Self>, pathElements: &[PathElement]) -> Vec<Rc<Self>>
     {
         Self::wrapExceptionsFor(&JsonNodeSelectors::anArrayNode(pathElements), self, pathElements)
     }
 
     fn wrapExceptionsFor<T: 'static>(
-        value: &JsonNodeSelector<Rc<JsonNode>, T>,
-        node: &Rc<JsonNode>,
+        value: &JsonNodeSelector<Rc<Self>, T>,
+        node: &Rc<Self>,
         pathElements: &[PathElement],
     ) -> T
     {
         match value.getValue(node)
         {
             Ok(result) => result,
+
             Err(mismatch) =>
             {
-                let rootNode: Rc<JsonNode> = JsonNodeFactories::arrayOf(&[Rc::clone(node)]);
+                let rootNode: Rc<Self> = JsonNodeFactories::arrayOf(&[Rc::clone(node)]);
                 let message: String = format!(
                     "Failed to find {} at [{}] while resolving [{}] in {}.",
                     mismatch.m_failedNode.describe(),
@@ -135,7 +137,7 @@ impl JsonNode
     {
         match self
         {
-            JsonNode::Object(node) =>
+            Self::Object(node) =>
             {
                 let entries: Vec<String> = node
                     .fields()
@@ -145,14 +147,16 @@ impl JsonNode
                     .collect();
                 format!("JsonObject fields:[{{{}}}]", entries.join(", "))
             }
-            JsonNode::Array(node) =>
+
+            Self::Array(node) =>
             {
                 let elements: Vec<String> = node.elements().iter().map(|element| element.toString()).collect();
                 format!("JsonArray elements:[[{}]]", elements.join(", "))
             }
-            JsonNode::String(node) => node.toString(),
-            JsonNode::Number(node) => node.toString(),
-            JsonNode::Constant(_) => format!("net.minecraft.src.J_JsonConstants@{:x}", self as *const Self as usize),
+
+            Self::String(node) => node.toString(),
+            Self::Number(node) => node.toString(),
+            Self::Constant(_) => format!("net.minecraft.src.J_JsonConstants@{:x}", self as *const Self as usize),
         }
     }
 }

@@ -25,14 +25,18 @@ pub struct ModelWolf
 
 impl ModelWolf
 {
-    pub fn new() -> ModelWolf
+    pub fn new() -> Self
     {
         let f: f32 = 0.0;
         let f1: f32 = 13.5;
-        let leg = |x: f32, z: f32| -> ModelRenderer {
+
+        let leg = |x: f32, z: f32| -> ModelRenderer
+        {
             ModelRenderer::new(0, 18).withBox(-1.0, 0.0, -1.0, 2, 8, 2, f).at(x, 16.0, z)
         };
-        ModelWolf {
+
+        Self
+        {
             m_base: ModelBaseFields::default(),
             m_wolfHeadMain: ModelRenderer::new(0, 0).withBox(-3.0, -3.0, -2.0, 6, 6, 4, f).at(-1.0, f1, -7.0),
             m_wolfBody: ModelRenderer::new(18, 14).withBox(-4.0, -2.0, -3.0, 6, 9, 6, f).at(0.0, 14.0, 2.0),
@@ -57,14 +61,17 @@ impl ModelBase for ModelWolf
     {
         self.setRotationAngles(walk, walkSpeed, bob, yaw, pitch, scale);
         self.m_wolfHeadMain.renderWithRotation(scale);
+
         for leg in [&self.m_wolfBody, &self.m_wolfLeg1, &self.m_wolfLeg2, &self.m_wolfLeg3, &self.m_wolfLeg4]
         {
             leg.render(scale);
         }
+
         for part in [&self.m_wolfRightEar, &self.m_wolfLeftEar, &self.m_wolfSnout, &self.m_wolfTail]
         {
             part.renderWithRotation(scale);
         }
+
         self.m_wolfMane.render(scale);
     }
 
@@ -78,6 +85,7 @@ impl ModelBase for ModelWolf
         {
             self.m_wolfTail.m_rotateAngleY.set(math_helper::cos(walk * 0.6662) * 1.4 * walkSpeed);
         }
+
         if entity_wolf::isWolfSitting(mob)
         {
             self.m_wolfMane.setRotationPoint(-1.0, 16.0, -3.0);
@@ -112,13 +120,16 @@ impl ModelBase for ModelWolf
             self.m_wolfLeg4.m_rotateAngleX.set(math_helper::cos(walk * 0.6662) * 1.4 * walkSpeed);
         }
         let f: f32 = entity_wolf::getInterestedAngle(mob, tickDelta) + entity_wolf::getShakeAngle(mob, tickDelta, 0.0);
+
         for part in [&self.m_wolfHeadMain, &self.m_wolfRightEar, &self.m_wolfLeftEar, &self.m_wolfSnout]
         {
             part.m_rotateAngleZ.set(f);
         }
+
         self.m_wolfMane.m_rotateAngleZ.set(entity_wolf::getShakeAngle(mob, tickDelta, -0.08));
         self.m_wolfBody.m_rotateAngleZ.set(entity_wolf::getShakeAngle(mob, tickDelta, -0.16));
         self.m_wolfTail.m_rotateAngleZ.set(entity_wolf::getShakeAngle(mob, tickDelta, -0.2));
+
         if entity_wolf::getWolfShaking(mob)
         {
             let f1: f32 = mob.getEntityBrightness(tickDelta) * entity_wolf::getShadingWhileShaking(mob, tickDelta);
@@ -130,11 +141,13 @@ impl ModelBase for ModelWolf
     {
         self.m_wolfHeadMain.m_rotateAngleX.set(pitch / DEGREES_PER_RADIAN);
         self.m_wolfHeadMain.m_rotateAngleY.set(yaw / DEGREES_PER_RADIAN);
+
         for part in [&self.m_wolfRightEar, &self.m_wolfLeftEar, &self.m_wolfSnout]
         {
             part.m_rotateAngleY.set(self.m_wolfHeadMain.m_rotateAngleY.get());
             part.m_rotateAngleX.set(self.m_wolfHeadMain.m_rotateAngleX.get());
         }
+
         self.m_wolfTail.m_rotateAngleX.set(bob);
     }
 }

@@ -8,7 +8,7 @@ pub struct WorldGenForest;
 
 impl WorldGenForest
 {
-    pub fn new() -> WorldGenForest { WorldGenForest }
+    pub fn new() -> Self { Self }
 }
 
 impl WorldGenerator for WorldGenForest

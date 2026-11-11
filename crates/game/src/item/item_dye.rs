@@ -44,6 +44,7 @@ fn onItemUse(
     {
         return false;
     }
+
     let i: i32 = world.getBlockId(x, y, z);
     if i == Block::SAPLING
     {
@@ -52,8 +53,10 @@ fn onItemUse(
             block_sapling::growTree(&Block::sapling(), world, x, y, z, &world.m_rand);
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
         }
+
         return true;
     }
+
     if i == Block::CROPS
     {
         if !world.m_multiplayerWorld.get()
@@ -61,19 +64,24 @@ fn onItemUse(
             block_crops::fertilize(world, x, y, z);
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
         }
+
         return true;
     }
+
     if i == Block::GRASS
     {
         if !world.m_multiplayerWorld.get()
         {
             stack.m_stackSize.set(stack.m_stackSize.get() - 1);
+
             let itemRand: Rc<Random> = Item::itemRand();
+
             'label53: for j in 0..128
             {
                 let mut k: i32 = x;
                 let mut l: i32 = y + 1;
                 let mut i1: i32 = z;
+
                 for _ in 0..j / 16
                 {
                     k += itemRand.nextIntBounded(3) - 1;
@@ -84,6 +92,7 @@ fn onItemUse(
                         continue 'label53;
                     }
                 }
+
                 if world.getBlockId(k, l, i1) == 0
                 {
                     if itemRand.nextIntBounded(10) != 0
@@ -101,8 +110,10 @@ fn onItemUse(
                 }
             }
         }
+
         return true;
     }
+
     false
 }
 
@@ -119,14 +130,18 @@ fn saddleEntity(_this: &Rc<Item>, stack: &Rc<ItemStack>, entity: &Rc<Entity>)
     }
 }
 
-pub const CLASS: ItemClass = ItemClass {
+pub const CLASS: ItemClass = ItemClass
+{
     m_name: "ItemDye",
     m_parent: Some(&ITEM),
-    getIconFromDamage: |this, metadata| {
+    getIconFromDamage: |this, metadata|
+    {
         let i: i32 = metadata;
         this.m_iconIndex.get() + i % 8 * 16 + i / 8
     },
-    getItemNameIS: |this, stack| {
+
+    getItemNameIS: |this, stack|
+    {
         let name: String = (ITEM.getItemName)(this).unwrap_or_else(|| "null".to_string());
         Some(format!("{name}.{}", DYE_COLORS[stack.getItemDamage() as usize]))
     },

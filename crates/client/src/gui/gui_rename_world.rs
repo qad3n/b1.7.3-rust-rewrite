@@ -21,15 +21,19 @@ fn fields(this: &GuiScreen) -> &RenameWorldExt { this.ext::<RenameWorldExt>() }
 
 fn searchField(this: &GuiScreen) -> Rc<GuiTextField> { fields(this).m_searchField.get().orNpe() }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiRenameWorld",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
     updateScreen: |this| searchField(this).updateCursorCounter(),
-    initGui: |this| {
+    initGui: |this|
+    {
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
+
         Keyboard::enableRepeatEvents(true);
         this.m_controlList.clear();
+
         let x: i32 = this.m_width.get() / 2 - 100;
         let y: i32 = this.m_height.get() / 4;
         this.m_controlList.add(GuiButton::new(
@@ -39,6 +43,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             &stringTranslate.translateKey("selectWorld.renameButton"),
         ));
         this.m_controlList.add(GuiButton::new(1, x, y + 120 + 12, &stringTranslate.translateKey("gui.cancel")));
+
         let iSaveFormat: Rc<dyn ISaveFormat> = this.mc().m_saveLoader.get().orNpe();
         let worldInfo: Rc<WorldInfo> = iSaveFormat.getData(&fields(this).m_worldName).orNpe();
         let string: String = JString::display(worldInfo.getWorldName().as_ref());
@@ -48,15 +53,19 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         fields(this).m_searchField.set(Some(Rc::new(field)));
     },
     onGuiClosed: |_| Keyboard::enableRepeatEvents(false),
-    actionPerformed: |this, button| {
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         let ext: &RenameWorldExt = fields(this);
+
         match button.m_id.get()
         {
             1 => this.mc().displayGuiScreen(Some(Rc::clone(&ext.m_parent))),
+
             0 =>
             {
                 let iSaveFormat: Rc<dyn ISaveFormat> = this.mc().m_saveLoader.get().orNpe();
@@ -64,27 +73,37 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 iSaveFormat.rename(&ext.m_worldName, &text::trim(&searchField(this).getText()).to_string());
                 this.mc().displayGuiScreen(Some(Rc::clone(&ext.m_parent)));
             }
+
             _ =>
             {}
         }
     },
-    keyTyped: |this, chr, key| {
+
+    keyTyped: |this, chr, key|
+    {
         let field: Rc<GuiTextField> = searchField(this);
         field.textboxKeyTyped(chr, key);
         // port trim strips chars up to space like java String.trim
         this.m_controlList.get(0).m_enabled.set(text::trim(&field.getText()).length() > 0);
+
         if chr == b'\r' as u16
         {
             this.actionPerformed(&this.m_controlList.get(0));
         }
     },
-    mouseClicked: |this, mouseX, mouseY, button| {
+
+    mouseClicked: |this, mouseX, mouseY, button|
+    {
         (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button);
         searchField(this).mouseClicked(mouseX, mouseY, button);
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
+
         this.drawDefaultBackground();
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         this.m_gui.drawCenteredString(
             &font,
@@ -112,7 +131,8 @@ impl GuiRenameWorld
 {
     pub fn new(parent: &Rc<GuiScreen>, worldName: &str) -> Rc<GuiScreen>
     {
-        let ext: RenameWorldExt = RenameWorldExt {
+        let ext: RenameWorldExt = RenameWorldExt
+        {
             m_parent: Rc::clone(parent),
             m_searchField: Field::new(None),
             m_worldName: worldName.to_string(),

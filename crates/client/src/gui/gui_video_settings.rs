@@ -30,11 +30,13 @@ const VIDEO_OPTIONS: [EnumOptions; 10] = [
     EnumOptions::Fullscreen,
 ];
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiVideoSettings",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let ext: &VideoSettingsExt = fields(this);
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         ext.m_title.set(stringTranslate.translateKey("options.videoTitle"));
@@ -46,27 +48,35 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             &stringTranslate.translateKey("gui.done"),
         ));
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         let ext: &VideoSettingsExt = fields(this);
         toggleOption(&ext.m_guiGameSettings, button);
+
         let mc: Rc<Minecraft> = this.mc();
         let settings: Rc<GameSettings> = mc.m_gameSettings.get().orNpe();
+
         if button.m_id.get() == 200
         {
             settings.saveOptions();
             mc.displayGuiScreen(Some(Rc::clone(&ext.m_parent)));
         }
+
         let scaledResolution: ScaledResolution =
             ScaledResolution::new(&settings, mc.m_displayWidth.get(), mc.m_displayHeight.get());
         let n: i32 = scaledResolution.getScaledWidth();
         let n2: i32 = scaledResolution.getScaledHeight();
         this.rc().setWorldAndResolution(&mc, n, n2);
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         this.drawDefaultBackground();
         this.m_gui.drawCenteredString(
             &this.fontRenderer(),
@@ -86,7 +96,8 @@ impl GuiVideoSettings
 {
     pub fn new(parent: &Rc<GuiScreen>, options: &Rc<GameSettings>) -> Rc<GuiScreen>
     {
-        let ext: VideoSettingsExt = VideoSettingsExt {
+        let ext: VideoSettingsExt = VideoSettingsExt
+        {
             m_parent: Rc::clone(parent),
             m_title: Field::new("Video Settings".to_string()),
             m_guiGameSettings: Rc::clone(options),

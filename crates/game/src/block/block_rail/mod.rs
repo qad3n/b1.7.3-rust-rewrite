@@ -50,6 +50,7 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, _face: i32, metadata: i3
     {
         return this.m_blockIndexInTexture.get() - 16;
     }
+
     this.m_blockIndexInTexture.get()
 }
 
@@ -59,33 +60,42 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
     {
         return;
     }
+
     let n: i32 = world.getBlockMetadata(x, y, z);
     let mut blockMetadata: i32 = n;
+
     if getIsPowered(this)
     {
         blockMetadata &= 0x7;
     }
+
     let mut b: bool = false;
+
     if !world.isBlockNormalCube(x, y - 1, z)
     {
         b = true;
     }
+
     if blockMetadata == 2 && !world.isBlockNormalCube(x + 1, y, z)
     {
         b = true;
     }
+
     if blockMetadata == 3 && !world.isBlockNormalCube(x - 1, y, z)
     {
         b = true;
     }
+
     if blockMetadata == 4 && !world.isBlockNormalCube(x, y, z - 1)
     {
         b = true;
     }
+
     if blockMetadata == 5 && !world.isBlockNormalCube(x, y, z + 1)
     {
         b = true;
     }
+
     if b
     {
         this.dropBlockAsItem(world, x, y, z, world.getBlockMetadata(x, y, z));
@@ -98,6 +108,7 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
             || isPoweredByConnectedRails(world, x, y, z, n, true, 0)
             || isPoweredByConnectedRails(world, x, y, z, n, false, 0);
         let mut b3: bool = false;
+
         if b2 && (n & 0x8) == 0x0
         {
             world.setBlockMetadataWithNotify(x, y, z, blockMetadata | 0x8);
@@ -108,9 +119,11 @@ fn onNeighborBlockChange(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z:
             world.setBlockMetadataWithNotify(x, y, z, blockMetadata);
             b3 = true;
         }
+
         if b3
         {
             world.notifyBlocksOfNeighborChange(x, y - 1, z, this.m_blockID);
+
             if blockMetadata == 2 || blockMetadata == 3 || blockMetadata == 4 || blockMetadata == 5
             {
                 world.notifyBlocksOfNeighborChange(x, y + 1, z, this.m_blockID);
@@ -132,6 +145,7 @@ fn updateShape(world: &Rc<World>, x: i32, y: i32, z: i32, force: bool)
     {
         return;
     }
+
     RailLogic::new(world, x, y, z).updateState(world.isBlockIndirectlyGettingPowered(x, y, z), force);
 }
 
@@ -149,8 +163,10 @@ fn isPoweredByConnectedRails(
     {
         return false;
     }
+
     let mut n: i32 = metadata & 0x7;
     let mut b: bool = true;
+
     match n
     {
         0 =>
@@ -164,6 +180,7 @@ fn isPoweredByConnectedRails(
                 z -= 1;
             }
         }
+
         1 =>
         {
             if towardsNegative
@@ -175,6 +192,7 @@ fn isPoweredByConnectedRails(
                 x += 1;
             }
         }
+
         2 =>
         {
             if towardsNegative
@@ -189,6 +207,7 @@ fn isPoweredByConnectedRails(
             }
             n = 1;
         }
+
         3 =>
         {
             if towardsNegative
@@ -203,6 +222,7 @@ fn isPoweredByConnectedRails(
             }
             n = 1;
         }
+
         4 =>
         {
             if towardsNegative
@@ -217,6 +237,7 @@ fn isPoweredByConnectedRails(
             }
             n = 0;
         }
+
         5 =>
         {
             if towardsNegative
@@ -231,9 +252,11 @@ fn isPoweredByConnectedRails(
             }
             n = 0;
         }
+
         _ =>
         {}
     }
+
     isPoweredByRail(world, x, y, z, towardsNegative, depth, n)
         || (b && isPoweredByRail(world, x, y - 1, z, towardsNegative, depth, n))
 }
@@ -253,24 +276,29 @@ fn isPoweredByRail(world: &Rc<World>, x: i32, y: i32, z: i32, towardsNegative: b
         {
             return false;
         }
+
         if (n2 & 8) != 0
         {
             if world.isBlockIndirectlyGettingPowered(x, y, z) || world.isBlockIndirectlyGettingPowered(x, y + 1, z)
             {
                 return true;
             }
+
             return isPoweredByConnectedRails(world, x, y, z, n2, towardsNegative, depth + 1);
         }
     }
+
     false
 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockRail",
     m_parent: Some(&BLOCK),
     getCollisionBoundingBoxFromPool: |_, _, _, _, _| None,
     isOpaqueCube: |_| false,
-    collisionRayTrace: |this, world, x, y, z, from, to| {
+    collisionRayTrace: |this, world, x, y, z, from, to|
+    {
         this.setBlockBoundsBasedOnState(&**world, x, y, z);
         (BLOCK.collisionRayTrace)(this, world, x, y, z, from, to)
     },
@@ -280,7 +308,8 @@ pub const CLASS: BlockClass = BlockClass {
     getRenderType: |_| 9,
     quantityDropped: |_, _| 1,
     canPlaceBlockAt: |_, world, x, y, z| world.isBlockNormalCube(x, y - 1, z),
-    onBlockAdded: |_, world, x, y, z| {
+    onBlockAdded: |_, world, x, y, z|
+    {
         if !world.m_multiplayerWorld.get()
         {
             updateShape(world, x, y, z, true);

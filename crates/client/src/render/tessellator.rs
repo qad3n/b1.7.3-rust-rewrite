@@ -1,7 +1,7 @@
 use crate::render::GLAllocation;
 use lwjgl::buffers::{ByteBuffer, ByteOrder, FloatBuffer, IntBuffer};
 use lwjgl::opengl::{ARBVertexBufferObject, GL11, GLContext};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::rc::Rc;
 
 const CONVERT_QUADS_TO_TRIANGLES: bool = true;
@@ -20,7 +20,8 @@ mod vertex
     pub const NORMAL_BYTES: i32 = 24;
 }
 
-thread_local! {
+thread_local!
+{
     static INSTANCE: Rc<Tessellator> = Rc::new(Tessellator::new(INSTANCE_SIZE));
 }
 
@@ -55,21 +56,24 @@ pub struct Tessellator
 
 impl Tessellator
 {
-    pub fn instance() -> Rc<Tessellator> { INSTANCE.with(Rc::clone) }
+    pub fn instance() -> Rc<Self> { INSTANCE.with(Rc::clone) }
 
-    fn new(size: i32) -> Tessellator
+    fn new(size: i32) -> Self
     {
         let byteBuffer: ByteBuffer = GLAllocation::createDirectByteBuffer(size * 4);
         let intBuffer: IntBuffer = byteBuffer.asIntBuffer();
         let floatBuffer: FloatBuffer = byteBuffer.asFloatBuffer();
         let vboCount: i32 = 10;
         let useVBO: bool = TRY_VBO && GLContext::getCapabilities().GL_ARB_vertex_buffer_object;
-        let vertexBuffers: Option<IntBuffer> = useVBO.then(|| {
+        let vertexBuffers: Option<IntBuffer> = useVBO.then(||
+        {
             let buffers: IntBuffer = GLAllocation::createDirectIntBuffer(vboCount);
             ARBVertexBufferObject::glGenBuffersARB(&buffers);
             buffers
         });
-        Tessellator {
+
+        Self
+        {
             m_byteBuffer: byteBuffer,
             m_intBuffer: intBuffer,
             m_floatBuffer: floatBuffer,
@@ -104,16 +108,20 @@ impl Tessellator
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_STATE, "Not tesselating!");
         }
+
         self.m_isDrawing.set(false);
+
         if self.m_vertexCount.get() > 0
         {
             self.m_intBuffer.clear();
             self.m_intBuffer.putFrom(&self.m_rawBuffer.borrow(), 0, self.m_rawBufferIndex.get());
             self.m_byteBuffer.setPosition(0);
             self.m_byteBuffer.setLimit(self.m_rawBufferIndex.get() * 4);
+
             if self.m_useVBO
             {
                 self.m_vboIndex.set((self.m_vboIndex.get() + 1) % self.m_vboCount);
+
                 let buffers: &IntBuffer = self.m_vertexBuffers.as_ref().expect("vbo names exist when vbo is used");
                 ARBVertexBufferObject::glBindBufferARB(
                     ARBVertexBufferObject::GL_ARRAY_BUFFER_ARB,
@@ -125,6 +133,7 @@ impl Tessellator
                     ARBVertexBufferObject::GL_STREAM_DRAW_ARB,
                 );
             }
+
             if self.m_hasTexture.get()
             {
                 if self.m_useVBO
@@ -138,6 +147,7 @@ impl Tessellator
                 }
                 GL11::glEnableClientState(GL11::GL_TEXTURE_COORD_ARRAY);
             }
+
             if self.m_hasColor.get()
             {
                 if self.m_useVBO
@@ -151,6 +161,7 @@ impl Tessellator
                 }
                 GL11::glEnableClientState(GL11::GL_COLOR_ARRAY);
             }
+
             if self.m_hasNormals.get()
             {
                 if self.m_useVBO
@@ -164,6 +175,7 @@ impl Tessellator
                 }
                 GL11::glEnableClientState(GL11::GL_NORMAL_ARRAY);
             }
+
             if self.m_useVBO
             {
                 GL11::glVertexPointerOffset(3, GL11::GL_FLOAT, vertex::BYTES, 0);
@@ -174,6 +186,7 @@ impl Tessellator
                 GL11::glVertexPointer(3, vertex::BYTES, &self.m_floatBuffer);
             }
             GL11::glEnableClientState(GL11::GL_VERTEX_ARRAY);
+
             if self.m_drawMode.get() == GL11::GL_QUADS && CONVERT_QUADS_TO_TRIANGLES
             {
                 GL11::glDrawArrays(GL11::GL_TRIANGLES, 0, self.m_vertexCount.get());
@@ -183,19 +196,23 @@ impl Tessellator
                 GL11::glDrawArrays(self.m_drawMode.get(), 0, self.m_vertexCount.get());
             }
             GL11::glDisableClientState(GL11::GL_VERTEX_ARRAY);
+
             if self.m_hasTexture.get()
             {
                 GL11::glDisableClientState(GL11::GL_TEXTURE_COORD_ARRAY);
             }
+
             if self.m_hasColor.get()
             {
                 GL11::glDisableClientState(GL11::GL_COLOR_ARRAY);
             }
+
             if self.m_hasNormals.get()
             {
                 GL11::glDisableClientState(GL11::GL_NORMAL_ARRAY);
             }
         }
+
         self.reset();
     }
 
@@ -215,6 +232,7 @@ impl Tessellator
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_STATE, "Already tesselating!");
         }
+
         self.m_isDrawing.set(true);
         self.reset();
         self.m_drawMode.set(drawMode);
@@ -249,11 +267,14 @@ impl Tessellator
         {
             return;
         }
+
         let r: i32 = r.clamp(0, 255);
         let g: i32 = g.clamp(0, 255);
         let b: i32 = b.clamp(0, 255);
         let a: i32 = a.clamp(0, 255);
+
         self.m_hasColor.set(true);
+
         if ByteOrder::nativeOrder() == ByteOrder::LittleEndian
         {
             self.m_color.set(a << 24 | b << 16 | g << 8 | r);
@@ -274,8 +295,9 @@ impl Tessellator
     {
         self.m_addedVertices.set(self.m_addedVertices.get() + 1);
         {
-            let mut raw = self.m_rawBuffer.borrow_mut();
+            let mut raw: RefMut<Vec<i32>> = self.m_rawBuffer.borrow_mut();
             let at = |offset: i32| -> usize { (self.m_rawBufferIndex.get() + offset) as usize };
+
             if self.m_drawMode.get() == GL11::GL_QUADS
                 && CONVERT_QUADS_TO_TRIANGLES
                 && self.m_addedVertices.get() % 4 == 0
@@ -283,15 +305,18 @@ impl Tessellator
                 for i in 0..2
                 {
                     let n: i32 = vertex::INTS * (3 - i);
+
                     if self.m_hasTexture.get()
                     {
                         raw[at(vertex::UV)] = raw[at(-n + vertex::UV)];
                         raw[at(vertex::UV + 1)] = raw[at(-n + vertex::UV + 1)];
                     }
+
                     if self.m_hasColor.get()
                     {
                         raw[at(vertex::COLOR)] = raw[at(-n + vertex::COLOR)];
                     }
+
                     raw[at(0)] = raw[at(-n)];
                     raw[at(1)] = raw[at(-n + 1)];
                     raw[at(2)] = raw[at(-n + 2)];
@@ -299,25 +324,31 @@ impl Tessellator
                     self.m_rawBufferIndex.set(self.m_rawBufferIndex.get() + vertex::INTS);
                 }
             }
+
             if self.m_hasTexture.get()
             {
                 raw[at(vertex::UV)] = (self.m_textureU.get() as f32).to_bits() as i32;
                 raw[at(vertex::UV + 1)] = (self.m_textureV.get() as f32).to_bits() as i32;
             }
+
             if self.m_hasColor.get()
             {
                 raw[at(vertex::COLOR)] = self.m_color.get();
             }
+
             if self.m_hasNormals.get()
             {
                 raw[at(vertex::NORMAL)] = self.m_normal.get();
             }
+
             raw[at(0)] = ((x + self.m_xOffset.get()) as f32).to_bits() as i32;
             raw[at(1)] = ((y + self.m_yOffset.get()) as f32).to_bits() as i32;
             raw[at(2)] = ((z + self.m_zOffset.get()) as f32).to_bits() as i32;
         }
+
         self.m_rawBufferIndex.set(self.m_rawBufferIndex.get() + vertex::INTS);
         self.m_vertexCount.set(self.m_vertexCount.get() + 1);
+
         if self.m_vertexCount.get() % 4 == 0 && self.m_rawBufferIndex.get() >= self.m_bufferSize - vertex::BYTES
         {
             self.draw();
@@ -340,7 +371,9 @@ impl Tessellator
         {
             jvm::system::println("But..");
         }
+
         self.m_hasNormals.set(true);
+
         let by: i8 = (x * 128.0) as i32 as i8;
         let by2: i8 = (y * 127.0) as i32 as i8;
         let by3: i8 = (z * 127.0) as i32 as i8;

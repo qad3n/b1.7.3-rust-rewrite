@@ -40,22 +40,29 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     let creature: &CreatureFields = fields(this);
     let living: &entity_living::LivingFields = entity_living::fields(this);
     let world: Rc<World> = this.world();
+
     creature.m_hasAttacked.set(this.isMovementCeased());
+
     let f: f32 = 16.0;
+
     match creature.m_playerToAttack.get()
     {
         None =>
         {
             creature.m_playerToAttack.set(this.findPlayerToAttack());
+
             if let Some(target) = creature.m_playerToAttack.get()
             {
                 creature.m_pathToEntity.set(world.getPathToEntity(this, &target, f));
             }
         }
+
         Some(target) if !target.isEntityAlive() => creature.m_playerToAttack.set(None),
+
         Some(target) =>
         {
             let f1: f32 = target.getDistanceToEntity(this);
+
             if entity_living::canEntityBeSeen(this, &target)
             {
                 this.attackEntity(&target, f1);
@@ -66,6 +73,7 @@ fn updatePlayerActionState(this: &Rc<Entity>)
             }
         }
     }
+
     let hasPath: bool = creature.m_pathToEntity.with(Option::is_some);
     if creature.m_hasAttacked.get()
         || creature.m_playerToAttack.with(Option::is_none)
@@ -86,7 +94,9 @@ fn updatePlayerActionState(this: &Rc<Entity>)
     let i: i32 = math_helper::floor_double(this.m_boundingBox.minY() + 0.5);
     let flag: bool = this.isInWater();
     let flag1: bool = this.handleLavaMovement();
+
     this.m_rotationPitch.set(0.0);
+
     if creature.m_pathToEntity.with(Option::is_some) && this.m_rand.nextIntBounded(100) != 0
     {
         let mut vec3d: Option<Rc<Vec3D>> = creature.m_pathToEntity.get().map(|path| path.getPosition(this));
@@ -96,6 +106,7 @@ fn updatePlayerActionState(this: &Rc<Entity>)
         {
             let path: Rc<PathEntity> = creature.m_pathToEntity.get().expect("path set while walking it");
             path.incrementPathIndex();
+
             if path.isFinished()
             {
                 vec3d = None;
@@ -106,7 +117,9 @@ fn updatePlayerActionState(this: &Rc<Entity>)
                 vec3d = Some(path.getPosition(this));
             }
         }
+
         living.m_isJumping.set(false);
+
         if let Some(point) = vec3d
         {
             let d1: f64 = point.x() - this.posX();
@@ -114,48 +127,60 @@ fn updatePlayerActionState(this: &Rc<Entity>)
             let d3: f64 = point.y() - i as f64;
             let f2: f32 = (math::atan2(d2, d1) * 180.0 / PI_F as f64) as f32 - 90.0;
             let mut f3: f32 = f2 - this.m_rotationYaw.get();
+
             living.m_moveForward.set(living.m_moveSpeed.get());
+
             while f3 < -180.0
             {
                 f3 += 360.0;
             }
+
             while f3 >= 180.0
             {
                 f3 -= 360.0;
             }
+
             if f3 > 30.0
             {
                 f3 = 30.0;
             }
+
             if f3 < -30.0
             {
                 f3 = -30.0;
             }
+
             this.m_rotationYaw.set(this.m_rotationYaw.get() + f3);
+
             if creature.m_hasAttacked.get()
                 && let Some(target) = creature.m_playerToAttack.get()
             {
                 let d4: f64 = target.posX() - this.posX();
                 let d5: f64 = target.posZ() - this.posZ();
                 let f4: f32 = this.m_rotationYaw.get();
+
                 this.m_rotationYaw.set((math::atan2(d5, d4) * 180.0 / PI_F as f64) as f32 - 90.0);
                 f3 = (f4 - this.m_rotationYaw.get() + 90.0) * PI_F / 180.0;
                 living.m_moveStrafing.set(-math_helper::sin(f3) * living.m_moveForward.get() * 1.0);
                 living.m_moveForward.set(math_helper::cos(f3) * living.m_moveForward.get() * 1.0);
             }
+
             if d3 > 0.0
             {
                 living.m_isJumping.set(true);
             }
         }
+
         if let Some(target) = creature.m_playerToAttack.get()
         {
             entity_living::faceEntity(this, &target, 30.0, 30.0);
         }
+
         if this.m_isCollidedHorizontally.get() && !hasPathTo(this)
         {
             living.m_isJumping.set(true);
         }
+
         if this.m_rand.nextFloat() < 0.8 && (flag || flag1)
         {
             living.m_isJumping.set(true);
@@ -175,6 +200,7 @@ pub fn updateWanderingPath(this: &Rc<Entity>)
     let mut j: i32 = -1;
     let mut k: i32 = -1;
     let mut f: f32 = -99999.0;
+
     for _ in 0..10
     {
         let i1: i32 = math_helper::floor_double(this.posX() + this.m_rand.nextIntBounded(13) as f64 - 6.0);
@@ -190,6 +216,7 @@ pub fn updateWanderingPath(this: &Rc<Entity>)
             flag = true;
         }
     }
+
     if flag
     {
         fields(this).m_pathToEntity.set(this.world().getEntityPathToXYZ(this, i, j, k, 10.0));
@@ -204,7 +231,8 @@ pub fn getTarget(this: &Entity) -> Option<Rc<Entity>> { fields(this).m_playerToA
 
 pub fn setTarget(this: &Entity, target: Option<Rc<Entity>>) { fields(this).m_playerToAttack.set(target); }
 
-pub const CLASS: EntityClass = EntityClass {
+pub const CLASS: EntityClass = EntityClass
+{
     m_name: "EntityCreature",
     m_parent: Some(&entity_living::CLASS),
     isMovementCeased: |_| false,
@@ -213,7 +241,8 @@ pub const CLASS: EntityClass = EntityClass {
     attackBlockedEntity: |_, _, _| {},
     getBlockPathWeight: |_, _, _, _| 0.0,
     findPlayerToAttack: |_| None,
-    getCanSpawnHere: |this| {
+    getCanSpawnHere: |this|
+    {
         let i: i32 = math_helper::floor_double(this.posX());
         let j: i32 = math_helper::floor_double(this.m_boundingBox.minY());
         let k: i32 = math_helper::floor_double(this.posZ());

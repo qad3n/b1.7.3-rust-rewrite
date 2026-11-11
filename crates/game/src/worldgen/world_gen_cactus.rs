@@ -27,6 +27,7 @@ impl WorldGenerator for WorldGenCactus
                 }
             }
         }
+
         true
     }
 }

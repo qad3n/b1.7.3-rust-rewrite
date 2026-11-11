@@ -25,6 +25,7 @@ fn parseIntWithDefault(s: &str, defaultValue: i32) -> i32 { parseInt(text::trimS
 fn splitAddress(string: &str) -> Vec<String>
 {
     let mut stringArray: Vec<String> = string.split(':').map(str::to_string).collect();
+
     if string.contains(':')
     {
         while stringArray.last().is_some_and(String::is_empty)
@@ -32,6 +33,7 @@ fn splitAddress(string: &str) -> Vec<String>
             stringArray.pop();
         }
     }
+
     if string.starts_with('[')
         && let Some(n) = string.find(']').filter(|n| *n > 0)
     {
@@ -48,28 +50,36 @@ fn splitAddress(string: &str) -> Vec<String>
             stringArray = vec![string2.to_string()];
         }
     }
+
     if stringArray.len() > 2
     {
         stringArray = vec![string.to_string()];
     }
+
     stringArray
 }
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiMultiplayer",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
     updateScreen: |this| serverField(this).updateCursorCounter(),
-    initGui: |this| {
+    initGui: |this|
+    {
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
+
         Keyboard::enableRepeatEvents(true);
         this.m_controlList.clear();
+
         let x: i32 = this.m_width.get() / 2 - 100;
         let y: i32 = this.m_height.get() / 4;
         this.m_controlList.add(GuiButton::new(0, x, y + 96 + 12, &stringTranslate.translateKey("multiplayer.connect")));
         this.m_controlList.add(GuiButton::new(1, x, y + 120 + 12, &stringTranslate.translateKey("gui.cancel")));
+
         let string: String = this.mc().m_gameSettings.get().orNpe().m_lastServer.get().replace('_', ":");
         this.m_controlList.get(0).m_enabled.set(!string.is_empty());
+
         let field: GuiTextField =
             GuiTextField::new(this.rc(), this.fontRenderer(), x, y - 10 + 50 + 18, 200, 20, &string);
         field.m_isFocused.set(true);
@@ -77,15 +87,19 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         fields(this).m_serverField.set(Some(Rc::new(field)));
     },
     onGuiClosed: |_| Keyboard::enableRepeatEvents(false),
-    actionPerformed: |this, button| {
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         let mc: Rc<Minecraft> = this.mc();
+
         match button.m_id.get()
         {
             1 => mc.displayGuiScreen(Some(Rc::clone(&fields(this).m_parentScreen))),
+
             0 =>
             {
                 // port trim strips chars up to space like java String.trim
@@ -94,6 +108,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 let settings: Rc<GameSettings> = mc.m_gameSettings.get().orNpe();
                 settings.m_lastServer.set(string.replace(':', "_"));
                 settings.saveOptions();
+
                 let stringArray: Vec<String> = splitAddress(string);
                 let port: i32 = if stringArray.len() > 1
                 {
@@ -103,6 +118,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 {
                     25565
                 };
+
                 let Some(host) = stringArray.first()
                 else
                 {
@@ -110,28 +126,40 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                 };
                 mc.displayGuiScreen(Some(GuiConnecting::new(&mc, host, port)));
             }
+
             _ =>
             {}
         }
     },
-    keyTyped: |this, chr, key| {
+
+    keyTyped: |this, chr, key|
+    {
         serverField(this).textboxKeyTyped(chr, key);
+
         if chr == b'\r' as u16
         {
             this.actionPerformed(&this.m_controlList.get(0));
         }
+
         this.m_controlList.get(0).m_enabled.set(serverField(this).getText().length() > 0);
     },
-    mouseClicked: |this, mouseX, mouseY, button| {
+
+    mouseClicked: |this, mouseX, mouseY, button|
+    {
         (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button);
         serverField(this).mouseClicked(mouseX, mouseY, button);
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
+
         this.drawDefaultBackground();
+
         let font: Rc<FontRenderer> = this.fontRenderer();
         let top: i32 = this.m_height.get() / 4 - 60;
         let x: i32 = this.m_width.get() / 2 - 140;
+
         this.m_gui.drawCenteredString(
             &font,
             &stringTranslate.translateKey("multiplayer.title"),

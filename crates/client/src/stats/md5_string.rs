@@ -7,7 +7,7 @@ pub struct MD5String
 
 impl MD5String
 {
-    pub fn new(salt: &str) -> MD5String { MD5String { m_salt: salt.to_string() } }
+    pub fn new(salt: &str) -> Self { Self { m_salt: salt.to_string() } }
 
     pub fn digest(&self, s: &str) -> String
     {
@@ -19,6 +19,7 @@ impl MD5String
         {
             jvm::throwable::throw(&jvm::throwable::ILLEGAL_ARGUMENT, "Input buffer too short");
         }
+
         let digest: [u8; 16] = jvm::md5::digest(&bytes[..length]);
         let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
         let trimmed: &str = hex.trim_start_matches('0');

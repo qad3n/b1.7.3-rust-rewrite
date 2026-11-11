@@ -24,7 +24,8 @@ const STYLE_LISTS: i32 = 2;
 const ITALIC_SLANT: f32 = -0.25;
 const ITALIC_SHIFT: f32 = 1.0;
 
-thread_local! {
+thread_local!
+{
     static ALLOWED: Vec<u16> = ChatAllowedCharacters::allowedCharacters().encode_utf16().collect();
 }
 
@@ -43,10 +44,12 @@ fn concat(parts: &[&[u16]]) -> Vec<u16> { parts.concat() }
 fn shearList(list: i32, slant: f32, shift: f32)
 {
     let matrix: FloatBuffer = GLAllocation::createDirectFloatBuffer(16);
+
     for i in 0..4
     {
         matrix.putAt(i * 4 + i, 1.0);
     }
+
     matrix.putAt(4, slant);
     matrix.putAt(12, shift);
     GL11::glNewList(list, GL11::GL_COMPILE);
@@ -64,7 +67,7 @@ pub struct FontRenderer
 
 impl FontRenderer
 {
-    pub fn new(options: &GameSettings, fontPath: &str, textureManager: &RenderEngine) -> FontRenderer
+    pub fn new(options: &GameSettings, fontPath: &str, textureManager: &RenderEngine) -> Self
     {
         let mut stream: Option<FileInputStream> = assets::getResourceAsStream(fontPath);
         let bufferedimage: BufferedImage = match ImageIO::read(stream.as_mut())
@@ -76,6 +79,7 @@ impl FontRenderer
         let j: i32 = bufferedimage.getHeight();
         let mut aint: Vec<i32> = vec![0; (i * j) as usize];
         bufferedimage.getRGBRegion(0, 0, i, j, &mut aint, 0, i);
+
         let mut charWidth: [i32; CHARACTERS] = [0; CHARACTERS];
         for (k, width) in charWidth.iter_mut().enumerate()
         {
@@ -91,21 +95,26 @@ impl FontRenderer
                 {
                     break;
                 }
+
                 j1 -= 1;
             }
+
             if k == 32
             {
                 j1 = 2;
             }
             *width = j1 + 2;
         }
+
         let fontTextureName: i32 = textureManager.allocateAndSetupTexture(Rc::new(bufferedimage));
         let fontDisplayLists: i32 = GLAllocation::generateDisplayLists(CHARACTERS as i32 + COLOR_CODES + STYLE_LISTS);
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         for l2 in 0..CHARACTERS as i32
         {
             GL11::glNewList(fontDisplayLists + l2, GL11::GL_COMPILE);
             tessellator.startDrawingQuads();
+
             let j3: i32 = l2 % 16 * 8;
             let l3: i32 = l2 / 16 * 8;
             let f: f32 = 7.99;
@@ -143,32 +152,39 @@ impl FontRenderer
             GL11::glTranslatef(charWidth[l2 as usize] as f32, 0.0, 0.0);
             GL11::glEndList();
         }
+
         for i3 in 0..COLOR_CODES
         {
             let k3: i32 = (i3 >> 3 & 1) * 85;
             let mut i4: i32 = (i3 >> 2 & 1) * 170 + k3;
             let mut j4: i32 = (i3 >> 1 & 1) * 170 + k3;
             let mut k4: i32 = (i3 & 1) * 170 + k3;
+
             if i3 == 6
             {
                 i4 += 85;
             }
+
             let flag1: bool = i3 >= 16;
+
             if options.m_anaglyph.get()
             {
                 let l4: i32 = (i4 * 30 + j4 * 59 + k4 * 11) / 100;
                 let i5: i32 = (i4 * 30 + j4 * 70) / 100;
                 let k2: i32 = (i4 * 30 + k4 * 70) / 100;
+
                 i4 = l4;
                 j4 = i5;
                 k4 = k2;
             }
+
             if flag1
             {
                 i4 /= 4;
                 j4 /= 4;
                 k4 /= 4;
             }
+
             GL11::glNewList(fontDisplayLists + CHARACTERS as i32 + i3, GL11::GL_COMPILE);
             GL11::glColor3f(i4 as f32 / 255.0, j4 as f32 / 255.0, k4 as f32 / 255.0);
             GL11::glEndList();
@@ -177,7 +193,9 @@ impl FontRenderer
         let italicList: i32 = fontDisplayLists + CHARACTERS as i32 + COLOR_CODES;
         shearList(italicList, ITALIC_SLANT, ITALIC_SHIFT);
         shearList(italicList + 1, -ITALIC_SLANT, -ITALIC_SHIFT);
-        FontRenderer {
+
+        Self
+        {
             m_charWidth: charWidth,
             m_fontTextureName: fontTextureName,
             m_fontDisplayLists: fontDisplayLists,
@@ -212,13 +230,17 @@ impl FontRenderer
     pub fn renderString(&self, text: &str, x: i32, y: i32, mut color: i32, shadow: bool)
     {
         let text: Vec<u16> = units(text);
+
         if shadow
         {
             let n: i32 = color & 0xFF000000u32 as i32;
+
             color = (color & 0xFCFCFC) >> 2;
             color += n;
         }
+
         GL11::glBindTexture(GL11::GL_TEXTURE_2D, self.m_fontTextureName);
+
         let n2: f32 = (color >> 16 & 0xFF) as f32 / 255.0;
         let n3: f32 = (color >> 8 & 0xFF) as f32 / 255.0;
         let n4: f32 = (color & 0xFF) as f32 / 255.0;
@@ -227,10 +249,12 @@ impl FontRenderer
         {
             n5 = 1.0;
         }
+
         GL11::glColor4f(n2, n3, n4, n5);
         self.m_buffer.clear();
         GL11::glPushMatrix();
         GL11::glTranslatef(x as f32, y as f32, 0.0);
+
         let digits: Vec<u16> = units(COLOR_DIGITS);
         let italicList: i32 = self.m_fontDisplayLists + CHARACTERS as i32 + COLOR_CODES;
         let mut lowered: Option<JString> = None;
@@ -242,6 +266,7 @@ impl FontRenderer
             {
                 let code: u16 =
                     lowered.get_or_insert_with(|| JString::fromUtf16(text.clone()).toLowerCase()).charAt(i as i32 + 1);
+
                 // rewrite: §o slants until the next color code as in later versions
                 if code == ITALIC_CODE
                 {
@@ -250,18 +275,22 @@ impl FontRenderer
                         self.queue(italicList);
                         italic = true;
                     }
+
                     i += 2;
                     continue;
                 }
+
                 if italic
                 {
                     self.queue(italicList + 1);
                     italic = false;
                 }
+
                 let index: i32 = digits.iter().position(|&digit| digit == code).map_or(15, |index| index as i32);
                 self.queue(self.m_fontDisplayLists + CHARACTERS as i32 + index + if shadow { 16 } else { 0 });
                 i += 2;
             }
+
             if i < text.len()
             {
                 let index2: i32 = allowedIndex(text[i]);
@@ -270,9 +299,11 @@ impl FontRenderer
                     self.m_buffer.put(self.m_fontDisplayLists + index2 + 32);
                 }
             }
+
             self.flushIfFull();
             i += 1;
         }
+
         self.m_buffer.flip();
         GL11::glCallLists(&self.m_buffer);
         GL11::glPopMatrix();
@@ -300,6 +331,7 @@ impl FontRenderer
             }
             i += 1;
         }
+
         n
     }
 
@@ -312,12 +344,14 @@ impl FontRenderer
         while j < words.len()
         {
             let mut s: Vec<u16> = concat(&[&words[j], &space]);
+
             j += 1;
             while j < words.len() && self.widthOf(&concat(&[&s, &words[j]])) < width
             {
                 s = concat(&[&s, &words[j], &space]);
                 j += 1;
             }
+
             while self.widthOf(&s) > width
             {
                 let mut beginIndex: usize = 0;
@@ -325,12 +359,15 @@ impl FontRenderer
                 {
                     beginIndex += 1;
                 }
+
                 if hasVisible(&s[..beginIndex])
                 {
                     row(&s[..beginIndex]);
                 }
+
                 s = s[beginIndex..].to_vec();
             }
+
             if hasVisible(&s)
             {
                 row(&s);
@@ -354,9 +391,12 @@ impl FontRenderer
                 self.splitAndDrawUnits(line, x, y, width, color);
                 y += self.heightOf(line, width);
             }
+
             return;
         }
-        self.wrapLine(text, width, |row| {
+
+        self.wrapLine(text, width, |row|
+        {
             self.drawString(&String::from_utf16_lossy(row), x, y, color);
             y += LINE_HEIGHT;
         });
@@ -372,12 +412,15 @@ impl FontRenderer
         {
             return lines.iter().map(|line| self.heightOf(line, width)).sum();
         }
+
         let mut n2: i32 = 0;
         self.wrapLine(text, width, |_| n2 += LINE_HEIGHT);
+
         if n2 < LINE_HEIGHT
         {
             n2 += LINE_HEIGHT;
         }
+
         n2
     }
 }

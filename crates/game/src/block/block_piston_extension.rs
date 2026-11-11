@@ -21,6 +21,7 @@ pub fn clearForcedSprite(this: &Block) { forcedSprite(this).set(-1); }
 fn onBlockRemoval(this: &Rc<Block>, world: &Rc<World>, mut x: i32, mut y: i32, mut z: i32)
 {
     (BLOCK.onBlockRemoval)(this, world, x, y, z);
+
     let mut i: i32 = world.getBlockMetadata(x, y, z);
     let j: usize = OPPOSITE[getFacing(i) as usize] as usize;
     x += X_OFFSET[j];
@@ -51,12 +52,15 @@ fn getBlockTextureFromSideAndMetadata(this: &Rc<Block>, face: i32, metadata: i32
         {
             return this.m_blockIndexInTexture.get() - 1;
         }
+
         return this.m_blockIndexInTexture.get();
     }
+
     if face == OPPOSITE[n as usize]
     {
         return 107;
     }
+
     108
 }
 
@@ -71,10 +75,13 @@ fn getCollidingBoundingBoxes(
 )
 {
     let i: i32 = world.getBlockMetadata(x, y, z);
-    let collide = |bounds: [f32; 6]| {
+
+    let collide = |bounds: [f32; 6]|
+    {
         this.setBlockBounds(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
         (BLOCK.getCollidingBoundingBoxes)(this, world, x, y, z, shape, collisions);
     };
+
     match getFacing(i)
     {
         0 =>
@@ -82,34 +89,41 @@ fn getCollidingBoundingBoxes(
             collide([0.0, 0.0, 0.0, 1.0, 0.25, 1.0]);
             collide([0.375, 0.25, 0.375, 0.625, 1.0, 0.625]);
         }
+
         1 =>
         {
             collide([0.0, 0.75, 0.0, 1.0, 1.0, 1.0]);
             collide([0.375, 0.0, 0.375, 0.625, 0.75, 0.625]);
         }
+
         2 =>
         {
             collide([0.0, 0.0, 0.0, 1.0, 1.0, 0.25]);
             collide([0.25, 0.375, 0.25, 0.75, 0.625, 1.0]);
         }
+
         3 =>
         {
             collide([0.0, 0.0, 0.75, 1.0, 1.0, 1.0]);
             collide([0.25, 0.375, 0.0, 0.75, 0.625, 0.75]);
         }
+
         4 =>
         {
             collide([0.0, 0.0, 0.0, 0.25, 1.0, 1.0]);
             collide([0.375, 0.25, 0.25, 0.625, 0.75, 1.0]);
         }
+
         5 =>
         {
             collide([0.75, 0.0, 0.0, 1.0, 1.0, 1.0]);
             collide([0.0, 0.375, 0.25, 0.75, 0.625, 0.75]);
         }
+
         _ =>
         {}
     }
+
     this.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
 }
 
@@ -151,7 +165,8 @@ fn onNeighborBlockChange(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z
 
 pub fn getFacing(metadata: i32) -> i32 { metadata & 7 }
 
-pub const CLASS: BlockClass = BlockClass {
+pub const CLASS: BlockClass = BlockClass
+{
     m_name: "BlockPistonExtension",
     m_parent: Some(&BLOCK),
     onBlockRemoval,

@@ -14,14 +14,16 @@ pub struct ParticleKind
     pub m_gravity: Option<f32>,
 }
 
-thread_local! {
+thread_local!
+{
     // mod particles by the name a spawn uses, <modid>:<name>
     static KINDS: RefCell<BTreeMap<String, ParticleKind>> = const { RefCell::new(BTreeMap::new()) };
 }
 
 pub fn register(id: Identifier, spec: ParticleSpec)
 {
-    let kind: ParticleKind = ParticleKind {
+    let kind: ParticleKind = ParticleKind
+    {
         m_base: spec.base,
         m_color: spec.color,
         m_scale: spec.scale,

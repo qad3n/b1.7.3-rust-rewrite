@@ -54,12 +54,13 @@ fn getSaveName(this: &GuiScreen, index: i32) -> String
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         return format!("{} {}", stringTranslate.translateKey("selectWorld.world"), index + 1);
     }
+
     string
 }
 
 fn button(slot: &Field<Option<Rc<GuiButton>>>) -> Rc<GuiButton> { slot.get().orNpe() }
 
-pub fn initButtons(this: &GuiScreen)
+pub(crate) fn initButtons(this: &GuiScreen)
 {
     let ext: &SelectWorldExt = fields(this);
     let stringtranslate: Rc<StringTranslate> = StringTranslate::getInstance();
@@ -69,10 +70,12 @@ pub fn initButtons(this: &GuiScreen)
         GuiButton::withSize(1, center - 154, height - 52, 150, 20, &stringtranslate.translateKey("selectWorld.select"));
     ext.m_buttonSelect.set(Some(Rc::clone(&select)));
     this.m_controlList.add(select);
+
     let rename: Rc<GuiButton> =
         GuiButton::withSize(6, center - 154, height - 28, 70, 20, &stringtranslate.translateKey("selectWorld.rename"));
     ext.m_buttonRename.set(Some(Rc::clone(&rename)));
     this.m_controlList.add(rename);
+
     let delete: Rc<GuiButton> =
         GuiButton::withSize(2, center - 74, height - 28, 70, 20, &stringtranslate.translateKey("selectWorld.delete"));
     ext.m_buttonDelete.set(Some(Rc::clone(&delete)));
@@ -98,17 +101,20 @@ pub fn initButtons(this: &GuiScreen)
     button(&ext.m_buttonDelete).m_enabled.set(false);
 }
 
-pub fn selectWorld(this: &GuiScreen, id: i32)
+pub(crate) fn selectWorld(this: &GuiScreen, id: i32)
 {
     let mc: Rc<Minecraft> = this.mc();
     mc.displayGuiScreen(None);
+
     let ext: &SelectWorldExt = fields(this);
     if ext.m_selected.get()
     {
         return;
     }
+
     ext.m_selected.set(true);
     mc.m_playerController.set(Some(player_controller_sp::new(&mc)));
+
     let string: String = getSaveFileName(this, id);
     mc.startWorld(&string, &getSaveName(this, id), 0);
     mc.displayGuiScreen(None);
@@ -132,6 +138,7 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, _height: i32, _tesse
     {
         string = format!("{} {}", ext.m_worldText.get(), index + 1);
     }
+
     let l: i64 = saveFormatComparator.getSize();
     let megabytes: f32 = (l / 1024 * 100 / 1024) as f32 / 100.0;
     // port formatDefault stands in for the java SimpleDateFormat default pattern
@@ -141,30 +148,37 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, _height: i32, _tesse
         formatDefault(saveFormatComparator.getLastPlayed()),
         jvm::floating_decimal::floatToString(megabytes)
     );
+
     let mut string3: String = String::new();
+
     if saveFormatComparator.isSameVersion()
     {
         string3 = format!("{} {string3}", ext.m_conversionText.get());
     }
+
     let font: Rc<FontRenderer> = this.fontRenderer();
     this.m_gui.drawString(&font, &string, x + 2, y + 1, 0xFFFFFF);
     this.m_gui.drawString(&font, &string2, x + 2, y + 12, 0x808080);
     this.m_gui.drawString(&font, &string3, x + 2, y + 12 + 10, 0x808080);
 }
 
-const WORLD_SLOT: GuiSlotClass = GuiSlotClass {
+const WORLD_SLOT: GuiSlotClass = GuiSlotClass
+{
     m_name: "GuiWorldSlot",
     m_parent: Some(&GUI_SLOT),
     m_interfaces: &[],
     getSize: |slot| fields(&screen(slot)).m_saveList.borrow().len() as i32,
-    elementClicked: |slot, index, doubleClick| {
+    elementClicked: |slot, index, doubleClick|
+    {
         let this: Rc<GuiScreen> = screen(slot);
         let ext: &SelectWorldExt = fields(&this);
         ext.m_selectedWorld.set(index);
+
         let flag: bool = ext.m_selectedWorld.get() >= 0 && ext.m_selectedWorld.get() < slot.getSize();
         button(&ext.m_buttonSelect).m_enabled.set(flag);
         button(&ext.m_buttonRename).m_enabled.set(flag);
         button(&ext.m_buttonDelete).m_enabled.set(flag);
+
         if doubleClick && flag
         {
             selectWorld(&this, index);
@@ -177,17 +191,20 @@ const WORLD_SLOT: GuiSlotClass = GuiSlotClass {
     ..GUI_SLOT
 };
 
-const CLASS: GuiScreenClass = GuiScreenClass {
+const CLASS: GuiScreenClass = GuiScreenClass
+{
     m_name: "GuiSelectWorld",
     m_parent: Some(&GUI_SCREEN),
     m_interfaces: &[],
-    initGui: |this| {
+    initGui: |this|
+    {
         let ext: &SelectWorldExt = fields(this);
         let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
         ext.m_screenTitle.set(stringTranslate.translateKey("selectWorld.title"));
         ext.m_worldText.set(stringTranslate.translateKey("selectWorld.world"));
         ext.m_conversionText.set(stringTranslate.translateKey("selectWorld.conversion"));
         loadSaves(this);
+
         let slot: Rc<GuiSlot> = GuiSlot::construct(
             &WORLD_SLOT,
             Box::new(WorldSlotExt { m_screen: Rc::downgrade(&this.rc()) }),
@@ -202,19 +219,25 @@ const CLASS: GuiScreenClass = GuiScreenClass {
         ext.m_worldSlotContainer.set(Some(slot));
         initButtons(this);
     },
-    actionPerformed: |this, button| {
+
+    actionPerformed: |this, button|
+    {
         if !button.m_enabled.get()
         {
             return;
         }
+
         let ext: &SelectWorldExt = fields(this);
         let mc: Rc<Minecraft> = this.mc();
+
         match button.m_id.get()
         {
             2 =>
             {
                 let string: String = getSaveName(this, ext.m_selectedWorld.get());
+
                 ext.m_deleting.set(true);
+
                 let stringTranslate: Rc<StringTranslate> = StringTranslate::getInstance();
                 let string2: String = stringTranslate.translateKey("selectWorld.deleteQuestion");
                 let string3: String =
@@ -225,6 +248,7 @@ const CLASS: GuiScreenClass = GuiScreenClass {
                     GuiYesNo::new(&this.rc(), &string2, &string3, &string4, &string5, ext.m_selectedWorld.get());
                 mc.displayGuiScreen(Some(guiYesNo));
             }
+
             1 => selectWorld(this, ext.m_selectedWorld.get()),
             3 => mc.displayGuiScreen(Some(GuiCreateWorld::new(&this.rc()))),
             6 => mc.displayGuiScreen(Some(GuiRenameWorld::new(
@@ -235,13 +259,17 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             _ => ext.m_worldSlotContainer.get().orNpe().actionPerformed(button),
         }
     },
-    deleteWorld: |this, result, id| {
+
+    deleteWorld: |this, result, id|
+    {
         let ext: &SelectWorldExt = fields(this);
         if !ext.m_deleting.get()
         {
             return;
         }
+
         ext.m_deleting.set(false);
+
         if result
         {
             let iSaveFormat: Rc<dyn ISaveFormat> = saveLoader(this);
@@ -249,9 +277,12 @@ const CLASS: GuiScreenClass = GuiScreenClass {
             iSaveFormat.delete(&getSaveFileName(this, id));
             loadSaves(this);
         }
+
         this.mc().displayGuiScreen(Some(this.rc()));
     },
-    drawScreen: |this, mouseX, mouseY, tickDelta| {
+
+    drawScreen: |this, mouseX, mouseY, tickDelta|
+    {
         let ext: &SelectWorldExt = fields(this);
         ext.m_worldSlotContainer.get().orNpe().drawScreen(mouseX, mouseY, tickDelta);
         this.m_gui.drawCenteredString(
@@ -272,7 +303,8 @@ impl GuiSelectWorld
 {
     pub fn new(parent: &Rc<GuiScreen>) -> Rc<GuiScreen>
     {
-        let ext: SelectWorldExt = SelectWorldExt {
+        let ext: SelectWorldExt = SelectWorldExt
+        {
             m_parentScreen: Rc::clone(parent),
             m_screenTitle: Field::new("Select world".to_string()),
             m_selected: Cell::new(false),

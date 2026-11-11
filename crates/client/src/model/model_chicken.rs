@@ -19,10 +19,12 @@ pub struct ModelChicken
 
 impl ModelChicken
 {
-    pub fn new() -> ModelChicken
+    pub fn new() -> Self
     {
         let n: f32 = 16.0;
-        ModelChicken {
+
+        Self
+        {
             m_base: ModelBaseFields::default(),
             m_head: ModelRenderer::new(0, 0).withBox(-2.0, -6.0, -2.0, 4, 6, 3, 0.0).at(0.0, -1.0 + n, -4.0),
             m_bill: ModelRenderer::new(14, 0).withBox(-2.0, -4.0, -4.0, 4, 2, 2, 0.0).at(0.0, -1.0 + n, -4.0),
@@ -62,11 +64,13 @@ impl ModelBase for ModelChicken
     {
         self.m_head.m_rotateAngleX.set(-(pitch / DEGREES_PER_RADIAN));
         self.m_head.m_rotateAngleY.set(yaw / DEGREES_PER_RADIAN);
+
         for part in [&self.m_bill, &self.m_chin]
         {
             part.m_rotateAngleX.set(self.m_head.m_rotateAngleX.get());
             part.m_rotateAngleY.set(self.m_head.m_rotateAngleY.get());
         }
+
         self.m_body.m_rotateAngleX.set(1.5707964);
         self.m_rightLeg.m_rotateAngleX.set(math_helper::cos(walk * 0.6662) * 1.4 * walkSpeed);
         self.m_leftLeg.m_rotateAngleX.set(math_helper::cos(walk * 0.6662 + PI) * 1.4 * walkSpeed);

@@ -36,7 +36,7 @@ pub struct Limiter
 
 impl Limiter
 {
-    pub fn new() -> Limiter { Limiter::default() }
+    pub fn new() -> Self { Self::default() }
 
     pub fn open(&mut self, ip: IpAddr) -> AuthResult<()>
     {
@@ -65,6 +65,7 @@ impl Limiter
             {
                 self.m_open.remove(&ip);
             }
+
             self.m_pending -= 1;
         }
     }
@@ -72,6 +73,7 @@ impl Limiter
     pub fn attempt(&mut self, ip: IpAddr, name: &str, now: Instant) -> AuthResult<()>
     {
         self.m_failures.retain(|_, backoff| backoff.m_until + limits::BACKOFF_MAX > now);
+
         if let Some(backoff) = self.m_failures.get(name).filter(|backoff| backoff.m_until > now)
         {
             return Err(retry((backoff.m_until - now).as_secs() + 1));
@@ -107,10 +109,12 @@ fn window(
     max: usize,
 ) -> AuthResult<()>
 {
-    entries.retain(|_, times| {
+    entries.retain(|_, times|
+    {
         times.retain(|time| *time + span > now);
         !times.is_empty()
     });
+
     let times: &mut Vec<Instant> = entries.entry(ip).or_default();
     if times.len() >= max
     {

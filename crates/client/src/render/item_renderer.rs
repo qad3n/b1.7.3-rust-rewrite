@@ -38,14 +38,16 @@ fn sameStack(a: &Option<Rc<ItemStack>>, b: &Option<Rc<ItemStack>>) -> bool
 
 impl ItemRenderer
 {
-    pub fn new(minecraft: Rc<Minecraft>) -> ItemRenderer
+    pub fn new(minecraft: Rc<Minecraft>) -> Self
     {
         let mapRenderer: MapItemRenderer = MapItemRenderer::new(
             minecraft.m_fontRenderer.get().orNpe(),
             minecraft.m_gameSettings.get().orNpe(),
             &minecraft.m_renderEngine.get().orNpe(),
         );
-        ItemRenderer {
+
+        Self
+        {
             m_mc: minecraft,
             m_itemToRender: Field::new(None),
             m_equippedProgress: Cell::new(0.0),
@@ -65,6 +67,7 @@ impl ItemRenderer
     pub fn renderItem(&self, mob: &Rc<Entity>, itemInHand: &Rc<ItemStack>)
     {
         GL11::glPushMatrix();
+
         let itemID: i32 = itemInHand.m_itemID.get();
         if Block::isBlockItem(itemID) && RenderBlocks::renderItemIn3d(Block::byId(itemID).orNpe().getRenderType())
         {
@@ -101,13 +104,16 @@ impl ItemRenderer
         let f4: f32 = 1.0;
         let f5: f32 = 0.0;
         let f6: f32 = 0.3;
+
         GL11::glEnable(32826);
         GL11::glTranslatef(-f5, -f6, 0.0);
+
         let f7: f32 = 1.5;
         GL11::glScalef(f7, f7, f7);
         GL11::glRotatef(50.0, 0.0, 1.0, 0.0);
         GL11::glRotatef(335.0, 0.0, 0.0, 1.0);
         GL11::glTranslatef(-0.9375, -0.0625, 0.0);
+
         let f8: f32 = 0.0625;
         let back: f64 = (0.0 - f8) as f64;
         let v =
@@ -128,6 +134,7 @@ impl ItemRenderer
         tessellator.draw();
         tessellator.startDrawingQuads();
         tessellator.setNormal(-1.0, 0.0, 0.0);
+
         for j in 0..16
         {
             let f9: f32 = j as f32 / 16.0;
@@ -138,9 +145,11 @@ impl ItemRenderer
             v(f11, 1.0, 0.0, f10, f2);
             v(f11, 1.0, back, f10, f2);
         }
+
         tessellator.draw();
         tessellator.startDrawingQuads();
         tessellator.setNormal(1.0, 0.0, 0.0);
+
         for k in 0..16
         {
             let f12: f32 = k as f32 / 16.0;
@@ -151,12 +160,17 @@ impl ItemRenderer
             v(f18, 0.0, 0.0, f15, f3);
             v(f18, 0.0, back, f15, f3);
         }
+
         tessellator.draw();
-        let h = |x: f32, y: f32, z: f64, u: f32, w: f32| {
+
+        let h = |x: f32, y: f32, z: f64, u: f32, w: f32|
+        {
             tessellator.addVertexWithUV(x as f64, y as f64, z, u as f64, w as f64)
         };
+
         tessellator.startDrawingQuads();
         tessellator.setNormal(0.0, 1.0, 0.0);
+
         for l in 0..16
         {
             let f13: f32 = l as f32 / 16.0;
@@ -167,9 +181,11 @@ impl ItemRenderer
             h(f4, f19, back, f, f16);
             h(0.0, f19, back, f1, f16);
         }
+
         tessellator.draw();
         tessellator.startDrawingQuads();
         tessellator.setNormal(0.0, -1.0, 0.0);
+
         for i1 in 0..16
         {
             let f14: f32 = i1 as f32 / 16.0;
@@ -180,6 +196,7 @@ impl ItemRenderer
             h(0.0, f20, back, f1, f17);
             h(f4, f20, back, f, f17);
         }
+
         tessellator.draw();
         GL11::glDisable(32826);
     }
@@ -217,12 +234,14 @@ impl ItemRenderer
         );
         RenderHelper::enableStandardItemLighting();
         GL11::glPopMatrix();
+
         let itemstack: Option<Rc<ItemStack>> = self.m_itemToRender.get();
         let f2: f32 = self.theWorld().getLightBrightness(
             floor_double(player.posX()),
             floor_double(player.posY()),
             floor_double(player.posZ()),
         );
+
         match &itemstack
         {
             Some(itemstack) =>
@@ -233,46 +252,60 @@ impl ItemRenderer
                 let f5: f32 = (i & 0xFF) as f32 / 255.0;
                 GL11::glColor4f(f2 * f3, f2 * f4, f2 * f5, 1.0);
             }
+
             None => GL11::glColor4f(f2, f2, f2, 1.0),
         }
+
         match &itemstack
         {
             Some(itemstack) if itemstack.m_itemID.get() == Item::mapItem().m_shiftedIndex =>
             {
                 self.renderMapInFirstPerson(&player, itemstack, tickDelta, f, f1);
             }
+
             Some(itemstack) =>
             {
                 GL11::glPushMatrix();
+
                 let f7: f32 = 0.8;
+
                 self.swingTranslate(&player, tickDelta, 0.4, 0.2, 0.2);
                 GL11::glTranslatef(0.7 * f7, -0.65 * f7 - (1.0 - f) * 0.6, -0.9 * f7);
                 GL11::glRotatef(45.0, 0.0, 1.0, 0.0);
                 GL11::glEnable(32826);
+
                 let f10: f32 = entity_living::getSwingProgress(&player, tickDelta);
                 let f13: f32 = sin(f10 * f10 * PI);
                 let f16: f32 = sin(sqrt_float(f10) * PI);
+
                 GL11::glRotatef(-f13 * 20.0, 0.0, 1.0, 0.0);
                 GL11::glRotatef(-f16 * 20.0, 0.0, 0.0, 1.0);
                 GL11::glRotatef(-f16 * 80.0, 1.0, 0.0, 0.0);
+
                 let scale: f32 = 0.4;
                 GL11::glScalef(scale, scale, scale);
                 bowPull(&player, itemstack, tickDelta);
+
                 if itemstack.getItem().shouldRotateAroundWhenRendering()
                 {
                     GL11::glRotatef(180.0, 0.0, 1.0, 0.0);
                 }
+
                 self.renderItem(&player, itemstack);
                 GL11::glPopMatrix();
             }
+
             None =>
             {
                 GL11::glPushMatrix();
+
                 let f8: f32 = 0.8;
+
                 self.swingTranslate(&player, tickDelta, 0.3, 0.4, 0.4);
                 GL11::glTranslatef(0.8 * f8, -0.75 * f8 - (1.0 - f) * 0.6, -0.9 * f8);
                 GL11::glRotatef(45.0, 0.0, 1.0, 0.0);
                 GL11::glEnable(32826);
+
                 let f11: f32 = entity_living::getSwingProgress(&player, tickDelta);
                 let f14: f32 = sin(f11 * f11 * PI);
                 let f17: f32 = sin(sqrt_float(f11) * PI);
@@ -293,6 +326,7 @@ impl ItemRenderer
                 GL11::glPopMatrix();
             }
         }
+
         GL11::glDisable(32826);
         RenderHelper::disableStandardItemLighting();
     }
@@ -300,8 +334,11 @@ impl ItemRenderer
     fn renderMapInFirstPerson(&self, player: &Rc<Entity>, itemstack: &Rc<ItemStack>, tickDelta: f32, f: f32, f1: f32)
     {
         GL11::glPushMatrix();
+
         let f9: f32 = 0.8;
+
         self.swingTranslate(player, tickDelta, 0.4, 0.2, 0.2);
+
         let mut f12: f32 = (1.0 - f1 / 45.0 + 0.1).clamp(0.0, 1.0);
         f12 = -cos(f12 * PI) * 0.5 + 0.5;
         GL11::glTranslatef(0.0, 0.0 * f9 - (1.0 - f) * 1.2 - f12 * 0.5 + 0.04, -0.9 * f9);
@@ -309,9 +346,11 @@ impl ItemRenderer
         GL11::glRotatef(f12 * -85.0, 0.0, 0.0, 1.0);
         GL11::glEnable(32826);
         self.bindPlayerSkin();
+
         for j in 0..2
         {
             let k: i32 = j * 2 - 1;
+
             GL11::glPushMatrix();
             GL11::glTranslatef(-0.0, -0.6, 1.1 * k as f32);
             GL11::glRotatef((-45 * k) as f32, 1.0, 0.0, 0.0);
@@ -324,30 +363,39 @@ impl ItemRenderer
             render_player::drawFirstPersonHand(&renderplayer);
             GL11::glPopMatrix();
         }
+
         let f15: f32 = entity_living::getSwingProgress(player, tickDelta);
         let f18: f32 = sin(f15 * f15 * PI);
         let f19: f32 = sin(sqrt_float(f15) * PI);
+
         GL11::glRotatef(-f18 * 20.0, 0.0, 1.0, 0.0);
         GL11::glRotatef(-f19 * 20.0, 0.0, 0.0, 1.0);
         GL11::glRotatef(-f19 * 80.0, 1.0, 0.0, 0.0);
+
         let scale: f32 = 0.38;
         GL11::glScalef(scale, scale, scale);
         GL11::glRotatef(90.0, 0.0, 1.0, 0.0);
         GL11::glRotatef(180.0, 0.0, 0.0, 1.0);
         GL11::glTranslatef(-1.0, -1.0, 0.0);
+
         let pixel: f32 = 0.015625;
         GL11::glScalef(pixel, pixel, pixel);
+
         let renderEngine: Rc<RenderEngine> = self.renderEngine();
         renderEngine.bindTexture(renderEngine.getTexture("/misc/mapbg.png"));
+
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glNormal3f(0.0, 0.0, -1.0);
         tessellator.startDrawingQuads();
+
         let b0: i32 = 7;
         tessellator.addVertexWithUV((0 - b0) as f64, (128 + b0) as f64, 0.0, 0.0, 1.0);
         tessellator.addVertexWithUV((128 + b0) as f64, (128 + b0) as f64, 0.0, 1.0, 1.0);
         tessellator.addVertexWithUV((128 + b0) as f64, (0 - b0) as f64, 0.0, 1.0, 0.0);
         tessellator.addVertexWithUV((0 - b0) as f64, (0 - b0) as f64, 0.0, 0.0, 0.0);
         tessellator.draw();
+
         let mapdata: Rc<game::world::MapDataBase> = game::item::item_map::getSavedMapData(itemstack, &self.theWorld());
         self.m_mapRenderer.render(player, &renderEngine, &mapdata);
         GL11::glPopMatrix();
@@ -356,21 +404,27 @@ impl ItemRenderer
     pub fn renderOverlays(&self, tickDelta: f32)
     {
         GL11::glDisable(3008);
+
         let player: Rc<Entity> = self.thePlayer();
         let renderEngine: Rc<RenderEngine> = self.renderEngine();
+
         if player.isBurning()
         {
             GL11::glBindTexture(3553, renderEngine.getTexture("/terrain.png"));
             self.renderFireInFirstPerson(tickDelta);
         }
+
         if player.isEntityInsideOpaqueBlock()
         {
             let world: Rc<World> = self.theWorld();
             let j2: i32 = floor_double(player.posX());
             let j: i32 = floor_double(player.posY());
             let k: i32 = floor_double(player.posZ());
+
             GL11::glBindTexture(3553, renderEngine.getTexture("/terrain.png"));
+
             let mut i1: i32 = world.getBlockId(j2, j, k);
+
             if world.isBlockNormalCube(j2, j, k)
             {
                 self.renderInsideOfBlock(tickDelta, Block::byId(i1).orNpe().getBlockTextureFromSide(2));
@@ -391,35 +445,44 @@ impl ItemRenderer
                     }
                 }
             }
+
             if let Some(block) = Block::byId(i1)
             {
                 self.renderInsideOfBlock(tickDelta, block.getBlockTextureFromSide(2));
             }
         }
+
         if player.isInsideOfMaterial(&Material::water())
         {
             GL11::glBindTexture(3553, renderEngine.getTexture("/misc/water.png"));
             self.renderWarpedTextureOverlay(tickDelta);
         }
+
         GL11::glEnable(3008);
     }
 
     fn renderInsideOfBlock(&self, tickDelta: f32, sprite: i32)
     {
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         self.thePlayer().getEntityBrightness(tickDelta);
+
         let f: f32 = 0.1;
         GL11::glColor4f(f, f, f, 0.5);
         GL11::glPushMatrix();
+
         let (f1, f2, f3, f4, f5): (f32, f32, f32, f32, f32) = (-1.0, 1.0, -1.0, 1.0, -0.5);
         let f6: f32 = 0.0078125;
         let f7: f32 = (sprite % 16) as f32 / 256.0 - f6;
         let f8: f32 = ((sprite % 16) as f32 + 15.99) / 256.0 + f6;
         let f9: f32 = (sprite / 16) as f32 / 256.0 - f6;
         let f10: f32 = ((sprite / 16) as f32 + 15.99) / 256.0 + f6;
-        let v = |x: f32, y: f32, z: f32, u: f32, w: f32| {
+
+        let v = |x: f32, y: f32, z: f32, u: f32, w: f32|
+        {
             tessellator.addVertexWithUV(x as f64, y as f64, z as f64, u as f64, w as f64)
         };
+
         tessellator.startDrawingQuads();
         v(f1, f3, f5, f8, f10);
         v(f2, f3, f5, f7, f10);
@@ -439,13 +502,17 @@ impl ItemRenderer
         GL11::glEnable(3042);
         GL11::glBlendFunc(770, 771);
         GL11::glPushMatrix();
+
         let f1: f32 = 4.0;
         let (f2, f3, f4, f5, f6): (f32, f32, f32, f32, f32) = (-1.0, 1.0, -1.0, 1.0, -0.5);
         let f7: f32 = -player.m_rotationYaw.get() / 64.0;
         let f8: f32 = player.m_rotationPitch.get() / 64.0;
-        let v = |x: f32, y: f32, z: f32, u: f32, w: f32| {
+
+        let v = |x: f32, y: f32, z: f32, u: f32, w: f32|
+        {
             tessellator.addVertexWithUV(x as f64, y as f64, z as f64, u as f64, w as f64)
         };
+
         tessellator.startDrawingQuads();
         v(f2, f4, f6, f1 + f7, f1 + f8);
         v(f3, f4, f6, 0.0 + f7, f1 + f8);
@@ -460,13 +527,17 @@ impl ItemRenderer
     fn renderFireInFirstPerson(&self, _tickDelta: f32)
     {
         let tessellator: Rc<Tessellator> = Tessellator::instance();
+
         GL11::glColor4f(1.0, 1.0, 1.0, 0.9);
         GL11::glEnable(3042);
         GL11::glBlendFunc(770, 771);
+
         let f: f32 = 1.0;
+
         for i in 0..2
         {
             GL11::glPushMatrix();
+
             let j: i32 = Block::fire().m_blockIndexInTexture.get() + i * 16;
             let k: i32 = (j & 15) << 4;
             let l: i32 = j & 240;
@@ -479,11 +550,15 @@ impl ItemRenderer
             let f7: f32 = 0.0 - f / 2.0;
             let f8: f32 = f7 + f;
             let f9: f32 = -0.5;
+
             GL11::glTranslatef(-(i * 2 - 1) as f32 * 0.24, -0.3, 0.0);
             GL11::glRotatef((i * 2 - 1) as f32 * 10.0, 0.0, 1.0, 0.0);
-            let v = |x: f32, y: f32, z: f32, u: f32, w: f32| {
+
+            let v = |x: f32, y: f32, z: f32, u: f32, w: f32|
+            {
                 tessellator.addVertexWithUV(x as f64, y as f64, z as f64, u as f64, w as f64)
             };
+
             tessellator.startDrawingQuads();
             v(f5, f7, f9, f2, f4);
             v(f6, f7, f9, f1, f4);
@@ -492,6 +567,7 @@ impl ItemRenderer
             tessellator.draw();
             GL11::glPopMatrix();
         }
+
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
         GL11::glDisable(3042);
     }
@@ -499,16 +575,19 @@ impl ItemRenderer
     pub fn updateEquippedItem(&self)
     {
         self.m_prevEquippedProgress.set(self.m_equippedProgress.get());
+
         let player: Rc<Entity> = self.thePlayer();
         let inventory: Rc<game::inventory::InventoryPlayer> = entity_player::inventory(&player);
         let itemstack1: Option<Rc<ItemStack>> = inventory.getCurrentItem();
         let toRender: Option<Rc<ItemStack>> = self.m_itemToRender.get();
         let mut flag: bool =
             self.m_selectedSlot.get() == inventory.m_currentItem.get() && sameStack(&itemstack1, &toRender);
+
         if toRender.is_none() && itemstack1.is_none()
         {
             flag = true;
         }
+
         if let (Some(stack), Some(current)) = (&itemstack1, &toRender)
             && !Rc::ptr_eq(stack, current)
             && stack.m_itemID.get() == current.m_itemID.get()
@@ -517,10 +596,12 @@ impl ItemRenderer
             self.m_itemToRender.set(itemstack1.clone());
             flag = true;
         }
+
         let f: f32 = 0.4;
         let f1: f32 = if flag { 1.0 } else { 0.0 };
         let f2: f32 = (f1 - self.m_equippedProgress.get()).clamp(-f, f);
         self.m_equippedProgress.set(self.m_equippedProgress.get() + f2);
+
         if self.m_equippedProgress.get() < 0.1
         {
             self.m_itemToRender.set(itemstack1);
@@ -537,15 +618,18 @@ impl ItemRenderer
 fn bowPull(player: &Rc<Entity>, stack: &Rc<ItemStack>, tickDelta: f32)
 {
     const BOW: i32 = 4;
+
     let drawing: bool = entity_player::isUsingItem(player) && stack.getItem().getItemUseAction(stack) == BOW;
     if !drawing
     {
         return;
     }
+
     GL11::glRotatef(-18.0, 0.0, 0.0, 1.0);
     GL11::glRotatef(-12.0, 0.0, 1.0, 0.0);
     GL11::glRotatef(-8.0, 1.0, 0.0, 0.0);
     GL11::glTranslatef(-0.9, 0.2, 0.0);
+
     let left: f32 = entity_player::fields(player).m_itemInUseCount.get() as f32;
     let held: f32 = stack.getItem().getMaxItemUseDuration(stack) as f32 - (left - tickDelta + 1.0);
     let draw: f32 = held / 20.0;
@@ -554,6 +638,7 @@ fn bowPull(player: &Rc<Entity>, stack: &Rc<ItemStack>, tickDelta: f32)
     {
         GL11::glTranslatef(0.0, sin((held - 0.1) * 1.3) * 0.01 * (draw - 0.1), 0.0);
     }
+
     GL11::glTranslatef(0.0, 0.0, draw * 0.1);
     GL11::glRotatef(-335.0, 0.0, 0.0, 1.0);
     GL11::glRotatef(-50.0, 0.0, 1.0, 0.0);

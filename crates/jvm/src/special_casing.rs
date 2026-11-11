@@ -20,49 +20,56 @@ struct Entry
 
 const ENTRIES: &[Entry] = &[
     Entry { m_codePoint: 0x03A3, m_lower: &[0x03C2], m_upper: &[0x03A3], m_language: None, m_condition: FINAL_CASED },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x0307,
         m_lower: &[0x0307],
         m_upper: &[],
         m_language: Some("lt"),
         m_condition: AFTER_SOFT_DOTTED,
     },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x0049,
         m_lower: &[0x0069, 0x0307],
         m_upper: &[0x0049],
         m_language: Some("lt"),
         m_condition: MORE_ABOVE,
     },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x004A,
         m_lower: &[0x006A, 0x0307],
         m_upper: &[0x004A],
         m_language: Some("lt"),
         m_condition: MORE_ABOVE,
     },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x012E,
         m_lower: &[0x012F, 0x0307],
         m_upper: &[0x012E],
         m_language: Some("lt"),
         m_condition: MORE_ABOVE,
     },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x00CC,
         m_lower: &[0x0069, 0x0307, 0x0300],
         m_upper: &[0x00CC],
         m_language: Some("lt"),
         m_condition: 0,
     },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x00CD,
         m_lower: &[0x0069, 0x0307, 0x0301],
         m_upper: &[0x00CD],
         m_language: Some("lt"),
         m_condition: 0,
     },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x0128,
         m_lower: &[0x0069, 0x0307, 0x0303],
         m_upper: &[0x0128],
@@ -71,14 +78,16 @@ const ENTRIES: &[Entry] = &[
     },
     Entry { m_codePoint: 0x0307, m_lower: &[], m_upper: &[0x0307], m_language: Some("tr"), m_condition: AFTER_I },
     Entry { m_codePoint: 0x0307, m_lower: &[], m_upper: &[0x0307], m_language: Some("az"), m_condition: AFTER_I },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x0049,
         m_lower: &[0x0131],
         m_upper: &[0x0049],
         m_language: Some("tr"),
         m_condition: NOT_BEFORE_DOT,
     },
-    Entry {
+    Entry
+    {
         m_codePoint: 0x0049,
         m_lower: &[0x0131],
         m_upper: &[0x0049],
@@ -145,11 +154,13 @@ fn lookUpTable(src: &[u16], index: usize, language: &str, lowerCasing: bool) -> 
     ENTRIES
         .iter()
         .filter(|entry| entry.m_codePoint == codePoint)
-        .find(|entry| {
+        .find(|entry|
+        {
             entry.m_language.is_none_or(|entryLanguage| entryLanguage == language)
                 && isConditionMet(src, index, entry.m_condition)
         })
-        .map(|entry| {
+        .map(|entry|
+        {
             if lowerCasing
             {
                 entry.m_lower
@@ -182,6 +193,7 @@ fn isWordBoundary(src: &[u16], index: usize) -> bool
     {
         return true;
     }
+
     !(character::isWordCharacter(character::codePointBefore(src, index))
         && character::isWordCharacter(character::codePointAt(src, index)))
 }
@@ -202,12 +214,16 @@ fn isFinalCased(src: &[u16], index: usize) -> bool
                 {
                     return false;
                 }
+
                 j += character::charCount(next);
             }
+
             return true;
         }
+
         i -= character::charCount(ch);
     }
+
     false
 }
 
@@ -227,8 +243,10 @@ fn isAfter(src: &[u16], index: usize, matches: impl Fn(i32) -> bool) -> bool
         {
             return false;
         }
+
         i -= character::charCount(ch);
     }
+
     false
 }
 
@@ -245,6 +263,7 @@ fn isMoreAbove(src: &[u16], index: usize) -> bool
             _ => i += character::charCount(ch),
         }
     }
+
     false
 }
 
@@ -263,8 +282,10 @@ fn isBeforeDot(src: &[u16], index: usize) -> bool
         {
             return false;
         }
+
         i += character::charCount(ch);
     }
+
     false
 }
 

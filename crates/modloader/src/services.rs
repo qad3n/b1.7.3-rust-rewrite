@@ -1,8 +1,10 @@
 use crate::state;
+use crate::state::ModRuntime;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{BlockPos, GuestCall, GuestReply, Handle};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, HashMap};
+use std::rc::Rc;
 
 #[derive(Clone)]
 struct Provider
@@ -21,18 +23,21 @@ struct Registry
     m_messages: Vec<(usize, String, String, Vec<u8>)>,
 }
 
-thread_local! {
+thread_local!
+{
     static REGISTRY: RefCell<Registry> = RefCell::new(Registry::default());
 }
 
 pub fn provide(modIndex: usize, name: Identifier, version: u32, handler: Handle) -> Result<(), String>
 {
-    REGISTRY.with(|registry| {
-        let mut registry = registry.borrow_mut();
+    REGISTRY.with(|registry|
+    {
+        let mut registry: RefMut<crate::services::Registry> = registry.borrow_mut();
         if let Some(existing) = registry.m_services.get(&name)
         {
             return Err(format!("service {name} is already provided by {}", state::modId(existing.m_mod)));
         }
+
         registry.m_services.insert(name, Provider { m_mod: modIndex, m_version: version, m_handler: handler });
         Ok(())
     })
@@ -46,6 +51,7 @@ fn provider(name: &Identifier, version: u32) -> Result<Provider, String>
     {
         return Err(format!("{name} is version {} but {version} is needed", provider.m_version));
     }
+
     Ok(provider)
 }
 
@@ -55,7 +61,7 @@ pub fn has(name: &Identifier, version: u32) -> bool { provider(name, version).is
 pub fn call(name: &Identifier, version: u32, method: String, args: Vec<u8>) -> Result<Vec<u8>, String>
 {
     let provider: Provider = provider(name, version)?;
-    let runtime = state::modAt(provider.m_mod).ok_or("the providing mod is gone")?;
+    let runtime: Rc<ModRuntime> = state::modAt(provider.m_mod).ok_or("the providing mod is gone")?;
     match runtime.call(&GuestCall::Service { handler: provider.m_handler, method, args })
     {
         Some(GuestReply::Bytes(bytes)) => Ok(bytes),
@@ -67,7 +73,8 @@ pub fn call(name: &Identifier, version: u32, method: String, args: Vec<u8>) -> R
 
 pub fn registerLookup(modIndex: usize, api: Identifier, block: i32, handler: Handle)
 {
-    REGISTRY.with(|registry| {
+    REGISTRY.with(|registry|
+    {
         registry
             .borrow_mut()
             .m_lookups
@@ -90,7 +97,8 @@ pub fn callLookup(
     {
         return Ok(None);
     };
-    let runtime = state::modAt(provider.m_mod).ok_or("the providing mod is gone")?;
+
+    let runtime: Rc<ModRuntime> = state::modAt(provider.m_mod).ok_or("the providing mod is gone")?;
     match runtime.call(&GuestCall::Lookup { handler: provider.m_handler, world, pos, side, method, args })
     {
         Some(GuestReply::Bytes(bytes)) => Ok(Some(bytes)),
@@ -109,6 +117,7 @@ pub fn deliverInterMod()
 {
     let messages: Vec<(usize, String, String, Vec<u8>)> =
         REGISTRY.with(|registry| std::mem::take(&mut registry.borrow_mut().m_messages));
+
     for (from, to, kind, data) in messages
     {
         let Some(target) = state::byId(&to)

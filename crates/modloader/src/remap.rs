@@ -17,7 +17,8 @@ pub const REGISTRY_FILE: &str = "registry.dat";
 pub const MISSING: &str = "loader:missing";
 const MISSING_SPRITE: i32 = 30;
 
-thread_local! {
+thread_local!
+{
     // identifier and numeric id of every placeholder, kept in the snapshot so reinstalling restores content
     static MISSING_ROWS: RefCell<BTreeMap<String, BTreeMap<Identifier, i32>>> = const { RefCell::new(BTreeMap::new()) };
     static PLACEHOLDERS: RefCell<BTreeSet<(String, i32)>> = const { RefCell::new(BTreeSet::new()) };
@@ -27,16 +28,20 @@ thread_local! {
 
 pub fn snapshot() -> RegistrySnapshot
 {
-    let mut maps: BTreeMap<String, BTreeMap<Identifier, i32>> = registry::with(|registries| {
+    let mut maps: BTreeMap<String, BTreeMap<Identifier, i32>> = registry::with(|registries|
+    {
         registries.synced().iter().map(|registry| (registry.name().to_owned(), registry.snapshot())).collect()
     });
     maps.insert(crate::states::SNAPSHOT_KEY.to_owned(), crate::states::counts());
-    MISSING_ROWS.with(|missing| {
+
+    MISSING_ROWS.with(|missing|
+    {
         for (name, rows) in missing.borrow().iter()
         {
             maps.entry(name.clone()).or_default().extend(rows.iter().map(|(id, numeric)| (id.clone(), *numeric)));
         }
     });
+
     RegistrySnapshot { registries: maps }
 }
 
@@ -62,6 +67,7 @@ fn modded(map: &BTreeMap<Identifier, i32>) -> BTreeMap<Identifier, i32>
 fn missingRows(registries: &Registries, snapshot: &RegistrySnapshot) -> BTreeMap<String, BTreeMap<Identifier, i32>>
 {
     let mut missing: BTreeMap<String, BTreeMap<Identifier, i32>> = BTreeMap::new();
+
     for registry in registries.synced()
     {
         let Some(saved) = snapshot.registries.get(registry.name())
@@ -69,17 +75,20 @@ fn missingRows(registries: &Registries, snapshot: &RegistrySnapshot) -> BTreeMap
         {
             continue;
         };
+
         for (id, numeric) in modded(saved).into_iter().filter(|(id, _)| !registry.contains(id))
         {
             missing.entry(registry.name().to_owned()).or_default().insert(id, numeric);
         }
     }
+
     missing
 }
 
 fn unregisterModded()
 {
-    let (blocks, items): (Vec<i32>, Vec<i32>) = registry::with(|registries| {
+    let (blocks, items): (Vec<i32>, Vec<i32>) = registry::with(|registries|
+    {
         (
             registries.m_blocks.modded().map(|row| row.m_numeric).collect(),
             registries.m_items.modded().map(|row| row.m_numeric).collect(),
@@ -90,16 +99,19 @@ fn unregisterModded()
         Block::unregister(id);
         Item::unregister(id);
     }
+
     for id in items
     {
         Item::unregister(id);
     }
+
     for (kind, id) in PLACEHOLDERS.with(|set| std::mem::take(&mut *set.borrow_mut()))
     {
         if kind == "block"
         {
             Block::unregister(id);
         }
+
         Item::unregister(id);
     }
 }
@@ -117,6 +129,7 @@ fn placeholders(missing: &BTreeMap<String, BTreeMap<Identifier, i32>>)
             PLACEHOLDERS.with(|set| set.borrow_mut().insert(("block".to_owned(), *numeric)));
         }
     }
+
     for numeric in missing.get("item").into_iter().flat_map(|rows| rows.values())
     {
         if Item::byId(*numeric).is_none()
@@ -135,6 +148,7 @@ pub fn rename(id: &Identifier) -> Identifier
     {
         return id.clone();
     };
+
     match runtime.m_manifest.remap.get(id.path()).and_then(|path| Identifier::new(id.namespace(), path).ok())
     {
         Some(renamed) => renamed,
@@ -160,10 +174,14 @@ pub fn apply(snapshot: &RegistrySnapshot) -> Vec<String>
         registry::with(|registries| missingRows(registries, snapshot));
     unregisterModded();
     crate::content::reset();
-    registry::with(|registries| {
-        let reserved = |name: &str| -> BTreeSet<i32> {
+
+    registry::with(|registries|
+    {
+        let reserved = |name: &str| -> BTreeSet<i32>
+        {
             snapshot.registries.get(name).map(|map| map.values().copied().collect()).unwrap_or_default()
         };
+
         let saved =
             |name: &str| -> BTreeMap<Identifier, i32> { snapshot.registries.get(name).map(modded).unwrap_or_default() };
         let mut blocks: BTreeMap<Identifier, i32> = BTreeMap::new();
@@ -173,21 +191,26 @@ pub fn apply(snapshot: &RegistrySnapshot) -> Vec<String>
             .filter(|row| row.m_value.m_block.is_some())
             .map(|row| row.m_id.clone())
             .collect();
+
         for registry in registries.syncedMut()
         {
             let mut map: BTreeMap<Identifier, i32> = saved(registry.name());
+
             // a block item follows its block, which SYNCED_ORDER reassigns first
             if registry.name() == "item"
             {
                 map.extend(blocks.iter().filter(|(id, _)| blockItems.contains(*id)).map(|(id, n)| (id.clone(), *n)));
             }
+
             registry.reassign(&map, &reserved(registry.name()));
+
             if registry.name() == "block"
             {
                 blocks = registry.snapshot();
             }
         }
     });
+
     placeholders(&missing);
     MISSING_ROWS.with(|rows| *rows.borrow_mut() = missing.clone());
     crate::lifecycle::rebuild();
@@ -203,6 +226,7 @@ pub fn preload(worldDir: &std::path::Path)
     {
         crate::state::setKeeper(false);
     }
+
     let path: std::path::PathBuf = worldDir.join(persist::LOADER_DIR).join(REGISTRY_FILE);
     let Some(saved) =
         std::fs::read(&path).ok().and_then(|bytes| persist::decode::<RegistrySnapshot>(REGISTRY_FILE, &bytes))
@@ -210,20 +234,24 @@ pub fn preload(worldDir: &std::path::Path)
     {
         return;
     };
+
     let modded: bool = saved.registries.values().flat_map(BTreeMap::keys).any(|id| !id.isVanilla());
     if !crate::state::hasMods() && modded
     {
         crate::lifecycle::keep();
     }
+
     if !crate::play::active()
     {
         return;
     }
+
     if saved != snapshot()
     {
         crate::log::debug(crate::log::LOADER, &format!("applying the id map saved in {}", worldDir.display()));
         applySaved(Some(worldDir), &saved);
     }
+
     PRELOADED.with(|preloaded| *preloaded.borrow_mut() = Some(saved));
 }
 
@@ -234,17 +262,20 @@ fn applySaved(worldDir: Option<&std::path::Path>, saved: &RegistrySnapshot)
         .iter()
         .flat_map(|(name, rows)| rows.keys().map(move |id| format!("{name} {id}")))
         .collect();
+
     if !missing.is_empty()
     {
         if let Some(dir) = worldDir
         {
             backup(dir);
         }
+
         crate::log::warn(
             crate::log::LOADER,
             &format!("this world has content from removed mods, kept as placeholders: {}", missing.join(", ")),
         );
     }
+
     apply(saved);
 }
 
@@ -252,6 +283,7 @@ fn applySaved(worldDir: Option<&std::path::Path>, saved: &RegistrySnapshot)
 pub fn onWorldLoad(world: &Rc<World>)
 {
     crate::palette::clear();
+
     let saved: Option<RegistrySnapshot> =
         persist::read(world, REGISTRY_FILE).and_then(|bytes| persist::decode(REGISTRY_FILE, &bytes));
     // the same map, as on a nether trip, needs no rebuild
@@ -260,6 +292,7 @@ pub fn onWorldLoad(world: &Rc<World>)
     {
         applySaved(persist::worldDir(world).as_deref(), saved);
     }
+
     if let Err(error) = persist::write(world, REGISTRY_FILE, &wire::encode(&snapshot()))
     {
         crate::log::error(crate::log::LOADER, &format!("could not save the registry snapshot: {error}"));
@@ -269,9 +302,11 @@ pub fn onWorldLoad(world: &Rc<World>)
 fn copyTree(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()>
 {
     std::fs::create_dir_all(to)?;
+
     for entry in std::fs::read_dir(from)?.flatten()
     {
         let target: std::path::PathBuf = to.join(entry.file_name());
+
         if entry.path().is_dir()
         {
             copyTree(&entry.path(), &target)?;
@@ -281,6 +316,7 @@ fn copyTree(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()>
             std::fs::copy(entry.path(), target)?;
         }
     }
+
     Ok(())
 }
 
@@ -292,23 +328,28 @@ fn backup(dir: &std::path::Path)
     {
         return;
     }
+
     let stamp: i64 = jvm::system::currentTimeMillis();
     let target: std::path::PathBuf = dir.with_file_name(format!(
         "{}_backup_{stamp}",
         dir.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default()
     ));
+
     match copyTree(dir, &target)
     {
         Ok(()) =>
         {
             crate::log::warn(crate::log::LOADER, &format!("world backed up to {}", target.display()));
+
             let marked: std::io::Result<()> = std::fs::create_dir_all(dir.join(persist::LOADER_DIR))
                 .and_then(|()| std::fs::write(&marker, stamp.to_string()));
+
             if let Err(error) = marked
             {
                 crate::log::warn(crate::log::LOADER, &format!("could not mark the backup: {error}"));
             }
         }
+
         Err(error) => crate::log::error(crate::log::LOADER, &format!("world backup failed: {error}")),
     }
 }
@@ -326,7 +367,8 @@ fn copyInto(from: &NBTTagCompound, to: &NBTTagCompound)
     }
 }
 
-thread_local! {
+thread_local!
+{
     static MISSING_TILE_CLASS: OnceCell<&'static TileEntityClass> = const { OnceCell::new() };
     static MISSING_ENTITY_CLASS: OnceCell<&'static EntityClass> = const { OnceCell::new() };
 }
@@ -339,20 +381,29 @@ pub fn missingTile(id: &str) -> Option<Rc<TileEntity>>
     {
         return None;
     }
-    let class: &'static TileEntityClass = MISSING_TILE_CLASS.with(|cell| {
-        *cell.get_or_init(|| {
-            crate::classes::deriveTileEntityClass(&TILE_ENTITY, MISSING, |class| {
-                class.readFromNBT = |this, nbt| {
+
+    let class: &'static TileEntityClass = MISSING_TILE_CLASS.with(|cell|
+    {
+        *cell.get_or_init(||
+        {
+            crate::classes::deriveTileEntityClass(&TILE_ENTITY, MISSING, |class|
+            {
+                class.readFromNBT = |this, nbt|
+                {
                     (TILE_ENTITY.readFromNBT)(this, nbt);
+
                     let raw: Rc<NBTBase> = NBTTagCompound::create();
                     copyInto(nbt, raw.compound());
                     *this.ext::<MissingTile>().m_raw.borrow_mut() = Some(raw);
                 };
-                class.writeToNBT = |this, nbt| {
+
+                class.writeToNBT = |this, nbt|
+                {
                     if let Some(raw) = this.ext::<MissingTile>().m_raw.borrow().as_ref()
                     {
                         copyInto(raw.compound(), nbt);
                     }
+
                     nbt.setInteger("x", this.m_xCoord.get());
                     nbt.setInteger("y", this.m_yCoord.get());
                     nbt.setInteger("z", this.m_zCoord.get());
@@ -381,17 +432,25 @@ pub fn missingEntity(key: &str, world: &Rc<World>) -> Option<Rc<Entity>>
     {
         return None;
     }
-    let class: &'static EntityClass = MISSING_ENTITY_CLASS.with(|cell| {
-        *cell.get_or_init(|| {
-            crate::classes::deriveEntityClass(&ENTITY, MISSING, |class| {
+
+    let class: &'static EntityClass = MISSING_ENTITY_CLASS.with(|cell|
+    {
+        *cell.get_or_init(||
+        {
+            crate::classes::deriveEntityClass(&ENTITY, MISSING, |class|
+            {
                 class.onUpdate = |_| {};
                 class.entityInit = |_| {};
-                class.readEntityFromNBT = |this, nbt| {
+
+                class.readEntityFromNBT = |this, nbt|
+                {
                     let raw: Rc<NBTBase> = NBTTagCompound::create();
                     copyInto(nbt, raw.compound());
                     *this.ext::<MissingEntity>().m_raw.borrow_mut() = Some(raw);
                 };
-                class.writeEntityToNBT = |this, nbt| {
+
+                class.writeEntityToNBT = |this, nbt|
+                {
                     if let Some(raw) = this.ext::<MissingEntity>().m_raw.borrow().as_ref()
                     {
                         for tag in raw.compound().getValues()
@@ -417,6 +476,6 @@ pub fn missingEntity(key: &str, world: &Rc<World>) -> Option<Rc<Entity>>
 
 pub fn missingEntityKey(entity: &Entity) -> Option<String>
 {
-    let raw = entity.m_ext.asAny().downcast_ref::<MissingEntity>()?.m_raw.borrow().clone()?;
+    let raw: Rc<NBTBase> = entity.m_ext.asAny().downcast_ref::<MissingEntity>()?.m_raw.borrow().clone()?;
     raw.compound().getString("id").map(|id| id.to_string())
 }

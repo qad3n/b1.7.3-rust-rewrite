@@ -8,8 +8,10 @@ use jvm::array_list::JArrayList;
 use jvm::random::Random;
 use std::rc::Rc;
 
-crate::vtable! {
-    BlockClass for Block {
+crate::vtable!
+{
+    BlockClass for Block
+    {
         fn blockActivated(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> bool;
         fn blockStrengthAt(world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> f32;
         fn canBlockStay(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool;
@@ -72,7 +74,8 @@ fn abstractMethod(name: &str) -> !
     jvm::throwable::throw(&jvm::throwable::ERROR, &format!("java.lang.AbstractMethodError: {name}"))
 }
 
-pub const BLOCK: BlockClass = BlockClass {
+pub const BLOCK: BlockClass = BlockClass
+{
     m_name: "Block",
     m_parent: None,
     m_interfaces: &[],
@@ -91,7 +94,8 @@ pub const BLOCK: BlockClass = BlockClass {
     dropBlockAsItemWithChance: base::dropBlockAsItemWithChance,
     getBlockBrightness: |this, world, x, y, z| world.getBrightness(x, y, z, Block::lightValue(this.m_blockID)),
     getBlockEntity: |_| abstractMethod("getBlockEntity"),
-    getBlockTexture: |this, world, x, y, z, face| {
+    getBlockTexture: |this, world, x, y, z, face|
+    {
         this.getBlockTextureFromSideAndMetadata(face, world.getBlockMetadata(x, y, z))
     },
     getBlockTextureFromSide: |this, _| this.m_blockIndexInTexture.get(),

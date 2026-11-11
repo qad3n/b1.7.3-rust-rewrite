@@ -92,6 +92,7 @@ impl State
             .filter_map(|(job, slot)| Self::age(slot).map(|age| (age, *job)))
             .min_by_key(|(age, _)| *age)
             .map(|(_, job)| job);
+
         let Some(job) = oldest
         else
         {
@@ -102,6 +103,7 @@ impl State
         {
             self.m_queue.retain(|queued| *queued != job);
         }
+
         self.m_seen.remove(&job);
         true
     }
@@ -115,6 +117,7 @@ impl State
 
         let radius: i32 = limits::PREFETCH_RADIUS;
         let mut ring: Vec<Job> = Vec::new();
+
         for dx in -radius..=radius
         {
             for dz in -radius..=radius
@@ -137,6 +140,7 @@ impl State
             }
 
             let stamp: u64 = self.stamp();
+
             self.m_seen.insert(job);
             self.m_slots.insert(job, Slot::Queued(stamp));
             self.m_queue.push_front(job);
@@ -157,16 +161,19 @@ impl Pool
     fn work(&self)
     {
         let sources: RefCell<Sources> = RefCell::new(HashMap::new());
+
         loop
         {
             let job: Job = self.next();
             let result: Result<Generated, Box<dyn std::any::Any + Send>> =
-                panic::catch_unwind(AssertUnwindSafe(|| {
+                panic::catch_unwind(AssertUnwindSafe(||
+                {
                     let mut sources: RefMut<Sources> = sources.borrow_mut();
                     if sources.len() >= limits::SOURCES && !sources.contains_key(&(job.m_kind, job.m_seed))
                     {
                         sources.clear();
                     }
+
                     sources
                         .entry((job.m_kind, job.m_seed))
                         .or_insert_with(|| source(job.m_kind, job.m_seed))
@@ -174,9 +181,11 @@ impl Pool
                 }));
 
             let mut state: MutexGuard<State> = self.lock();
+
             let slot: Slot = match result
             {
                 Ok(generated) => Slot::Done(state.stamp(), generated),
+
                 Err(_) =>
                 {
                     warning!(
@@ -197,6 +206,7 @@ impl Pool
     fn next(&self) -> Job
     {
         let mut state: MutexGuard<State> = self.lock();
+
         loop
         {
             if let Some(job) = state.m_queue.pop_front()
@@ -204,6 +214,7 @@ impl Pool
                 state.m_slots.insert(job, Slot::Running);
                 return job;
             }
+
             state = self.m_changed.wait(state).expect("terrain pool lock is never poisoned");
         }
     }
@@ -211,21 +222,25 @@ impl Pool
     fn take(&self, job: Job) -> Option<Generated>
     {
         let mut state: MutexGuard<State> = self.lock();
+
         let generated: Option<Generated> = loop
         {
             match state.m_slots.remove(&job)
             {
                 Some(Slot::Done(_, generated)) => break Some(generated),
+
                 Some(Slot::Running) =>
                 {
                     state.m_slots.insert(job, Slot::Running);
                     state = self.m_changed.wait(state).expect("terrain pool lock is never poisoned");
                 }
+
                 Some(Slot::Queued(_)) =>
                 {
                     state.m_queue.retain(|queued| *queued != job);
                     break None;
                 }
+
                 Some(Slot::Failed) | None => break None,
             }
         };
@@ -262,7 +277,9 @@ fn start() -> Option<Arc<Pool>>
     }
 
     debug!("Starting {workers} terrain workers");
+
     let pool: Arc<Pool> = Arc::new(Pool { m_state: Mutex::new(State::default()), m_changed: Condvar::new() });
+
     for i in 0..workers
     {
         let worker: Arc<Pool> = Arc::clone(&pool);
@@ -270,11 +287,13 @@ fn start() -> Option<Arc<Pool>>
             .name(format!("Terrain worker {i}"))
             .stack_size(limits::STACK_BYTES)
             .spawn(move || worker.work());
+
         if let Err(error) = spawned
         {
             warning!("Could not start terrain worker {i}: {error}");
         }
     }
+
     Some(pool)
 }
 

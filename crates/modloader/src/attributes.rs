@@ -1,6 +1,7 @@
 use crate::network::loader::{self, AttributeSync, SyncedModifier};
 use game::attribute::{Attribute, Modifier, Operation};
 use game::entity::Entity;
+use game::entity::entity_living::LivingFields;
 use mod_protocol::Identifier;
 use mod_protocol::abi::ModifierOperation;
 use std::rc::Rc;
@@ -14,13 +15,15 @@ pub fn set(
 ) -> Result<(), String>
 {
     let attribute: Attribute = attributeOf(attribute)?;
-    let living = entity.m_ext.living().ok_or("only living entities have attributes")?;
-    living.m_attributes.set(Modifier {
+    let living: &LivingFields = entity.m_ext.living().ok_or("only living entities have attributes")?;
+    living.m_attributes.set(Modifier
+    {
         m_attribute: attribute,
         m_id: modifier.to_string(),
         m_amount: amount,
         m_operation: operationOf(operation),
     });
+
     syncOwn(entity);
     Ok(())
 }
@@ -28,7 +31,7 @@ pub fn set(
 pub fn remove(entity: &Rc<Entity>, attribute: &Identifier, modifier: &Identifier) -> Result<(), String>
 {
     let attribute: Attribute = attributeOf(attribute)?;
-    let living = entity.m_ext.living().ok_or("only living entities have attributes")?;
+    let living: &LivingFields = entity.m_ext.living().ok_or("only living entities have attributes")?;
     living.m_attributes.remove(attribute, &modifier.to_string());
     syncOwn(entity);
     Ok(())
@@ -47,11 +50,13 @@ pub fn syncOwn(entity: &Rc<Entity>)
     {
         return;
     };
+
     let modifiers: Vec<SyncedModifier> = living
         .m_attributes
         .modifiers()
         .into_iter()
-        .map(|modifier| SyncedModifier {
+        .map(|modifier| SyncedModifier
+        {
             attribute: modifier.m_attribute.name().to_owned(),
             id: modifier.m_id,
             amount: modifier.m_amount,
@@ -73,11 +78,14 @@ pub fn received(message: AttributeSync)
     {
         return;
     };
+
     let modifiers: Vec<Modifier> = message
         .modifiers
         .into_iter()
-        .filter_map(|modifier| {
-            Some(Modifier {
+        .filter_map(|modifier|
+        {
+            Some(Modifier
+            {
                 m_attribute: Attribute::byName(&modifier.attribute)?,
                 m_id: modifier.id,
                 m_amount: modifier.amount,
