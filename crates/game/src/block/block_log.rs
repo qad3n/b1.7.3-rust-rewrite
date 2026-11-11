@@ -1,9 +1,20 @@
-use crate::block::{BLOCK, Block, BlockClass, Material};
+use crate::block::{BLOCK, Block, BlockClass, Material, block_leaves};
 use crate::tags::{self, Tag};
 use crate::world::World;
 use std::rc::Rc;
 
-fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
+fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) { shed(world, x, y, z); }
+
+// rewrite: a mod log in minecraft:logs lets its leaves go as beta's log does in its own removal
+pub fn removed(world: &Rc<World>, block: i32, x: i32, y: i32, z: i32)
+{
+    if block != Block::WOOD && tags::has(Tag::Logs, block)
+    {
+        shed(world, x, y, z);
+    }
+}
+
+fn shed(world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     let b0: i32 = 4;
     let i: i32 = b0 + 1;
@@ -23,9 +34,9 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
                 if tags::has(Tag::Leaves, i1)
                 {
                     let j1: i32 = world.getBlockMetadata(x + j, y + k, z + l);
-                    if (j1 & 8) == 0
+                    if !block_leaves::decaying(i1, j1)
                     {
-                        world.setBlockMetadata(x + j, y + k, z + l, j1 | 8);
+                        world.setBlockMetadata(x + j, y + k, z + l, block_leaves::marked(i1, j1));
                     }
                 }
             }

@@ -1125,6 +1125,15 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             loader::broadcastNear(loader::PARTICLE, &world, pos, &message);
         })),
 
+        HostCall::CheckLeafDecay { world: dimension, pos } => ok(
+            world(dimension).and_then(|world|
+            {
+                authoritative(&world)?;
+                Ok(game::block::block_leaves::beginDecay(&world, pos.x, pos.y, pos.z))
+            }),
+            HostReply::Bool,
+        ),
+
         HostCall::Lightning { world: dimension, pos } => unit(world(dimension).and_then(|world|
         {
             authoritative(&world)?;

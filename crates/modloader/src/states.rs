@@ -109,7 +109,12 @@ struct State
     // numeric id to the block it carries states for and which page of 16 states it is
     m_pages: HashMap<i32, (Identifier, usize)>,
     m_ids: HashMap<Identifier, Vec<i32>>,
+    // numeric id to the metadata step of its check_decay flag, read on first use
+    m_decay: HashMap<i32, Option<i32>>,
 }
+
+// the named state leaves of any mod keep beta's check decay flag in, false then true
+const CHECK_DECAY: &str = "check_decay";
 
 thread_local!
 {
@@ -199,7 +204,36 @@ pub fn clearBindings()
         let mut state: RefMut<crate::states::State> = state.borrow_mut();
         state.m_pages.clear();
         state.m_ids.clear();
+        state.m_decay.clear();
     });
+}
+
+// how far apart a block's states with check_decay false and true lie in metadata, none without the property
+pub fn decayStride(numeric: i32) -> Option<i32>
+{
+    if let Some(stride) = STATE.with(|state| state.borrow().m_decay.get(&numeric).copied())
+    {
+        return stride;
+    }
+
+    let stride: Option<i32> = measureDecay(numeric);
+    STATE.with(|state| state.borrow_mut().m_decay.insert(numeric, stride));
+    stride
+}
+
+fn measureDecay(numeric: i32) -> Option<i32>
+{
+    let state: StateData = describe(numeric, 0)?;
+    state.properties.get(CHECK_DECAY)?;
+
+    let at = |flag: &str|
+    {
+        let mut properties: BTreeMap<String, String> = state.properties.clone();
+        properties.insert(CHECK_DECAY.to_owned(), flag.to_owned());
+        resolve(&StateData { block: state.block.clone(), properties })
+    };
+    let ((idle, idleMeta), (checking, checkingMeta)) = (at("false")?, at("true")?);
+    (idle == numeric && checking == numeric && checkingMeta > idleMeta).then_some(checkingMeta - idleMeta)
 }
 
 // every numeric id a block spans, its base id first and then its hidden pages

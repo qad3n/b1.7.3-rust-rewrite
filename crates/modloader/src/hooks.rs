@@ -44,6 +44,8 @@ impl LoaderHooks for Hooks
 
     fn seat(&self, mount: &Entity) -> Option<f64> { crate::entities::seat(mount) }
 
+    fn leafDecayStride(&self, block: i32) -> Option<i32> { crate::states::decayStride(block) }
+
     fn lootCondition(&self, rule: u32, context: &game::loot::LootContext, random: &jvm::random::Random) -> bool
     {
         content::loot::check(rule, context, random)

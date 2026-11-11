@@ -46,6 +46,51 @@ fn colorMultiplier(_this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, 
     ColorizerFoliage::getFoliageColor(d, d2)
 }
 
+// beta keeps the check decay flag in bit 8, a mod's leaves may keep it in a named state the loader knows
+fn decayStride(block: i32) -> i32
+{
+    const CHECK_DECAY: i32 = 8;
+
+    crate::hooks::leafDecayStride(block).unwrap_or(CHECK_DECAY)
+}
+
+pub fn decaying(block: i32, meta: i32) -> bool { meta / decayStride(block) % 2 == 1 }
+
+// the metadata with the check decay flag set
+pub fn marked(block: i32, meta: i32) -> i32
+{
+    if decaying(block, meta)
+    {
+        return meta;
+    }
+
+    meta + decayStride(block)
+}
+
+fn cleared(block: i32, meta: i32) -> i32
+{
+    if !decaying(block, meta)
+    {
+        return meta;
+    }
+
+    meta - decayStride(block)
+}
+
+// a leaf of any mod starts checking whether a log still holds it, false when it is no leaf or already checks
+pub fn beginDecay(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
+{
+    let block: i32 = world.getBlockId(x, y, z);
+    let meta: i32 = world.getBlockMetadata(x, y, z);
+    if !tags::has(Tag::Leaves, block) || decaying(block, meta)
+    {
+        return false;
+    }
+
+    world.setBlockMetadata(x, y, z, marked(block, meta));
+    true
+}
+
 fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     let b0: i32 = 1;
@@ -66,7 +111,7 @@ fn onBlockRemoval(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
                 if tags::has(Tag::Leaves, i1)
                 {
                     let j1: i32 = world.getBlockMetadata(x + j, y + k, z + l);
-                    world.setBlockMetadata(x + j, y + k, z + l, j1 | 8);
+                    world.setBlockMetadata(x + j, y + k, z + l, marked(i1, j1));
                 }
             }
         }
@@ -80,7 +125,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
         return;
     }
     let n: i32 = world.getBlockMetadata(x, y, z);
-    if (n & 8) == 0
+    if !decaying(this.m_blockID, n)
     {
         return;
     }
@@ -159,7 +204,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, _rand
 
     if n2 >= 0
     {
-        world.setBlockMetadata(x, y, z, n & 0xFFFFFFF7u32 as i32);
+        world.setBlockMetadata(x, y, z, cleared(this.m_blockID, n));
     }
     else
     {

@@ -253,6 +253,7 @@ pub(crate) fn setBlockIDWithMetadata(
     if j != 0 && !world.m_multiplayerWorld.get()
     {
         Block::byId(j).orNpe().onBlockRemoval(&world, k, y, l);
+        crate::block::block_log::removed(&world, j, k, y, l);
     }
 
     this.data().setNibble(localX, y, localZ, metadata);
@@ -308,6 +309,7 @@ pub(crate) fn setBlockID(this: &Rc<Chunk>, localX: i32, y: i32, localZ: i32, blo
     if j != 0
     {
         Block::byId(j).orNpe().onBlockRemoval(&world, k, y, l);
+        crate::block::block_log::removed(&world, j, k, y, l);
     }
 
     this.data().setNibble(localX, y, localZ, 0);
