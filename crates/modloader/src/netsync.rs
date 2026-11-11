@@ -665,9 +665,18 @@ pub fn clientChannelIndex(id: &Identifier) -> Option<u32>
     })
 }
 
+// a channel counts as shared only when both sides speak the same version of it
+fn sameVersion(id: &Identifier, version: &str) -> bool
+{
+    network::channelInfo(id).is_some_and(|(local, _)| local == version)
+}
+
 pub fn serverHasChannel(id: &Identifier) -> bool
 {
-    CLIENT.with(|client| client.borrow().m_serverChannels.iter().any(|(channel, _)| channel == id))
+    CLIENT.with(|client|
+    {
+        client.borrow().m_serverChannels.iter().any(|(channel, version)| channel == id && sameVersion(id, version))
+    })
 }
 
 struct Connection
@@ -686,8 +695,17 @@ thread_local!
 pub fn serverPlayerJoined(player: i32, session: &ServerSession, raw: Rc<dyn Fn(u32, Vec<u8>)>)
 {
     let channels: Vec<Identifier> = session.channels().to_vec();
-    let peerChannels: Vec<Identifier> =
-        session.peer().map(|peer| peer.channels.iter().map(|entry| entry.id.clone()).collect()).unwrap_or_default();
+    let peerChannels: Vec<Identifier> = session
+        .peer()
+        .map(|peer|
+        {
+            peer.channels
+                .iter()
+                .filter(|entry| sameVersion(&entry.id, &entry.version))
+                .map(|entry| entry.id.clone())
+                .collect()
+        })
+        .unwrap_or_default();
 
     CONNECTIONS.with(|connections|
     {
