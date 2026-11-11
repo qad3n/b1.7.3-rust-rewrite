@@ -617,10 +617,16 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
         {
             for (modId, text) in sync.values
             {
-                if let Some(runtime) = state::byId(&modId)
+                let Some(runtime) = state::byId(&modId)
+                else
                 {
-                    let values: BTreeMap<String, String> = toml::from_str(&text).unwrap_or_default();
-                    runtime.m_config.borrow_mut().applySynced(values);
+                    continue;
+                };
+
+                match toml::from_str::<BTreeMap<String, String>>(&text)
+                {
+                    Ok(values) => runtime.m_config.borrow_mut().applySynced(values),
+                    Err(error) => crate::log::warn(&modId, &format!("server config could not be read: {error}")),
                 }
             }
         }
