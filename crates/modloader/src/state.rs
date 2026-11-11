@@ -4,7 +4,7 @@ use crate::manifest::Manifest;
 use crate::resolver::Problem;
 use crate::wasm::ModInstance;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{GuestCall, GuestReply};
+use mod_protocol::abi::{GuestCall, GuestReply, Lifecycle};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -93,6 +93,30 @@ impl ModRuntime
                 self.fail(reason);
                 None
             }
+        }
+    }
+
+    // a register step that returns an error leaves the content it got to, the failure goes in the load report
+    pub fn register(&self)
+    {
+        let Some(instance) = self.m_instance.as_ref().filter(|_| self.isActive())
+        else
+        {
+            return;
+        };
+
+        match instance.call(&GuestCall::Lifecycle(Lifecycle::Register(self.id().to_owned())))
+        {
+            Ok(GuestReply::Error(reason)) =>
+            {
+                crate::log::error(self.id(), &format!("register failed: {reason}"));
+                problem(self.id(), &self.m_file, &format!("register failed: {reason}"));
+            }
+
+            Ok(_) =>
+            {}
+
+            Err(reason) => self.fail(reason),
         }
     }
 

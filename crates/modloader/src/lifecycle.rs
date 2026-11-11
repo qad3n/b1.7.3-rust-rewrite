@@ -511,7 +511,7 @@ fn start(paths: &LoaderPaths)
 
     for runtime in state::mods()
     {
-        runtime.call(&GuestCall::Lifecycle(Lifecycle::Register(runtime.id().to_owned())));
+        runtime.register();
     }
 
     for (owner, reason) in crate::states::registerPages()
