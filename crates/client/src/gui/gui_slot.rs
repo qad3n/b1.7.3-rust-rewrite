@@ -138,6 +138,11 @@ impl GuiSlot
 
     pub fn setRowWidth(&self, width: i32) { self.m_halfWidth.set(width / 2); }
 
+    pub fn rowTop(&self, index: i32) -> i32
+    {
+        self.m_top + 4 - self.m_amountScrolled.get() as i32 + index * self.m_posZ + self.m_headerHeight.get()
+    }
+
     pub fn getEntryAt(self: &Rc<Self>, x: i32, y: i32) -> i32
     {
         let n: i32 = self.m_width / 2 - self.m_halfWidth.get();

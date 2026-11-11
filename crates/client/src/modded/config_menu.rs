@@ -1,4 +1,4 @@
-use super::menu::{fit, scrollWheel};
+use super::menu::{fit, rowWidth, scrollWheel, text, wrapLines};
 use crate::client::Minecraft;
 use crate::gui::
 {
@@ -19,17 +19,17 @@ mod layout
     pub const TITLE_Y: i32 = 8;
     pub const FILE_Y: i32 = 20;
     pub const TOP: i32 = 32;
-    pub const BOTTOM_MARGIN: i32 = 66;
+    pub const BOTTOM_MARGIN: i32 = 80;
     pub const ROW_HEIGHT: i32 = 24;
     pub const CONTROL_WIDTH: i32 = 120;
     pub const CONTROL_HEIGHT: i32 = 20;
     pub const STEP_WIDTH: i32 = 20;
     pub const GAP: i32 = 2;
     pub const ROW_MAX_WIDTH: i32 = 400;
-    pub const ROW_MARGIN: i32 = 30;
-    pub const INFO_Y: [i32; 3] = [62, 51, 40];
+    pub const INFO_Y: i32 = 76;
+    pub const COMMENT_LINES: usize = 2;
     pub const INFO_MARGIN: i32 = 20;
-    pub const FIELD_Y: i32 = 64;
+    pub const FIELD_Y: i32 = 77;
     pub const FIELD_MAX_WIDTH: i32 = 300;
     pub const FIELD_MAX_LENGTH: i32 = 80;
     pub const BUTTON_Y: i32 = 28;
@@ -176,12 +176,10 @@ fn controls(font: &FontRenderer, option: &ConfigOption, current: &str, x: i32) -
     }
 }
 
-fn rowWidth(width: i32) -> i32 { (width - 2 * layout::ROW_MARGIN).min(layout::ROW_MAX_WIDTH) }
-
 fn controlX(this: &GuiScreen) -> i32
 {
     let width: i32 = this.m_width.get();
-    width / 2 + rowWidth(width) / 2 - layout::GAP - layout::CONTROL_WIDTH
+    width / 2 + rowWidth(width, layout::ROW_MAX_WIDTH) / 2 - layout::GAP - layout::CONTROL_WIDTH
 }
 
 fn shifted() -> bool { Keyboard::isKeyDown(Keyboard::KEY_LSHIFT) || Keyboard::isKeyDown(Keyboard::KEY_RSHIFT) }
@@ -384,10 +382,12 @@ const CONFIG_SLOT: GuiSlotClass = GuiSlotClass
         select(&this, index);
 
         let font: Rc<FontRenderer> = this.fontRenderer();
-        let mouseX: i32 = menu(&this).m_mouse.get().0;
+        let (mouseX, mouseY): (i32, i32) = menu(&this).m_mouse.get();
+        let top: i32 = slot.rowTop(index);
+        let inside: bool = mouseY >= top && mouseY < top + layout::CONTROL_HEIGHT;
         let hit: Option<Part> = controls(&font, &option, &value(&this, &option), controlX(&this))
             .into_iter()
-            .find(|control| mouseX >= control.m_x && mouseX < control.m_x + control.m_width)
+            .find(|control| inside && mouseX >= control.m_x && mouseX < control.m_x + control.m_width)
             .map(|control| control.m_part);
 
         if let Some(part) = hit
@@ -415,24 +415,26 @@ fn drawInfo(this: &GuiScreen, font: &FontRenderer)
         return;
     };
 
-    let [labelY, commentY, detailY] = layout::INFO_Y;
+    let top: i32 = height - layout::INFO_Y;
+    let detailY: i32 = top + (layout::COMMENT_LINES as i32 + 1) * text::LINE_HEIGHT;
 
     // the edit field covers the label and comment lines while open
     if state.m_editing.borrow().is_none()
     {
-        this.m_gui.drawCenteredString(
-            font,
-            &fit(font, &config::label(&option), infoWidth),
-            center,
-            height - labelY,
-            WHITE,
-        );
-        this.m_gui.drawCenteredString(font, &fit(font, &option.comment, infoWidth), center, height - commentY, GREY);
+        this.m_gui.drawCenteredString(font, &fit(font, &config::label(&option), infoWidth), center, top, WHITE);
+
+        let comment: Vec<(String, i32)> =
+            wrapLines(font, &[(option.comment.clone(), GREY)], infoWidth, layout::COMMENT_LINES);
+
+        for (line, (text, color)) in (1..).zip(&comment)
+        {
+            this.m_gui.drawCenteredString(font, text, center, top + line * text::LINE_HEIGHT, *color);
+        }
     }
 
     let (detail, color): (String, i32) =
         state.m_message.borrow().clone().unwrap_or_else(|| (config::describe(&option), DARK_GREY));
-    this.m_gui.drawCenteredString(font, &fit(font, &detail, infoWidth), center, height - detailY, color);
+    this.m_gui.drawCenteredString(font, &fit(font, &detail, infoWidth), center, detailY, color);
 }
 
 const MOD_CONFIG: GuiScreenClass = GuiScreenClass
@@ -456,7 +458,7 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass
             height - layout::BOTTOM_MARGIN,
             layout::ROW_HEIGHT,
         );
-        slot.setRowWidth(rowWidth(width));
+        slot.setRowWidth(rowWidth(width, layout::ROW_MAX_WIDTH));
         slot.registerScrollButtons(&this.m_controlList, layout::SCROLL_UP, layout::SCROLL_DOWN);
         state.m_slot.set(Some(slot));
 
@@ -531,6 +533,19 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass
                 }
             }
         }
+    },
+
+    mouseClicked: |this, mouseX, mouseY, button|
+    {
+        let outside: bool = menu(this).m_field.borrow().as_ref().is_some_and(|field| !field.contains(mouseX, mouseY));
+
+        // a click away from the open field keeps what was typed before any button acts
+        if outside
+        {
+            commitEdit(this);
+        }
+
+        (GUI_SCREEN.mouseClicked)(this, mouseX, mouseY, button);
     },
 
     mouseMovedOrUp: |this, mouseX, mouseY, button|

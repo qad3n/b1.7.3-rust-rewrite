@@ -110,12 +110,13 @@ impl GuiTextField
 
     pub fn mouseClicked(&self, mouseX: i32, mouseY: i32, _button: i32)
     {
-        let bl: bool = self.m_isEnabled.get()
-            && mouseX >= self.m_xPos
-            && mouseX < self.m_xPos + self.m_width
-            && mouseY >= self.m_yPos
-            && mouseY < self.m_yPos + self.m_height;
+        let bl: bool = self.m_isEnabled.get() && self.contains(mouseX, mouseY);
         self.setFocused(bl);
+    }
+
+    pub fn contains(&self, x: i32, y: i32) -> bool
+    {
+        x >= self.m_xPos && x < self.m_xPos + self.m_width && y >= self.m_yPos && y < self.m_yPos + self.m_height
     }
 
     pub fn setFocused(&self, focused: bool)
