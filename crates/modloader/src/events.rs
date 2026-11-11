@@ -20,7 +20,8 @@ type Key = (EventKind, Option<Identifier>);
 #[derive(Default)]
 struct Bus
 {
-    m_listeners: HashMap<Key, Vec<Listener>>,
+    // shared so a post clones one pointer, subscribing copies the list only when a dispatch still holds it
+    m_listeners: HashMap<Key, Rc<Vec<Listener>>>,
     m_custom: HashSet<Identifier>,
 }
 
@@ -50,7 +51,7 @@ pub fn subscribe(
     BUS.with(|bus|
     {
         let mut bus: RefMut<Bus> = bus.borrow_mut();
-        let list: &mut Vec<Listener> = bus.m_listeners.entry((kind, custom)).or_default();
+        let list: &mut Vec<Listener> = Rc::make_mut(bus.m_listeners.entry((kind, custom)).or_default());
         list.push(listener);
         // priority first, then mod load order, which both sides share
         list.sort_by_key(|listener| (listener.m_priority, listener.m_mod));
@@ -67,7 +68,7 @@ pub fn hasListeners(kind: EventKind) -> bool
     BUS.with(|bus| bus.borrow().m_listeners.get(&(kind, None)).is_some_and(|list| !list.is_empty()))
 }
 
-fn listeners(key: &Key) -> Vec<Listener>
+fn listeners(key: &Key) -> Rc<Vec<Listener>>
 {
     BUS.with(|bus| bus.borrow().m_listeners.get(key).cloned().unwrap_or_default())
 }
@@ -84,13 +85,13 @@ fn deliver(listener: &Listener, envelope: &EventEnvelope) -> Option<EventEnvelop
 
 fn dispatch(key: Key, mut envelope: EventEnvelope) -> EventEnvelope
 {
-    for listener in listeners(&key)
+    for listener in listeners(&key).iter()
     {
         if envelope.canceled && !listener.m_receiveCanceled && listener.m_priority != Priority::Monitor
         {
             continue;
         }
-        let Some(changed) = deliver(&listener, &envelope)
+        let Some(changed) = deliver(listener, &envelope)
         else
         {
             continue;
@@ -144,7 +145,7 @@ pub fn removeMod(modIndex: usize)
     {
         for list in bus.borrow_mut().m_listeners.values_mut()
         {
-            list.retain(|listener| listener.m_mod != modIndex);
+            Rc::make_mut(list).retain(|listener| listener.m_mod != modIndex);
         }
     });
 }
