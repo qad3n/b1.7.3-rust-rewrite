@@ -180,6 +180,37 @@ pub fn sendToConnection(player: i32, channel: &Identifier, data: &[u8]) -> bool
     })
 }
 
+// how far vanilla's sendPacketToPlayersAroundPoint reaches
+const NEAR_RANGE: f64 = 64.0;
+
+pub enum Reach
+{
+    // a point in space, as vanilla sounds and effects measure it
+    Sphere,
+    // every player watching the chunk column, whatever their height
+    Column,
+}
+
+pub fn sendNear(channel: &Identifier, world: &game::world::World, pos: [f64; 3], reach: Reach, data: &[u8])
+{
+    for player in world.m_playerEntities.toVec()
+    {
+        let dx: f64 = player.m_posX.get() - pos[0];
+        let dz: f64 = player.m_posZ.get() - pos[2];
+
+        let dy: f64 = match reach
+        {
+            Reach::Sphere => player.m_posY.get() - pos[1],
+            Reach::Column => 0.0,
+        };
+
+        if dx * dx + dy * dy + dz * dz <= NEAR_RANGE * NEAR_RANGE
+        {
+            sendToPlayer(channel, &player, data.to_vec());
+        }
+    }
+}
+
 pub fn localPlayer() -> Option<Rc<Entity>> { ROUTER.with(|router| router.borrow().m_localPlayer.clone()) }
 
 pub fn channelInfo(id: &Identifier) -> Option<(String, ChannelDirection)>

@@ -85,16 +85,10 @@ fn send(channel: &Identifier, target: Target, data: Vec<u8>) -> Result<(), Strin
 
         Target::Tracking(dimension, pos) =>
         {
-            const RANGE_SQUARED: f64 = 64.0 * 64.0;
-
-            for player in context::world(dimension).map(|world| world.m_playerEntities.toVec()).unwrap_or_default()
+            if let Some(world) = context::world(dimension)
             {
-                let dx: f64 = player.m_posX.get() - pos.x as f64;
-                let dz: f64 = player.m_posZ.get() - pos.z as f64;
-                if dx * dx + dz * dz <= RANGE_SQUARED
-                {
-                    network::sendToPlayer(channel, &player, data.clone());
-                }
+                let center: [f64; 3] = [pos.x as f64, pos.y as f64, pos.z as f64];
+                network::sendNear(channel, &world, center, network::Reach::Column, &data);
             }
         }
     }

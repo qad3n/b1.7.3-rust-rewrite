@@ -447,25 +447,12 @@ pub fn register()
 // sends a loader message to every player near a point of a world, used for sounds and particles from mods
 pub fn broadcastNear<T: Serialize>(channel: &str, world: &Rc<game::world::World>, pos: [f64; 3], message: &T)
 {
-    const RANGE_SQUARED: f64 = 64.0 * 64.0;
-
     if !crate::side::isServer()
     {
         return;
     }
 
-    let bytes: Vec<u8> = wire::encode(message);
-    let channel: Identifier = id(channel);
-
-    for player in world.m_playerEntities.toVec()
-    {
-        let dx: f64 = player.m_posX.get() - pos[0];
-        let dz: f64 = player.m_posZ.get() - pos[2];
-        if dx * dx + dz * dz <= RANGE_SQUARED
-        {
-            super::sendToPlayer(&channel, &player, bytes.clone());
-        }
-    }
+    super::sendNear(&id(channel), world, pos, super::Reach::Sphere, &wire::encode(message));
 }
 
 // the client let go of the use key, the server's copy of the player lets go too
