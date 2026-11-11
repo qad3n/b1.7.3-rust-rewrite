@@ -1,4 +1,3 @@
-use crate::assets;
 use crate::client::Minecraft;
 use crate::render::{TILE_PIXELS, TextureFX, TextureFXFields};
 use game::entity::Entity;
@@ -14,7 +13,8 @@ use std::rc::Rc;
 
 pub(crate) fn readTile(path: &str, x: i32, y: i32, pixels: &mut [i32]) -> IoResult<()>
 {
-    let mut stream: Option<ByteArrayInputStream> = assets::getResourceAsStream(path);
+    // beta reads the dial base from the jar even with a texture pack selected
+    let mut stream: Option<ByteArrayInputStream> = game::resources::readJar(path).map(ByteArrayInputStream::new);
     let image: BufferedImage = ImageIO::read(stream.as_mut())?.orNpe();
     image.getRGBRegion(x, y, 16, 16, pixels, 0, 16);
     Ok(())

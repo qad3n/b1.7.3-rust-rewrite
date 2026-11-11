@@ -1,4 +1,3 @@
-use crate::assets;
 use crate::client::ChatAllowedCharacters;
 use crate::render::{GLAllocation, RenderEngine, Tessellator};
 use crate::settings::GameSettings;
@@ -69,7 +68,9 @@ impl FontRenderer
 {
     pub fn new(options: &GameSettings, fontPath: &str, textureManager: &RenderEngine) -> Self
     {
-        let mut stream: Option<ByteArrayInputStream> = assets::getResourceAsStream(fontPath);
+        // beta measures glyph widths from the jar font even with a texture pack selected
+        let mut stream: Option<ByteArrayInputStream> =
+            game::resources::readJar(fontPath).map(ByteArrayInputStream::new);
         let bufferedimage: BufferedImage = match ImageIO::read(stream.as_mut())
         {
             Ok(image) => image.orNpe(),

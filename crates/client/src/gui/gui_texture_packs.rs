@@ -2,8 +2,9 @@ use crate::client::Minecraft;
 use crate::gui::gui_screen::{GUI_SCREEN, GuiScreenClass};
 use crate::gui::gui_slot::{GUI_SLOT, GuiSlotClass};
 use crate::gui::{FontRenderer, GuiButton, GuiScreen, GuiSlot};
-use crate::render::{Tessellator, TexturePackBase, TexturePackFields, TexturePackList};
+use crate::render::{Tessellator, TexturePack, TexturePackList};
 use game::locale::StringTranslate;
+use game::resources::Pack;
 use jvm::field::Field;
 use jvm::throwable::OrNpe;
 use lwjgl::Sys;
@@ -30,14 +31,14 @@ struct TexturePackSlotExt
 
 fn screen(slot: &GuiSlot) -> Rc<GuiScreen> { slot.ext::<TexturePackSlotExt>().m_screen.upgrade().orNpe() }
 
-fn packs(slot: &GuiSlot) -> Vec<Rc<dyn TexturePackBase>> { texturePackList(&screen(slot).mc()).availableTexturePacks() }
+fn packs(slot: &GuiSlot) -> Vec<Rc<TexturePack>> { texturePackList(&screen(slot).mc()).availableTexturePacks() }
 
 fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, tesselator: &Rc<Tessellator>)
 {
     let this: Rc<GuiScreen> = screen(slot);
     let mc: Rc<Minecraft> = this.mc();
-    let texturePackBase: Rc<dyn TexturePackBase> = packs(slot)[index as usize].clone();
-    texturePackBase.bindThumbnailTexture(&mc);
+    let texturePack: Rc<TexturePack> = packs(slot)[index as usize].clone();
+    texturePack.bindThumbnail(&mc);
     GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
     tesselator.startDrawingQuads();
     tesselator.setColorOpaque_I(0xFFFFFF);
@@ -48,18 +49,19 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, height: i32, tessela
     tesselator.draw();
 
     let font: Rc<FontRenderer> = this.fontRenderer();
-    let pack: &TexturePackFields = texturePackBase.pack();
-    let lines: [(Option<String>, i32, i32); 3] = [
-        (pack.m_texturePackFileName.get(), 1, 0xFFFFFF),
-        (pack.m_firstDescriptionLine.get(), 12, 0x808080),
-        (pack.m_secondDescriptionLine.get(), 12 + 10, 0x808080),
+    let pack: &Pack = texturePack.pack();
+    let description: &[String] = pack.description();
+    let lines: [(Option<&str>, i32, i32); 3] = [
+        (Some(pack.name()), 1, 0xFFFFFF),
+        (description.first().map(String::as_str), 12, 0x808080),
+        (description.get(1).map(String::as_str), 12 + 10, 0x808080),
     ];
 
     for (line, offset, color) in lines
     {
         if let Some(line) = line
         {
-            this.m_gui.drawString(&font, &line, x + 32 + 2, y + offset, color);
+            this.m_gui.drawString(&font, line, x + 32 + 2, y + offset, color);
         }
     }
 }
@@ -73,14 +75,14 @@ const TEXTURE_PACK_SLOT: GuiSlotClass = GuiSlotClass
     elementClicked: |slot, index, _|
     {
         let mc: Rc<Minecraft> = screen(slot).mc();
-        let list: Vec<Rc<dyn TexturePackBase>> = packs(slot);
+        let list: Vec<Rc<TexturePack>> = packs(slot);
         texturePackList(&mc).setTexturePack(&list[index as usize]);
         mc.m_renderEngine.get().orNpe().refreshTextures();
     },
 
     isSelected: |slot, index|
     {
-        let list: Vec<Rc<dyn TexturePackBase>> = packs(slot);
+        let list: Vec<Rc<TexturePack>> = packs(slot);
         texturePackList(&screen(slot).mc())
             .m_selectedTexturePack
             .get()

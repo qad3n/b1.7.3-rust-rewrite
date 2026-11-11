@@ -1,11 +1,8 @@
-use crate::render::
-{
-    GLAllocation, ImageBuffer, TextureFX, TextureFXFields, TexturePackBase, TexturePackList, ThreadDownloadImageData,
-};
+use crate::render::{GLAllocation, ImageBuffer, TextureFX, TextureFXFields, ThreadDownloadImageData};
 use crate::settings::GameSettings;
 use jvm::hash_map::JHashMap;
 use jvm::image::{BufferedImage, Color, Graphics, ImageIO};
-use jvm::io::{InputStream, IoResult};
+use jvm::io::{ByteArrayInputStream, InputStream, IoResult};
 use jvm::throwable::OrNpe;
 use lwjgl::buffers::{ByteBuffer, IntBuffer};
 use lwjgl::opengl::{GL11, TextureScale};
@@ -92,9 +89,9 @@ fn readColors(image: &BufferedImage) -> Vec<i32>
     colors
 }
 
-fn readTextureImage(stream: Option<Box<dyn InputStream>>) -> IoResult<Rc<BufferedImage>>
+fn readTextureImage(bytes: Option<Vec<u8>>) -> IoResult<Rc<BufferedImage>>
 {
-    let mut stream: Option<Box<dyn InputStream>> = stream;
+    let mut stream: Option<ByteArrayInputStream> = bytes.map(ByteArrayInputStream::new);
     let image: Option<BufferedImage> = ImageIO::read(stream.as_mut())?;
 
     stream.orNpe().close()?;
@@ -128,7 +125,6 @@ pub struct RenderEngine
     m_options: Option<Rc<GameSettings>>,
     m_clampTexture: Cell<bool>,
     m_blurTexture: Cell<bool>,
-    m_texturePack: Rc<TexturePackList>,
     m_missingTextureImage: Rc<BufferedImage>,
 }
 
@@ -138,7 +134,7 @@ impl RenderEngine
 
     pub fn setUseMipmaps(value: bool) { USE_MIPMAPS.with(|flag| flag.set(value)); }
 
-    pub fn new(texturePacks: &Rc<TexturePackList>, options: Option<Rc<GameSettings>>) -> Rc<Self>
+    pub fn new(options: Option<Rc<GameSettings>>) -> Rc<Self>
     {
         let missing: BufferedImage =
             BufferedImage::new(MISSING_TEXTURE_SIZE, MISSING_TEXTURE_SIZE, BufferedImage::TYPE_INT_ARGB);
@@ -161,42 +157,39 @@ impl RenderEngine
             m_options: options,
             m_clampTexture: Cell::new(false),
             m_blurTexture: Cell::new(false),
-            m_texturePack: Rc::clone(texturePacks),
             m_missingTextureImage: Rc::new(missing),
         })
     }
 
     fn anaglyph(&self) -> bool { self.m_options.as_ref().is_some_and(|options| options.m_anaglyph.get()) }
 
-    fn loadImage(
-        &self,
-        pack: &Rc<dyn TexturePackBase>,
-        path: &str,
-        missingFallback: bool,
-    ) -> IoResult<Rc<BufferedImage>>
+    fn loadImage(&self, path: &str, missingFallback: bool) -> IoResult<Rc<BufferedImage>>
     {
         match textureKind(path)
         {
-            TextureKind::Columns(rest) => Ok(unwrapImageByColumns(&*readTextureImage(pack.getResourceAsStream(rest))?)),
+            TextureKind::Columns(rest) =>
+            {
+                Ok(unwrapImageByColumns(&*readTextureImage(game::resources::readBeta(rest))?))
+            }
 
             TextureKind::Clamp(rest) =>
             {
                 self.m_clampTexture.set(true);
-                readTextureImage(pack.getResourceAsStream(rest))
+                readTextureImage(game::resources::readBeta(rest))
             }
 
             TextureKind::Blur(rest) =>
             {
                 self.m_blurTexture.set(true);
-                readTextureImage(pack.getResourceAsStream(rest))
+                readTextureImage(game::resources::readBeta(rest))
             }
 
-            TextureKind::Plain(rest) => match pack.getResourceAsStream(rest)
+            TextureKind::Plain(rest) => match game::resources::readBeta(rest)
             {
                 // mod textures under /mods/ come from the mod files, terrain and item sheets get mod sprites painted in
                 None if rest.starts_with("/mods/") => match modloader::play::modAsset(rest)
                 {
-                    Some(bytes) => readTextureImage(Some(Box::new(jvm::io::ByteArrayInputStream::new(bytes)))),
+                    Some(bytes) => readTextureImage(Some(bytes)),
                     None if missingFallback => Ok(Rc::clone(&self.m_missingTextureImage)),
                     None => readTextureImage(None),
                 },
@@ -230,8 +223,7 @@ impl RenderEngine
             return Rc::clone(colors);
         }
 
-        let pack: Rc<dyn TexturePackBase> = self.m_texturePack.selected();
-        let colors: Vec<i32> = match self.loadImage(&pack, path, true)
+        let colors: Vec<i32> = match self.loadImage(path, true)
         {
             Ok(image) =>
             {
@@ -266,10 +258,9 @@ impl RenderEngine
             return *texture;
         }
 
-        let pack: Rc<dyn TexturePackBase> = self.m_texturePack.selected();
         let j: i32 = self.generateTextureName();
 
-        let texture: i32 = match self.loadImage(&pack, path, true)
+        let texture: i32 = match self.loadImage(path, true)
         {
             Ok(image) =>
             {
@@ -650,7 +641,6 @@ impl RenderEngine
 
     pub fn refreshTextures(&self)
     {
-        let pack: Rc<dyn TexturePackBase> = self.m_texturePack.selected();
         let images: Vec<(i32, Rc<BufferedImage>)> = self.m_textureNameToImageMap.borrow().entries();
         for (id, image) in images
         {
@@ -667,7 +657,7 @@ impl RenderEngine
 
         for (path, id) in textures
         {
-            match self.loadImage(&pack, &path, false)
+            match self.loadImage(&path, false)
             {
                 Ok(image) =>
                 {
@@ -686,7 +676,7 @@ impl RenderEngine
 
         for (path, colors) in colors
         {
-            match self.loadImage(&pack, &path, false)
+            match self.loadImage(&path, false)
             {
                 Ok(image) =>
                 {

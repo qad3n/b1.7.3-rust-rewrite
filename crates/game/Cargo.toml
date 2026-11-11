@@ -8,6 +8,7 @@ publish.workspace = true
 auth = { path = "../auth" }
 common = { path = "../common" }
 jvm = { path = "../jvm" }
+serde_json = "1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [lints]

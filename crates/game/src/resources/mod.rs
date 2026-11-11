@@ -5,19 +5,40 @@ mod source;
 mod stack;
 
 pub(crate) use location::{Location, MINECRAFT};
-pub(crate) use pack::Pack;
+pub use pack::{Layout, Pack};
 pub use source::Source;
 pub(crate) use stack::Stack;
+use std::cell::RefCell;
+use std::rc::Rc;
+
+const VANILLA_NAME: &str = "Default";
+const VANILLA_DESCRIPTION: &str = "The default look of Minecraft";
 
 thread_local!
 {
-    static STACK: Stack = vanilla();
+    static VANILLA: Rc<Pack> = Rc::new(Pack::new(
+        VANILLA_NAME,
+        &[VANILLA_DESCRIPTION],
+        Layout::Jar,
+        Source::Folder(crate::port::assetRoot()),
+    ));
+    static STACK: RefCell<Stack> = RefCell::new(Stack::new(vec![vanilla()]));
 }
 
 // the user's extracted b1.7.3 jar read in place
-fn vanilla() -> Stack { Stack::new(vec![Pack::new(Source::Folder(crate::port::assetRoot()))]) }
+pub fn vanilla() -> Rc<Pack> { VANILLA.with(Rc::clone) }
 
-pub(crate) fn read(location: &Location) -> Option<Vec<u8>> { STACK.with(|stack| stack.read(location)) }
+// texture packs above the vanilla jar, lowest first
+pub fn install(packs: &[Rc<Pack>])
+{
+    let stack: Vec<Rc<Pack>> = std::iter::once(vanilla()).chain(packs.iter().cloned()).collect();
+    STACK.with(|current| *current.borrow_mut() = Stack::new(stack));
+}
+
+pub(crate) fn read(location: &Location) -> Option<Vec<u8>> { STACK.with(|stack| stack.borrow().read(location)) }
 
 // a jar path such as /lang/en_US.lang
 pub fn readBeta(path: &str) -> Option<Vec<u8>> { read(&legacy::location(path)) }
+
+// beta read some files from the jar even with a texture pack selected
+pub fn readJar(path: &str) -> Option<Vec<u8>> { vanilla().read(&legacy::location(path)) }

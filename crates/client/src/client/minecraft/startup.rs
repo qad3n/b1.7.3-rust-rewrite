@@ -118,7 +118,7 @@ impl Minecraft
         let packs: Rc<TexturePackList> = TexturePackList::new(&this, &dataDir);
         self.m_texturePackList.set(Some(Rc::clone(&packs)));
 
-        let engine: Rc<RenderEngine> = RenderEngine::new(&packs, Some(Rc::clone(&settings)));
+        let engine: Rc<RenderEngine> = RenderEngine::new(Some(Rc::clone(&settings)));
         self.m_renderEngine.set(Some(Rc::clone(&engine)));
         self.m_fontRenderer.set(Some(Rc::new(FontRenderer::new(&settings, "/font/default.png", &engine))));
         ColorizerWater::set(engine.getColors("/misc/watercolor.png"));
