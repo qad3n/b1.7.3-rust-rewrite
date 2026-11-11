@@ -315,6 +315,12 @@ fn added(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     (blockParent(this).onBlockAdded)(this, world, x, y, z);
 
+    // a template that cannot stay, as a torch on nothing, already dropped the block
+    if world.getBlockId(x, y, z) != this.m_blockID
+    {
+        return;
+    }
+
     if !SWAPPING.with(Cell::get)
     {
         world.setBlockTileEntity(x, y, z, &this.getBlockEntity());
