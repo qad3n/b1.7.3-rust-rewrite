@@ -17,6 +17,7 @@ pub mod events;
 pub mod extensions;
 pub mod gameevents;
 pub mod gamelog;
+pub mod gamerules;
 pub mod hooks;
 pub mod host;
 pub mod keybinds;

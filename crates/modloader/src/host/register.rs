@@ -149,6 +149,12 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::attributes::register(id, spec)))
         }
+        HostCall::RegisterGameRule { name, spec } =>
+        {
+            unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::gamerules::register(id, spec)))
+        }
+        HostCall::GameRule { rule } => ok(crate::gamerules::value(&rule), |reply| reply),
+        HostCall::SetGameRule { rule, value } => unit(crate::gamerules::set(&rule, value)),
         HostCall::RegisterFluid { name, spec } => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::fluids::register(id, spec)),
         ),
