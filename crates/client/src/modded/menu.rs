@@ -572,7 +572,7 @@ pub fn addModsButton(screen: &GuiScreen, x: i32, y: i32)
     }
 }
 
-// the title screen line above the copyright, how many mods loaded
+// the title screen line above the copyright, the loader version and how many mods loaded
 pub fn drawModCount(screen: &GuiScreen, font: &FontRenderer)
 {
     if !modloader::play::present()
@@ -585,7 +585,8 @@ pub fn drawModCount(screen: &GuiScreen, font: &FontRenderer)
     const RIGHT: i32 = 2;
 
     let count: usize = state::mods().len();
-    let text: String = format!("{count} {} loaded.", if count == 1 { "mod" } else { "mods" });
+    let noun: &str = if count == 1 { "mod" } else { "mods" };
+    let text: String = format!("Modloader v{}. {count} {noun} loaded.", modloader::LOADER_VERSION);
     let x: i32 = screen.m_width.get() - font.getStringWidth(&text) - RIGHT;
     screen.m_gui.drawString(font, &text, x, screen.m_height.get() - BOTTOM, WHITE);
 }
