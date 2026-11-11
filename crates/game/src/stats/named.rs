@@ -66,9 +66,16 @@ thread_local!
     static TOASTS: RefCell<Vec<Rc<ModAchievement>>> = const { RefCell::new(Vec::new()) };
 }
 
-// beta's stat when the block or item has one, otherwise a named stat for mod content only
+// mod content counts under its registry name so only vanilla content reaches beta's numeric stat arrays
 pub fn count(player: &Rc<Entity>, kind: ContentStat, id: i32, amount: i32)
 {
+    if let Some(name) = modName(kind, id)
+    {
+        player.addStat(None, amount);
+        add(player, &format!("{}/{name}", kind.name()), amount);
+        return;
+    }
+
     let stat: Option<Rc<StatBase>> = match kind
     {
         ContentStat::Mined => StatList::mineBlockStat(id),
@@ -76,21 +83,7 @@ pub fn count(player: &Rc<Entity>, kind: ContentStat, id: i32, amount: i32)
         ContentStat::Used => StatList::itemsUsed(id),
         ContentStat::Broken => StatList::itemsBroken(id),
     };
-    if stat.is_some()
-    {
-        player.addStat(stat.as_ref(), amount);
-        return;
-    }
-
-    player.addStat(None, amount);
-
-    let Some(name) = modName(kind, id)
-    else
-    {
-        return;
-    };
-
-    add(player, &format!("{}/{name}", kind.name()), amount);
+    player.addStat(stat.as_ref(), amount);
 }
 
 // only mods name content outside minecraft, so vanilla blocks without a beta stat stay uncounted
