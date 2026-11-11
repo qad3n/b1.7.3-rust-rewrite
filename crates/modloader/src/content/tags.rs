@@ -74,6 +74,16 @@ pub fn contains(registry: RegistryKind, tag: &Identifier, value: &Identifier) ->
     resolved(registry, tag, &mut Vec::new()).contains_key(value)
 }
 
+// every tag of the registry that resolves to hold the value
+pub fn of(registry: RegistryKind, value: &Identifier) -> Vec<Identifier>
+{
+    let keys: Vec<Key> = TAGS.with(|tags| tags.borrow().keys().cloned().collect());
+    keys.into_iter()
+        .filter(|(kind, tag)| *kind == registry && contains(registry, tag, value))
+        .map(|(_, tag)| tag)
+        .collect()
+}
+
 pub fn hash() -> String
 {
     let text: String = table();

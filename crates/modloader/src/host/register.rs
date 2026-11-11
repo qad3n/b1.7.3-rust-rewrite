@@ -162,6 +162,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
 
         HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
+        HostCall::TagsOf { registry, id } => HostReply::Ids(tags::of(registry, &id)),
 
         HostCall::RegisterWorldgen { name, spec } =>
         {
