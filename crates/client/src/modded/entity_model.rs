@@ -252,6 +252,15 @@ pub(crate) fn glOp(op: &ModelOp, overlay: bool)
         ModelOp::Quads(vertices) => drawQuads(vertices),
         ModelOp::Item { stack, brightness } if !overlay => super::stack_draw::draw(stack, *brightness),
         ModelOp::Normal([x, y, z]) => GL11::glNormal3f(*x, *y, *z),
+        ModelOp::DepthMask(on) => GL11::glDepthMask(*on),
+
+        ModelOp::Text { text, x, y, color } if !overlay =>
+        {
+            if let Some(font) = RenderManager::instance().getFontRenderer()
+            {
+                font.drawString(text, *x, *y, *color as i32);
+            }
+        }
 
         ModelOp::Lighting(on) if !overlay =>
         {
