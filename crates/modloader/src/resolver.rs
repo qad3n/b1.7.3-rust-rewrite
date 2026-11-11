@@ -227,10 +227,16 @@ fn checkRelations(resolver: &mut Resolver<'_>, active: &BTreeSet<usize>) -> BTre
 
         for (broken, range) in &manifest.breaks
         {
-            let Ok(requirement) = versionReq(range)
-            else
+            let requirement: VersionReq = match versionReq(range)
             {
-                continue;
+                Ok(requirement) => requirement,
+
+                Err(reason) =>
+                {
+                    resolver.problem(index, reason);
+                    failed.insert(index);
+                    continue;
+                }
             };
 
             if let Some(other) = findProvider(resolver.m_candidates, active, broken)
