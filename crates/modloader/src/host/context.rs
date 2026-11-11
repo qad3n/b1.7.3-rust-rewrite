@@ -60,9 +60,15 @@ pub fn blockCtx(world: &Rc<World>, block: i32, x: i32, y: i32, z: i32) -> BlockC
     }
 }
 
+// a dead player on the death screen leaves the loaded list but stays a player of the world
 pub fn entityById(world: &World, id: i32) -> Option<Rc<Entity>>
 {
-    world.m_loadedEntityList.with(|entities| entities.iter().find(|entity| entity.m_entityId.get() == id).cloned())
+    let loaded: Option<Rc<Entity>> =
+        world.m_loadedEntityList.with(|entities| entities.iter().find(|entity| entity.m_entityId.get() == id).cloned());
+    loaded.or_else(||
+    {
+        world.m_playerEntities.with(|players| players.iter().find(|player| player.m_entityId.get() == id).cloned())
+    })
 }
 
 // entity ids are unique across worlds, so an entity the guest placed in the wrong dimension is still found
