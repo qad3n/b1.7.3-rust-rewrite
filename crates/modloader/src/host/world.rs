@@ -1085,7 +1085,19 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 
         HostCall::SetInventorySlot { player: id, slot, stack } => unit(player(id).map(|player|
         {
-            entity_player::inventory(&player).setInventorySlotContents(slot, stack.as_ref().and_then(stackFrom));
+            let inventory: Rc<InventoryPlayer> = entity_player::inventory(&player);
+
+            // a new stack object makes the held item replay its equip animation so the same item is changed in place
+            if let (Some(current), Some(data)) = (inventory.getStackInSlot(slot), stack.as_ref())
+                && data.id == current.m_itemID.get()
+                && data.count > 0
+            {
+                current.m_stackSize.set(data.count);
+                current.setItemDamage(data.damage);
+                return;
+            }
+
+            inventory.setInventorySlotContents(slot, stack.as_ref().and_then(stackFrom));
         })),
 
         HostCall::CursorStack { player: id } => ok(player(id), |player|
