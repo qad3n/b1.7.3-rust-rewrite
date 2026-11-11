@@ -111,7 +111,8 @@ impl Resolver<'_>
     }
 }
 
-// one id may come from two files only when one of them provides it, then the higher version wins
+// one id may come from two files only when a mod owns it and another provides it, then the higher version wins
+// two providers with no owner are rival implementations, both are refused so the player picks one
 fn pickDuplicates(resolver: &mut Resolver<'_>, active: &mut BTreeSet<usize>)
 {
     let mut owners: BTreeMap<String, Vec<usize>> = BTreeMap::new();
@@ -127,13 +128,21 @@ fn pickDuplicates(resolver: &mut Resolver<'_>, active: &mut BTreeSet<usize>)
         }
     }
 
-    for (id, indices) in owners.into_iter().filter(|(_, indices)| indices.len() > 1)
+    for (id, indices) in owners
     {
-        let provider: Option<usize> =
-            indices.iter().copied().find(|index| resolver.m_candidates[*index].m_manifest.provides.contains(&id));
+        // an earlier group may already have refused some of these files
+        let indices: Vec<usize> = indices.into_iter().filter(|index| active.contains(index)).collect();
+        if indices.len() < 2
+        {
+            continue;
+        }
+
+        let owned: bool = indices.iter().any(|index| resolver.m_candidates[*index].m_manifest.id == id);
+        let provided: bool =
+            indices.iter().any(|index| resolver.m_candidates[*index].m_manifest.provides.contains(&id));
         let files: Vec<String> = indices.iter().map(|index| resolver.m_candidates[*index].m_file.clone()).collect();
 
-        if provider.is_some()
+        if owned && provided
         {
             let best: usize = *indices
                 .iter()
@@ -144,18 +153,24 @@ fn pickDuplicates(resolver: &mut Resolver<'_>, active: &mut BTreeSet<usize>)
             {
                 resolver.problem(
                     index,
-                    format!("'{id}' is also provided by a newer version in {}", resolver.m_candidates[best].m_file),
+                    format!("'{id}' also comes from {}, which wins by version", resolver.m_candidates[best].m_file),
                 );
                 active.remove(&index);
             }
+
+            continue;
         }
-        else
+
+        let reason: String = match owned
         {
-            for index in indices
-            {
-                resolver.problem(index, format!("mod id '{id}' is used by several files: {}", files.join(", ")));
-                active.remove(&index);
-            }
+            true => format!("mod id '{id}' is used by several files: {}", files.join(", ")),
+            false => format!("'{id}' is provided by several mods, keep one of: {}", files.join(", ")),
+        };
+
+        for index in indices
+        {
+            resolver.problem(index, reason.clone());
+            active.remove(&index);
         }
     }
 }
