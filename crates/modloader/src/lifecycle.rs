@@ -6,13 +6,16 @@ use crate::paths::LoaderPaths;
 use crate::registry::{self, BlockEntry, ItemEntry, RecipeEntry, RegistryError, Row};
 use crate::resolver::{self, Candidate, Problem, Resolution};
 use crate::state::{self, ModRuntime, Phase};
+use crate::unify::{OreRow, Unified};
 use crate::wasm::ModInstance;
 use crate::{atlas, dimensions, events, log, services, side, tiles};
 use game::resources::{Layout, Location, Pack, Source};
 use jvm::logging::took;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{EventData, EventKind, GuestCall, Handle, Lifecycle};
+use mod_protocol::spec::{WorldgenKind, WorldgenSpec};
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Instant;
@@ -321,12 +324,39 @@ fn applyRecipes()
 
 fn applyWorldgen()
 {
-    for (owner, id, spec) in crate::unify::worldgen(WORLDGEN.with(|list| list.borrow().clone()))
+    let list: Vec<(String, Identifier, WorldgenSpec)> = WORLDGEN.with(|list| list.borrow().clone());
+    let mut rows: Vec<OreRow> = list
+        .iter()
+        .map(|(owner, id, spec)| OreRow
+        {
+            m_owner: owner.clone(),
+            m_id: id.clone(),
+            m_block: spec.block.clone(),
+            m_dimension: spec.dimension.clone(),
+            m_ore: spec.kind == WorldgenKind::Ore,
+        })
+        .collect();
+    rows.extend(content::features::oreRows());
+    let decisions: BTreeMap<Identifier, Unified> = crate::unify::worldgen(&rows);
+
+    for (owner, id, mut spec) in list
     {
+        match decisions.get(&id)
+        {
+            Some(Unified::Skip) => continue,
+            Some(Unified::Place(target)) => spec.block = target.clone(),
+            None => (),
+        }
+
         if let Err(reason) = content::worldgen::add(&id, &spec)
         {
             fail(&owner, format!("worldgen for {}: {reason}", spec.block));
         }
+    }
+
+    for (owner, reason) in content::features::resolve(&decisions)
+    {
+        fail(&owner, reason);
     }
 }
 

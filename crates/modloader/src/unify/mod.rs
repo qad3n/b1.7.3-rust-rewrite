@@ -9,7 +9,7 @@ use game::item::ItemStack;
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::identifier::MINECRAFT;
-use mod_protocol::spec::{IngredientSpec, RecipeSpec, StackSpec, WorldgenKind, WorldgenSpec};
+use mod_protocol::spec::{IngredientSpec, RecipeSpec, StackSpec};
 use serde::Deserialize;
 use std::cell::RefCell;
 use std::cmp::Reverse;
@@ -483,8 +483,25 @@ pub fn recipe(mut spec: RecipeSpec) -> RecipeSpec
     spec
 }
 
+// one feature's placed block as unification sees it
+pub struct OreRow
+{
+    pub m_owner: String,
+    pub m_id: Identifier,
+    pub m_block: Identifier,
+    pub m_dimension: Identifier,
+    pub m_ore: bool,
+}
+
+// what unification does to a feature, features left out keep their block
+pub enum Unified
+{
+    Skip,
+    Place(Identifier),
+}
+
 // ore veins of one group generate once per dimension with the preferred block, so merged mods add no extra ore
-pub fn worldgen(list: Vec<(String, Identifier, WorldgenSpec)>) -> Vec<(String, Identifier, WorldgenSpec)>
+pub fn worldgen(rows: &[OreRow]) -> BTreeMap<Identifier, Unified>
 {
     let (dedupe, blocks, groups): (bool, BTreeMap<Identifier, Identifier>, BTreeMap<Identifier, Identifier>) = TABLE
         .with(|table|
@@ -493,48 +510,45 @@ pub fn worldgen(list: Vec<(String, Identifier, WorldgenSpec)>) -> Vec<(String, I
             let dedupe: bool = table.m_settings.as_ref().is_some_and(|settings| settings.dedupe_ore_worldgen);
             (dedupe, table.m_blocks.clone(), table.m_blockGroups.clone())
         });
+    let group = |row: &OreRow| groups.get(&row.m_block).filter(|_| dedupe && row.m_ore);
 
     // the feature already placing the preferred block keeps its slot, otherwise the first one listed
     let mut kept: BTreeMap<(Identifier, Identifier), Identifier> = BTreeMap::new();
-    let mut sorted: Vec<&(String, Identifier, WorldgenSpec)> = list.iter().collect();
-    sorted.sort_by_key(|(_, _, spec)| blocks.contains_key(&spec.block));
+    let mut sorted: Vec<&OreRow> = rows.iter().collect();
+    sorted.sort_by_key(|row| blocks.contains_key(&row.m_block));
 
-    for (_, id, spec) in &sorted
+    for row in &sorted
     {
-        let Some(group) = groups.get(&spec.block).filter(|_| dedupe && spec.kind == WorldgenKind::Ore)
-        else
+        if let Some(group) = group(row)
         {
-            continue;
-        };
-
-        kept.entry((group.clone(), spec.dimension.clone())).or_insert_with(|| id.clone());
+            kept.entry((group.clone(), row.m_dimension.clone())).or_insert_with(|| row.m_id.clone());
+        }
     }
 
-    list.into_iter()
-        .filter_map(|(owner, id, mut spec)|
+    let mut decisions: BTreeMap<Identifier, Unified> = BTreeMap::new();
+
+    for row in rows
+    {
+        if let Some(group) = group(row)
+            && let Some(winner) = kept.get(&(group.clone(), row.m_dimension.clone()))
+            && *winner != row.m_id
         {
-            let group: Option<&Identifier> =
-                groups.get(&spec.block).filter(|_| dedupe && spec.kind == WorldgenKind::Ore);
-            if let Some(group) = group
-                && let Some(winner) = kept.get(&(group.clone(), spec.dimension.clone()))
-                && *winner != id
-            {
-                log::warn(
-                    UNIFY,
-                    &format!("ore feature {id} of {owner} is skipped, {winner} already generates {group}"),
-                );
-                return None;
-            }
+            log::warn(
+                UNIFY,
+                &format!("ore feature {} of {} is skipped, {winner} already generates {group}", row.m_id, row.m_owner),
+            );
+            decisions.insert(row.m_id.clone(), Unified::Skip);
+            continue;
+        }
 
-            if let Some(target) = blocks.get(&spec.block)
-            {
-                log::info(UNIFY, &format!("ore feature {id} places {target} instead of {}", spec.block));
-                spec.block = target.clone();
-            }
+        if let Some(target) = blocks.get(&row.m_block)
+        {
+            log::info(UNIFY, &format!("ore feature {} places {target} instead of {}", row.m_id, row.m_block));
+            decisions.insert(row.m_id.clone(), Unified::Place(target.clone()));
+        }
+    }
 
-            Some((owner, id, spec))
-        })
-        .collect()
+    decisions
 }
 
 // turns a stack into its preferred member in place, true when it changed

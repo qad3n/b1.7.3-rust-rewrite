@@ -2,6 +2,7 @@ pub mod accessories;
 pub mod blocks;
 pub mod data;
 pub mod effects;
+pub mod features;
 pub mod fluids;
 pub mod harvest;
 pub mod items;
@@ -156,6 +157,7 @@ pub fn reset()
     TABLES.with(|tables| *tables.borrow_mut() = Tables::default());
     crate::states::clearBindings();
     worldgen::clear();
+    features::clear();
     recipes::removeModded();
 }
 

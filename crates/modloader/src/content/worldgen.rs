@@ -24,7 +24,7 @@ thread_local!
 }
 
 // FNV-1a over the identifier, the same on every machine and every run
-fn stableKey(id: &Identifier) -> i64
+pub(crate) fn stableKey(id: &Identifier) -> i64
 {
     const OFFSET: u64 = 0xCBF29CE484222325;
     const PRIME: u64 = 0x0100000001B3;

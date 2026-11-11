@@ -11,7 +11,7 @@ use std::time::Instant;
 // console and op tools for checking ported content without a client: generate terrain, map it, read columns
 pub const COMMAND: &str = "loader";
 const TEMPLATE_FOLDER: &str = "texturepacks/vanilla_template";
-const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player> | spawns <dim> <monster|creature|water> <x> <y> <z> | structures <dim> | structure <dim> <x> <y> <z> | locate <dim> <structure> <x> <z> [radius] | texturepack export [folder]";
+const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player> | spawns <dim> <monster|creature|water> <x> <y> <z> | structures <dim> | structure <dim> <x> <y> <z> | locate <dim> <structure> <x> <z> [radius] | texturepack export [folder] | features";
 
 mod map
 {
@@ -535,6 +535,7 @@ fn run(args: &[String]) -> Result<String, String>
         "interact" => return interact(args),
 
         "texturepack" => return texturePack(args),
+        "features" => return Ok(crate::content::features::summary()),
 
         "close" =>
         {

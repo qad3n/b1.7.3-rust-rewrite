@@ -47,6 +47,7 @@ impl LoaderHooks for Hooks
     fn populate(&self, world: &Rc<World>, chunkX: i32, chunkZ: i32)
     {
         content::worldgen::populate(world, chunkX, chunkZ);
+        content::features::populate(world, chunkX, chunkZ);
         crate::dimensions::populate(world, chunkX, chunkZ);
 
         if events::hasListeners(EventKind::ChunkPopulate)

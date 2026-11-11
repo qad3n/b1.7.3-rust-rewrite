@@ -201,6 +201,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
                 .and_then(|()| runtime.own(&name.to_string()))
                 .and_then(|id| crate::content::accessories::register(id, spec)),
         ),
+        HostCall::RegisterFeature { name, spec, handler } =>
+        {
+            unit(registering().and_then(|()| runtime.own(&name)).and_then(|id|
+            {
+                crate::content::features::register(runtime.id(), Some(runtime.m_index), id, spec, handler)
+            }))
+        }
+        HostCall::Features => HostReply::Features(crate::content::features::list()),
         HostCall::AddMachineJob { machine, job } => unit(crate::content::machines::addJob(&machine, job)),
         HostCall::AddMachineFuel { machine, fuel } => unit(crate::content::machines::addFuel(&machine, fuel)),
         HostCall::MatchMachineJob { machine, inputs, fluids } =>

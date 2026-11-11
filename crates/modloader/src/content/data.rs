@@ -4,14 +4,16 @@ use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::
 {
-    AchievementSpec, AttributeSpec, BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FluidSpec, GameRuleSpec,
-    ItemSpec, LootSpec, ParticleSpec, RecipeSpec, SpawnModifySpec, TagEntry, TagSpec, TagValue, WorldgenSpec,
+    AchievementSpec, AttributeSpec, BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FeatureModifySpec,
+    FeatureSpec, FluidSpec, GameRuleSpec, ItemSpec, LootSpec, ParticleSpec, RecipeSpec, SpawnModifySpec, TagEntry,
+    TagSpec, TagValue, WorldgenSpec,
 };
 use serde::de::DeserializeOwned;
 use std::cell::RefCell;
 
 const DATA: &str = "data/";
 const TOML: &str = ".toml";
+const FEATURES: &str = "features/";
 
 thread_local!
 {
@@ -152,7 +154,17 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
                 parse::<LootSpec>(source, &name).and_then(|spec| super::loot::add(registry, target, spec))
             }
 
-            "worldgen" => parse::<WorldgenSpec>(source, &name).map(|spec| registerWorldgen(modId, id, spec)),
+            "worldgen" => match path.strip_prefix(FEATURES)
+            {
+                Some(feature) =>
+                {
+                    let id: Identifier = Identifier::new(namespace, feature).map_err(|error| error.to_string())?;
+                    parse::<FeatureSpec>(source, &name)
+                        .and_then(|spec| super::features::register(modId, None, id, spec, None))
+                }
+
+                None => parse::<WorldgenSpec>(source, &name).map(|spec| registerWorldgen(modId, id, spec)),
+            },
             "modify" => match path.split_once('/')
             {
                 Some(("blocks", _)) =>
@@ -165,7 +177,9 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
                     parse::<SpawnModifySpec>(source, &name).map(|spec| crate::modify::queueSpawn(modId, spec))
                 }
 
-                _ => Err(format!("{name} needs modify/blocks/<name>.toml or modify/spawns/<name>.toml")),
+                Some(("features", _)) => parse::<FeatureModifySpec>(source, &name).map(super::features::disable),
+
+                _ => Err(format!("{name} needs modify/<blocks|spawns|features>/<name>.toml")),
             },
 
             "tags" =>

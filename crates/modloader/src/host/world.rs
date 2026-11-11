@@ -441,6 +441,15 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(entity(dimension, id).map(|entity| crate::entities::publishSynced(&entity, runtime.id(), data)))
         }
 
+        HostCall::PlaceFeature { feature, world: dimension, pos, seed } => ok(
+            world(dimension).and_then(|world|
+            {
+                authoritative(&world)?;
+                crate::content::features::place(&world, &feature, pos, seed)
+            }),
+            HostReply::Bool,
+        ),
+
         HostCall::Accessories { world: dimension, entity: id } =>
         {
             ok(entity(dimension, id), |entity| HostReply::Accessories(crate::content::accessories::worn(&entity)))

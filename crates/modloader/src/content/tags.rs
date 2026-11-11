@@ -130,16 +130,14 @@ pub fn push()
         let members: BTreeMap<Identifier, bool> =
             resolved(kind(row.m_registry), &Identifier::minecraft(row.m_name), &mut Vec::new());
 
-        let mut ids: Vec<i32> = crate::registry::with(|registries|
+        let ids: Vec<i32> = match row.m_registry
         {
-            members.keys().filter_map(|member| numeric(registries, row.m_registry, member)).collect()
-        });
-
-        // a block with more than 16 states spans hidden page ids that are the same block
-        if row.m_registry == Registry::Block
-        {
-            ids.extend(members.keys().flat_map(crate::states::pageIds));
-        }
+            Registry::Block => numericBlocks(&members).into_iter().collect(),
+            Registry::Item => crate::registry::with(|registries|
+            {
+                members.keys().filter_map(|member| numeric(registries, row.m_registry, member)).collect()
+            }),
+        };
 
         game::tags::set(row.m_tag, &ids);
     }
@@ -151,6 +149,22 @@ pub fn push()
         let names: BTreeSet<String> = members.keys().filter_map(biomeName).collect();
         game::tags::setBiomes(row.m_tag, names);
     }
+}
+
+// a block tag's numeric ids for code that checks many blocks
+pub fn blockIds(tag: &Identifier) -> BTreeSet<i32>
+{
+    numericBlocks(&resolved(RegistryKind::Block, tag, &mut Vec::new()))
+}
+
+fn numericBlocks(members: &BTreeMap<Identifier, bool>) -> BTreeSet<i32>
+{
+    let mut ids: BTreeSet<i32> =
+        crate::registry::with(|registries| members.keys().filter_map(|member| registries.blockId(member)).collect());
+
+    // a block with more than 16 states spans hidden page ids that are the same block
+    ids.extend(members.keys().flat_map(crate::states::pageIds));
+    ids
 }
 
 // beta biomes go by their display name, a vanilla identifier maps through the shared biome table
