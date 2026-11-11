@@ -2,7 +2,7 @@ use super::ANY_DAMAGE;
 use crate::content;
 use crate::registry::{BlockEntry, EntityEntry, Registries, Row, UNASSIGNED};
 use game::block::Block;
-use game::loot::{LootEntry, LootTable};
+use game::loot::{LootEntry, LootPool, LootTable};
 use jvm::random::Random;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{LootDrop, LootSource, LootView, StackData};
@@ -126,7 +126,7 @@ pub fn list() -> Vec<LootView>
         source: LootSource::Chest { table },
         rolls: 1,
         sampled: false,
-        drops: loot.m_entries.iter().map(entryDrop).collect(),
+        drops: loot.m_entries.iter().map(entryDrop).chain(tableDrops(&loot)).collect(),
     }));
 
     views.retain(|view| !view.drops.is_empty());
@@ -181,6 +181,7 @@ fn blockViews(registries: &Registries, row: &Row<BlockEntry>) -> Vec<LootView>
         {
             let matching = table.m_entries.iter().filter(|entry| entry.m_blockMeta.is_none_or(|only| only == meta));
             drops.extend(matching.map(entryDrop));
+            drops.extend(tableDrops(table));
         }
 
         // a block dropping itself tells the viewer nothing new
@@ -264,6 +265,7 @@ fn entities(registries: &Registries, tables: &HashMap<Identifier, LootTable>) ->
             };
 
             drops.extend(table.iter().flat_map(|table| table.m_entries.iter().map(entryDrop)));
+            drops.extend(table.iter().flat_map(|table| tableDrops(table)));
             LootView { source: LootSource::Entity { entity: row.m_id.clone() }, rolls: 1, sampled: false, drops }
         })
         .collect()
@@ -344,6 +346,38 @@ fn specDrop(registries: &Registries, drop: &DropSpec) -> Option<LootDrop>
         player: false,
         note: None,
     })
+}
+
+// each pick of every weighted pool, its chance per roll and the rolls in its note
+fn tableDrops(table: &LootTable) -> Vec<LootDrop> { table.m_pools.iter().flat_map(poolDrops).collect() }
+
+fn poolDrops(pool: &LootPool) -> Vec<LootDrop>
+{
+    let total: i32 = pool.m_entries.iter().map(|entry| entry.m_weight.max(0)).sum();
+    let rolls: String = if pool.m_max > pool.m_min
+    {
+        format!("{} to {}", pool.m_min, pool.m_max)
+    }
+    else
+    {
+        pool.m_min.to_string()
+    };
+
+    pool.m_entries
+        .iter()
+        .filter(|entry| total > 0 && entry.m_weight > 0)
+        .filter_map(|entry|
+        {
+            Some(LootDrop
+            {
+                stack: StackData { id: entry.m_item?, count: entry.m_min, damage: entry.m_meta },
+                max: entry.m_max,
+                chance: entry.m_weight as f32 / total as f32,
+                player: entry.m_player,
+                note: Some(format!("One pick of a weighted pool, rolled {rolls} times")),
+            })
+        })
+        .collect()
 }
 
 fn entryDrop(entry: &LootEntry) -> LootDrop

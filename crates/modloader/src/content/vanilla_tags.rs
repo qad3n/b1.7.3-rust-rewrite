@@ -12,6 +12,11 @@ const fn block(name: &'static str, members: &'static [&'static str]) -> VanillaT
     VanillaTag { m_registry: RegistryKind::Block, m_name: name, m_members: members }
 }
 
+const fn fluid(name: &'static str, members: &'static [&'static str]) -> VanillaTag
+{
+    VanillaTag { m_registry: RegistryKind::Fluid, m_name: name, m_members: members }
+}
+
 const fn item(name: &'static str, members: &'static [&'static str]) -> VanillaTag
 {
     VanillaTag { m_registry: RegistryKind::Item, m_name: name, m_members: members }
@@ -60,6 +65,11 @@ const SWORDS: &[&str] = &[
 
 // modern minecraft and c tags over beta content so mods name groups instead of listing vanilla blocks
 pub(crate) const TAGS: &[VanillaTag] = &[
+    // fluid tags name fluids, so mods' oils and fuels join shared groups machines take
+    fluid("minecraft:water", &["minecraft:water"]),
+    fluid("minecraft:lava", &["minecraft:lava"]),
+    fluid("c:oil", &[]),
+    fluid("c:fuel", &[]),
     block("minecraft:dirt", &["minecraft:dirt", "minecraft:grass"]),
     block("minecraft:sand", &["minecraft:sand"]),
     block("minecraft:wool", &["minecraft:wool"]),

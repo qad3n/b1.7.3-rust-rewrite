@@ -441,6 +441,31 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(entity(dimension, id).map(|entity| crate::entities::publishSynced(&entity, runtime.id(), data)))
         }
 
+        HostCall::Accessories { world: dimension, entity: id } =>
+        {
+            ok(entity(dimension, id), |entity| HostReply::Accessories(crate::content::accessories::worn(&entity)))
+        }
+
+        HostCall::SetAccessory { world: dimension, entity: id, slot, stack } =>
+        {
+            unit(entity(dimension, id).and_then(|entity|
+            {
+                let world: Rc<World> = entity.m_worldObj.get().ok_or("the entity is in no world")?;
+                authoritative(&world)?;
+                crate::content::accessories::set(&entity, &slot, stack.as_ref())
+            }))
+        }
+
+        HostCall::SwapAccessory { player: id, slot } => ok(
+            player(id).and_then(|player|
+            {
+                let world: Rc<World> = player.m_worldObj.get().ok_or("the player is in no world")?;
+                authoritative(&world)?;
+                crate::content::accessories::swap(&player, &slot)
+            }),
+            HostReply::Bool,
+        ),
+
         HostCall::EntityField { world: dimension, id, field } =>
         {
             ok(entity(dimension, id), |entity| entityField(&entity, field))

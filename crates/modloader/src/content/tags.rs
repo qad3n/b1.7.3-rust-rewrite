@@ -10,11 +10,12 @@ type Key = (RegistryKind, Identifier);
 type Entries = BTreeMap<Key, BTreeSet<TagEntry>>;
 
 // registry, its tag folder name and the singular form both accepted in data paths and used on the wire
-const REGISTRIES: [(RegistryKind, &str, &str); 4] = [
+const REGISTRIES: [(RegistryKind, &str, &str); 5] = [
     (RegistryKind::Block, "blocks", "block"),
     (RegistryKind::Item, "items", "item"),
     (RegistryKind::Entity, "entities", "entity"),
     (RegistryKind::Biome, "biomes", "biome"),
+    (RegistryKind::Fluid, "fluids", "fluid"),
 ];
 
 // shared lists such as c:ores/ruby that mods fill and read without depending on each other

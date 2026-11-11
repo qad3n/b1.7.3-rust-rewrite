@@ -1,17 +1,19 @@
 use crate::host::context::stackData;
 use crate::registry::Registries;
-use game::loot::{LootEntry, LootTable};
+use game::loot::{LootEntry, LootPool, LootTable, PoolEntry};
 use jvm::random::Random;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{RegistryKind, StackData};
-use mod_protocol::spec::{LootEntrySpec, LootSpec};
+use mod_protocol::abi::{LootTarget, RegistryKind, StackData};
+use mod_protocol::spec::{LootEntrySpec, LootPoolSpec, LootSpec};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
 
+#[derive(Default)]
 struct Merged
 {
     m_keepBeta: bool,
     m_entries: Vec<LootEntrySpec>,
+    m_pools: Vec<LootPoolSpec>,
 }
 
 thread_local!
@@ -19,7 +21,7 @@ thread_local!
     // every mod's loot for one block or entity merged in load order, a replace drops what came before
     static LOOT: RefCell<BTreeMap<(RegistryKind, Identifier), Merged>> = const { RefCell::new(BTreeMap::new()) };
     // chest tables only mods roll, so they stay as specs and resolve on each roll
-    static CHESTS: RefCell<BTreeMap<Identifier, Vec<LootEntrySpec>>> = const { RefCell::new(BTreeMap::new()) };
+    static CHESTS: RefCell<BTreeMap<Identifier, Merged>> = const { RefCell::new(BTreeMap::new()) };
 }
 
 pub fn add(registry: RegistryKind, target: Identifier, spec: LootSpec) -> Result<(), String>
@@ -33,12 +35,13 @@ pub fn add(registry: RegistryKind, target: Identifier, spec: LootSpec) -> Result
     {
         let mut loot: RefMut<BTreeMap<(RegistryKind, Identifier), Merged>> = loot.borrow_mut();
         let merged: &mut Merged =
-            loot.entry((registry, target)).or_insert_with(|| Merged { m_keepBeta: true, m_entries: Vec::new() });
+            loot.entry((registry, target)).or_insert_with(|| Merged { m_keepBeta: true, ..Merged::default() });
 
         if spec.replace
         {
             merged.m_keepBeta = false;
             merged.m_entries.clear();
+            merged.m_pools.clear();
         }
 
         merged.m_entries.extend(spec.entries);
@@ -56,16 +59,56 @@ pub fn addChest(table: Identifier, spec: LootSpec) -> Result<(), String>
 
     CHESTS.with(|chests|
     {
-        let mut chests: RefMut<BTreeMap<Identifier, Vec<LootEntrySpec>>> = chests.borrow_mut();
-        let entries: &mut Vec<LootEntrySpec> = chests.entry(table).or_default();
+        let mut chests: RefMut<BTreeMap<Identifier, Merged>> = chests.borrow_mut();
+        let merged: &mut Merged = chests.entry(table).or_default();
 
         if spec.replace
         {
-            entries.clear();
+            merged.m_entries.clear();
+            merged.m_pools.clear();
         }
 
-        entries.extend(spec.entries);
+        merged.m_entries.extend(spec.entries);
     });
+
+    Ok(())
+}
+
+// a pool joins a block's or entity's merged loot like its entries do, or a chest table
+pub fn addPool(target: LootTarget, id: Identifier, pool: LootPoolSpec) -> Result<(), String>
+{
+    match target
+    {
+        LootTarget::Chest =>
+        {
+            if id.isVanilla()
+            {
+                return Err(format!("chest loot {id} is beta's own and fixed"));
+            }
+
+            CHESTS.with(|chests| chests.borrow_mut().entry(id).or_default().m_pools.push(pool));
+        }
+
+        LootTarget::Block | LootTarget::Entity =>
+        {
+            let registry: RegistryKind = if target == LootTarget::Block
+            {
+                RegistryKind::Block
+            }
+            else
+            {
+                RegistryKind::Entity
+            };
+            LOOT.with(|loot|
+            {
+                loot.borrow_mut()
+                    .entry((registry, id))
+                    .or_insert_with(|| Merged { m_keepBeta: true, ..Merged::default() })
+                    .m_pools
+                    .push(pool)
+            });
+        }
+    }
 
     Ok(())
 }
@@ -75,9 +118,9 @@ pub fn rollChest(table: &Identifier, seed: i64) -> Result<Vec<StackData>, String
     let mut problems: Vec<String> = Vec::new();
     let resolved: Option<LootTable> = CHESTS.with(|chests|
     {
-        let chests: Ref<BTreeMap<Identifier, Vec<LootEntrySpec>>> = chests.borrow();
-        let entries: &Vec<LootEntrySpec> = chests.get(table)?;
-        Some(crate::registry::with(|registries| build(registries, true, entries, &mut problems)))
+        let chests: Ref<BTreeMap<Identifier, Merged>> = chests.borrow();
+        let merged: &Merged = chests.get(table)?;
+        Some(crate::registry::with(|registries| build(registries, true, merged, &mut problems)))
     });
     warnAll(problems);
 
@@ -97,7 +140,7 @@ pub fn chests() -> Vec<(Identifier, LootTable)>
             chests
                 .borrow()
                 .iter()
-                .map(|(id, entries)| (id.clone(), build(registries, true, entries, &mut problems)))
+                .map(|(id, merged)| (id.clone(), build(registries, true, merged, &mut problems)))
                 .collect()
         })
     });
@@ -119,22 +162,53 @@ pub fn entities() -> Vec<(Identifier, LootTable)>
             loot.borrow()
                 .iter()
                 .filter(|((registry, _), _)| *registry == RegistryKind::Entity)
-                .map(|((_, id), merged)|
-                {
-                    (id.clone(), build(registries, merged.m_keepBeta, &merged.m_entries, &mut problems))
-                })
+                .map(|((_, id), merged)| (id.clone(), build(registries, merged.m_keepBeta, merged, &mut problems)))
                 .collect()
         })
     })
 }
 
-fn build(registries: &Registries, keepBeta: bool, entries: &[LootEntrySpec], problems: &mut Vec<String>) -> LootTable
+fn build(registries: &Registries, keepBeta: bool, merged: &Merged, problems: &mut Vec<String>) -> LootTable
 {
     LootTable
     {
         m_keepBeta: keepBeta,
-        m_entries: entries.iter().filter_map(|entry| resolve(registries, entry, problems)).collect(),
+        m_entries: merged.m_entries.iter().filter_map(|entry| resolve(registries, entry, problems)).collect(),
+        m_pools: merged.m_pools.iter().map(|pool| resolvePool(registries, pool, problems)).collect(),
     }
+}
+
+// an entry naming an unregistered item keeps its weight and drops nothing, so the other odds stay as written
+fn resolvePool(registries: &Registries, pool: &LootPoolSpec, problems: &mut Vec<String>) -> LootPool
+{
+    let entries: Vec<PoolEntry> = pool
+        .entries
+        .iter()
+        .map(|entry|
+        {
+            let item: Option<i32> = entry.item.as_ref().and_then(|name|
+            {
+                let found: Option<i32> = registries.itemId(name);
+                if found.is_none()
+                {
+                    problems.push(format!("loot pool picks {name}, which is not a registered item"));
+                }
+
+                found
+            });
+            PoolEntry
+            {
+                m_item: item,
+                m_meta: entry.meta,
+                m_min: entry.count,
+                m_max: entry.max.unwrap_or(entry.count),
+                m_weight: entry.weight,
+                m_player: entry.player,
+                m_blockMeta: entry.block_meta,
+            }
+        })
+        .collect();
+    LootPool { m_min: pool.rolls, m_max: pool.max_rolls.unwrap_or(pool.rolls), m_entries: entries }
 }
 
 // the game keys loot by numbers and save keys, so every content build and id map change resolves it again
@@ -150,7 +224,7 @@ pub fn push(report: bool)
         {
             for ((registry, target), merged) in loot.borrow().iter()
             {
-                let table: LootTable = build(registries, merged.m_keepBeta, &merged.m_entries, &mut problems);
+                let table: LootTable = build(registries, merged.m_keepBeta, merged, &mut problems);
 
                 match registry
                 {

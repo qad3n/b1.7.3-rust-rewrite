@@ -29,6 +29,8 @@ fn resolve(kind: RegistryKind, id: &Identifier) -> Option<i32>
         RegistryKind::Recipe => registries.m_recipes.numeric(id),
         RegistryKind::Biome => registries.m_biomes.numeric(id),
         RegistryKind::Dimension => registries.m_dimensions.numeric(id),
+        // fluids go by name and have no numeric ids
+        RegistryKind::Fluid => None,
     })
 }
 
@@ -47,6 +49,7 @@ fn nameOf(kind: RegistryKind, numeric: i32) -> Option<Identifier>
         RegistryKind::Recipe => registries.m_recipes.byNumeric(numeric).map(|row| row.m_id.clone()),
         RegistryKind::Biome => registries.m_biomes.byNumeric(numeric).map(|row| row.m_id.clone()),
         RegistryKind::Dimension => registries.m_dimensions.byNumeric(numeric).map(|row| row.m_id.clone()),
+        RegistryKind::Fluid => None,
     })
 }
 
@@ -178,6 +181,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
 
         HostCall::SetChestLoot { table, spec } => unit(crate::content::loot::addChest(table, spec)),
 
+        HostCall::AddLootPool { target, id, pool } =>
+        {
+            let added: Result<(), String> = crate::content::loot::addPool(target, id, pool);
+
+            crate::content::loot::push(false);
+            unit(added)
+        }
+
         HostCall::RegisterMachine { name, spec } => unit(
             registering()
                 .and_then(|()| runtime.own(&name.to_string()))
@@ -185,6 +196,21 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         ),
         HostCall::AddMachineRecipe { machine, recipe } => unit(crate::content::machines::addRecipe(&machine, recipe)),
         HostCall::AddWorkstation { machine, item } => unit(crate::content::machines::addWorkstation(&machine, item)),
+        HostCall::RegisterAccessorySlot { name, spec } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name.to_string()))
+                .and_then(|id| crate::content::accessories::register(id, spec)),
+        ),
+        HostCall::AddMachineJob { machine, job } => unit(crate::content::machines::addJob(&machine, job)),
+        HostCall::AddMachineFuel { machine, fuel } => unit(crate::content::machines::addFuel(&machine, fuel)),
+        HostCall::MatchMachineJob { machine, inputs, fluids } =>
+        {
+            HostReply::Job(crate::content::machines::matchJob(&machine, &inputs, &fluids))
+        }
+        HostCall::MachineFuel { machine, stack, furnace } =>
+        {
+            HostReply::Int(crate::content::machines::fuel(&machine, &stack, furnace))
+        }
 
         HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
         HostCall::TagsOf { registry, id } => HostReply::Ids(tags::of(registry, &id)),

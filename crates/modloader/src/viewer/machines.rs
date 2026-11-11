@@ -3,7 +3,10 @@ use crate::content::machines::{self, Machine};
 use crate::content::tags;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{MachineRecipeView, MachineSlot, MachineView, RegistryKind, StackData};
-use mod_protocol::spec::{MachineRecipeSpec, MachineSlotSpec};
+use mod_protocol::spec::
+{
+    JobFluidSpec, JobInputSpec, JobOutputSpec, MachineJobSpec, MachineRecipeSpec, MachineSlotSpec,
+};
 
 // every item a slot names, a tag through its members, warned about once per list when nothing resolves
 fn slot(spec: &MachineSlotSpec, problems: &mut Vec<String>) -> MachineSlot
@@ -50,6 +53,86 @@ fn recipe(spec: &MachineRecipeSpec, problems: &mut Vec<String>) -> MachineRecipe
     }
 }
 
+fn inputSlot(input: &JobInputSpec) -> MachineSlotSpec
+{
+    MachineSlotSpec
+    {
+        item: input.item.clone(),
+        tag: input.tag.clone(),
+        meta: input.meta,
+        count: input.count,
+        chance: 1.0,
+    }
+}
+
+// an output handing back an input shows that input's item at the damage it leaves with
+fn outputSlot(job: &MachineJobSpec, output: &JobOutputSpec) -> MachineSlotSpec
+{
+    let source: Option<&JobInputSpec> = output.from_input.and_then(|index| job.inputs.get(index as usize));
+    match source
+    {
+        Some(input) => MachineSlotSpec
+        {
+            meta: output.damage.unwrap_or(input.meta),
+            count: output.count,
+            chance: output.chance,
+            ..inputSlot(input)
+        },
+        None => MachineSlotSpec
+        {
+            item: output.item.clone(),
+            tag: None,
+            meta: output.meta,
+            count: output.count,
+            chance: output.chance,
+        },
+    }
+}
+
+fn fluidName(fluid: &JobFluidSpec) -> String
+{
+    match (&fluid.fluid, &fluid.tag)
+    {
+        (Some(name), _) => name.to_string(),
+        (None, Some(tag)) => format!("#{tag}"),
+        (None, None) => String::new(),
+    }
+}
+
+fn jobNotes(job: &MachineJobSpec) -> Vec<String>
+{
+    let mut notes: Vec<String> = vec![if job.duration_from_fuel
+    {
+        "Runs as long as its fuel burns".to_owned()
+    }
+    else
+    {
+        format!("{} ticks", job.duration)
+    }];
+
+    for (verb, energy) in [("Uses", &job.energy_in), ("Makes", &job.energy_out)]
+    {
+        if let Some(energy) = energy
+        {
+            let each: &str = if energy.per_tick { " a tick" } else { "" };
+            notes.push(format!("{verb} {} {}{each}", energy.amount, energy.kind));
+        }
+    }
+
+    notes.extend(job.fluid_inputs.iter().map(|fluid| format!("Takes {} mB of {}", fluid.amount, fluidName(fluid))));
+    notes.extend(job.fluid_outputs.iter().map(|fluid| format!("Gives {} mB of {}", fluid.amount, fluidName(fluid))));
+    notes.extend(job.notes.iter().cloned());
+    notes
+}
+
+// a job as the recipe page viewers already read
+fn job(job: &MachineJobSpec, problems: &mut Vec<String>) -> MachineRecipeView
+{
+    let inputs: Vec<MachineSlotSpec> = job.inputs.iter().map(inputSlot).collect();
+    let outputs: Vec<MachineSlotSpec> = job.outputs.iter().map(|output| outputSlot(job, output)).collect();
+    MachineRecipeView { inputs: slots(&inputs, problems), outputs: slots(&outputs, problems), notes: jobNotes(job) }
+}
+
 fn view(machine: &Machine, problems: &mut Vec<String>) -> MachineView
 {
     let workstations: Vec<StackData> = crate::registry::with(|registries|
@@ -71,13 +154,10 @@ fn view(machine: &Machine, problems: &mut Vec<String>) -> MachineView
             .map_or_else(|| machine.m_id.path().to_owned(), |stack| displayName(&stack))
     });
 
-    MachineView
-    {
-        id: machine.m_id.clone(),
-        title,
-        workstations,
-        recipes: machine.m_recipes.iter().map(|spec| recipe(spec, problems)).collect(),
-    }
+    let mut recipes: Vec<MachineRecipeView> = machine.m_recipes.iter().map(|spec| recipe(spec, problems)).collect();
+    recipes.extend(machine.m_jobs.iter().map(|spec| job(spec, problems)));
+
+    MachineView { id: machine.m_id.clone(), title, workstations, recipes }
 }
 
 pub fn list() -> Vec<MachineView>
