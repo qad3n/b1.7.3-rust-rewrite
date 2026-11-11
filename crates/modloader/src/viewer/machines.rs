@@ -126,11 +126,24 @@ fn jobNotes(job: &MachineJobSpec) -> Vec<String>
 }
 
 // a job as the recipe page viewers already read
-fn job(job: &MachineJobSpec, problems: &mut Vec<String>) -> MachineRecipeView
+fn job(ruled: &crate::content::machines::Job, problems: &mut Vec<String>) -> MachineRecipeView
 {
+    let job: &MachineJobSpec = &ruled.m_spec;
     let inputs: Vec<MachineSlotSpec> = job.inputs.iter().map(inputSlot).collect();
     let outputs: Vec<MachineSlotSpec> = job.outputs.iter().map(|output| outputSlot(job, output)).collect();
-    MachineRecipeView { inputs: slots(&inputs, problems), outputs: slots(&outputs, problems), notes: jobNotes(job) }
+    let mut notes: Vec<String> = jobNotes(job);
+
+    // an input taking any item has no slot to show, so its rule becomes a line
+    for rule in &ruled.m_rules
+    {
+        notes.push(match &rule.except
+        {
+            Some(except) => format!("Takes any item except #{except}"),
+            None => "Takes any item".to_owned(),
+        });
+    }
+
+    MachineRecipeView { inputs: slots(&inputs, problems), outputs: slots(&outputs, problems), notes }
 }
 
 fn view(machine: &Machine, problems: &mut Vec<String>) -> MachineView
@@ -155,7 +168,7 @@ fn view(machine: &Machine, problems: &mut Vec<String>) -> MachineView
     });
 
     let mut recipes: Vec<MachineRecipeView> = machine.m_recipes.iter().map(|spec| recipe(spec, problems)).collect();
-    recipes.extend(machine.m_jobs.iter().map(|spec| job(spec, problems)));
+    recipes.extend(machine.m_jobs.iter().map(|ruled| job(ruled, problems)));
 
     MachineView { id: machine.m_id.clone(), title, workstations, recipes }
 }

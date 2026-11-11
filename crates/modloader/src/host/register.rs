@@ -234,7 +234,19 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
         HostCall::Features => HostReply::Features(crate::content::features::list()),
         HostCall::BiomeSpawns { biome, kind } => ok(crate::biomes::spawns(&biome, kind), HostReply::SpawnEntries),
-        HostCall::AddMachineJob { machine, job } => unit(crate::content::machines::addJob(&machine, job)),
+        HostCall::AddMachineJob { machine, job } => unit(crate::content::machines::addJob(&machine, job, Vec::new())),
+        HostCall::AddMachineJobRules { machine, job, rules } =>
+        {
+            unit(registering().and_then(|()| crate::content::machines::addJob(&machine, job, rules)))
+        }
+        HostCall::RegisterFluidContainer { spec } =>
+        {
+            unit(registering().and_then(|()| crate::content::fluids::addContainer(spec)))
+        }
+        HostCall::ContainedFluid { stack } => HostReply::Fluid(crate::content::fluids::contained(&stack)),
+        HostCall::FillContainer { stack, fluid } => HostReply::Swap(crate::content::fluids::fill(&stack, &fluid)),
+        HostCall::DrainContainer { stack } => HostReply::Swap(crate::content::fluids::drain(&stack)),
+        HostCall::FluidContainers => HostReply::FluidContainers(crate::content::fluids::containers()),
         HostCall::AddMachineFuel { machine, fuel } => unit(crate::content::machines::addFuel(&machine, fuel)),
         HostCall::MatchMachineJob { machine, inputs, fluids } =>
         {

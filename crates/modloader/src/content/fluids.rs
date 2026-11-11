@@ -2,8 +2,9 @@ use game::block::map_color::MapColors;
 use game::block::{MapColor, Material};
 use game::fluid::{self, Fluid, FluidStyle};
 use mod_protocol::Identifier;
-use mod_protocol::spec::{FluidSpec, FluidStyle as SpecStyle};
-use std::cell::{Cell, RefCell};
+use mod_protocol::abi::{ContainerSwap, FluidStack, StackData};
+use mod_protocol::spec::{FluidContainerSpec, FluidSpec, FluidStyle as SpecStyle};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -21,6 +22,117 @@ thread_local!
 {
     // mod fluids by identifier, their blocks and bucket resolved to numbers on every content build
     static SPECS: RefCell<BTreeMap<Identifier, FluidSpec>> = const { RefCell::new(BTreeMap::new()) };
+    // every item that holds a fluid, vanilla buckets first
+    static CONTAINERS: RefCell<Vec<FluidContainerSpec>> = RefCell::new(vanillaContainers());
+}
+
+const BUCKET: i32 = 1000;
+// a container row's full_meta that takes any damage
+const ANY_DAMAGE: i32 = -1;
+
+fn vanillaContainers() -> Vec<FluidContainerSpec>
+{
+    [("water_bucket", "water"), ("lava_bucket", "lava")]
+        .into_iter()
+        .map(|(full, fluid)| FluidContainerSpec
+        {
+            full: Identifier::minecraft(full),
+            full_meta: 0,
+            empty: Some(Identifier::minecraft("bucket")),
+            fluid: Identifier::minecraft(fluid),
+            amount: BUCKET,
+        })
+        .collect()
+}
+
+pub fn addContainer(spec: FluidContainerSpec) -> Result<(), String>
+{
+    if spec.amount <= 0
+    {
+        return Err(format!("container {} holds no fluid", spec.full));
+    }
+
+    CONTAINERS.with(|containers|
+    {
+        let mut containers: RefMut<Vec<FluidContainerSpec>> = containers.borrow_mut();
+        if containers.iter().any(|known| known.full == spec.full && known.full_meta == spec.full_meta)
+        {
+            return Err(format!("container {} is already registered", spec.full));
+        }
+
+        containers.push(spec);
+        Ok(())
+    })
+}
+
+pub fn containers() -> Vec<FluidContainerSpec> { CONTAINERS.with(|containers| containers.borrow().clone()) }
+
+fn itemName(numeric: i32) -> Option<Identifier>
+{
+    crate::registry::with(|registries| registries.m_items.byNumeric(numeric).map(|row| row.m_id.clone()))
+}
+
+fn itemNumeric(id: &Identifier) -> Option<i32> { crate::registry::with(|registries| registries.itemId(id)) }
+
+fn holds(container: &FluidContainerSpec, name: &Identifier, damage: i32) -> bool
+{
+    container.full == *name && (container.full_meta == ANY_DAMAGE || container.full_meta == damage)
+}
+
+// the fluid a full container holds
+pub fn contained(stack: &StackData) -> Option<FluidStack>
+{
+    let name: Identifier = itemName(stack.id)?;
+    CONTAINERS.with(|containers|
+    {
+        containers
+            .borrow()
+            .iter()
+            .find(|container| holds(container, &name, stack.damage))
+            .map(|container| FluidStack { fluid: container.fluid.clone(), amount: container.amount })
+    })
+}
+
+// whether the stack is an empty container some fluid fills
+pub fn empty(stack: &StackData) -> bool
+{
+    let Some(name) = itemName(stack.id)
+    else
+    {
+        return false;
+    };
+
+    CONTAINERS.with(|containers| containers.borrow().iter().any(|container| container.empty.as_ref() == Some(&name)))
+}
+
+pub fn fill(stack: &StackData, fluid: &Identifier) -> Option<ContainerSwap>
+{
+    let name: Identifier = itemName(stack.id)?;
+    let container: FluidContainerSpec = CONTAINERS.with(|containers|
+    {
+        containers
+            .borrow()
+            .iter()
+            .find(|container| container.empty.as_ref() == Some(&name) && container.fluid == *fluid)
+            .cloned()
+    })?;
+    let full: StackData = StackData { id: itemNumeric(&container.full)?, count: 1, damage: container.full_meta.max(0) };
+    Some(ContainerSwap { stack: Some(full), fluid: FluidStack { fluid: container.fluid, amount: container.amount } })
+}
+
+pub fn drain(stack: &StackData) -> Option<ContainerSwap>
+{
+    let name: Identifier = itemName(stack.id)?;
+    let container: FluidContainerSpec = CONTAINERS.with(|containers|
+    {
+        containers.borrow().iter().find(|container| holds(container, &name, stack.damage)).cloned()
+    })?;
+    let left: Option<StackData> = match &container.empty
+    {
+        Some(empty) => Some(StackData { id: itemNumeric(empty)?, count: 1, damage: 0 }),
+        None => None,
+    };
+    Some(ContainerSwap { stack: left, fluid: FluidStack { fluid: container.fluid, amount: container.amount } })
 }
 
 // the fluid row exists from registration on, so blocks that name it as their material find it when they are built
@@ -81,6 +193,20 @@ pub fn register(id: Identifier, spec: FluidSpec) -> Result<(), String>
         m_sourceRule: None,
         m_sprite: fluid::sprite(&Material::water()),
     });
+
+    // a fluid's own bucket drains to a vanilla bucket like water's
+    if let Some(bucket) = &spec.bucket
+    {
+        let container: FluidContainerSpec = FluidContainerSpec
+        {
+            full: bucket.clone(),
+            full_meta: 0,
+            empty: Some(Identifier::minecraft("bucket")),
+            fluid: id.clone(),
+            amount: BUCKET,
+        };
+        addContainer(container)?;
+    }
 
     SPECS.with(|specs| specs.borrow_mut().insert(id, spec));
     Ok(())

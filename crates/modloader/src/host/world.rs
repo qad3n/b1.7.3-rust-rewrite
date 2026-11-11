@@ -871,6 +871,16 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             HostReply::Stack(taken.map(|stack| stackData(&stack)))
         }),
 
+        HostCall::ExtractMatching { world: dimension, pos, face, filter, max, simulate } =>
+        {
+            ok(world(dimension), |world|
+            {
+                let taken: Option<Rc<ItemStack>> =
+                    crate::tech::extractMatching(&world, pos, face, &filter, max, simulate);
+                HostReply::Stack(taken.map(|stack| stackData(&stack)))
+            })
+        }
+
         HostCall::UnlockAchievement { player: id, achievement } =>
         {
             ok(player(id), |target| HostReply::Bool(crate::content::progress::unlock(&target, &achievement)))

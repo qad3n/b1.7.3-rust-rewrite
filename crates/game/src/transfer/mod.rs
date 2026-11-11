@@ -138,10 +138,24 @@ pub fn insert(world: &Rc<World>, x: i32, y: i32, z: i32, face: i32, stack: &Rc<I
 pub fn extract(world: &Rc<World>, x: i32, y: i32, z: i32, face: i32, max: i32, simulate: bool)
 -> Option<Rc<ItemStack>>
 {
+    extractWhere(world, [x, y, z], face, max, simulate, |_| true)
+}
+
+// as extract, skipping slots whose stack the filter refuses
+pub fn extractWhere(
+    world: &Rc<World>,
+    pos: [i32; 3],
+    face: i32,
+    max: i32,
+    simulate: bool,
+    accepts: impl Fn(&ItemStack) -> bool,
+) -> Option<Rc<ItemStack>>
+{
+    let [x, y, z] = pos;
     let inventory: Rc<dyn IInventory> = inventoryAt(world, x, y, z)?;
     for slot in slots(world, x, y, z, face, &*inventory)
     {
-        let Some(held) = inventory.getStackInSlot(slot)
+        let Some(held) = inventory.getStackInSlot(slot).filter(|held| accepts(held))
         else
         {
             continue;

@@ -13,9 +13,9 @@ use mod_protocol::Identifier;
 use mod_protocol::abi::
 {
     BlockCtx, BlockPos, EnergyDemand, FluidBlock, FluidStack, GuestReply, HostCall, HostReply, ItemInfo, ItemModelSpec,
-    StackData, TileCall, capability,
+    RegistryKind, StackData, TileCall, capability,
 };
-use mod_protocol::spec::TileMethod;
+use mod_protocol::spec::{ItemFilter, TileMethod};
 use std::rc::Rc;
 
 // the crafting grid a 3 by 3 recipe reads, in row order
@@ -105,6 +105,60 @@ pub fn extract(world: &Rc<World>, pos: BlockPos, face: i32, max: i32, simulate: 
         Some(_) => None,
         None => game::transfer::extract(world, pos.x, pos.y, pos.z, face, max, simulate),
     }
+}
+
+// whether a filter takes a stack, by name, tag or the fluid it holds
+pub fn accepts(filter: &ItemFilter, stack: &ItemStack) -> bool
+{
+    let data: StackData = stackData(stack);
+    let name: Option<Identifier> =
+        crate::registry::with(|registries| registries.m_items.byNumeric(data.id).map(|row| row.m_id.clone()));
+    let tagged = |tag: &Identifier|
+    {
+        name.as_ref().is_some_and(|name| crate::content::tags::contains(RegistryKind::Item, tag, name))
+    };
+
+    match filter
+    {
+        ItemFilter::Any => true,
+        ItemFilter::Item { item, meta } => name.as_ref() == Some(item) && (*meta < 0 || *meta == data.damage),
+        ItemFilter::Tag(tag) => tagged(tag),
+        ItemFilter::Except(tag) => !tagged(tag),
+        ItemFilter::Holding(fluid) => crate::content::fluids::contained(&data)
+            .is_some_and(|held| fluid.as_ref().is_none_or(|fluid| held.fluid == *fluid)),
+        ItemFilter::Empty => crate::content::fluids::empty(&data),
+    }
+}
+
+// World::extractMatching, a mod tile is asked what it would give before anything is taken
+pub fn extractMatching(
+    world: &Rc<World>,
+    pos: BlockPos,
+    face: i32,
+    filter: &ItemFilter,
+    max: i32,
+    simulate: bool,
+) -> Option<Rc<ItemStack>>
+{
+    if handles(world, pos, TileMethod::ExtractItem)
+    {
+        let offered: Rc<ItemStack> = extract(world, pos, face, max, true)?;
+        if !accepts(filter, &offered)
+        {
+            return None;
+        }
+
+        return if simulate
+        {
+            Some(offered)
+        }
+        else
+        {
+            extract(world, pos, face, max, false)
+        };
+    }
+
+    game::transfer::extractWhere(world, [pos.x, pos.y, pos.z], face, max, simulate, |stack| accepts(filter, stack))
 }
 
 fn capabilities(world: &Rc<World>, pos: BlockPos) -> i32

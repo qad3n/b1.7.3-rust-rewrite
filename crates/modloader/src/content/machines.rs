@@ -4,7 +4,8 @@ use mod_protocol::Identifier;
 use mod_protocol::abi::{FluidStack, JobMatch, JobOutput, RegistryKind, StackData};
 use mod_protocol::spec::
 {
-    JobFluidSpec, JobInputSpec, JobOutputSpec, MachineFuelSpec, MachineJobSpec, MachineRecipeSpec, MachineSpec,
+    JobFluidSpec, JobInputRule, JobInputSpec, JobOutputSpec, MachineFuelSpec, MachineJobSpec, MachineRecipeSpec,
+    MachineSpec,
 };
 use std::cell::{Ref, RefCell};
 
@@ -16,8 +17,23 @@ pub struct Machine
     pub m_id: Identifier,
     pub m_spec: MachineSpec,
     pub m_recipes: Vec<MachineRecipeSpec>,
-    pub m_jobs: Vec<MachineJobSpec>,
+    pub m_jobs: Vec<Job>,
     pub m_fuels: Vec<MachineFuelSpec>,
+}
+
+// a job and the inputs that take any item but a tag's members
+pub struct Job
+{
+    pub m_spec: MachineJobSpec,
+    pub m_rules: Vec<JobInputRule>,
+}
+
+impl Job
+{
+    fn rule(&self, input: usize) -> Option<&JobInputRule>
+    {
+        self.m_rules.iter().find(|rule| rule.input as usize == input)
+    }
 }
 
 impl Machine
@@ -81,14 +97,19 @@ pub fn addRecipe(id: &Identifier, recipe: MachineRecipeSpec) -> Result<(), Strin
     with(id, |machine| machine.m_recipes.push(recipe))
 }
 
-pub fn addJob(id: &Identifier, job: MachineJobSpec) -> Result<(), String>
+pub fn addJob(id: &Identifier, job: MachineJobSpec, rules: Vec<JobInputRule>) -> Result<(), String>
 {
     if vanilla(id)
     {
         return Err(format!("{id} runs the recipe registry, not jobs"));
     }
 
-    with(id, |machine| machine.m_jobs.push(job))
+    if let Some(rule) = rules.iter().find(|rule| rule.input as usize >= job.inputs.len())
+    {
+        return Err(format!("a job rule names input {} of a job with {}", rule.input, job.inputs.len()));
+    }
+
+    with(id, |machine| machine.m_jobs.push(Job { m_spec: job, m_rules: rules }))
 }
 
 pub fn addFuel(id: &Identifier, fuel: MachineFuelSpec) -> Result<(), String>
@@ -123,22 +144,28 @@ fn takes(
     damage && named
 }
 
-fn fits(registries: &Registries, input: &JobInputSpec, stack: &StackData) -> bool
+fn fits(registries: &Registries, input: &JobInputSpec, rule: Option<&JobInputRule>, stack: &StackData) -> bool
 {
-    stack.count >= input.count && takes(registries, input.item.as_ref(), input.tag.as_ref(), input.meta, stack)
+    let named: bool = match rule
+    {
+        Some(rule) => rule.except.as_ref().is_none_or(|except| !takes(registries, None, Some(except), -1, stack)),
+        None => takes(registries, input.item.as_ref(), input.tag.as_ref(), input.meta, stack),
+    };
+    stack.count >= input.count && named
 }
 
 // each job input takes the first stack in order no earlier input took
-fn assign(registries: &Registries, job: &MachineJobSpec, stacks: &[Option<StackData>]) -> Option<Vec<u32>>
+fn assign(registries: &Registries, job: &Job, stacks: &[Option<StackData>]) -> Option<Vec<u32>>
 {
     let mut used: Vec<bool> = vec![false; stacks.len()];
-    let mut slots: Vec<u32> = Vec::with_capacity(job.inputs.len());
+    let mut slots: Vec<u32> = Vec::with_capacity(job.m_spec.inputs.len());
 
-    for input in &job.inputs
+    for (at, input) in job.m_spec.inputs.iter().enumerate()
     {
+        let rule: Option<&JobInputRule> = job.rule(at);
         let index: usize = stacks.iter().enumerate().position(|(index, stack)|
         {
-            !used[index] && stack.as_ref().is_some_and(|stack| fits(registries, input, stack))
+            !used[index] && stack.as_ref().is_some_and(|stack| fits(registries, input, rule, stack))
         })?;
         used[index] = true;
         slots.push(index as u32);
@@ -196,9 +223,10 @@ pub fn matchJob(id: &Identifier, stacks: &[Option<StackData>], fluids: &[FluidSt
         let machine: &Machine = machines.iter().find(|machine| machine.m_id == *id)?;
         crate::registry::with(|registries|
         {
-            machine.m_jobs.iter().enumerate().find_map(|(index, job)|
+            machine.m_jobs.iter().enumerate().find_map(|(index, ruled)|
             {
-                let slots: Vec<u32> = assign(registries, job, stacks)?;
+                let job: &MachineJobSpec = &ruled.m_spec;
+                let slots: Vec<u32> = assign(registries, ruled, stacks)?;
                 let poured: Vec<FluidStack> = covered(job, fluids)?;
                 let duration: i32 = if job.duration_from_fuel
                 {
