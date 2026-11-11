@@ -663,6 +663,8 @@ impl NetworkManager
         self.m_shared.m_remoteSocketAddress.map(|address| address.ip().to_canonical())
     }
 
+    pub fn peerTag(&self) -> String { self.remoteIp().map_or_else(|| String::from("unknown peer"), auth::tag) }
+
     // takes effect only at the next secure marker each way so no packet is ever read with the wrong cipher
     pub fn armSecure(&self, keys: auth::Keys)
     {

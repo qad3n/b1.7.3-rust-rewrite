@@ -2,6 +2,7 @@ mod cipher;
 mod client;
 mod limit;
 mod message;
+mod peer;
 mod server;
 mod suite;
 mod vault;
@@ -11,6 +12,7 @@ pub use cipher::{FRAME_HEADER, Keys, Opener, PLAIN_LIMIT, Sealer};
 pub use client::{ClientAuth, ClientStep};
 pub use limit::Limiter;
 pub use message::{Message, Mode};
+pub use peer::tag;
 pub use server::{Handshake, Outcome, Registration};
 pub use vault::{Account, Vault};
 

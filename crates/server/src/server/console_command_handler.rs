@@ -107,13 +107,14 @@ impl ConsoleCommandHandler
         {
             let string5: JString = string.substringFrom(string.indexOf(b' ' as u16)).trim();
             serverConfigurationManager.banIP(&string5);
-            self.sendNoticeToOps(&string2, &format!("Banning ip {string5}"));
+            // the address stays out of the log and op chat
+            self.sendNoticeToOps(&string2, "Banning an ip");
         }
         else if lower.startsWith("pardon-ip ")
         {
             let string6: JString = string.substringFrom(string.indexOf(b' ' as u16)).trim();
             serverConfigurationManager.pardonIP(&string6);
-            self.sendNoticeToOps(&string2, &format!("Pardoning ip {string6}"));
+            self.sendNoticeToOps(&string2, "Pardoning an ip");
         }
         else if lower.startsWith("ban ")
         {

@@ -129,7 +129,7 @@ impl NetLoginHandler
     {
         let result: Result<(), Throwable> = jvm::throwable::catchThrowable(&jvm::throwable::EXCEPTION, ||
         {
-            info!("Disconnecting {}: {reason}", self.getUserAndIPString());
+            info!("Disconnecting {}: {reason}", self.who());
             self.netManager().addToSendQueue(Box::new(Packet255KickDisconnect::new(JString::from(reason))));
             self.netManager().close();
             self.m_finishedProcessing.set(true);
@@ -156,7 +156,7 @@ impl NetLoginHandler
 
         if packet.m_mapSeed != modloader::netsync::LOADER_MAGIC
         {
-            let who: String = self.getUserAndIPString();
+            let who: String = self.who();
             modloader::log::info(modloader::log::LOADER, &format!("{who} has no mod loader"));
 
             let problems: Vec<String> = modloader::netsync::vanillaClientProblems();
@@ -168,7 +168,7 @@ impl NetLoginHandler
             self.kickUser(&modloader::netsync::kickMessage(&problems));
             return true;
         }
-        *self.m_session.borrow_mut() = Some(ServerSession::start(&self.rawSender(), self.getUserAndIPString()));
+        *self.m_session.borrow_mut() = Some(ServerSession::start(&self.rawSender(), self.who()));
         self.m_configuringLogin.set(Some(packet.clone()));
         true
     }
@@ -191,7 +191,7 @@ impl NetLoginHandler
             entityPlayerMP.setWorld(Some(self.m_mcServer.getWorldManager(dimension)));
             info!(
                 "{} logged in with entity id {} at ({}, {}, {})",
-                self.getUserAndIPString(),
+                self.who(),
                 entityPlayerMP.m_entityId.get(),
                 doubleToString(entityPlayerMP.m_posX.get()),
                 doubleToString(entityPlayerMP.m_posY.get()),
@@ -304,7 +304,7 @@ impl NetLoginHandler
             return;
         }
 
-        info!("{} is logging in with a password", self.getUserAndIPString());
+        info!("{} is logging in with a password", self.who());
         *self.m_auth.borrow_mut() = Some(handshake);
         self.m_authLogin.set(Some(packet.clone()));
         self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&start)));
@@ -332,7 +332,7 @@ impl NetLoginHandler
 
             Err(error) =>
             {
-                debug!("Bad auth message from {}: {error}", self.getUserAndIPString());
+                debug!("Bad auth message from {}: {error}", self.who());
                 self.kickUser(PROTOCOL_ERROR);
                 return;
             }
@@ -385,13 +385,13 @@ impl NetLoginHandler
             auth::Outcome::Fail(reason) =>
             {
                 service.limiter().failed(&name, Instant::now());
-                info!("{} failed to log in as {display}: {reason}", self.getUserAndIPString());
+                info!("{} failed to log in as {display}: {reason}", self.who());
                 self.kickUser(&reason);
             }
 
             auth::Outcome::Refuse(reason) =>
             {
-                info!("{} was refused as {display}: {reason}", self.getUserAndIPString());
+                info!("{} was refused as {display}: {reason}", self.who());
                 self.kickUser(&reason);
             }
 
@@ -411,12 +411,10 @@ impl NetLoginHandler
             return;
         };
 
-        let address: String = ip.to_string();
-
-        match service.vault().visit(name, &address)
+        match service.vault().visit(name, ip)
         {
-            Ok(Some(previous)) => warning!("{display} logged in from {address}, last login was from {previous}"),
-            Ok(None) =>
+            Ok(true) => warning!("{display} logged in from a new address ({})", auth::tag(ip)),
+            Ok(false) =>
             {}
             Err(error) => warning!("Could not save the login address of {display}: {error}"),
         }
@@ -429,7 +427,7 @@ impl NetLoginHandler
         self.netManager().armSecure(keys);
         self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&Message::Secure)));
         self.m_authed.set(true);
-        info!("{} logged in with a password as {display}", self.getUserAndIPString());
+        info!("{} logged in with a password as {display}", self.who());
         self.traceAddress(service, name, display);
 
         let Some(mut login) = self.m_authLogin.get()
@@ -445,14 +443,15 @@ impl NetLoginHandler
         self.doLogin(&login);
     }
 
-    pub fn getUserAndIPString(&self) -> String
+    // logs show a tag instead of the address
+    pub fn who(&self) -> String
     {
         if let Some(username) = self.m_username.get()
         {
-            return format!("{username} [{}]", self.netManager().getRemoteAddress());
+            return format!("{username} [{}]", self.netManager().peerTag());
         }
 
-        self.netManager().getRemoteAddress()
+        self.netManager().peerTag()
     }
 }
 
@@ -464,14 +463,14 @@ impl NetHandler for NetLoginHandler
 
     fn handleErrorMessage(&self, _reason: &JString, _args: &[JString])
     {
-        info!("{} lost connection", self.getUserAndIPString());
+        info!("{} lost connection", self.who());
         self.m_finishedProcessing.set(true);
     }
 
     fn handleHandshake(&self, packet: &Packet2Handshake)
     {
         self.m_handshakeName.set(packet.m_username.clone());
-        debug!("Handshake from {}", self.getUserAndIPString());
+        debug!("Handshake from {}", self.who());
         // no session server check so players prove their name with a password after the login packet
         self.netManager().addToSendQueue(Box::new(Packet2Handshake::new(JString::from("-"))));
     }

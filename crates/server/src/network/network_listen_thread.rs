@@ -52,7 +52,7 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
             Ok((socket, address)) =>
             {
                 let inetaddress: IpAddr = address.ip().to_canonical();
-                let shown: String = jvm::net::socketAddressToString(&address);
+                let shown: String = auth::tag(inetaddress);
                 let last: Option<i64> = hashmap.get(&inetaddress).copied();
                 if let Some(last) = last
                     && inetaddress.to_string() != "127.0.0.1"

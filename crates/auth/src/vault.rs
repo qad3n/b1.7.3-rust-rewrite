@@ -9,6 +9,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{ErrorKind, Write};
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
@@ -56,8 +57,8 @@ pub struct Vault
     m_setup: ServerSetup<Suite>,
     m_accounts: BTreeMap<String, Account>,
     m_invites: Vec<Invite>,
-    // last login address per account so a stolen login shows up as an address change
-    m_addresses: BTreeMap<String, String>,
+    // keyed hash of the last login address per account so a stolen login shows up without storing the address
+    m_addresses: BTreeMap<String, [u8; 32]>,
 }
 
 impl Vault
@@ -145,7 +146,7 @@ impl Vault
             invites.push(Invite { m_name: name, m_digest: digest, m_expires: reader.long()? });
         }
 
-        let mut addresses: BTreeMap<String, String> = BTreeMap::new();
+        let mut addresses: BTreeMap<String, [u8; 32]> = BTreeMap::new();
 
         // vaults written before address tracking end after the invites
         if !reader.done()
@@ -153,7 +154,12 @@ impl Vault
             for _ in 0..reader.long()?
             {
                 let name: String = reader.text()?;
-                addresses.insert(name, reader.text()?);
+
+                // entries of another length are plain addresses from an earlier build and are dropped
+                if let Ok(digest) = reader.bytes()?.try_into()
+                {
+                    addresses.insert(name, digest);
+                }
             }
         }
 
@@ -200,7 +206,7 @@ impl Vault
         for (name, address) in &self.m_addresses
         {
             writer.text(name);
-            writer.text(address);
+            writer.bytes(address);
         }
 
         Zeroizing::new(writer.finish())
@@ -258,7 +264,7 @@ impl Vault
             return Ok(false);
         };
 
-        let address: Option<String> = self.m_addresses.remove(name);
+        let address: Option<[u8; 32]> = self.m_addresses.remove(name);
         let saved: AuthResult<()> = self.save();
         if saved.is_err()
         {
@@ -273,13 +279,14 @@ impl Vault
         saved.map(|()| true)
     }
 
-    // records the login address and returns the previous one when it changed
-    pub fn visit(&mut self, name: &str, address: &str) -> AuthResult<Option<String>>
+    // records the login address and reports whether it differs from the last one
+    pub fn visit(&mut self, name: &str, ip: IpAddr) -> AuthResult<bool>
     {
-        let previous: Option<String> = self.m_addresses.insert(name.to_string(), address.to_string());
-        if previous.as_deref() == Some(address)
+        let address: [u8; 32] = crate::peer::digest(self.m_key.as_ref(), ip);
+        let previous: Option<[u8; 32]> = self.m_addresses.insert(name.to_string(), address);
+        if previous == Some(address)
         {
-            return Ok(None);
+            return Ok(false);
         }
 
         if let Err(error) = self.save()
@@ -293,7 +300,7 @@ impl Vault
             return Err(error);
         }
 
-        Ok(previous)
+        Ok(previous.is_some())
     }
 
     pub fn invite(&mut self, name: &str) -> AuthResult<String>
