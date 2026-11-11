@@ -33,7 +33,7 @@ impl CompressedStreamTools
 
     pub fn read<S: InputStream>(input: &mut DataInputStream<S>) -> IoResult<Rc<NBTBase>>
     {
-        let nbtbase: Rc<NBTBase> = NBTBase::readTag(input)?;
+        let nbtbase: Rc<NBTBase> = NBTBase::readTag(input, 0)?;
         if nbtbase.getType() == 10
         {
             return Ok(nbtbase);

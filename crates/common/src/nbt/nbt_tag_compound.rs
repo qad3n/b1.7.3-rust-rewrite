@@ -24,13 +24,13 @@ impl NBTTagCompound
         output.writeByte(0)
     }
 
-    pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>) -> IoResult<()>
+    pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>, depth: usize) -> IoResult<()>
     {
         self.m_tagMap.update(JHashMap::clear);
 
         loop
         {
-            let nbtBase: Rc<NBTBase> = NBTBase::readTag(input)?;
+            let nbtBase: Rc<NBTBase> = NBTBase::readTag(input, depth)?;
             if nbtBase.getType() == 0
             {
                 break;

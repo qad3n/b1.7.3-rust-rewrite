@@ -44,8 +44,16 @@ impl NBTTagByteArray
             throwable::throwBare(&throwable::NEGATIVE_ARRAY_SIZE);
         }
 
-        let mut raw: Vec<u8> = vec![0; n as usize];
-        input.readFully(&mut raw)?;
+        // rewrite: grow with the data actually read so a forged length cannot allocate gigabytes up front
+        let step: usize = 1 << 16;
+        let mut raw: Vec<u8> = Vec::new();
+        while raw.len() < n as usize
+        {
+            let start: usize = raw.len();
+            raw.resize(start + step.min(n as usize - start), 0);
+            input.readFully(&mut raw[start..])?;
+        }
+
         self.m_byteArray.set(Some(Rc::new(raw.into_iter().map(|value| value as i8).collect())));
         Ok(())
     }

@@ -41,11 +41,17 @@ impl NBTTagList
         Ok(())
     }
 
-    pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>) -> IoResult<()>
+    pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>, depth: usize) -> IoResult<()>
     {
         self.m_tagType.set(input.readByte()?);
 
         let i: i32 = input.readInt()?;
+
+        // rewrite: end tags take no bytes so a count of them could build billions of tags from a few input bytes
+        if self.m_tagType.get() == 0 && i > 0
+        {
+            return Err(jvm::io::ioError(&throwable::IO, "NBT list of end tags"));
+        }
 
         self.m_tagList.set(Vec::new());
 
@@ -56,7 +62,7 @@ impl NBTTagList
                 Some(tag) => tag,
                 None => throwable::npe(),
             };
-            nbtbase.readTagContents(input)?;
+            nbtbase.readTagContents(input, depth)?;
             self.m_tagList.update(|list| list.push(nbtbase));
         }
 

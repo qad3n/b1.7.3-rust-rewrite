@@ -5,6 +5,9 @@ use jvm::string::JString;
 use jvm::throwable::{self, CLASS_CAST};
 use std::rc::Rc;
 
+// rewrite: real saves nest under ten deep and recursion past this could overflow the stack
+const DEPTH_MAX: usize = 512;
+
 pub enum NBTTag
 {
     End(NBTTagEnd),
@@ -48,7 +51,7 @@ impl NBTBase
         }
     }
 
-    pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>) -> IoResult<()>
+    pub fn readTagContents<S: InputStream>(&self, input: &mut DataInputStream<S>, depth: usize) -> IoResult<()>
     {
         match &self.m_tag
         {
@@ -61,8 +64,8 @@ impl NBTBase
             NBTTag::Double(tag) => tag.readTagContents(input),
             NBTTag::ByteArray(tag) => tag.readTagContents(input),
             NBTTag::String(tag) => tag.readTagContents(input),
-            NBTTag::List(tag) => tag.readTagContents(input),
-            NBTTag::Compound(tag) => tag.readTagContents(input),
+            NBTTag::List(tag) => tag.readTagContents(input, depth + 1),
+            NBTTag::Compound(tag) => tag.readTagContents(input, depth + 1),
         }
     }
 
@@ -110,8 +113,13 @@ impl NBTBase
         Rc::clone(self)
     }
 
-    pub fn readTag<S: InputStream>(input: &mut DataInputStream<S>) -> IoResult<Rc<Self>>
+    pub fn readTag<S: InputStream>(input: &mut DataInputStream<S>, depth: usize) -> IoResult<Rc<Self>>
     {
+        if depth > DEPTH_MAX
+        {
+            return Err(jvm::io::ioError(&throwable::IO, "NBT is nested too deeply"));
+        }
+
         let by: i8 = input.readByte()?;
         if by == 0
         {
@@ -122,7 +130,7 @@ impl NBTBase
         let key: JString = input.readUTF()?;
         let nbtBase: Rc<Self> = nbtBase.unwrap_or_else(|| throwable::npe());
         nbtBase.m_key.set(Some(key));
-        nbtBase.readTagContents(input)?;
+        nbtBase.readTagContents(input, depth)?;
         Ok(nbtBase)
     }
 
