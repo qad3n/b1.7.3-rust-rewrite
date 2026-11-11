@@ -10,15 +10,12 @@ use jvm::array_list::JArrayList;
 use jvm::{debug, trace};
 use std::rc::Rc;
 
-// mobs players and vehicles log at debug, items and projectiles at trace so drops and arrows stay quiet
-const DEBUG_KINDS: [&str; 3] = ["EntityLiving", "EntityMinecart", "EntityBoat"];
-
 fn isPlayer(entity: &Entity) -> bool { entity.instanceOf("EntityPlayer") }
 
 fn logEntity(world: &World, entity: &Entity, action: &str)
 {
     let message: String = format!(
-        "{action} {} {} at {:.1}, {:.1}, {:.1} in dimension {}",
+        "{action} {} #{} at ({:.1}, {:.1}, {:.1}) in dimension {}",
         entity.className(),
         entity.m_entityId.get(),
         entity.posX(),
@@ -27,7 +24,8 @@ fn logEntity(world: &World, entity: &Entity, action: &str)
         world.worldProvider().m_worldType.get()
     );
 
-    match DEBUG_KINDS.iter().any(|kind| entity.instanceOf(kind))
+    // only players log at debug since natural spawning and despawning churn mobs every tick
+    match isPlayer(entity)
     {
         true => debug!("{}", message),
         false => trace!("{}", message),

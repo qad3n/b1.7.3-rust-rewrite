@@ -25,7 +25,7 @@ fn main()
     let probe: PathBuf = game::port::assetRoot().join(PROBE_ASSET);
     if !probe.is_file()
     {
-        severe!("missing {}, run beta173_launcher once or set B173_ASSETS to the game assets", probe.display());
+        severe!("Missing {}, run beta173_launcher once or set B173_ASSETS to the game assets", probe.display());
         std::process::exit(1);
     }
 

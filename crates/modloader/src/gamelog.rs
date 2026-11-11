@@ -10,6 +10,7 @@ use std::rc::Rc;
 const FIRST_ITEM: i32 = 256;
 
 // one debug line per player or world action, events that fire every tick or per block update stay out
+// entity spawns stay out too since the world already logs them
 pub fn describe(event: &GameEvent<'_>) -> Option<String>
 {
     let line: String = match event
@@ -43,10 +44,10 @@ pub fn describe(event: &GameEvent<'_>) -> Option<String>
         GameEvent::ItemCrafted { player, stack } => format!("{} crafted {}", name(player), stackName(stack)),
         GameEvent::ItemSmelted { player, stack } => format!("{} took smelted {}", name(player), stackName(stack)),
         GameEvent::BucketFill { player, stack, .. } => format!("{} filled {}", name(player), stackName(stack)),
-        GameEvent::EntityJoinWorld { entity, .. } => format!("{} spawned at {}", name(entity), position(entity)),
 
         // environment damage fires every tick before the hurt cooldown so only attacks by an entity log
-        GameEvent::LivingAttack {
+        GameEvent::LivingAttack
+        {
             entity,
             damage: DamageSource { m_attacker: Some(attacker), m_kind: kind, .. },
             amount,
@@ -93,12 +94,15 @@ pub fn name(entity: &Rc<Entity>) -> String
 
 fn actor(entity: Option<&Rc<Entity>>) -> String { entity.map_or_else(|| String::from("nothing"), name) }
 
-fn at(world: &Rc<World>, x: i32, y: i32, z: i32) -> String { format!("{x} {y} {z} in dimension {}", dimension(world)) }
+fn at(world: &Rc<World>, x: i32, y: i32, z: i32) -> String
+{
+    format!("({x}, {y}, {z}) in dimension {}", dimension(world))
+}
 
 fn position(entity: &Entity) -> String
 {
     let world: i32 = entity.m_worldObj.get().map_or(0, |world| dimension(&world));
-    format!("{:.1} {:.1} {:.1} in dimension {world}", entity.m_posX.get(), entity.m_posY.get(), entity.m_posZ.get())
+    format!("({:.1}, {:.1}, {:.1}) in dimension {world}", entity.m_posX.get(), entity.m_posY.get(), entity.m_posZ.get())
 }
 
 fn blockName(block: i32, meta: i32) -> String

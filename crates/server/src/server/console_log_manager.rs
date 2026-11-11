@@ -1,5 +1,5 @@
 use jvm::calendar::{DateFields, dateFields};
-use jvm::log_files;
+use jvm::log_files::{self, LEVEL_WIDTH};
 use jvm::logging::{Formatter, LogRecord, logger};
 use std::path::Path;
 
@@ -37,7 +37,11 @@ impl Formatter for ConsoleLogFormatter
         let mut stringBuilder: String = String::new();
         stringBuilder.push_str(&Self::formatDate(logRecord.getMillis()));
         // rewrite: every level prints its name and the call site, java dropped CONFIG and other custom levels
-        stringBuilder.push_str(&format!(" [{}] [{}] ", logRecord.getLevel().getLocalizedName(), logRecord.source()));
+        stringBuilder.push_str(&format!(
+            " {:<LEVEL_WIDTH$} [{}] ",
+            logRecord.getLevel().getLocalizedName(),
+            logRecord.source()
+        ));
         stringBuilder.push_str(&logRecord.getMessage().to_string());
         stringBuilder.push('\n');
 

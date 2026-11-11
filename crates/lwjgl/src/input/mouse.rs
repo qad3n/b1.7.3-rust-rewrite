@@ -92,7 +92,7 @@ fn warp(x: i32, y: i32)
     });
     if let Err(error) = warped
     {
-        warning!("could not move the cursor: {error}");
+        warning!("Could not move the cursor: {error}");
     }
 }
 
@@ -269,7 +269,7 @@ impl Mouse
             match platform.m_sdl.event()
             {
                 Ok(events) => events.flush_event(EventType::MouseMotion),
-                Err(error) => warning!("could not drop queued mouse motion: {error}"),
+                Err(error) => warning!("Could not drop queued mouse motion: {error}"),
             }
 
             mouse.relative_mouse_mode()
@@ -280,13 +280,13 @@ impl Mouse
 
             Err(error) =>
             {
-                warning!("could not switch the mouse grab: {error}");
+                warning!("Could not switch the mouse grab: {error}");
                 false
             }
         };
         if grab && !grabbed
         {
-            warning!("the window system refused to grab the mouse");
+            warning!("The window system refused to grab the mouse");
         }
 
         // lwjgl drops the deltas gathered in the old mode

@@ -11,9 +11,9 @@ use game::port::text;
 use game::stats::AchievementList;
 use game::tileentity::{TileEntity, tile_entity_furnace};
 use game::world::World;
-use jvm::debug;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
+use jvm::{debug, trace};
 use lwjgl::input::{Keyboard, Mouse};
 use lwjgl::opengl::{GL11, GL12};
 use std::cell::{Cell, OnceCell};
@@ -328,7 +328,7 @@ fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
     if k != -1
     {
         let flag1: bool = k != -999 && (Keyboard::isKeyDown(42) || Keyboard::isKeyDown(54));
-        debug!(
+        trace!(
             "Clicked slot {k} with mouse button {button}{} on {}",
             if flag1 { " and shift" } else { "" },
             this.className()

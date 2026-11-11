@@ -17,6 +17,9 @@ pub mod limits
 const PLAIN_EXTENSION: &str = "log";
 const ARCHIVE_EXTENSION: &str = "log.gz";
 
+// the widest level name so messages line up in one column
+pub const LEVEL_WIDTH: usize = 7;
+
 // one program writes <dir>/<name>.log and keeps its old runs as <name>-<date>-<n>.log.gz
 struct LogFile
 {
@@ -269,7 +272,7 @@ impl Formatter for LogFormatter
     {
         let fields: DateFields = dateFields(record.getMillis());
         let mut text: String = format!(
-            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} [{}] [{}] {}\n",
+            "{:04}-{:02}-{:02} {:02}:{:02}:{:02}.{:03} {:<LEVEL_WIDTH$} [{}] {}\n",
             fields.m_year,
             fields.m_month,
             fields.m_day,

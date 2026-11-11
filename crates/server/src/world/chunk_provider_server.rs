@@ -322,7 +322,7 @@ impl IChunkProvider for ChunkProviderServer
 
             if queued > 0
             {
-                debug!("Unloaded {} chunks, {left} still queued, {} loaded", queued - left, self.m_chunks.size());
+                trace!("Unloaded {} chunks, {left} still queued, {} loaded", queued - left, self.m_chunks.size());
             }
 
             if let Some(storage) = &self.m_storage

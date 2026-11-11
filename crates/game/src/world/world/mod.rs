@@ -399,7 +399,12 @@ impl World
 
         let started: std::time::Instant = std::time::Instant::now();
 
-        debug!("Saving world {} with {} players", self.summary(), self.m_playerEntities.size());
+        // the periodic save without entities runs every couple of seconds so it stays at trace
+        match saveEntities
+        {
+            true => debug!("Saving world {} with {} players", self.summary(), self.m_playerEntities.size()),
+            false => trace!("Autosaving world {}", self.summary()),
+        }
 
         if let Some(listener) = progressListener
         {
@@ -414,7 +419,11 @@ impl World
         }
 
         provider.saveChunks(saveEntities, progressListener);
-        debug!("World saved in {}", jvm::logging::took(started));
+        match saveEntities
+        {
+            true => debug!("World saved in {}", jvm::logging::took(started)),
+            false => trace!("World autosaved in {}", jvm::logging::took(started)),
+        }
     }
 
     fn saveLevel(&self)

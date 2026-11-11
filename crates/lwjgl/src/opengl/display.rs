@@ -75,7 +75,7 @@ fn applyVSync(video: &sdl2::VideoSubsystem, vsync: bool)
 
     if let Err(error) = video.gl_set_swap_interval(interval)
     {
-        warning!("could not set the swap interval: {error}");
+        warning!("Could not set the swap interval: {error}");
     }
 }
 
@@ -90,7 +90,7 @@ impl Display
 
             Some(Err(error)) =>
             {
-                warning!("could not find the monitor holding the window: {error}");
+                warning!("Could not find the monitor holding the window: {error}");
                 0
             }
 
@@ -164,7 +164,7 @@ impl Display
 
         if let Err(error) = platform::with(|platform| applyVSync(&platform.m_video, vsync))
         {
-            warning!("could not reach the video subsystem: {error}");
+            warning!("Could not reach the video subsystem: {error}");
         }
     }
 

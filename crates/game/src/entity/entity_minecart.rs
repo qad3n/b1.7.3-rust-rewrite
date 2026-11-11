@@ -8,8 +8,8 @@ use crate::math::Vec3D;
 use crate::math::math_helper::{floor_double, sqrt_double};
 use crate::world::World;
 use common::nbt::{NBTBase, NBTTagCompound, NBTTagList};
-use jvm::debug;
 use jvm::throwable::OrNpe;
+use jvm::trace;
 use std::cell::{Cell, RefCell};
 use std::f64::consts::PI;
 use std::rc::Rc;
@@ -994,7 +994,7 @@ pub const CLASS: EntityClass = EntityClass
 
     performHurtAnimation: |this|
     {
-        debug!("Animating hurt");
+        trace!("Animating hurt");
 
         let cart: &MinecartFields = fields(this);
         cart.m_minecartRockDirection.set(-cart.m_minecartRockDirection.get());

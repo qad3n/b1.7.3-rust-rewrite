@@ -525,10 +525,12 @@ impl NetHandler for NetServerHandler
         if d7 > 0.0625 && !player.isPlayerSleeping()
         {
             flag1 = true;
-            warning!("{} moved wrongly!", self.username());
-            debug!("Got position {}, {}, {}", doubleToString(d1), doubleToString(d2), doubleToString(d3));
-            debug!(
-                "Expected {}, {}, {}",
+            warning!(
+                "{} moved wrongly: got ({}, {}, {}), expected ({}, {}, {})",
+                self.username(),
+                doubleToString(d1),
+                doubleToString(d2),
+                doubleToString(d3),
                 doubleToString(player.m_posX.get()),
                 doubleToString(player.m_posY.get()),
                 doubleToString(player.m_posZ.get())

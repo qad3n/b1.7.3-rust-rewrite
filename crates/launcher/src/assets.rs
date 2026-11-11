@@ -82,7 +82,7 @@ fn isSound(name: &str) -> bool { name.split_once('/').is_some_and(|(folder, _)| 
 
 fn copySounds(resources: &Path, source: &Path) -> Result<()>
 {
-    info!("copying sounds from {} into {}", source.display(), resources.display());
+    info!("Copying sounds from {} into {}", source.display(), resources.display());
 
     for folder in SOUND_FOLDERS
     {
@@ -125,13 +125,13 @@ fn fetchClient(root: &Path, jar: Option<PathBuf>) -> Result<()>
     {
         Some(path) =>
         {
-            info!("extracting assets from {}", path.display());
+            info!("Extracting assets from {}", path.display());
             std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?
         }
 
         None =>
         {
-            info!("no local client jar, downloading the {VERSION_ID} client from Mojang");
+            info!("No local client jar, downloading the {VERSION_ID} client from Mojang");
 
             downloadClientJar().with_context(||
             {
@@ -157,7 +157,7 @@ fn fetchSounds(resources: &Path) -> Result<()>
     let objects: &serde_json::Map<String, Value> =
         index.get("objects").and_then(Value::as_object).with_context(|| format!("{indexUrl} has no objects map"))?;
     let wanted: Vec<(&String, &Value)> = objects.iter().filter(|(name, _)| isSound(name)).collect();
-    info!("downloading {} sound files into {}", wanted.len(), resources.display());
+    info!("Downloading {} sound files into {}", wanted.len(), resources.display());
 
     for (name, object) in wanted
     {
@@ -244,7 +244,7 @@ fn extractJar(root: &Path, bytes: &[u8]) -> Result<()>
         std::io::copy(&mut entry, &mut create(&path)?).with_context(|| format!("extracting {}", path.display()))?;
     }
 
-    info!("assets extracted into {}", root.display());
+    info!("Assets extracted into {}", root.display());
     Ok(())
 }
 

@@ -70,7 +70,7 @@ fn run() -> ExitCode
 
     if !assets::isComplete()
     {
-        severe!("no game assets in {}, start the game with beta173_launcher", assets::assetRoot().display());
+        severe!("No game assets in {}, start the game with beta173_launcher", assets::assetRoot().display());
         return ExitCode::FAILURE;
     }
 

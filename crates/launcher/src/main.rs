@@ -88,7 +88,7 @@ fn holdWindow()
 
     if let Err(error) = std::io::stdout().flush().and_then(|()| std::io::stdin().lock().read_line(&mut String::new()))
     {
-        warning!("could not wait for Enter: {error}");
+        warning!("Could not wait for Enter: {error}");
     }
 }
 

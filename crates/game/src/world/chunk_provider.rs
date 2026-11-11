@@ -295,7 +295,7 @@ impl IChunkProvider for ChunkProvider
 
         if queued > 0
         {
-            debug!("Unloaded {} chunks, {left} still queued, {} loaded", queued - left, self.m_chunkList.size());
+            trace!("Unloaded {} chunks, {left} still queued, {} loaded", queued - left, self.m_chunkList.size());
         }
 
         if let Some(loader) = &self.m_chunkLoader
