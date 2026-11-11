@@ -1,6 +1,6 @@
 use super::{Channel, Handler};
 use crate::host::context;
-use crate::screens::OpenRequest;
+use crate::screens::{OpenRequest, ScreenType};
 use game::block::Block;
 use game::entity::Entity;
 use game::entity::entity_falling_sand::FallingSandFields;
@@ -12,6 +12,7 @@ use std::rc::Rc;
 
 pub const SPAWN_ENTITY: &str = "loader:spawn_entity";
 pub const OPEN_SCREEN: &str = "loader:open_screen";
+pub const OPEN_NAMED_SCREEN: &str = "loader:open_named_screen";
 pub const SOUND: &str = "loader:sound";
 pub const PARTICLE: &str = "loader:particle";
 pub const BLOCK_EVENT: &str = "loader:block_event";
@@ -115,6 +116,16 @@ pub struct SpawnEntity
 pub struct OpenScreen
 {
     pub screen: i32,
+    pub window: i32,
+    pub pos: Option<BlockPos>,
+    pub data: Vec<u8>,
+}
+
+// screens by name, numbers differ when either side has screens from a mod the other lacks
+#[derive(Serialize, Deserialize)]
+pub struct OpenNamedScreen
+{
+    pub screen: String,
     pub window: i32,
     pub pos: Option<BlockPos>,
     pub data: Vec<u8>,
@@ -284,24 +295,52 @@ fn tileData(message: super::sync::TileData)
     }
 }
 
+fn show(screen: Option<Rc<ScreenType>>, name: &str, window: i32, pos: Option<BlockPos>, data: Vec<u8>)
+{
+    let Some(screen) = screen
+    else
+    {
+        crate::log::warn(crate::log::LOADER, &format!("server opened unknown screen {name}"));
+        return;
+    };
+
+    crate::screens::openLocal(OpenRequest { m_screen: screen, m_pos: pos, m_data: data, m_window: window });
+}
+
 fn openScreen(message: OpenScreen)
 {
-    match crate::screens::byNumeric(message.screen)
-    {
-        Some(screen) =>
-        {
-            let request: OpenRequest = crate::screens::OpenRequest
-            {
-                m_screen: screen,
-                m_pos: message.pos,
-                m_data: message.data,
-                m_window: message.window,
-            };
-            crate::screens::openLocal(request);
-        }
+    let screen: Option<Rc<ScreenType>> = crate::screens::byNumeric(message.screen);
+    show(screen, &message.screen.to_string(), message.window, message.pos, message.data);
+}
 
-        None => crate::log::warn(crate::log::LOADER, &format!("server opened unknown screen {}", message.screen)),
+fn openNamedScreen(message: OpenNamedScreen)
+{
+    let screen: Option<Rc<ScreenType>> =
+        Identifier::parse(&message.screen).ok().and_then(|id| crate::screens::byId(&id));
+    show(screen, &message.screen, message.window, message.pos, message.data);
+}
+
+// a client that knows screens by name gets the name, an older one the shared sorted index
+pub fn sendScreen(player: &Rc<Entity>, request: OpenRequest, window: i32) -> Result<(), String>
+{
+    let named: Identifier = id(OPEN_NAMED_SCREEN);
+
+    if crate::netsync::peerHasChannel(player.m_entityId.get(), &named)
+    {
+        let message: OpenNamedScreen = OpenNamedScreen
+        {
+            screen: request.m_screen.m_id.to_string(),
+            window,
+            pos: request.m_pos,
+            data: request.m_data,
+        };
+        send(OPEN_NAMED_SCREEN, player, &message);
+        return Ok(());
     }
+
+    let screen: i32 = crate::screens::numeric(&request.m_screen.m_id).ok_or("unknown screen")?;
+    send(OPEN_SCREEN, player, &OpenScreen { screen, window, pos: request.m_pos, data: request.m_data });
+    Ok(())
 }
 
 fn sound(message: Sound)
@@ -366,10 +405,11 @@ pub fn sendTick()
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 13] = [
+    let channels: [(&str, Handler); 14] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
+        (OPEN_NAMED_SCREEN, clientHandler(openNamedScreen)),
         (SOUND, clientHandler(sound)),
         (PARTICLE, clientHandler(particle)),
         (BLOCK_EVENT, clientHandler(blockEvent)),

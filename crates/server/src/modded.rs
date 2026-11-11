@@ -4,7 +4,7 @@ use crate::server::{MinecraftServer, PropertyManager};
 use game::container::Container;
 use game::entity::{Entity, entity_player};
 use game::inventory::IInventory;
-use modloader::network::loader::{self, OpenScreen};
+use modloader::network::loader;
 use modloader::screens::OpenRequest;
 use std::path::Path;
 use std::rc::Rc;
@@ -37,10 +37,7 @@ impl modloader::netplay::Platform for ServerPlatform
             entity_player_mp::openContainer(player, container);
         }
 
-        let screen: i32 = modloader::screens::numeric(&request.m_screen.m_id).ok_or("unknown screen")?;
-        let message: OpenScreen = OpenScreen { screen, window, pos: request.m_pos, data: request.m_data };
-        loader::send(loader::OPEN_SCREEN, player, &message);
-        Ok(())
+        loader::sendScreen(player, request, window)
     }
 
     fn teleport(&self, player: &Rc<Entity>, dimension: i32, pos: [f64; 3]) -> Result<(), String>
