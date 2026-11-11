@@ -71,6 +71,19 @@ pub struct LivingFields
     pub m_effects: Effects,
 }
 
+// beta mobs have no armor, an armor modifier cuts damage by the player's rule of 4 percent a point
+fn armored(this: &Entity, amount: i32) -> i32
+{
+    const FULL: i32 = 25;
+    let armor: i32 = crate::attribute::whole(this, crate::attribute::Attribute::Armor, 0).clamp(0, FULL);
+    if armor == 0
+    {
+        return amount;
+    }
+
+    amount * (FULL - armor) / FULL
+}
+
 pub fn fields(this: &Entity) -> &LivingFields
 {
     match this.m_ext.living()
@@ -168,7 +181,7 @@ pub const CLASS: EntityClass = EntityClass {
         living.m_hurtTime.set(10);
         living.m_attackedAtYaw.set(0.0);
     },
-    damageEntity: |this, amount| fields(this).m_health.set(fields(this).m_health.get() - amount),
+    damageEntity: |this, amount| fields(this).m_health.set(fields(this).m_health.get() - armored(this, amount)),
     getSoundVolume: |_| 1.0,
     getLivingSound: |_| None,
     getHurtSound: |_| Some("random.hurt".to_string()),

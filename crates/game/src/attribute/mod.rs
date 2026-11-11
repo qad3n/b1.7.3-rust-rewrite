@@ -15,6 +15,7 @@ pub enum Attribute
     AttackDamage,
     Armor,
     KnockbackResistance,
+    SwimSpeed,
 }
 
 pub struct AttributeRow
@@ -23,12 +24,13 @@ pub struct AttributeRow
     pub m_name: &'static str,
 }
 
-pub const ROWS: [AttributeRow; 5] = [
+pub const ROWS: [AttributeRow; 6] = [
     AttributeRow { m_attribute: Attribute::MaxHealth, m_name: "max_health" },
     AttributeRow { m_attribute: Attribute::MoveSpeed, m_name: "movement_speed" },
     AttributeRow { m_attribute: Attribute::AttackDamage, m_name: "attack_damage" },
     AttributeRow { m_attribute: Attribute::Armor, m_name: "armor" },
     AttributeRow { m_attribute: Attribute::KnockbackResistance, m_name: "knockback_resistance" },
+    AttributeRow { m_attribute: Attribute::SwimSpeed, m_name: "swim_speed" },
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

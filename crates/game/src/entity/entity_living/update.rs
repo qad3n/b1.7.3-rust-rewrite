@@ -225,7 +225,7 @@ pub fn groundSlipperiness(this: &Rc<Entity>, world: &World) -> f32
 fn liquidMove(this: &Rc<Entity>, sideways: f32, forwards: f32, drag: f64)
 {
     let d: f64 = this.posY();
-    this.moveFlying(sideways, forwards, 0.02);
+    this.moveFlying(sideways, forwards, swimSpeed(this));
     this.moveEntity(this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get());
     this.m_motionX.set(this.m_motionX.get() * drag);
     this.m_motionY.set(this.m_motionY.get() * drag);
@@ -324,6 +324,13 @@ pub fn animateWalk(this: &Entity)
         .m_walkAnimationSpeed
         .set(living.m_walkAnimationSpeed.get() + (speed - living.m_walkAnimationSpeed.get()) * 0.4);
     living.m_walkAnimationProgress.set(living.m_walkAnimationProgress.get() + living.m_walkAnimationSpeed.get());
+}
+
+// beta swims every living entity at 0.02 in water and lava, swim speed modifiers scale it
+fn swimSpeed(this: &Entity) -> f32
+{
+    const SWIM_SPEED: f32 = 0.02;
+    attribute::value(this, Attribute::SwimSpeed, SWIM_SPEED as f64) as f32
 }
 
 // beta walks every living entity at 0.1 on the ground, movement speed modifiers scale it
