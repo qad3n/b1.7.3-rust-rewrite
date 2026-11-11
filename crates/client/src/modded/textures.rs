@@ -1,6 +1,5 @@
-use crate::render::{GLAllocation, RenderEngine, TextureFX, TextureFXFields};
+use crate::render::{RenderEngine, TextureFX, TextureFXFields, uploadTile};
 use jvm::image::BufferedImage;
-use lwjgl::buffers::{Buffer, ByteBuffer};
 use lwjgl::opengl::GL11;
 use modloader::atlas::{self, AnimatedTile, Atlas};
 use std::cell::{Cell, RefCell, RefMut};
@@ -9,7 +8,6 @@ use std::rc::{Rc, Weak};
 
 thread_local!
 {
-    static PIXELS: RefCell<Option<ByteBuffer>> = const { RefCell::new(None) };
     static REGISTERED: Cell<bool> = const { Cell::new(false) };
     // a dynamic texture's GL name and the version last uploaded to it
     static UPLOADED: RefCell<HashMap<String, (i32, u32)>> = RefCell::new(HashMap::new());
@@ -70,35 +68,6 @@ pub fn bindFile(engine: &RenderEngine, texture: &str)
     engine.bindTexture(engine.getTexture(&path));
 }
 
-// the largest tile a texture pack uses, 256 pixel tiles in rgba
-const MAX_TILE_BYTES: i32 = 256 * 256 * 4;
-
-fn upload(tile: &AnimatedTile)
-{
-    PIXELS.with(|pixels|
-    {
-        let mut pixels: RefMut<Option<Buffer<i8>>> = pixels.borrow_mut();
-        let buffer: &mut ByteBuffer =
-            pixels.get_or_insert_with(|| GLAllocation::createDirectByteBuffer(MAX_TILE_BYTES));
-        let bytes: Vec<i8> = tile.m_rgba.iter().map(|byte| *byte as i8).collect();
-
-        buffer.clear();
-        buffer.putSlice(&bytes);
-        buffer.setPosition(0).setLimit(bytes.len() as i32);
-        GL11::glTexSubImage2D(
-            GL11::GL_TEXTURE_2D,
-            0,
-            tile.m_x,
-            tile.m_y,
-            tile.m_size,
-            tile.m_size,
-            GL11::GL_RGBA,
-            GL11::GL_UNSIGNED_BYTE,
-            buffer,
-        );
-    });
-}
-
 // a texture effect in vanilla's own list that steps every mod frame strip, it uploads nothing of its own
 struct ModSprites
 {
@@ -152,7 +121,7 @@ fn animate(engine: &RenderEngine)
 
         for tile in &due
         {
-            upload(tile);
+            uploadTile(tile.m_x, tile.m_y, tile.m_size, &tile.m_rgba);
         }
     }
 }

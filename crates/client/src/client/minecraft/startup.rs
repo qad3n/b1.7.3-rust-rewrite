@@ -4,8 +4,8 @@ use crate::gui::{FontRenderer, GuiConnecting, GuiIngame, GuiMainMenu, ScaledReso
 use crate::render::
 {
     EffectRenderer, EntityRenderer, ItemRenderer, OpenGlCapsChecker, RenderEngine, RenderGlobal, RenderManager,
-    Tessellator, TextureCompassFX, TextureFX, TextureFlamesFX, TextureLavaFlowFX, TexturePackList, TexturePortalFX,
-    TextureWatchFX, TextureWaterFlowFX,
+    Tessellator, TextureCompassFX, TextureFX, TextureFlamesFX, TextureLavaFlowFX, TexturePackList, TexturePackSprites,
+    TexturePortalFX, TextureWatchFX, TextureWaterFlowFX,
 };
 use crate::settings::{Component, GameSettings, MouseHelper};
 use crate::stats::StatFileWriter;
@@ -175,7 +175,7 @@ impl Minecraft
 
         debug!("Sound system started in {}", took(stage));
 
-        let effects: [Rc<dyn TextureFX>; 9] = [
+        let effects: [Rc<dyn TextureFX>; 10] = [
             self.m_textureLavaFX.get().orNpe(),
             self.m_textureWaterFX.get().orNpe(),
             Rc::new(TexturePortalFX::new()),
@@ -185,6 +185,8 @@ impl Minecraft
             Rc::new(TextureLavaFlowFX::new()),
             Rc::new(TextureFlamesFX::new(0)),
             Rc::new(TextureFlamesFX::new(1)),
+            // texture pack animations play after the beta effects they replace
+            Rc::new(TexturePackSprites::new(&engine)),
         ];
 
         for effect in effects

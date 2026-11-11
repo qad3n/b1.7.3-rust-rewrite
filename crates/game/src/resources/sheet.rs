@@ -1,3 +1,4 @@
+use crate::resources::animation::{self, Animation};
 use crate::resources::sprites::{ITEMS, Sprite, TERRAIN};
 use crate::resources::{Location, Stack, legacy};
 use jvm::image::{BufferedImage, ImageIO};
@@ -22,7 +23,22 @@ const SHEETS: &[Sheet] = &[
 struct Paint
 {
     m_slot: usize,
+    m_span: usize,
     m_image: BufferedImage,
+    m_meta: Option<Vec<u8>>,
+}
+
+impl Paint
+{
+    // the tile size this sprite would need on its own
+    fn tile(&self) -> i32 { self.m_image.getWidth() / self.m_span as i32 }
+
+    // the covered slots from the top left across and down
+    fn slots(&self) -> impl Iterator<Item = usize> + '_
+    {
+        (0..self.m_span)
+            .flat_map(move |down| (0..self.m_span).map(move |across| self.m_slot + down * TILES as usize + across))
+    }
 }
 
 fn decode(location: &Location, bytes: Vec<u8>) -> Option<BufferedImage>
@@ -55,9 +71,14 @@ fn find(sheet: &Sheet, stack: &Stack, base: usize) -> Vec<Paint>
             continue;
         };
 
+        // a .mcmeta only counts from the pack serving the png or one above it
+        let meta: Location = Location::new(&location.m_namespace, &format!("{}.mcmeta", location.m_path));
+        let metaOwner: Option<usize> = stack.owner(&meta).filter(|metaOwner| Some(*metaOwner) >= owner);
+        let metaBytes: Option<Vec<u8>> = metaOwner.and_then(|metaOwner| stack.pack(metaOwner).read(&meta));
+
         if let Some(image) = decode(&location, bytes)
         {
-            found.push(Paint { m_slot: sprite.m_slot, m_image: image });
+            found.push(Paint { m_slot: sprite.m_slot, m_span: sprite.m_span, m_image: image, m_meta: metaBytes });
         }
     }
 
@@ -80,10 +101,9 @@ fn blit(source: &BufferedImage, from: (i32, i32, i32), target: &BufferedImage, t
     }
 }
 
-fn paint(base: &BufferedImage, paints: &[Paint]) -> BufferedImage
+fn paint(base: &BufferedImage, paints: &[Paint], tile: i32) -> BufferedImage
 {
     let baseTile: i32 = base.getWidth() / TILES;
-    let tile: i32 = paints.iter().map(|paint| paint.m_image.getWidth()).fold(baseTile, i32::max);
     let rows: i32 = base.getHeight() / baseTile;
     let image: BufferedImage = BufferedImage::new(TILES * tile, rows * tile, BufferedImage::TYPE_INT_ARGB);
 
@@ -96,12 +116,19 @@ fn paint(base: &BufferedImage, paints: &[Paint]) -> BufferedImage
     // a sprite taller than wide is an animation strip and its first frame is shown
     for paint in paints
     {
-        let slot: i32 = paint.m_slot as i32;
-        let size: i32 = paint.m_image.getWidth();
-        blit(&paint.m_image, (0, 0, size), &image, (slot % TILES * tile, slot / TILES * tile, tile));
+        let (x, y, size): (i32, i32, i32) = place(paint, tile);
+        let width: i32 = paint.m_image.getWidth();
+        blit(&paint.m_image, (0, 0, width), &image, (x, y, size));
     }
 
     image
+}
+
+// where a sprite sits on the sheet in pixels and its size there
+fn place(paint: &Paint, tile: i32) -> (i32, i32, i32)
+{
+    let slot: i32 = paint.m_slot as i32;
+    (slot % TILES * tile, slot / TILES * tile, tile * paint.m_span as i32)
 }
 
 // modern sprites painted over a beta sheet and the sheet comes back untouched when no pack above it has one
@@ -119,9 +146,19 @@ pub(crate) fn overlay(stack: &Stack, path: &str, image: Rc<BufferedImage>) -> Rc
     let paints: Vec<Paint> = find(sheet, stack, base);
     if paints.is_empty() || image.getWidth() < TILES
     {
+        animation::set(path, Vec::new(), Vec::new());
         return image;
     }
 
     debug!("Painting {} texture pack sprites onto {path}", paints.len());
-    Rc::new(paint(&image, &paints))
+
+    let tile: i32 = paints.iter().map(Paint::tile).fold(image.getWidth() / TILES, i32::max);
+    let painted: Vec<usize> = paints.iter().flat_map(Paint::slots).collect();
+    let animations: Vec<Animation> = paints
+        .iter()
+        .filter_map(|paint| Animation::new(&paint.m_image, paint.m_meta.as_deref(), place(paint, tile)))
+        .collect();
+    animation::set(path, painted, animations);
+
+    Rc::new(paint(&image, &paints, tile))
 }

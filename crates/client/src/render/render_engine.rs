@@ -14,6 +14,8 @@ const IMAGE_DATA_BYTES: i32 = 1048576;
 const MISSING_TEXTURE_SIZE: i32 = 64;
 const MIPMAP_LEVELS: i32 = 4;
 const TILE: i32 = 16;
+// the sheets a texture effect draws into by its tile image number
+const FX_SHEETS: [&str; 2] = ["/terrain.png", "/gui/items.png"];
 
 thread_local!
 {
@@ -111,6 +113,20 @@ fn unwrapImageByColumns(image: &BufferedImage) -> Rc<BufferedImage>
 
     graphics.dispose();
     Rc::new(bufferedimage)
+}
+
+// a beta texture effect whose tiles a texture pack painted stops so the pack image or animation shows
+fn replaced(fx: &TextureFXFields) -> bool
+{
+    let Some(path) = FX_SHEETS.get(fx.m_tileImage.get() as usize)
+    else
+    {
+        return false;
+    };
+
+    let size: i32 = fx.m_tileSize.get();
+    let icon: i32 = fx.m_iconIndex.get();
+    (0..size).any(|down| (0..size).any(|across| game::resources::painted(path, (icon + down * TILE + across) as usize)))
 }
 
 pub struct RenderEngine
@@ -537,7 +553,7 @@ impl RenderEngine
     pub fn updateDynamicTextures(&self)
     {
         let textures: Vec<Rc<dyn TextureFX>> = self.m_textureList.borrow().clone();
-        for texturefx in &textures
+        for texturefx in textures.iter().filter(|texturefx| !replaced(texturefx.fx()))
         {
             let fx: &TextureFXFields = texturefx.fx();
             fx.m_anaglyphEnabled.set(self.m_options.as_ref().orNpe().m_anaglyph.get());
