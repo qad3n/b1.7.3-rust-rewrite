@@ -3,7 +3,7 @@ use crate::content::{data, tags};
 use crate::registry::{self, RegistryError, TileEntityEntry};
 use crate::state::{self, ModRuntime, Phase};
 use mod_protocol::Identifier;
-use mod_protocol::abi::{HostCall, HostReply, RegistryKind};
+use mod_protocol::abi::{HostCall, HostReply, RegistryKind, StateData};
 use mod_protocol::identifier::MINECRAFT;
 use std::rc::Rc;
 
@@ -209,12 +209,25 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
 
         HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
+        HostCall::ResolveState { state } => ok(resolveState(&state), |(block, meta)| HostReply::Size(block, meta)),
+        HostCall::DescribeState { block, meta } => HostReply::State(crate::states::describe(block, meta)),
         HostCall::IsClient => HostReply::Bool(crate::side::isClient()),
         HostCall::IsLoaded { modid } => HostReply::Bool(state::byId(&modid).is_some_and(|other| other.isActive())),
         HostCall::ModName { modid } => HostReply::Text(modName(&modid)),
         other => return Err(Box::new(other)),
     };
     Ok(reply)
+}
+
+// air has no registry row so a handle naming it clears a spot
+fn resolveState(state: &StateData) -> Result<(i32, i32), String>
+{
+    if state.block == Identifier::minecraft("air")
+    {
+        return Ok((0, 0));
+    }
+
+    crate::states::resolve(state).ok_or_else(|| format!("{} is not a registered block", state.block))
 }
 
 fn modName(modid: &str) -> String
