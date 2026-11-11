@@ -129,6 +129,27 @@ fn inventoryTile(dimension: i32, pos: BlockPos) -> Result<Rc<TileEntity>, String
         .ok_or_else(|| format!("no inventory at {pos:?}"))
 }
 
+// another state of the block already there rewrites only its metadata as vanilla flips a lever so its tile entity stays
+fn writeState(world: &Rc<World>, pos: BlockPos, block: i32, meta: i32, notify: bool) -> bool
+{
+    let BlockPos { x, y, z } = pos;
+    let same: bool = world.getBlockId(x, y, z) == block;
+
+    match (same, notify)
+    {
+        (false, true) => world.setBlockAndMetadataWithNotify(x, y, z, block, meta),
+        (false, false) => world.setBlockAndMetadata(x, y, z, block, meta),
+        (true, true) =>
+        {
+            let changed: bool = world.getBlockMetadata(x, y, z) != meta;
+            world.setBlockMetadataWithNotify(x, y, z, meta);
+            changed
+        }
+
+        (true, false) => world.getBlockMetadata(x, y, z) != meta && world.setBlockMetadata(x, y, z, meta),
+    }
+}
+
 fn blockInfo(block: &Rc<game::block::Block>) -> BlockInfo
 {
     BlockInfo
@@ -565,18 +586,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 world(dimension)
                     .and_then(|world| authoritative(&world).map(|()| world))
                     .and_then(|world| target.map(|target| (world, target))),
-                |(world, (block, meta))|
-                {
-                    let changed: bool = if notify
-                    {
-                        world.setBlockAndMetadataWithNotify(pos.x, pos.y, pos.z, block, meta)
-                    }
-                    else
-                    {
-                        world.setBlockAndMetadata(pos.x, pos.y, pos.z, block, meta)
-                    };
-                    HostReply::Bool(changed)
-                },
+                |(world, (block, meta))| HostReply::Bool(writeState(&world, pos, block, meta, notify)),
             )
         }
 
