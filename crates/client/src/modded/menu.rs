@@ -19,18 +19,29 @@ mod listing
     pub const TITLE_Y: i32 = 8;
     pub const SUMMARY_Y: i32 = 20;
     pub const TOP: i32 = 32;
-    pub const BOTTOM_MARGIN: i32 = 36;
-    pub const ENTRY_HEIGHT: i32 = 36;
-    pub const TEXT_WIDTH: i32 = 214;
-    pub const DETAIL_LINES: usize = 2;
-    pub const LINE_Y: [i32; 3] = [1, 12, 22];
+    pub const BOTTOM_MARGIN: i32 = 80;
+    pub const ENTRY_HEIGHT: i32 = 24;
+    pub const ROW_MAX_WIDTH: i32 = 320;
+    pub const LINE_Y: [i32; 2] = [1, 12];
+    pub const STATUS_GAP: i32 = 6;
+    pub const INFO_Y: i32 = 76;
+    pub const INFO_LINES: usize = 4;
     pub const BUTTON_WIDTH: i32 = 98;
     pub const BUTTON_GAP: i32 = 4;
     pub const BUTTON_Y: i32 = 28;
     pub const DONE: i32 = 0;
+    pub const CONFIG: i32 = 1;
     pub const OPEN_FOLDER: i32 = 2;
     pub const SCROLL_UP: i32 = 3;
     pub const SCROLL_DOWN: i32 = 4;
+}
+
+pub(crate) mod text
+{
+    pub const LINE_HEIGHT: i32 = 10;
+    pub const ROW_MARGIN: i32 = 30;
+    // the slot draws rows 2 in from the highlight edge
+    pub const ROW_INSET: i32 = 2;
 }
 
 pub const MODS_BUTTON: i32 = 50;
@@ -43,7 +54,7 @@ const ELLIPSIS: &str = "...";
 const LOADER_TITLE: &str = "Mod Loader";
 const KEY_CONFLICT_TITLE: &str = "Key conflicts";
 const MODIFY_CONFLICT_TITLE: &str = "Block changes";
-const CONFIG_HINT: &str = "click a mod to change its config";
+const SELECT_HINT: &str = "Select a mod to see its details";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Status
@@ -77,12 +88,17 @@ impl Status
     }
 }
 
+type Line = (String, i32);
+
 struct Entry
 {
     m_title: String,
     m_status: Status,
-    m_lines: Vec<(String, i32)>,
+    m_details: Vec<Line>,
     m_runtime: Option<Rc<ModRuntime>>,
+    m_shownTitle: String,
+    m_preview: Line,
+    m_info: Vec<Line>,
 }
 
 struct ModList
@@ -92,6 +108,7 @@ struct ModList
     m_summary: RefCell<String>,
     m_selected: Cell<i32>,
     m_slot: Field<Option<Rc<GuiSlot>>>,
+    m_configButton: Field<Option<Rc<GuiButton>>>,
 }
 
 fn list(this: &GuiScreen) -> &ModList { this.ext::<ModList>() }
@@ -154,35 +171,55 @@ fn wrap(font: &FontRenderer, text: &str, width: i32) -> Vec<String>
     lines
 }
 
-fn detailLines(font: &FontRenderer, details: Vec<(String, i32)>) -> Vec<(String, i32)>
+// wraps every text to the width and ends the last kept line with an ellipsis when lines are cut
+pub(crate) fn wrapLines(font: &FontRenderer, texts: &[Line], width: i32, limit: usize) -> Vec<Line>
 {
-    let mut lines: Vec<(String, i32)> = details
-        .into_iter()
-        .flat_map(|(text, color)| wrap(font, &text, listing::TEXT_WIDTH).into_iter().map(move |line| (line, color)))
+    let mut lines: Vec<Line> = texts
+        .iter()
+        .flat_map(|(text, color)| wrap(font, text, width).into_iter().map(move |line| (line, *color)))
         .collect();
-    let hidden: bool = lines.len() > listing::DETAIL_LINES;
+    let hidden: bool = lines.len() > limit;
 
-    lines.truncate(listing::DETAIL_LINES);
+    lines.truncate(limit);
 
     if let (true, Some(last)) = (hidden, lines.last_mut())
     {
         last.0 = format!("{} {ELLIPSIS}", last.0);
     }
 
-    lines.into_iter().map(|(text, color)| (fit(font, &text, listing::TEXT_WIDTH), color)).collect()
+    lines.into_iter().map(|(text, color)| (fit(font, &text, width), color)).collect()
 }
 
-fn entry(font: &FontRenderer, title: &str, status: Status, details: Vec<(String, i32)>) -> Entry
-{
-    let titleWidth: i32 = listing::TEXT_WIDTH - font.getStringWidth(status.row().m_label) - 6;
+pub(crate) fn rowWidth(width: i32, max: i32) -> i32 { (width - 2 * text::ROW_MARGIN).min(max) }
 
+fn textWidth(width: i32) -> i32 { rowWidth(width, listing::ROW_MAX_WIDTH) - 2 * text::ROW_INSET }
+
+fn entry(title: &str, status: Status, details: Vec<Line>) -> Entry
+{
     Entry
     {
-        m_title: fit(font, title, titleWidth),
+        m_title: title.to_owned(),
         m_status: status,
-        m_lines: detailLines(font, details),
+        m_details: details,
         m_runtime: None,
+        m_shownTitle: String::new(),
+        m_preview: (String::new(), GREY),
+        m_info: Vec::new(),
     }
+}
+
+// fits the row and info texts once per layout instead of every frame
+fn place(font: &FontRenderer, entry: &mut Entry, width: i32)
+{
+    let titleWidth: i32 = width - font.getStringWidth(entry.m_status.row().m_label) - listing::STATUS_GAP;
+    entry.m_shownTitle = fit(font, &entry.m_title, titleWidth);
+
+    if let Some((preview, color)) = entry.m_details.first()
+    {
+        entry.m_preview = (fit(font, preview, width), *color);
+    }
+
+    entry.m_info = wrapLines(font, &entry.m_details, width, listing::INFO_LINES);
 }
 
 fn fileName(file: &str) -> String
@@ -196,7 +233,7 @@ fn owns(runtime: &ModRuntime, problem: &Problem) -> bool
     problem.m_mod == runtime.id() && (problem.m_file.is_empty() || problem.m_file == runtime.m_file)
 }
 
-fn modEntry(font: &FontRenderer, runtime: Rc<ModRuntime>, problems: &mut Vec<Problem>) -> Entry
+fn modEntry(runtime: Rc<ModRuntime>, problems: &mut Vec<Problem>) -> Entry
 {
     let (own, rest): (Vec<Problem>, Vec<Problem>) =
         std::mem::take(problems).into_iter().partition(|problem| owns(&runtime, problem));
@@ -210,22 +247,21 @@ fn modEntry(font: &FontRenderer, runtime: Rc<ModRuntime>, problems: &mut Vec<Pro
     };
 
     let manifest: &Manifest = &runtime.m_manifest;
-    let mut details: Vec<(String, i32)> =
-        own.into_iter().map(|problem| (problem.m_reason, status.row().m_color)).collect();
+    let mut details: Vec<Line> = own.into_iter().map(|problem| (problem.m_reason, status.row().m_color)).collect();
 
     if !manifest.description.is_empty()
     {
         details.push((manifest.description.clone(), GREY));
     }
 
-    details.push((format!("{} - {}", manifest.id, runtime.m_file), DARK_GREY));
+    details.push((format!("{} - {}", manifest.id, fileName(&runtime.m_file)), DARK_GREY));
 
     let title: String = format!("{} {}", manifest.displayName(), manifest.version);
-    Entry { m_runtime: Some(Rc::clone(&runtime)), ..entry(font, &title, status, details) }
+    Entry { m_runtime: Some(Rc::clone(&runtime)), ..entry(&title, status, details) }
 }
 
 // problems of one file that never became a running mod
-fn problemEntry(font: &FontRenderer, problems: Vec<Problem>) -> Entry
+fn problemEntry(problems: Vec<Problem>) -> Entry
 {
     let first: &Problem = &problems[0];
     let file: String = fileName(&first.m_file);
@@ -237,21 +273,20 @@ fn problemEntry(font: &FontRenderer, problems: Vec<Problem>) -> Entry
         id => id.to_owned(),
     };
     let showFile: bool = !file.is_empty() && file != title;
-    let mut details: Vec<(String, i32)> = problems.into_iter().map(|problem| (problem.m_reason, RED)).collect();
+    let mut details: Vec<Line> = problems.into_iter().map(|problem| (problem.m_reason, RED)).collect();
 
     if showFile
     {
         details.push((file, DARK_GREY));
     }
 
-    entry(font, &title, Status::Failed, details)
+    entry(&title, Status::Failed, details)
 }
 
-fn entries(font: &FontRenderer) -> Vec<Entry>
+fn entries() -> Vec<Entry>
 {
     let mut problems: Vec<Problem> = state::problems();
-    let mut entries: Vec<Entry> =
-        state::mods().into_iter().map(|runtime| modEntry(font, runtime, &mut problems)).collect();
+    let mut entries: Vec<Entry> = state::mods().into_iter().map(|runtime| modEntry(runtime, &mut problems)).collect();
 
     while let Some(first) = problems.first()
     {
@@ -259,27 +294,27 @@ fn entries(font: &FontRenderer) -> Vec<Entry>
         let (own, rest): (Vec<Problem>, Vec<Problem>) =
             problems.into_iter().partition(|problem| problem.m_mod == modId && problem.m_file == file);
         problems = rest;
-        entries.push(problemEntry(font, own));
+        entries.push(problemEntry(own));
     }
 
     for (id, reason) in state::skipped()
     {
-        entries.push(entry(font, &id, Status::Skipped, vec![(reason, GREY)]));
+        entries.push(entry(&id, Status::Skipped, vec![(reason, GREY)]));
     }
 
     let conflicts: Vec<(String, String)> = modloader::keybinds::conflicts();
     if !conflicts.is_empty()
     {
-        let details: Vec<(String, i32)> =
+        let details: Vec<Line> =
             conflicts.into_iter().map(|(first, second)| (format!("{first} and {second}"), RED)).collect();
-        entries.push(entry(font, KEY_CONFLICT_TITLE, Status::Warning, details));
+        entries.push(entry(KEY_CONFLICT_TITLE, Status::Warning, details));
     }
 
     let changes: Vec<String> = modloader::modify::conflicts();
     if !changes.is_empty()
     {
-        let details: Vec<(String, i32)> = changes.into_iter().map(|change| (change, RED)).collect();
-        entries.push(entry(font, MODIFY_CONFLICT_TITLE, Status::Warning, details));
+        let details: Vec<Line> = changes.into_iter().map(|change| (change, RED)).collect();
+        entries.push(entry(MODIFY_CONFLICT_TITLE, Status::Warning, details));
     }
 
     entries
@@ -287,7 +322,7 @@ fn entries(font: &FontRenderer) -> Vec<Entry>
 
 fn summary(entries: &[Entry]) -> String
 {
-    let mut parts: Vec<String> = STATUSES
+    let parts: Vec<String> = STATUSES
         .iter()
         .filter_map(|row|
         {
@@ -295,11 +330,6 @@ fn summary(entries: &[Entry]) -> String
             (count > 0).then(|| format!("{count} {}", row.m_summary))
         })
         .collect();
-
-    if entries.iter().any(|entry| configurable(entry).is_some())
-    {
-        parts.push(CONFIG_HINT.to_owned());
-    }
 
     parts.join(", ")
 }
@@ -324,6 +354,17 @@ fn selectedConfig(this: &GuiScreen) -> Option<Rc<ModRuntime>>
     let state: &ModList = list(this);
     let entries: Ref<'_, Vec<Entry>> = state.m_entries.borrow();
     usize::try_from(state.m_selected.get()).ok().and_then(|index| entries.get(index)).and_then(configurable)
+}
+
+fn select(this: &GuiScreen, index: i32)
+{
+    let state: &ModList = list(this);
+    state.m_selected.set(index);
+
+    if let Some(button) = state.m_configButton.get()
+    {
+        button.m_enabled.set(selectedConfig(this).is_some());
+    }
 }
 
 fn openConfig(this: &GuiScreen)
@@ -357,15 +398,34 @@ fn drawSlot(slot: &Rc<GuiSlot>, index: i32, x: i32, y: i32, _height: i32, _tesse
     let entries: Ref<'_, Vec<Entry>> = list(&this).m_entries.borrow();
     let entry: &Entry = &entries[index as usize];
     let row: &StatusRow = entry.m_status.row();
-    let [titleY, detailYs @ ..] = listing::LINE_Y;
-    this.m_gui.drawString(&font, &entry.m_title, x, y + titleY, WHITE);
+    let [titleY, previewY] = listing::LINE_Y;
+    this.m_gui.drawString(&font, &entry.m_shownTitle, x, y + titleY, WHITE);
 
-    let labelX: i32 = x + listing::TEXT_WIDTH - font.getStringWidth(row.m_label);
+    let labelX: i32 = x + textWidth(this.m_width.get()) - font.getStringWidth(row.m_label);
     this.m_gui.drawString(&font, row.m_label, labelX, y + titleY, row.m_color);
 
-    for ((text, color), lineY) in entry.m_lines.iter().zip(detailYs)
+    let (preview, color): &Line = &entry.m_preview;
+    this.m_gui.drawString(&font, preview, x, y + previewY, *color);
+}
+
+fn drawInfo(this: &GuiScreen, font: &FontRenderer)
+{
+    let state: &ModList = list(this);
+    let (width, height): (i32, i32) = (this.m_width.get(), this.m_height.get());
+    let x: i32 = width / 2 - rowWidth(width, listing::ROW_MAX_WIDTH) / 2 + text::ROW_INSET;
+    let top: i32 = height - listing::INFO_Y;
+    let entries: Ref<'_, Vec<Entry>> = state.m_entries.borrow();
+
+    let Some(entry) = usize::try_from(state.m_selected.get()).ok().and_then(|index| entries.get(index))
+    else
     {
-        this.m_gui.drawString(&font, text, x, y + lineY, *color);
+        this.m_gui.drawCenteredString(font, SELECT_HINT, width / 2, top, DARK_GREY);
+        return;
+    };
+
+    for (line, (text, color)) in (0..).zip(&entry.m_info)
+    {
+        this.m_gui.drawString(font, text, x, top + line * text::LINE_HEIGHT, *color);
     }
 }
 
@@ -375,11 +435,15 @@ const MOD_SLOT: GuiSlotClass = GuiSlotClass
     m_parent: Some(&GUI_SLOT),
     m_interfaces: &[],
     getSize: |slot| list(&screen(slot)).m_entries.borrow().len() as i32,
-    elementClicked: |slot, index, _|
+    elementClicked: |slot, index, doubleClick|
     {
         let this: Rc<GuiScreen> = screen(slot);
-        list(&this).m_selected.set(index);
-        openConfig(&this);
+        select(&this, index);
+
+        if doubleClick
+        {
+            openConfig(&this);
+        }
     },
     isSelected: |slot, index| list(&screen(slot)).m_selected.get() == index,
     drawBackground: |slot| screen(slot).drawDefaultBackground(),
@@ -395,11 +459,18 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass
     initGui: |this|
     {
         let state: &ModList = list(this);
-        let found: Vec<Entry> = entries(&this.fontRenderer());
-        *state.m_summary.borrow_mut() = summary(&found);
+        let (width, height): (i32, i32) = (this.m_width.get(), this.m_height.get());
+        let font: Rc<FontRenderer> = this.fontRenderer();
+        let mut found: Vec<Entry> = entries();
+
+        for entry in &mut found
+        {
+            place(&font, entry, textWidth(width));
+        }
+
+        *state.m_summary.borrow_mut() = fit(&font, &summary(&found), width - 2 * text::ROW_MARGIN);
         *state.m_entries.borrow_mut() = found;
 
-        let (width, height): (i32, i32) = (this.m_width.get(), this.m_height.get());
         let mc: Rc<Minecraft> = this.mc();
         let slot: Rc<GuiSlot> = GuiSlot::construct(
             &MOD_SLOT,
@@ -411,19 +482,25 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass
             height - listing::BOTTOM_MARGIN,
             listing::ENTRY_HEIGHT,
         );
+        slot.setRowWidth(rowWidth(width, listing::ROW_MAX_WIDTH));
         slot.registerScrollButtons(&this.m_controlList, listing::SCROLL_UP, listing::SCROLL_DOWN);
         state.m_slot.set(Some(slot));
 
         let step: i32 = listing::BUTTON_WIDTH + listing::BUTTON_GAP;
-        let left: i32 = width / 2 - step + listing::BUTTON_GAP / 2;
+        let left: i32 = width / 2 - step - listing::BUTTON_WIDTH / 2;
         let y: i32 = height - listing::BUTTON_Y;
 
         let button = |id: i32, column: i32, label: &str|
         {
             GuiButton::withSize(id, left + column * step, y, listing::BUTTON_WIDTH, 20, label)
         };
+        let config: Rc<GuiButton> = button(listing::CONFIG, 1, "Config");
+
         this.m_controlList.add(button(listing::OPEN_FOLDER, 0, "Mods Folder"));
-        this.m_controlList.add(button(listing::DONE, 1, "Done"));
+        this.m_controlList.add(Rc::clone(&config));
+        this.m_controlList.add(button(listing::DONE, 2, "Done"));
+        state.m_configButton.set(Some(config));
+        select(this, state.m_selected.get());
     },
 
     actionPerformed: |this, button|
@@ -436,6 +513,7 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass
         match button.m_id.get()
         {
             listing::DONE => this.mc().displayGuiScreen(Some(Rc::clone(&list(this).m_parent))),
+            listing::CONFIG => openConfig(this),
             listing::OPEN_FOLDER => openModsFolder(),
             _ => list(this).m_slot.get().orNpe().actionPerformed(button),
         }
@@ -465,6 +543,7 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass
         let center: i32 = this.m_width.get() / 2;
         this.m_gui.drawCenteredString(&font, "Mods", center, listing::TITLE_Y, WHITE);
         this.m_gui.drawCenteredString(&font, &state.m_summary.borrow(), center, listing::SUMMARY_Y, GREY);
+        drawInfo(this, &font);
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, partial);
     },
     ..GUI_SCREEN
@@ -479,6 +558,7 @@ pub fn modsScreen(parent: &Rc<GuiScreen>) -> Rc<GuiScreen>
         m_summary: RefCell::new(String::new()),
         m_selected: Cell::new(-1),
         m_slot: Field::new(None),
+        m_configButton: Field::new(None),
     };
     GuiScreen::construct(&MOD_LIST, Box::new(state))
 }
