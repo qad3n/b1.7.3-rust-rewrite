@@ -660,7 +660,7 @@ impl NetworkManager
 
     pub fn remoteIp(&self) -> Option<std::net::IpAddr>
     {
-        self.m_shared.m_remoteSocketAddress.map(|address| address.ip())
+        self.m_shared.m_remoteSocketAddress.map(|address| address.ip().to_canonical())
     }
 
     // takes effect only at the next secure marker each way so no packet is ever read with the wrong cipher

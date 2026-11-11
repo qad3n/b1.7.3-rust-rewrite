@@ -5,7 +5,7 @@ use jvm::io::IoResult;
 use jvm::logging::Level;
 use jvm::string::JString;
 use jvm::throwable::{self, Throwable};
-use jvm::{debug, logThrown, warning};
+use jvm::{debug, info, logThrown, warning};
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::rc::Rc;
@@ -52,12 +52,13 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
             Ok((socket, address)) =>
             {
                 let inetaddress: IpAddr = address.ip().to_canonical();
+                let shown: String = jvm::net::socketAddressToString(&address);
                 let last: Option<i64> = hashmap.get(&inetaddress).copied();
                 if let Some(last) = last
                     && inetaddress.to_string() != "127.0.0.1"
                     && jvm::system::currentTimeMillis() - last < 5000
                 {
-                    debug!("Refused {address}, it reconnected within 5 seconds");
+                    info!("Refused {shown}, it reconnected within 5 seconds");
                     hashmap.insert(inetaddress, jvm::system::currentTimeMillis());
                     drop(socket);
                 }
@@ -68,7 +69,7 @@ fn acceptLoop(serverSocket: TcpListener, open: Arc<AtomicBool>, accepted: Sender
                     let counter: i32 = connectionCounter;
 
                     connectionCounter += 1;
-                    debug!("Connection #{counter} from {address}");
+                    info!("Connection #{counter} from {shown}");
 
                     if accepted.send((socket, counter)).is_err()
                     {
