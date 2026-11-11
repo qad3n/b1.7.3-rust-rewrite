@@ -31,7 +31,6 @@ Everything the game writes lives in one per-user data folder, like `.minecraft` 
 
 ```
 beta173/
-  name.txt        launcher player name
   assets/         game assets the launcher installs
   resources/      sounds
   saves/  mods/  config/  logs/  screenshots/  texturepacks/  stats/  options.txt

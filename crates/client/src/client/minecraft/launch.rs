@@ -8,7 +8,7 @@ mod window
     pub const HEIGHT: i32 = 480;
 }
 
-fn guestName() -> String { format!("Player{}", jvm::system::currentTimeMillis() % 1000) }
+pub(crate) fn guestName() -> String { format!("Player{}", jvm::system::currentTimeMillis() % 1000) }
 
 impl Minecraft
 {
@@ -33,6 +33,8 @@ impl Minecraft
         let session: Session = match (s, sessionId)
         {
             (Some(s), Some(sessionId)) => Session::new(Some(s), Some(sessionId)),
+            // rewrite: no name is resolved once the options with the last chosen name are loaded
+            (None, Some(sessionId)) => Session::new(None, Some(sessionId)),
             _ => Session::new(Some(guestName()), Some(String::new())),
         };
         minecraft.m_session.set(Some(Rc::new(session)));
@@ -52,20 +54,10 @@ impl Minecraft
 
     pub fn main(args: &[String])
     {
-        let mut string: String = guestName();
+        let name: Option<String> = args.first().cloned();
+        let sessionId: String = args.get(1).cloned().unwrap_or_else(|| "-".to_owned());
 
-        if !args.is_empty()
-        {
-            string = args[0].clone();
-        }
-
-        let mut string2: String = "-".to_owned();
-
-        if args.len() > 1
-        {
-            string2 = args[1].clone();
-        }
         // rewrite: an optional third argument host:port joins that server on start like the applet server param
-        Self::startMainThread(Some(string), Some(string2), args.get(2).cloned());
+        Self::startMainThread(name, Some(sessionId), args.get(2).cloned());
     }
 }

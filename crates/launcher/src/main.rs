@@ -5,13 +5,10 @@ use jvm::log_files::{self, LogFormatter};
 use jvm::logging::logger;
 use jvm::{info, severe, warning};
 use std::io::{BufRead, IsTerminal, Write};
-use std::ops::RangeInclusive;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, ExitCode, Stdio};
 
 const GAME_BINARY: &str = "beta173";
-const NAME_FILE: &str = "name.txt";
-const NO_SESSION: &str = "-";
 const USAGE: &str = "usage: beta173_launcher [--client-jar <path>] [--game <path>] [--dev]";
 
 struct Options
@@ -48,8 +45,6 @@ fn run() -> Result<ExitCode>
     let dataDir: PathBuf = jvm::data_dir::root();
     log_files::install(logger(), &dataDir.join("logs"), "launcher", LogFormatter::boxed);
 
-    let name: String = askName(&dataDir)?;
-
     assets::install(&jvm::data_dir::assets(), &dataDir, options.m_clientJar)?;
 
     let game: PathBuf = match options.m_game
@@ -57,10 +52,9 @@ fn run() -> Result<ExitCode>
         Some(path) => path,
         None => gameNextToLauncher()?,
     };
-    info!("Starting the game as {name}");
+    info!("Starting the game");
 
     let mut command: Command = Command::new(&game);
-    command.arg(&name).arg(NO_SESSION);
     // a launcher in a terminal keeps the game attached so its log stays in that window
     let console: bool = std::io::stdout().is_terminal();
     if !(options.m_dev || console)
@@ -129,71 +123,6 @@ fn parseArgs(mut args: impl Iterator<Item = String>) -> Result<Options>
 fn flagValue(args: &mut impl Iterator<Item = String>, flag: &str) -> Result<PathBuf>
 {
     args.next().map(PathBuf::from).with_context(|| format!("{flag} needs a path"))
-}
-
-fn askName(dataDir: &Path) -> Result<String>
-{
-    let path: PathBuf = dataDir.join(NAME_FILE);
-    let saved: Option<String> = match path.is_file()
-    {
-        true => Some(std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?),
-        false => None,
-    };
-    if let Some(last) = saved.map(|text| text.trim().to_owned()).filter(|name| isValidName(name))
-    {
-        println!("  1. Play as {last}");
-        println!("  2. Change name");
-
-        loop
-        {
-            match ask("Choose 1 or 2 [1]: ")?.as_str()
-            {
-                "1" | "" => return Ok(last),
-                "2" => break,
-                _ => println!("Type 1 or 2"),
-            }
-        }
-    }
-
-    let name: String = askNewName()?;
-
-    std::fs::create_dir_all(dataDir).with_context(|| format!("creating {}", dataDir.display()))?;
-    std::fs::write(&path, &name).with_context(|| format!("writing {}", path.display()))?;
-    Ok(name)
-}
-
-fn askNewName() -> Result<String>
-{
-    loop
-    {
-        let name: String = ask("Offline name: ")?;
-        if isValidName(&name)
-        {
-            return Ok(name);
-        }
-
-        println!("Use 3 to 16 letters, digits or underscores");
-    }
-}
-
-fn isValidName(name: &str) -> bool
-{
-    let lengths: RangeInclusive<usize> = 3..=16;
-    lengths.contains(&name.len()) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-}
-
-fn ask(question: &str) -> Result<String>
-{
-    print!("{question}");
-    std::io::stdout().flush().context("writing the prompt")?;
-
-    let mut line: String = String::new();
-    if std::io::stdin().lock().read_line(&mut line).context("reading the answer")? == 0
-    {
-        bail!("no answer was entered");
-    }
-
-    Ok(line.trim().to_owned())
 }
 
 fn gameNextToLauncher() -> Result<PathBuf>

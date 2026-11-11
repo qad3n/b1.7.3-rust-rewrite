@@ -1,5 +1,5 @@
 use super::atLeastOne;
-use crate::client::{Minecraft, ThreadDownloadResources};
+use crate::client::{Minecraft, Session, ThreadDownloadResources};
 use crate::gui::{FontRenderer, GuiConnecting, GuiIngame, GuiMainMenu, ScaledResolution};
 use crate::render::
 {
@@ -114,6 +114,7 @@ impl Minecraft
         let settings: Rc<GameSettings> = GameSettings::new(Rc::clone(&this), &dataDir);
         self.m_gameSettings.set(Some(Rc::clone(&settings)));
         self.applyDisplayOptions(&settings)?;
+        self.resolveName(&settings);
 
         let packs: Rc<TexturePackList> = TexturePackList::new(&this, &dataDir);
         self.m_texturePackList.set(Some(Rc::clone(&packs)));
@@ -219,6 +220,27 @@ impl Minecraft
 
         info!("Startup took {}", took(started));
         Ok(())
+    }
+
+    // a launch without a name plays as the name last chosen when joining a server
+    fn resolveName(&self, settings: &GameSettings)
+    {
+        let session: Rc<Session> = self.m_session.get().orNpe();
+        if session.m_username.get().is_some()
+        {
+            return;
+        }
+
+        let last: String = settings.m_lastName.get();
+        let name: String = if auth::canonical(&last).is_some()
+        {
+            last
+        }
+        else
+        {
+            super::launch::guestName()
+        };
+        session.m_username.set(Some(name));
     }
 
     // options load after the window exists and the run loop picks up the fullscreen size
