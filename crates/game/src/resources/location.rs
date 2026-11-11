@@ -13,3 +13,11 @@ impl Location
     // where a modern pack keeps the file
     pub(crate) fn file(&self) -> String { format!("assets/{}/{}", self.m_namespace, self.m_path) }
 }
+
+impl std::fmt::Display for Location
+{
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+    {
+        write!(formatter, "{}:{}", self.m_namespace, self.m_path)
+    }
+}

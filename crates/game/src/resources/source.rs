@@ -35,6 +35,15 @@ impl Source
         }
     }
 
+    pub fn contains(&self, name: &str) -> bool
+    {
+        match self
+        {
+            Self::Archive(_, archive) => archive.index_for_name(name).is_some(),
+            Self::Folder(root) => root.join(name).is_file(),
+        }
+    }
+
     // file names under a prefix, with forward slashes, sorted so both sides see one order
     pub fn list(&self, prefix: &str) -> Vec<String>
     {

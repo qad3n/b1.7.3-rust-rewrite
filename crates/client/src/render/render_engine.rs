@@ -194,7 +194,8 @@ impl RenderEngine
                     None => readTextureImage(None),
                 },
                 None if missingFallback => Ok(Rc::clone(&self.m_missingTextureImage)),
-                stream => readTextureImage(stream).map(|image| modloader::atlas::stitch(rest, image)),
+                stream => readTextureImage(stream)
+                    .map(|image| modloader::atlas::stitch(rest, game::resources::overlay(rest, image))),
             },
         }
     }

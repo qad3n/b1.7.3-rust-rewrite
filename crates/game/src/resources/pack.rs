@@ -79,15 +79,23 @@ impl Pack
 
     pub(crate) fn read(&self, location: &Location) -> Option<Vec<u8>>
     {
+        let file: String = self.file(location)?;
+        self.m_source.borrow_mut().read(&file)
+    }
+
+    pub(crate) fn has(&self, location: &Location) -> bool
+    {
+        self.file(location).is_some_and(|file| self.m_source.borrow().contains(&file))
+    }
+
+    // where this pack keeps a location since a beta texture pack only holds textures
+    fn file(&self, location: &Location) -> Option<String>
+    {
         match self.m_layout
         {
-            Layout::Modern => self.m_source.borrow_mut().read(&location.file()),
-            Layout::Jar => self.m_source.borrow_mut().read(legacy::path(location)?),
-            Layout::Legacy =>
-            {
-                let path: &str = legacy::path(location).filter(|path| path.ends_with(TEXTURE))?;
-                self.m_source.borrow_mut().read(path)
-            }
+            Layout::Modern => Some(location.file()),
+            Layout::Jar => legacy::path(location).map(str::to_owned),
+            Layout::Legacy => legacy::path(location).filter(|path| path.ends_with(TEXTURE)).map(str::to_owned),
         }
     }
 }

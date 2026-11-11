@@ -1,9 +1,12 @@
 mod legacy;
 mod location;
 mod pack;
+mod sheet;
 mod source;
+mod sprites;
 mod stack;
 
+use jvm::image::BufferedImage;
 pub(crate) use location::{Location, MINECRAFT};
 pub use pack::{Layout, Pack};
 pub use source::Source;
@@ -42,3 +45,9 @@ pub fn readBeta(path: &str) -> Option<Vec<u8>> { read(&legacy::location(path)) }
 
 // beta read some files from the jar even with a texture pack selected
 pub fn readJar(path: &str) -> Option<Vec<u8>> { vanilla().read(&legacy::location(path)) }
+
+// a beta sheet such as /terrain.png with sprites from modern packs above the pack that supplied it
+pub fn overlay(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
+{
+    STACK.with(|stack| sheet::overlay(stack.borrow().packs(), path, image))
+}
