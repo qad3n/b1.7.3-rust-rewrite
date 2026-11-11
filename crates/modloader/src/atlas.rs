@@ -472,6 +472,19 @@ pub fn paint(id: &Identifier, size: u32, argb: Vec<i32>) -> Result<(), String>
     })
 }
 
+// a sheet sprite's first frame as the texture packs gave it, for mods that redraw it in code
+pub fn pixels(id: &Identifier) -> Option<(u32, Vec<u32>)>
+{
+    STATE.with(|state|
+    {
+        let state: std::cell::Ref<crate::atlas::State> = state.borrow();
+        let sprite: &Sprite = [Atlas::Terrain, Atlas::Items]
+            .into_iter()
+            .find_map(|sheet| state.m_sprites.get(&(sheet, id.clone())))?;
+        Some((sprite.m_size, sprite.m_argb.iter().map(|pixel| *pixel as u32).collect()))
+    })
+}
+
 pub fn animate(atlas: Atlas) -> Vec<AnimatedTile>
 {
     STATE.with(|state|

@@ -573,6 +573,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(crate::atlas::paint(&texture, size, pixels.into_iter().map(|pixel| pixel as i32).collect()))
         }
 
+        HostCall::SpritePixels { texture } =>
+        {
+            let (size, pixels): (u32, Vec<u32>) = crate::atlas::pixels(&texture).unwrap_or_default();
+            HostReply::Pixels { size, pixels }
+        }
+
         HostCall::BlockItemModel { block, model } => unit(itemModel(runtime, block, model)),
 
         HostCall::ScreenCraftSlot { screen, first, x, y } => unit(runtime.own(&screen).map(|id|
