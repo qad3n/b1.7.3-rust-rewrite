@@ -455,6 +455,7 @@ pub fn broadcastNear<T: Serialize>(channel: &str, world: &Rc<game::world::World>
     }
 
     let bytes: Vec<u8> = wire::encode(message);
+    let channel: Identifier = id(channel);
 
     for player in world.m_playerEntities.toVec()
     {
@@ -462,7 +463,7 @@ pub fn broadcastNear<T: Serialize>(channel: &str, world: &Rc<game::world::World>
         let dz: f64 = player.m_posZ.get() - pos[2];
         if dx * dx + dz * dz <= RANGE_SQUARED
         {
-            super::sendToPlayer(&id(channel), &player, bytes.clone());
+            super::sendToPlayer(&channel, &player, bytes.clone());
         }
     }
 }
