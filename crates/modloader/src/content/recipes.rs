@@ -15,7 +15,7 @@ thread_local!
     static SMELTED: RefCell<Vec<(i32, Identifier)>> = const { RefCell::new(Vec::new()) };
     // registry names of the live crafting recipes by address, vanilla ones from seeding and mod ones as applied
     static NAMES: RefCell<HashMap<*const (), Identifier>> = RefCell::new(HashMap::new());
-    // bumped whenever the recipe tables are rebuilt, so cached recipe views know to reload
+    // bumped whenever the recipe tables are rebuilt or texture packs change names so cached content views reload
     static GENERATION: Cell<i32> = const { Cell::new(0) };
 }
 
@@ -38,6 +38,8 @@ pub fn smeltingName(input: i32) -> Option<Identifier>
 }
 
 pub fn generation() -> i32 { GENERATION.with(Cell::get) }
+
+pub fn bump() { GENERATION.with(|generation| generation.set(generation.get() + 1)); }
 
 fn trackLast(id: &Identifier)
 {
@@ -243,5 +245,5 @@ pub fn removeVanilla(indices: &mut Vec<i32>)
 pub fn finish()
 {
     CraftingManager::getInstance().sortRecipes();
-    GENERATION.with(|generation| generation.set(generation.get() + 1));
+    bump();
 }

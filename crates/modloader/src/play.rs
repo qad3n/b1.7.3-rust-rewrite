@@ -296,7 +296,12 @@ pub fn modAsset(path: &str) -> Option<Vec<u8>>
 }
 
 // texture packs changed so mod sprites are read again before the sheets reload
-pub fn reloadAssets() { crate::lifecycle::loadSprites(); }
+pub fn reloadAssets()
+{
+    crate::lifecycle::loadSprites();
+    // lang keys may have changed so views like recipe viewers rebuild their names
+    crate::content::recipes::bump();
+}
 
 pub fn shutdown() { crate::lifecycle::shutdown(); }
 
