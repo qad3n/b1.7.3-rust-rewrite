@@ -158,6 +158,7 @@ pub fn reset()
     crate::states::clearBindings();
     worldgen::clear();
     features::clear();
+    blocks::clearStateCuboids();
     recipes::removeModded();
 }
 

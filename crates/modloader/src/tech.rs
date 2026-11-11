@@ -15,7 +15,7 @@ use mod_protocol::abi::
     BlockCtx, BlockPos, EnergyDemand, FluidBlock, FluidStack, GuestReply, HostCall, HostReply, ItemInfo, ItemModelSpec,
     RegistryKind, StackData, TileCall, capability,
 };
-use mod_protocol::spec::{ItemFilter, TileMethod};
+use mod_protocol::spec::{ItemFilter, StateModelSpec, TileMethod};
 use std::rc::Rc;
 
 // the crafting grid a 3 by 3 recipe reads, in row order
@@ -504,6 +504,18 @@ fn itemModel(runtime: &Rc<ModRuntime>, block: Identifier, model: ItemModelSpec) 
     Ok(())
 }
 
+fn stateModel(runtime: &Rc<ModRuntime>, block: Identifier, model: StateModelSpec) -> Result<(), String>
+{
+    if crate::state::phase() != crate::state::Phase::Register
+    {
+        return Err("state models register during the register phase".to_owned());
+    }
+
+    let id: Identifier = runtime.own(&block.to_string())?;
+    crate::content::blocks::setStateModel(id, model);
+    Ok(())
+}
+
 // the tech capability calls of api 1.33, anything else goes on to the extension systems
 pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 {
@@ -642,6 +654,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         }
 
         HostCall::BlockItemModel { block, model } => unit(itemModel(runtime, block, model)),
+        HostCall::SetStateModel { block, model } => unit(stateModel(runtime, block, model)),
 
         HostCall::ScreenCraftSlot { screen, first, x, y } => unit(runtime.own(&screen).map(|id|
         {

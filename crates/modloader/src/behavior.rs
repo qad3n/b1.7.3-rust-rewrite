@@ -283,6 +283,29 @@ fn texture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
         .unwrap_or_else(|| (parent(this).getBlockTextureFromSideAndMetadata)(this, face, metadata))
 }
 
+// a named state's sprite, else the metadata callback when the behavior has one, else the spec's textures
+fn stateTexture(this: &Rc<Block>, face: i32, metadata: i32) -> i32
+{
+    let sprite: Option<i32> = crate::states::describe(this.m_blockID, metadata)
+        .and_then(|state| asInt(callBlock(this, None, BlockCall::StateTexture { face, state })))
+        .filter(|slot| *slot >= 0);
+    if let Some(sprite) = sprite
+    {
+        return sprite;
+    }
+
+    let metaCallback: bool = content::blockData(this.m_blockID).is_some_and(|data|
+    {
+        data.m_spec.behavior.as_ref().is_some_and(|behavior| behavior.methods.contains(&BlockMethod::Texture))
+    });
+    if metaCallback
+    {
+        return texture(this, face, metadata);
+    }
+
+    (parent(this).getBlockTextureFromSideAndMetadata)(this, face, metadata)
+}
+
 fn faceTexture(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, face: i32) -> i32
 {
     asInt(callBlock(this, None, BlockCall::FaceTexture { ctx: accessCtx(this, world, x, y, z), face }))
@@ -375,7 +398,14 @@ pub fn patchBlock(class: &mut BlockClass, behavior: &Behavior<BlockMethod>)
             BlockMethod::PoweringTo => class.isPoweringTo = poweringTo,
             BlockMethod::IndirectlyPoweringTo => class.isIndirectlyPoweringTo = indirectlyPoweringTo,
             BlockMethod::CanProvidePower => class.canProvidePower = canProvidePower,
-            BlockMethod::Texture => class.getBlockTextureFromSideAndMetadata = texture,
+            // a state texture stands over the metadata one whichever the behavior lists first
+            BlockMethod::Texture if !behavior.methods.contains(&BlockMethod::StateTexture) =>
+            {
+                class.getBlockTextureFromSideAndMetadata = texture;
+            }
+            BlockMethod::Texture =>
+            {}
+            BlockMethod::StateTexture => class.getBlockTextureFromSideAndMetadata = stateTexture,
             BlockMethod::ColorMultiplier => class.colorMultiplier = colorMultiplier,
             BlockMethod::FaceTexture => class.getBlockTexture = faceTexture,
             BlockMethod::Strength => class.blockStrengthAt = strength,

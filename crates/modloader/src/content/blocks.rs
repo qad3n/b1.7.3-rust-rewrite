@@ -7,7 +7,7 @@ use game::world::{IBlockAccess, World};
 use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{ItemModelSpec, RegistryKind};
-use mod_protocol::spec::{BlockSpec, Cuboid, DropSpec, FaceTextures};
+use mod_protocol::spec::{BlockSpec, Cuboid, DropSpec, FaceTextures, StateModelSpec};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -90,19 +90,56 @@ pub fn metaCuboids(blockId: i32, meta: i32) -> Vec<Cuboid>
     {
         return Vec::new();
     };
+
+    shown(&data, blockId, meta).into_iter().filter(|cuboid| cuboid.connect.is_none()).collect()
+}
+
+// the cuboids a stored id and metadata show before neighbors are asked, from the state model when the block has one
+fn shown(data: &BlockData, blockId: i32, meta: i32) -> Vec<Cuboid>
+{
+    if let Some(cuboids) = stateCuboids(data, blockId, meta)
+    {
+        return cuboids.to_vec();
+    }
+
     let Some(model) = data.m_spec.model.as_ref()
     else
     {
         return Vec::new();
     };
 
-    model
-        .cuboids
-        .iter()
-        .filter(|cuboid| cuboid.connect.is_none() && (cuboid.metas.is_empty() || cuboid.metas.contains(&meta)))
-        .cloned()
-        .collect()
+    model.cuboids.iter().filter(|cuboid| cuboid.metas.is_empty() || cuboid.metas.contains(&meta)).cloned().collect()
 }
+
+// renderers and collisions ask every frame and tick, so each stored id and metadata is matched once per content build
+fn stateCuboids(data: &BlockData, blockId: i32, meta: i32) -> Option<Rc<Vec<Cuboid>>>
+{
+    if let Some(cuboids) = STATE_CUBOIDS.with(|cache| cache.borrow().get(&(blockId, meta)).cloned())
+    {
+        return Some(cuboids);
+    }
+
+    let model: Rc<StateModelSpec> = STATE_MODELS.with(|models| models.borrow().get(&data.m_id).cloned())?;
+    let state: mod_protocol::abi::StateData = crate::states::describe(blockId, meta)?;
+    let cuboids: Rc<Vec<Cuboid>> = Rc::new(
+        model
+            .cuboids
+            .iter()
+            .filter(|cuboid| cuboid.when.iter().all(|(key, value)| state.properties.get(key) == Some(value)))
+            .map(|cuboid| cuboid.cuboid.clone())
+            .collect(),
+    );
+    STATE_CUBOIDS.with(|cache| cache.borrow_mut().insert((blockId, meta), Rc::clone(&cuboids)));
+    Some(cuboids)
+}
+
+pub fn setStateModel(id: Identifier, model: StateModelSpec)
+{
+    STATE_MODELS.with(|models| models.borrow_mut().insert(id, Rc::new(model)));
+}
+
+// matches hold numeric ids, so a new id map starts them over
+pub fn clearStateCuboids() { STATE_CUBOIDS.with(|cache| cache.borrow_mut().clear()); }
 
 // the cuboids of a model that show at a spot, by its metadata and its neighbors
 pub fn activeCuboids(blockId: i32, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> Vec<Cuboid>
@@ -112,19 +149,11 @@ pub fn activeCuboids(blockId: i32, world: &dyn IBlockAccess, x: i32, y: i32, z: 
     {
         return Vec::new();
     };
-    let Some(model) = data.m_spec.model.as_ref()
-    else
-    {
-        return Vec::new();
-    };
-
     let meta: i32 = world.getBlockMetadata(x, y, z);
     let block: Option<Rc<Block>> = Block::byId(blockId);
     let mask: Option<u8> = block.and_then(|block| crate::behavior::connections(&block, world, x, y, z));
-    model
-        .cuboids
-        .iter()
-        .filter(|cuboid| cuboid.metas.is_empty() || cuboid.metas.contains(&meta))
+    shown(&data, blockId, meta)
+        .into_iter()
         .filter(|cuboid|
         {
             cuboid.connect.is_none_or(|face| match mask
@@ -139,7 +168,6 @@ pub fn activeCuboids(blockId: i32, world: &dyn IBlockAccess, x: i32, y: i32, z: 
                 }
             })
         })
-        .cloned()
         .collect()
 }
 
@@ -158,9 +186,14 @@ fn modelRenderType(_this: &Rc<Block>) -> i32 { MODEL_RENDER_TYPE }
 
 fn itemModelRenderType(_this: &Rc<Block>) -> i32 { ITEM_MODEL_RENDER_TYPE }
 
+// a stored block id and metadata
+type StoredState = (i32, i32);
+
 thread_local!
 {
     static ITEM_MODELS: RefCell<HashMap<Identifier, Rc<ItemModelSpec>>> = RefCell::new(HashMap::new());
+    static STATE_MODELS: RefCell<HashMap<Identifier, Rc<StateModelSpec>>> = RefCell::new(HashMap::new());
+    static STATE_CUBOIDS: RefCell<HashMap<StoredState, Rc<Vec<Cuboid>>>> = RefCell::new(HashMap::new());
 }
 
 pub fn setItemModel(id: Identifier, model: ItemModelSpec)
@@ -517,7 +550,7 @@ fn pageIdDropped(this: &Rc<Block>, metadata: i32, random: &jvm::random::Random) 
     crate::states::locate(&data(this).m_id, 0).map_or(dropped, |(base, _)| base)
 }
 
-fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize, itemModel: bool)
+fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize, models: Models)
 {
     if page > 0
     {
@@ -549,15 +582,6 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize, it
             class.renderAsNormalBlock = notOpaque;
         }
 
-        if !model.cuboids.is_empty()
-        {
-            class.getRenderType = modelRenderType;
-            class.isOpaqueCube = notOpaque;
-            class.renderAsNormalBlock = notOpaque;
-            class.getCollidingBoundingBoxes = modelCollisions;
-            class.getSelectedBoundingBoxFromPool = modelSelection;
-        }
-
         if model.translucent
         {
             class.getRenderBlockPass = translucentPass;
@@ -565,7 +589,17 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize, it
         }
     }
 
-    if itemModel
+    let cuboids: bool = models.m_state || spec.model.as_ref().is_some_and(|model| !model.cuboids.is_empty());
+    if cuboids
+    {
+        class.getRenderType = modelRenderType;
+        class.isOpaqueCube = notOpaque;
+        class.renderAsNormalBlock = notOpaque;
+        class.getCollidingBoundingBoxes = modelCollisions;
+        class.getSelectedBoundingBoxFromPool = modelSelection;
+    }
+
+    if models.m_item
     {
         class.getRenderType = itemModelRenderType;
         class.isOpaqueCube = notOpaque;
@@ -603,6 +637,14 @@ fn flagTags(spec: &BlockSpec, id: &Identifier)
     {
         super::tags::flag(RegistryKind::Block, tag, id);
     }
+}
+
+// which extra models a block was given beside its spec
+#[derive(Clone, Copy)]
+struct Models
+{
+    m_item: bool,
+    m_state: bool,
 }
 
 // runs after every registry froze, so drop and tile entity references resolve to numeric ids
@@ -661,11 +703,15 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
         },
     );
 
-    let itemModel: bool = ITEM_MODELS.with(|models| models.borrow().contains_key(&row.m_id));
+    let models: Models = Models
+    {
+        m_item: ITEM_MODELS.with(|models| models.borrow().contains_key(&row.m_id)),
+        m_state: STATE_MODELS.with(|models| models.borrow().contains_key(&id)),
+    };
     let class: &'static BlockClass =
         crate::classes::deriveBlockClass(templates::templateClass(template), &row.m_id.to_string(), |class|
         {
-            patch(class, &spec, stated, page, itemModel)
+            patch(class, &spec, stated, page, models)
         });
     let mut block: Rc<Block> = game::hooks::withBlockClass(class, || (template.m_create)(numeric, sprite, material));
     block.m_blockIndexInTexture.set(sprite);
