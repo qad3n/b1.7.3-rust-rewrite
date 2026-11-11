@@ -72,10 +72,19 @@ impl Source
     {
         let mut names: Vec<String> = match self
         {
-            Self::Archive(_, archive) => archive
+            Self::Archive(path, archive) => archive
                 .file_names()
+                .filter_map(|name| match name
+                {
+                    Ok(name) => Some(name.into_owned()),
+
+                    Err(error) =>
+                    {
+                        warning!("Skipped an unreadable entry name in {}: {error}", path.display());
+                        None
+                    }
+                })
                 .filter(|name| name.starts_with(prefix) && !name.ends_with('/'))
-                .map(str::to_owned)
                 .collect(),
             Self::Folder(root) =>
             {

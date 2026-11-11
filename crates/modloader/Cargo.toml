@@ -16,7 +16,7 @@ sha2 = "0.10"
 thiserror = "2"
 toml = "0.9"
 wasmtime = { version = "50", default-features = false, features = ["cranelift", "runtime", "std"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [lints]
 workspace = true
