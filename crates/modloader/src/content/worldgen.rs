@@ -40,9 +40,10 @@ pub fn add(id: &Identifier, spec: &WorldgenSpec) -> Result<(), String>
     let block: i32 = block.ok_or_else(|| format!("worldgen block {} is not registered", spec.block))?;
     let dimension: i32 = dimension.ok_or_else(|| format!("worldgen dimension {} is not registered", spec.dimension))?;
     let [minY, maxY] = spec.y;
-    if minY < 0 || maxY > 128 || minY >= maxY
+    let top: i32 = crate::dimensions::height(&spec.dimension).m_world;
+    if minY < 0 || maxY > top || minY >= maxY
     {
-        return Err(format!("worldgen y range {minY}..{maxY} must lie in 0..128"));
+        return Err(format!("worldgen y range {minY}..{maxY} must lie in 0..{top}"));
     }
 
     let key: i64 = stableKey(id);
