@@ -285,6 +285,24 @@ pub fn manager(
     Some(manager)
 }
 
+// the biome a column holds by name, a mod dimension's from its source and the overworld's from the vanilla rows
+pub fn biomeAt(world: &World, x: i32, z: i32) -> Option<Identifier>
+{
+    let manager: Rc<WorldChunkManager> = world.getWorldChunkManager();
+    let biome: Rc<BiomeGenBase> = manager.getBiomeGenAt(x, z);
+
+    if let Some(source) = source(&manager)
+    {
+        let index: usize = source.m_biomes.iter().position(|known| Rc::ptr_eq(known, &biome))?;
+        return source.m_ids.get(index).cloned();
+    }
+
+    crate::registry::BIOMES
+        .iter()
+        .find(|(_, vanilla)| Rc::ptr_eq(&vanilla(), &biome))
+        .map(|(name, _)| Identifier::minecraft(name))
+}
+
 // a mod turns one column of its dimension to another biome of the dimension's source, on the side owning the world
 pub fn setBiome(world: &Rc<World>, x: i32, z: i32, biome: Identifier) -> Result<(), String>
 {

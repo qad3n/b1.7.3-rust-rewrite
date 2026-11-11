@@ -7,6 +7,7 @@ pub mod music;
 pub mod particles;
 pub mod player_layers;
 mod screen;
+mod stack_draw;
 pub mod textures;
 
 use crate::client::Minecraft;
@@ -19,7 +20,7 @@ use game::item::ItemStack;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 pub use menu::{MODS_BUTTON, addModsButton, drawModCount, modsScreen, startScreen};
-pub use model::{movingShapes, renderModel, renderOverlays};
+pub use model::{movingShapes, renderItemModel, renderModel, renderOverlays};
 use modloader::mod_protocol::abi::{DrawList, StackData};
 use modloader::screens::OpenRequest;
 use std::cell::{RefCell, RefMut};
@@ -138,7 +139,8 @@ fn open(mc: &Rc<Minecraft>, request: OpenRequest)
         .flatten();
     let inventory: Rc<dyn IInventory> = local.unwrap_or_else(|| modloader::containers::scratchInventory(&screenType));
     let playerInventory: Rc<dyn IInventory> = entity_player::inventory(&player);
-    let menu: Rc<Container> = modloader::containers::create(&screenType, playerInventory, inventory, pos.is_none());
+    let menu: Rc<Container> =
+        modloader::containers::create(&screenType, &player, playerInventory, inventory, pos.is_none());
     mc.displayGuiScreen(Some(screen::container(screenType, Rc::clone(&menu), pos, data)));
 
     if window != 0

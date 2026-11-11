@@ -332,6 +332,8 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         HostCall::ItemCatalog => HostReply::Stacks(crate::viewer::itemCatalog()),
         HostCall::MobList => HostReply::Ids(crate::viewer::mobs()),
         HostCall::RecipeList => HostReply::Recipes(crate::viewer::recipeList()),
+        HostCall::LootList => HostReply::Loot(crate::viewer::loot::list()),
+        HostCall::RollLoot { table, seed } => ok(crate::content::loot::rollChest(&table, seed), HostReply::Stacks),
         HostCall::ContentGeneration => HostReply::Int(crate::content::recipes::generation()),
         other => HostReply::Error(format!("{other:?} reached no handler")),
     }

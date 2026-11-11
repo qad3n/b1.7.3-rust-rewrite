@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 impl RenderBlocks
 {
-    fn renderInventoryCube(&mut self, block: &Rc<Block>, metadata: Option<i32>, inset: f32)
+    pub(crate) fn renderInventoryCube(&mut self, block: &Rc<Block>, metadata: Option<i32>, inset: f32)
     {
         let tessellator: Rc<Tessellator> = Tessellator::instance();
 
@@ -175,6 +175,8 @@ impl RenderBlocks
 
                 block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
             }
+
+            modloader::content::blocks::ITEM_MODEL_RENDER_TYPE => crate::modded::renderItemModel(self, block, metadata),
 
             _ =>
             {}

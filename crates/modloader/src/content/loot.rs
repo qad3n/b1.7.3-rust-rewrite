@@ -1,9 +1,11 @@
+use crate::host::context::stackData;
 use crate::registry::Registries;
 use game::loot::{LootEntry, LootTable};
+use jvm::random::Random;
 use mod_protocol::Identifier;
-use mod_protocol::abi::RegistryKind;
+use mod_protocol::abi::{RegistryKind, StackData};
 use mod_protocol::spec::{LootEntrySpec, LootSpec};
-use std::cell::{RefCell, RefMut};
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
 
 struct Merged
@@ -16,6 +18,8 @@ thread_local!
 {
     // every mod's loot for one block or entity merged in load order, a replace drops what came before
     static LOOT: RefCell<BTreeMap<(RegistryKind, Identifier), Merged>> = const { RefCell::new(BTreeMap::new()) };
+    // chest tables only mods roll, so they stay as specs and resolve on each roll
+    static CHESTS: RefCell<BTreeMap<Identifier, Vec<LootEntrySpec>>> = const { RefCell::new(BTreeMap::new()) };
 }
 
 pub fn add(registry: RegistryKind, target: Identifier, spec: LootSpec) -> Result<(), String>
@@ -43,6 +47,96 @@ pub fn add(registry: RegistryKind, target: Identifier, spec: LootSpec) -> Result
     Ok(())
 }
 
+pub fn addChest(table: Identifier, spec: LootSpec) -> Result<(), String>
+{
+    if table.isVanilla()
+    {
+        return Err(format!("chest loot {table} is beta's own and fixed"));
+    }
+
+    CHESTS.with(|chests|
+    {
+        let mut chests: RefMut<BTreeMap<Identifier, Vec<LootEntrySpec>>> = chests.borrow_mut();
+        let entries: &mut Vec<LootEntrySpec> = chests.entry(table).or_default();
+
+        if spec.replace
+        {
+            entries.clear();
+        }
+
+        entries.extend(spec.entries);
+    });
+
+    Ok(())
+}
+
+pub fn rollChest(table: &Identifier, seed: i64) -> Result<Vec<StackData>, String>
+{
+    let mut problems: Vec<String> = Vec::new();
+    let resolved: Option<LootTable> = CHESTS.with(|chests|
+    {
+        let chests: Ref<BTreeMap<Identifier, Vec<LootEntrySpec>>> = chests.borrow();
+        let entries: &Vec<LootEntrySpec> = chests.get(table)?;
+        Some(crate::registry::with(|registries| build(registries, true, entries, &mut problems)))
+    });
+    warnAll(problems);
+
+    let resolved: LootTable = resolved.ok_or_else(|| format!("no chest loot table {table}"))?;
+    let random: Random = Random::withSeed(seed);
+    Ok(game::loot::roll(&resolved, &random, false, 0).iter().map(|stack| stackData(stack)).collect())
+}
+
+// every chest table with its items resolved, an entry naming an unregistered item is left out
+pub fn chests() -> Vec<(Identifier, LootTable)>
+{
+    let mut problems: Vec<String> = Vec::new();
+    let tables: Vec<(Identifier, LootTable)> = CHESTS.with(|chests|
+    {
+        crate::registry::with(|registries|
+        {
+            chests
+                .borrow()
+                .iter()
+                .map(|(id, entries)| (id.clone(), build(registries, true, entries, &mut problems)))
+                .collect()
+        })
+    });
+
+    warnAll(problems);
+    tables
+}
+
+// the merged loot of every entity a mod gave loot, beta drops kept unless a mod replaced them
+pub fn entities() -> Vec<(Identifier, LootTable)>
+{
+    // push already warned about every entry left out here
+    let mut problems: Vec<String> = Vec::new();
+
+    LOOT.with(|loot|
+    {
+        crate::registry::with(|registries|
+        {
+            loot.borrow()
+                .iter()
+                .filter(|((registry, _), _)| *registry == RegistryKind::Entity)
+                .map(|((_, id), merged)|
+                {
+                    (id.clone(), build(registries, merged.m_keepBeta, &merged.m_entries, &mut problems))
+                })
+                .collect()
+        })
+    })
+}
+
+fn build(registries: &Registries, keepBeta: bool, entries: &[LootEntrySpec], problems: &mut Vec<String>) -> LootTable
+{
+    LootTable
+    {
+        m_keepBeta: keepBeta,
+        m_entries: entries.iter().filter_map(|entry| resolve(registries, entry, problems)).collect(),
+    }
+}
+
 // the game keys loot by numbers and save keys, so every content build and id map change resolves it again
 pub fn push(report: bool)
 {
@@ -56,15 +150,7 @@ pub fn push(report: bool)
         {
             for ((registry, target), merged) in loot.borrow().iter()
             {
-                let table: LootTable = LootTable
-                {
-                    m_keepBeta: merged.m_keepBeta,
-                    m_entries: merged
-                        .m_entries
-                        .iter()
-                        .filter_map(|entry| resolve(registries, entry, &mut problems))
-                        .collect(),
-                };
+                let table: LootTable = build(registries, merged.m_keepBeta, &merged.m_entries, &mut problems);
 
                 match registry
                 {
@@ -84,11 +170,14 @@ pub fn push(report: bool)
         })
     });
 
-    if !report
+    if report
     {
-        return;
+        warnAll(problems);
     }
+}
 
+fn warnAll(problems: Vec<String>)
+{
     for problem in problems
     {
         crate::log::warn(crate::log::LOADER, &problem);

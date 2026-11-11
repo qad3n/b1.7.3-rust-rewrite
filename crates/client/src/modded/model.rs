@@ -1,6 +1,7 @@
 use crate::render::{RenderBlocks, Tessellator};
 use game::block::Block;
 use game::world::IBlockAccess;
+use lwjgl::opengl::GL11;
 use modloader::atlas::Atlas;
 use std::rc::Rc;
 
@@ -111,4 +112,39 @@ pub fn movingShapes(blockId: i32, meta: i32) -> Vec<([f32; 6], i32)>
             ([x0, y0, z0, x1, y1, z1], sprite)
         })
         .collect()
+}
+
+// a block's item model in a slot or a hand: its cuboids as small blocks, then its tile's model posed once
+pub fn renderItemModel(renderer: &mut RenderBlocks, block: &Rc<Block>, metadata: i32)
+{
+    let Some(model) = modloader::content::blocks::itemModel(block.m_blockID)
+    else
+    {
+        return;
+    };
+
+    GL11::glTranslatef(-0.5, -0.5, -0.5);
+
+    for cuboid in &model.cuboids
+    {
+        let [x0, y0, z0] = cuboid.from.map(|value| value / MODEL_UNITS);
+        let [x1, y1, z1] = cuboid.to.map(|value| value / MODEL_UNITS);
+        block.setBlockBounds(x0, y0, z0, x1, y1, z1);
+        renderer.m_overrideBlockTexture = cuboid
+            .texture
+            .as_deref()
+            .and_then(|texture| modloader::content::textureSlot(texture, Atlas::Terrain))
+            .unwrap_or(-1);
+        renderer.renderInventoryCube(block, Some(metadata), 0.0);
+    }
+
+    renderer.m_overrideBlockTexture = -1;
+    block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+
+    if let Some(tile) = &model.tile
+    {
+        super::entity_model::drawPosed(&tile.to_string(), &model.pose);
+    }
+
+    GL11::glTranslatef(0.5, 0.5, 0.5);
 }

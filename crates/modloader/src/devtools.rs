@@ -460,8 +460,19 @@ fn slot(world: &World, args: &[String]) -> Result<String, String>
 // lists an inventory's slots with their components, and mod data and attachments
 fn tile(world: &World, args: &[String]) -> Result<String, String>
 {
-    let tile: Rc<game::tileentity::TileEntity> = inventoryTile(world, args)?;
-    let slots: Vec<String> = (0..tile.getSizeInventory())
+    // any tile answers with its data, an inventory also with its slots
+    let [x, y, z]: [i32; 3] = [number(args, 2)?, number(args, 3)?, number(args, 4)?];
+    let tile: Rc<game::tileentity::TileEntity> =
+        world.getBlockTileEntity(x, y, z).ok_or_else(|| format!("no tile entity at {x} {y} {z}"))?;
+    let size: i32 = if tile.instanceOf("IInventory")
+    {
+        tile.getSizeInventory()
+    }
+    else
+    {
+        0
+    };
+    let slots: Vec<String> = (0..size)
         .map(|slot|
         {
             tile.getStackInSlot(slot).map_or("empty".to_owned(), |stack|

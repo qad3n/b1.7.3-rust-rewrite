@@ -65,7 +65,12 @@ pub fn tick(pre: bool) -> bool
         return false;
     }
 
-    if !pre
+    if pre
+    {
+        crate::behavior::clearConnections();
+        crate::unify::tick();
+    }
+    else
     {
         crate::netplay::flushTeleports();
     }
@@ -88,6 +93,7 @@ pub fn clientTick()
 {
     if active()
     {
+        crate::behavior::clearConnections();
         crate::network::loader::flushPendingSpawns();
         events::post(EventKind::ClientTick, EventData::Empty);
     }

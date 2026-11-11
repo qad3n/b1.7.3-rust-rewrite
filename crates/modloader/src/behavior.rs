@@ -9,6 +9,8 @@ use game::world::{IBlockAccess, World};
 use jvm::random::Random;
 use mod_protocol::abi::{BlockCall, BlockCtx, BlockPos, FaceOverlay, GuestCall, GuestReply, ItemCall};
 use mod_protocol::spec::{Behavior, BlockMethod, ItemMethod};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 fn parent(this: &Block) -> &'static BlockClass
@@ -213,6 +215,49 @@ fn accessCtx(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> 
     }
 }
 
+// a place by dimension, side and block coordinates
+type Place = (i32, bool, i32, i32, i32);
+
+thread_local!
+{
+    // connection masks answered this tick by place, models and collision ask many times a tick
+    static CONNECTIONS: RefCell<HashMap<Place, u8>> = RefCell::new(HashMap::new());
+}
+
+// every tick starts with fresh answers, so neighbours that changed show next tick at the latest
+pub fn clearConnections() { CONNECTIONS.with(|cache| cache.borrow_mut().clear()); }
+
+// the faces a connecting block joins, None for a block whose behavior does not answer
+pub fn connections(this: &Block, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> Option<u8>
+{
+    if !wantsMethod(this, BlockMethod::Connections)
+    {
+        return None;
+    }
+
+    let ctx: BlockCtx = accessCtx(this, world, x, y, z);
+    let key: Place = (ctx.world, crate::side::isServer(), x, y, z);
+    if let Some(mask) = CONNECTIONS.with(|cache| cache.borrow().get(&key).copied())
+    {
+        return Some(mask);
+    }
+
+    let mask: u8 = asInt(callBlock(this, None, BlockCall::Connections { ctx })).unwrap_or(0) as u8;
+    CONNECTIONS.with(|cache| cache.borrow_mut().insert(key, mask));
+    Some(mask)
+}
+
+fn brightness(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32) -> f32
+{
+    let base: f32 = (parent(this).getBlockBrightness)(this, world, x, y, z);
+
+    match callBlock(this, None, BlockCall::Brightness { ctx: accessCtx(this, world, x, y, z), base })
+    {
+        Some(GuestReply::Float(shown)) if shown >= 0.0 => shown,
+        _ => base,
+    }
+}
+
 fn poweringTo(this: &Rc<Block>, world: &dyn IBlockAccess, x: i32, y: i32, z: i32, direction: i32) -> bool
 {
     asBool(callBlock(this, None, BlockCall::PoweringTo { ctx: accessCtx(this, world, x, y, z), direction }))
@@ -335,7 +380,8 @@ pub fn patchBlock(class: &mut BlockClass, behavior: &Behavior<BlockMethod>)
             BlockMethod::FaceTexture => class.getBlockTexture = faceTexture,
             BlockMethod::Strength => class.blockStrengthAt = strength,
             // the renderer asks for overlays and face turns itself, the class keeps its draw
-            BlockMethod::Overlay | BlockMethod::FaceRotation =>
+            BlockMethod::Brightness => class.getBlockBrightness = brightness,
+            BlockMethod::Overlay | BlockMethod::FaceRotation | BlockMethod::Connections =>
             {}
         }
     }
@@ -472,6 +518,25 @@ fn blockDestroyed(
         .unwrap_or_else(|| (itemParent(this).onBlockDestroyed)(this, stack, block, x, y, z, entity))
 }
 
+// Item.getItemNameIS hands back a key, so a stack's own name goes into the lang table under a key of its own
+fn stackName(this: &Rc<Item>, stack: &Rc<ItemStack>) -> Option<String>
+{
+    const PREFIX: &str = "loader.stack_name.";
+
+    match callItem(this, None, ItemCall::Name { stack: stackData(stack) })
+    {
+        Some(GuestReply::Lines(lines)) if !lines.is_empty() =>
+        {
+            let name: &str = &lines[0];
+            let key: String = format!("{PREFIX}{}", content::lang::keyFor(name));
+            content::lang::addDefault(&format!("{key}.name"), name);
+            Some(key)
+        }
+
+        _ => (itemParent(this).getItemNameIS)(this, stack),
+    }
+}
+
 fn icon(this: &Rc<Item>, damage: i32) -> i32
 {
     asInt(callItem(this, None, ItemCall::Icon { damage }))
@@ -598,6 +663,7 @@ pub fn patchItem(class: &mut ItemClass, behavior: &Behavior<ItemMethod>)
             ItemMethod::StoppedUsing => class.onPlayerStoppedUsing = stoppedUsing,
             ItemMethod::UseFinish => class.onItemUseFinish = useFinish,
             ItemMethod::UseIcon => class.getUseIcon = useIcon,
+            ItemMethod::Name => class.getItemNameIS = stackName,
         }
     }
 }

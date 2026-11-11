@@ -208,8 +208,10 @@ pub fn buildContent()
 {
     buildRegistered();
     crate::modify::apply();
+    crate::unify::infer();
     content::tags::push();
     content::tags::report();
+    crate::unify::build();
     content::loot::push(true);
     content::fluids::push();
     content::progress::push();
@@ -308,7 +310,7 @@ fn applyRecipes()
     });
     for (owner, id, spec) in recipes
     {
-        if let Err(reason) = content::recipes::apply(&id, &spec)
+        if let Err(reason) = content::recipes::apply(&id, &crate::unify::recipe(spec))
         {
             fail(&owner, format!("recipe {id}: {reason}"));
         }
@@ -319,7 +321,7 @@ fn applyRecipes()
 
 fn applyWorldgen()
 {
-    for (owner, id, spec) in WORLDGEN.with(|list| list.borrow().clone())
+    for (owner, id, spec) in crate::unify::worldgen(WORLDGEN.with(|list| list.borrow().clone()))
     {
         if let Err(reason) = content::worldgen::add(&id, &spec)
         {

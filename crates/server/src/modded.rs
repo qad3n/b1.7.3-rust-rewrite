@@ -33,7 +33,7 @@ impl modloader::netplay::Platform for ServerPlatform
             let playerInventory: Rc<dyn IInventory> = entity_player::inventory(player);
             let scratch: bool = request.m_pos.is_none();
             let container: Rc<Container> =
-                modloader::containers::create(&request.m_screen, playerInventory, inventory, scratch);
+                modloader::containers::create(&request.m_screen, player, playerInventory, inventory, scratch);
             entity_player_mp::openContainer(player, container);
         }
 

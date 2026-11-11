@@ -86,6 +86,8 @@ struct State
     m_ticks: u32,
     // the tile sprites cut from other textures, painted from the sheet once their source is in it
     m_slices: BTreeMap<(Atlas, Identifier), Slice>,
+    // sprites mods drew in code since the last upload, as TextureFX effects draw theirs
+    m_painted: Vec<(Atlas, i32, u32, Vec<i32>)>,
 }
 
 thread_local!
@@ -448,6 +450,28 @@ fn scaled(frame: &[i32], size: u32, tile: i32) -> Vec<u8>
 }
 
 // advances every animated sprite one tick and hands back the tiles whose frame changed
+// a mod's sprite drawn in code, square argb pixels, uploaded with the next animation step
+pub fn paint(id: &Identifier, size: u32, argb: Vec<i32>) -> Result<(), String>
+{
+    if size == 0 || argb.len() != (size * size) as usize
+    {
+        return Err(format!("a painted sprite needs {size} by {size} pixels, got {}", argb.len()));
+    }
+
+    STATE.with(|state|
+    {
+        let mut state: RefMut<crate::atlas::State> = state.borrow_mut();
+        let found: Option<(Atlas, i32)> = [Atlas::Terrain, Atlas::Items]
+            .into_iter()
+            .find_map(|sheet| state.m_slots.get(&(sheet, id.clone())).map(|slot| (sheet, *slot)));
+        let (sheet, slot) = found.ok_or_else(|| format!("{id} is no sprite on a sheet"))?;
+
+        state.m_painted.retain(|(painted, at, _, _)| !(*painted == sheet && *at == slot));
+        state.m_painted.push((sheet, slot, size, argb));
+        Ok(())
+    })
+}
+
 pub fn animate(atlas: Atlas) -> Vec<AnimatedTile>
 {
     STATE.with(|state|
@@ -468,6 +492,24 @@ pub fn animate(atlas: Atlas) -> Vec<AnimatedTile>
         };
 
         let mut due: Vec<AnimatedTile> = Vec::new();
+        let painted: Vec<(Atlas, i32, u32, Vec<i32>)> = std::mem::take(&mut state.m_painted);
+
+        for (sheet, slot, size, argb) in painted
+        {
+            if sheet != atlas
+            {
+                state.m_painted.push((sheet, slot, size, argb));
+                continue;
+            }
+
+            due.push(AnimatedTile
+            {
+                m_x: (slot % SHEET_TILES) * tile,
+                m_y: (slot / SHEET_TILES) * tile,
+                m_size: tile,
+                m_rgba: scaled(&argb, size, tile),
+            });
+        }
 
         for ((sheet, id), sprite) in &state.m_sprites
         {

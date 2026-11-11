@@ -236,6 +236,12 @@ fn dispatch(event: GameEvent<'_>) -> bool
 
         GameEvent::EntityJoinWorld { world, entity } =>
         {
+            if let Some(fields) = entity.m_ext.asAny().downcast_ref::<game::entity::entity_item::ItemFields>()
+                && let Some(stack) = fields.m_item.get()
+            {
+                crate::unify::convert(&stack);
+            }
+
             post(Some(world), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
         }
 

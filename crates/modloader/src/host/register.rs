@@ -153,6 +153,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::gamerules::register(id, spec)))
         }
+        HostCall::RegisterEnergy { name, spec } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::energy::register(runtime.id(), id, spec)),
+        ),
         HostCall::GameRule { rule } => ok(crate::gamerules::value(&rule), |reply| reply),
         HostCall::SetGameRule { rule, value } => unit(crate::gamerules::set(&rule, value)),
         HostCall::RegisterFluid { name, spec } => unit(
@@ -166,6 +171,8 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             crate::content::loot::push(false);
             unit(added)
         }
+
+        HostCall::SetChestLoot { table, spec } => unit(crate::content::loot::addChest(table, spec)),
 
         HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
         HostCall::TagsOf { registry, id } => HostReply::Ids(tags::of(registry, &id)),

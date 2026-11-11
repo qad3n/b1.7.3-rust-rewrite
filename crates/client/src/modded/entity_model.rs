@@ -250,6 +250,7 @@ pub(crate) fn glOp(op: &ModelOp, overlay: bool)
         }
 
         ModelOp::Quads(vertices) => drawQuads(vertices),
+        ModelOp::Item { stack, brightness } if !overlay => super::stack_draw::draw(stack, *brightness),
         ModelOp::Normal([x, y, z]) => GL11::glNormal3f(*x, *y, *z),
 
         ModelOp::Lighting(on) if !overlay =>
@@ -524,6 +525,24 @@ fn tileModel(className: &str) -> Option<Rc<ModModel>>
     let model: Rc<ModModel> = Rc::new(ModModel::new(&spec));
     TILE_MODELS.with(|models| models.borrow_mut().insert(className.to_owned(), Rc::clone(&model)));
     Some(model)
+}
+
+// a tile type's model posed once, for its block's item
+pub(crate) fn drawPosed(className: &str, pose: &modloader::mod_protocol::abi::Pose)
+{
+    let Some(model) = tileModel(className)
+    else
+    {
+        return;
+    };
+
+    GL11::glPushMatrix();
+    model.m_draws.set(0);
+    model.resetPose();
+    model.run(&pose.pre, MODEL_SCALE, false);
+    *model.m_pose.borrow_mut() = pose.clone();
+    model.render(0.0, 0.0, 0.0, 0.0, 0.0, MODEL_SCALE);
+    GL11::glPopMatrix();
 }
 
 impl crate::render::tile::TileEntitySpecialRenderer for ModTileRenderer

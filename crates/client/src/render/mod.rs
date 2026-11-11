@@ -58,6 +58,7 @@ pub use render_global::RenderGlobal;
 pub(crate) use render_global::vanillaParticle;
 pub use render_helper::RenderHelper;
 pub use render_item::RenderItem;
+pub(crate) use render_item::channel;
 pub use render_list::RenderList;
 pub use render_manager::RenderManager;
 pub use render_sorter::RenderSorter;

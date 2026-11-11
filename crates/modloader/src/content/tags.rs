@@ -84,6 +84,12 @@ pub fn of(registry: RegistryKind, value: &Identifier) -> Vec<Identifier>
         .collect()
 }
 
+// every tag a registry holds, in name order
+pub fn names(registry: RegistryKind) -> Vec<Identifier>
+{
+    TAGS.with(|tags| tags.borrow().keys().filter(|(kind, _)| *kind == registry).map(|(_, tag)| tag.clone()).collect())
+}
+
 pub fn hash() -> String
 {
     let text: String = table();

@@ -27,6 +27,8 @@ pub struct TileType
     pub m_owner: usize,
     pub m_spec: TileEntitySpec,
     m_class: OnceCell<&'static TileEntityClass>,
+    // IInventory.getInventoryStackLimit, api 1.33 lets the owner lower it
+    m_stackLimit: Cell<i32>,
 }
 
 pub struct ModTileExt
@@ -49,9 +51,34 @@ thread_local!
 
 pub fn define(id: Identifier, owner: usize, spec: TileEntitySpec)
 {
-    let tileType: Rc<TileType> =
-        Rc::new(TileType { m_id: id.clone(), m_owner: owner, m_spec: spec, m_class: OnceCell::new() });
+    let tileType: Rc<TileType> = Rc::new(TileType
+    {
+        m_id: id.clone(),
+        m_owner: owner,
+        m_spec: spec,
+        m_class: OnceCell::new(),
+        m_stackLimit: Cell::new(STACK_LIMIT),
+    });
     TYPES.with(|types| types.borrow_mut().insert(id, tileType));
+}
+
+pub fn setStackLimit(modIndex: usize, id: &Identifier, limit: i32) -> Result<(), String>
+{
+    let tileType: Rc<TileType> = TYPES
+        .with(|types| types.borrow().get(id).cloned())
+        .ok_or_else(|| format!("tile entity {id} is not registered"))?;
+    if tileType.m_owner != modIndex
+    {
+        return Err(format!("tile entity {id} belongs to another mod"));
+    }
+
+    if limit < 1
+    {
+        return Err(format!("tile entity {id} needs a stack limit of at least 1, not {limit}"));
+    }
+
+    tileType.m_stackLimit.set(limit);
+    Ok(())
 }
 
 pub fn bindBlock(block: i32, id: &Identifier) -> Result<(), String>
@@ -65,7 +92,7 @@ pub fn bindBlock(block: i32, id: &Identifier) -> Result<(), String>
 
 pub fn ext(tile: &TileEntity) -> &ModTileExt { tile.ext::<ModTileExt>() }
 
-fn callTile(tile: &Rc<TileEntity>, call: TileCall) -> Option<mod_protocol::abi::GuestReply>
+pub(crate) fn callTile(tile: &Rc<TileEntity>, call: TileCall) -> Option<mod_protocol::abi::GuestReply>
 {
     let tileType: Rc<TileType> = Rc::clone(&ext(tile).m_type);
     let behavior = tileType.m_spec.behavior.as_ref()?;
@@ -122,7 +149,7 @@ pub fn pose(tile: &Rc<TileEntity>, partial: f32) -> Option<mod_protocol::abi::Po
     }
 }
 
-fn wants(tile: &TileEntity, method: TileMethod) -> bool
+pub(crate) fn wants(tile: &TileEntity, method: TileMethod) -> bool
 {
     ext(tile).m_type.m_spec.behavior.as_ref().is_some_and(|behavior| behavior.methods.contains(&method))
 }
@@ -231,7 +258,7 @@ fn tileClass(tileType: &Rc<TileType>) -> &'static TileEntityClass
             class.decrStackSize = decrSlot;
             class.setInventorySlotContents = setSlot;
             class.getInvName = |_| "container.mod";
-            class.getInventoryStackLimit = |_| STACK_LIMIT;
+            class.getInventoryStackLimit = |this| ext(this).m_type.m_stackLimit.get();
             class.canInteractWith = canInteract;
 
             if tileType.m_spec.inventory > 0

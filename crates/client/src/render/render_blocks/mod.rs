@@ -191,7 +191,10 @@ impl RenderBlocks
         let drawn: bool = match n
         {
             // mod block models are lists of cuboids
-            modloader::content::blocks::MODEL_RENDER_TYPE => crate::modded::renderModel(self, block, x, y, z),
+            modloader::content::blocks::MODEL_RENDER_TYPE | modloader::content::blocks::ITEM_MODEL_RENDER_TYPE =>
+            {
+                crate::modded::renderModel(self, block, x, y, z)
+            }
             _ => usize::try_from(n)
                 .ok()
                 .and_then(|index| SHAPES.get(index))
@@ -221,6 +224,7 @@ impl RenderBlocks
 
     pub fn renderItemIn3d(kind: i32) -> bool
     {
-        usize::try_from(kind).ok().and_then(|index| SHAPES.get(index)).is_some_and(|row| row.m_item3d)
+        kind == modloader::content::blocks::ITEM_MODEL_RENDER_TYPE
+            || usize::try_from(kind).ok().and_then(|index| SHAPES.get(index)).is_some_and(|row| row.m_item3d)
     }
 }

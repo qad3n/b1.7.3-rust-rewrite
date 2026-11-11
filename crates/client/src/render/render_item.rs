@@ -236,7 +236,7 @@ impl RenderItem
     }
 }
 
-fn channel(color: i32, shift: i32) -> f32 { (color >> shift & 0xFF) as f32 / 255.0 }
+pub(crate) fn channel(color: i32, shift: i32) -> f32 { (color >> shift & 0xFF) as f32 / 255.0 }
 
 fn doRender(this: &Rc<Render>, entity: &Rc<Entity>, d: f64, d2: f64, d3: f64, _f: f32, f2: f32)
 {

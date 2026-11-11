@@ -158,6 +158,19 @@ fn mob(entity: &Entity) -> Option<&game::entity::entity_mob::MobFields>
     entity.instanceOf("EntityMob").then(|| game::entity::entity_mob::fields(entity))
 }
 
+fn dropped(entity: &Entity) -> Option<&game::entity::entity_item::ItemFields> { entity.m_ext.asAny().downcast_ref() }
+
+// a minecart's kind, -1 for any other entity
+fn minecartType(entity: &Entity) -> i32
+{
+    if !entity.instanceOf("EntityMinecart")
+    {
+        return -1;
+    }
+
+    game::entity::entity_minecart::fields(entity).m_minecartType.get()
+}
+
 fn movingBlock(entity: &Entity) -> Option<&game::entity::entity_falling_sand::FallingSandFields>
 {
     entity.instanceOf("EntityFallingSand").then(|| game::entity::entity_falling_sand::fields(entity))
@@ -282,6 +295,12 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         }
 
         EntityField::Shooter => HostReply::Float(shooter(entity) as f32),
+        EntityField::PickupDelay =>
+        {
+            HostReply::Float(dropped(entity).map_or(0, |fields| fields.m_delayBeforeCanPickup.get()) as f32)
+        }
+
+        EntityField::MinecartType => HostReply::Float(minecartType(entity) as f32),
     }
 }
 
@@ -353,6 +372,13 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         {
             movingBlock(entity).into_iter().for_each(|fields| fields.m_metadata.set(value as i32))
         }
+        EntityField::PickupDelay =>
+        {
+            dropped(entity).into_iter().for_each(|fields| fields.m_delayBeforeCanPickup.set(value as i32))
+        }
+
+        EntityField::MinecartType =>
+        {}
     }
 }
 
@@ -782,10 +808,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         {
             ok(world(dimension), |world| match stackFrom(&stack)
             {
-                Some(stack) =>
-                {
-                    HostReply::Int(game::transfer::insert(&world, pos.x, pos.y, pos.z, face, &stack, simulate))
-                }
+                Some(stack) => HostReply::Int(crate::tech::insert(&world, pos, face, &stack, simulate)),
 
                 None => HostReply::Error("cannot insert an empty or unknown stack".to_owned()),
             })
@@ -793,8 +816,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 
         HostCall::ExtractItem { world: dimension, pos, face, max, simulate } => ok(world(dimension), |world|
         {
-            let taken: Option<Rc<ItemStack>> =
-                game::transfer::extract(&world, pos.x, pos.y, pos.z, face, max, simulate);
+            let taken: Option<Rc<ItemStack>> = crate::tech::extract(&world, pos, face, max, simulate);
             HostReply::Stack(taken.map(|stack| stackData(&stack)))
         }),
 
@@ -1104,6 +1126,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             world.createExplosion(None, pos[0], pos[1], pos[2], power);
             Ok(())
         })),
-        other => crate::extensions::handle(runtime, other),
+        call @ (HostCall::ExplosionResistance { .. } | HostCall::BlastBlock { .. } | HostCall::BlockDensity { .. }) =>
+        {
+            crate::blast::handle(call)
+        }
+
+        other => crate::tech::handle(runtime, other),
     }
 }

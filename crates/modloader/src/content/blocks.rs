@@ -6,13 +6,17 @@ use game::math::AxisAlignedBB;
 use game::world::{IBlockAccess, World};
 use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
-use mod_protocol::abi::RegistryKind;
+use mod_protocol::abi::{ItemModelSpec, RegistryKind};
 use mod_protocol::spec::{BlockSpec, Cuboid, DropSpec, FaceTextures};
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub const FACES: usize = 6;
 // render type the client draws as the cuboids of a block model
 pub const MODEL_RENDER_TYPE: i32 = 1000;
+// a model block whose item draws in 3d from its item model, the world draws it as any model block
+pub const ITEM_MODEL_RENDER_TYPE: i32 = 1001;
 const MODEL_UNITS: f64 = 16.0;
 const DEFAULT_SPRITE: i32 = 1;
 
@@ -115,16 +119,24 @@ pub fn activeCuboids(blockId: i32, world: &dyn IBlockAccess, x: i32, y: i32, z: 
     };
 
     let meta: i32 = world.getBlockMetadata(x, y, z);
+    let block: Option<Rc<Block>> = Block::byId(blockId);
+    let mask: Option<u8> = block.and_then(|block| crate::behavior::connections(&block, world, x, y, z));
     model
         .cuboids
         .iter()
         .filter(|cuboid| cuboid.metas.is_empty() || cuboid.metas.contains(&meta))
         .filter(|cuboid|
         {
-            cuboid.connect.is_none_or(|face|
+            cuboid.connect.is_none_or(|face| match mask
             {
-                let [dx, dz] = SIDE_OFFSETS[face.clamp(0, 5) as usize];
-                connects(&data.m_spec, world, blockId, x + dx, y, z + dz)
+                // a behavior that answers connections joins any of the six faces
+                Some(mask) => (0..FACES as i32).contains(&face) && mask & (1 << face) != 0,
+
+                None =>
+                {
+                    let [dx, dz] = SIDE_OFFSETS[face.clamp(0, 5) as usize];
+                    connects(&data.m_spec, world, blockId, x + dx, y, z + dz)
+                }
             })
         })
         .cloned()
@@ -143,6 +155,26 @@ fn renderType(this: &Rc<Block>) -> i32
 fn notOpaque(_this: &Rc<Block>) -> bool { false }
 
 fn modelRenderType(_this: &Rc<Block>) -> i32 { MODEL_RENDER_TYPE }
+
+fn itemModelRenderType(_this: &Rc<Block>) -> i32 { ITEM_MODEL_RENDER_TYPE }
+
+thread_local!
+{
+    static ITEM_MODELS: RefCell<HashMap<Identifier, Rc<ItemModelSpec>>> = RefCell::new(HashMap::new());
+}
+
+pub fn setItemModel(id: Identifier, model: ItemModelSpec)
+{
+    ITEM_MODELS.with(|models| models.borrow_mut().insert(id, Rc::new(model)));
+}
+
+// the item model of a block by its numeric id, through the registry since ids move on remaps
+pub fn itemModel(blockId: i32) -> Option<Rc<ItemModelSpec>>
+{
+    let id: Identifier =
+        registry::with(|registries| registries.m_blocks.byNumeric(blockId).map(|row| row.m_id.clone()))?;
+    ITEM_MODELS.with(|models| models.borrow().get(&id).cloned())
+}
 
 fn cuboidBoxes(this: &Block, world: &World, x: i32, y: i32, z: i32) -> Vec<Rc<AxisAlignedBB>>
 {
@@ -477,7 +509,7 @@ fn pageIdDropped(this: &Rc<Block>, metadata: i32, random: &jvm::random::Random) 
     crate::states::locate(&data(this).m_id, 0).map_or(dropped, |(base, _)| base)
 }
 
-fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize)
+fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize, itemModel: bool)
 {
     if page > 0
     {
@@ -523,6 +555,13 @@ fn patch(class: &mut BlockClass, spec: &BlockSpec, stated: bool, page: usize)
             class.getRenderBlockPass = translucentPass;
             class.isOpaqueCube = notOpaque;
         }
+    }
+
+    if itemModel
+    {
+        class.getRenderType = itemModelRenderType;
+        class.isOpaqueCube = notOpaque;
+        class.renderAsNormalBlock = notOpaque;
     }
 
     if spec.collision.is_some()
@@ -614,10 +653,11 @@ pub fn build(row: &Row<crate::registry::BlockEntry>, owner: usize) -> Result<(),
         },
     );
 
+    let itemModel: bool = ITEM_MODELS.with(|models| models.borrow().contains_key(&row.m_id));
     let class: &'static BlockClass =
         crate::classes::deriveBlockClass(templates::templateClass(template), &row.m_id.to_string(), |class|
         {
-            patch(class, &spec, stated, page)
+            patch(class, &spec, stated, page, itemModel)
         });
     let mut block: Rc<Block> = game::hooks::withBlockClass(class, || (template.m_create)(numeric, sprite, material));
     block.m_blockIndexInTexture.set(sprite);

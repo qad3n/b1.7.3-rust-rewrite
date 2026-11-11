@@ -55,6 +55,15 @@ pub fn add(key: &str, value: &str)
     TABLES.with(|tables| tables.borrow_mut().m_loaded.insert(key.to_owned(), value.to_owned()));
 }
 
+// a stable key part for a text, hex of its bytes hashed, so one name always lands on one key
+pub fn keyFor(text: &str) -> String
+{
+    const OFFSET: u64 = 0xCBF29CE484222325;
+    const PRIME: u64 = 0x0100000001B3;
+
+    format!("{:016x}", text.bytes().fold(OFFSET, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(PRIME)))
+}
+
 pub fn translate(key: &str) -> Option<String>
 {
     TABLES.with(|tables|
