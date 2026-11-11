@@ -11,6 +11,7 @@ use jvm::io::
 use jvm::string::JString;
 use jvm::throwable::{EXCEPTION, IO, Throwable, ThrowableClass, catchThrowable};
 use std::cell::{Cell, RefCell};
+use std::collections::VecDeque;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::rc::{Rc, Weak};
@@ -42,6 +43,49 @@ fn socketError(error: &std::io::Error) -> Throwable
 type Slot<T> = Arc<Mutex<Option<T>>>;
 
 fn cipherError(message: String) -> Throwable { ioError(&IO, &message) }
+
+// a server side connection may queue this much unprocessed input before it is dropped
+mod limits
+{
+    pub const READ_PACKETS: usize = 4096;
+    pub const READ_BYTES: usize = 2 << 20;
+}
+
+#[derive(Default)]
+struct Inbox
+{
+    m_packets: VecDeque<Box<dyn Packet>>,
+    m_bytes: usize,
+}
+
+impl Inbox
+{
+    fn full(&self, size: usize) -> bool
+    {
+        self.m_packets.len() >= limits::READ_PACKETS || self.m_bytes + size > limits::READ_BYTES
+    }
+
+    fn push(&mut self, packet: Box<dyn Packet>, size: usize)
+    {
+        self.m_bytes += size;
+        self.m_packets.push_back(packet);
+    }
+
+    fn pop(&mut self) -> Option<Box<dyn Packet>>
+    {
+        let packet: Box<dyn Packet> = self.m_packets.pop_front()?;
+        self.m_bytes -= wireSize(packet.as_ref());
+        Some(packet)
+    }
+
+    fn clear(&mut self)
+    {
+        self.m_packets.clear();
+        self.m_bytes = 0;
+    }
+}
+
+fn wireSize(packet: &dyn Packet) -> usize { packet.getPacketSize().max(0) as usize + 1 }
 
 // between arming keys and the peer marker only these can still arrive in plaintext and none acts as the player
 fn plaintextAllowed(packet: &dyn Packet) -> bool
@@ -217,7 +261,7 @@ struct Shared
     m_socketInputStream: Mutex<Option<PacketInput>>,
     m_socketOutputStream: Mutex<Option<PacketOutput>>,
     m_isRunning: AtomicBool,
-    m_readPackets: Mutex<Vec<Box<dyn Packet>>>,
+    m_readPackets: Mutex<Inbox>,
     m_dataPackets: Mutex<Vec<Box<dyn Packet>>>,
     m_chunkDataPackets: Mutex<Vec<Box<dyn Packet>>>,
     m_isServerHandler: bool,
@@ -386,7 +430,16 @@ impl Shared
                 }
 
                 TOTAL_READ_SIZE[packet.getPacketId() as usize].fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
-                lock(&self.m_readPackets).push(packet);
+
+                let size: usize = wireSize(packet.as_ref());
+                let mut inbox: std::sync::MutexGuard<'_, Inbox> = lock(&self.m_readPackets);
+                // rewrite: a vanilla server queues input without limit so a flood could exhaust memory
+                if self.m_isServerHandler && inbox.full(size)
+                {
+                    return Err(ioError(&IO, "read queue overflow"));
+                }
+
+                inbox.push(packet, size);
                 Ok(true)
             }
 
@@ -530,7 +583,7 @@ impl NetworkManager
             m_socketInputStream: Mutex::new(Some(DataInputStream::new(input))),
             m_socketOutputStream: Mutex::new(Some(DataOutputStream::new(output))),
             m_isRunning: AtomicBool::new(true),
-            m_readPackets: Mutex::new(Vec::new()),
+            m_readPackets: Mutex::new(Inbox::default()),
             m_dataPackets: Mutex::new(Vec::new()),
             m_chunkDataPackets: Mutex::new(Vec::new()),
             m_isServerHandler: isServerHandler,
@@ -614,7 +667,7 @@ impl NetworkManager
             self.networkShutdown("disconnect.overflow", Vec::new());
         }
 
-        if lock(&shared.m_readPackets).is_empty()
+        if lock(&shared.m_readPackets).m_packets.is_empty()
         {
             let timeSinceLastRead: i32 = self.m_timeSinceLastRead.get();
             self.m_timeSinceLastRead.set(timeSinceLastRead + 1);
@@ -632,7 +685,7 @@ impl NetworkManager
 
         loop
         {
-            if lock(&shared.m_readPackets).is_empty()
+            if lock(&shared.m_readPackets).m_packets.is_empty()
             {
                 break;
             }
@@ -652,13 +705,18 @@ impl NetworkManager
                 break;
             }
 
-            let packet: Box<dyn Packet> = lock(&shared.m_readPackets).remove(0);
+            let Some(packet) = lock(&shared.m_readPackets).pop()
+            else
+            {
+                break;
+            };
+
             packet.processPacket(self.netHandler().as_ref());
         }
 
         self.wakeThreads();
 
-        if shared.m_isTerminating.load(Ordering::Relaxed) && lock(&shared.m_readPackets).is_empty()
+        if shared.m_isTerminating.load(Ordering::Relaxed) && lock(&shared.m_readPackets).m_packets.is_empty()
         {
             let reason: JString = lock(&shared.m_terminationReason).clone();
             let args: Vec<JString> = lock(&shared.m_disconnectReasonArgs).clone();
