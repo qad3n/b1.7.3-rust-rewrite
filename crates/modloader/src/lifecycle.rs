@@ -500,9 +500,10 @@ fn start(paths: &LoaderPaths)
             state::problem(&id, &runtime.m_file, &problem);
         }
 
+        // a mod whose code cannot run is disabled, so peers and the mods screen never count it as loaded
         if let Err(reason) = instantiate(runtime, paths)
         {
-            state::problem(&id, &runtime.m_file, &reason);
+            runtime.fail(reason);
         }
     }
 
