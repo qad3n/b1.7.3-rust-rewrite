@@ -270,7 +270,7 @@ pub fn fuel(stack: &Rc<ItemStack>) -> Option<i32> { active()?.fuel(stack) }
 pub fn maxHealth(entity: &Entity) -> i32
 {
     let base: i32 = active().and_then(|hooks| hooks.maxHealth(entity)).unwrap_or(VANILLA_MAX_HEALTH);
-    crate::attribute::whole(entity, crate::attribute::Attribute::MaxHealth, base)
+    crate::attribute::whole(entity, crate::attribute::Attribute::MAX_HEALTH, base)
 }
 
 pub const VANILLA_MAX_HEALTH: i32 = 20;

@@ -126,7 +126,7 @@ pub const CLASS: EntityClass = EntityClass
             living.m_attackTime.set(20);
             target.attackEntityFrom(
                 &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
-                attribute::whole(this, Attribute::AttackDamage, fields(this).m_attackStrength.get()),
+                attribute::whole(this, Attribute::ATTACK_DAMAGE, fields(this).m_attackStrength.get()),
             );
         }
     },

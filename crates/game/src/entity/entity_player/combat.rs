@@ -147,7 +147,7 @@ pub fn alertWolves(this: &Rc<Entity>, target: &Rc<Entity>, wasAttackedByTarget: 
 pub(crate) fn damageEntity(this: &Rc<Entity>, mut amount: i32)
 {
     let player: &PlayerFields = fields(this);
-    let i: i32 = 25 - attribute::whole(this, Attribute::Armor, inventory(this).getTotalArmorValue());
+    let i: i32 = 25 - attribute::whole(this, Attribute::ARMOR, inventory(this).getTotalArmorValue());
     let j: i32 = amount * i + player.m_damageRemainder.get();
 
     inventory(this).damageArmor(amount);
@@ -174,7 +174,7 @@ pub fn useCurrentItemOnEntity(this: &Rc<Entity>, target: &Rc<Entity>)
 
 pub fn attackTargetEntityWithCurrentItem(this: &Rc<Entity>, target: &Rc<Entity>)
 {
-    let mut i: i32 = attribute::whole(this, Attribute::AttackDamage, inventory(this).getDamageVsEntity(target));
+    let mut i: i32 = attribute::whole(this, Attribute::ATTACK_DAMAGE, inventory(this).getDamageVsEntity(target));
     if i > 0
     {
         if this.m_motionY.get() < 0.0

@@ -12,11 +12,7 @@ pub fn register(id: Identifier, spec: EffectSpec) -> Result<(), String>
     let mut modifiers: Vec<(Attribute, f64, Operation)> = Vec::new();
     for modifier in &spec.modifiers
     {
-        let attribute: Attribute = modifier
-            .attribute
-            .isVanilla()
-            .then(|| Attribute::byName(modifier.attribute.path()))
-            .flatten()
+        let attribute: Attribute = Attribute::byName(&modifier.attribute.to_string())
             .ok_or_else(|| format!("{} is not an attribute", modifier.attribute))?;
         modifiers.push((attribute, modifier.amount, operation(modifier.operation)));
     }

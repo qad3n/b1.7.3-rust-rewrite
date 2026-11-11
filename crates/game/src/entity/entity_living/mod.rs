@@ -76,7 +76,7 @@ fn armored(this: &Entity, amount: i32) -> i32
 {
     const FULL: i32 = 25;
 
-    let armor: i32 = crate::attribute::whole(this, crate::attribute::Attribute::Armor, 0).clamp(0, FULL);
+    let armor: i32 = crate::attribute::whole(this, crate::attribute::Attribute::ARMOR, 0).clamp(0, FULL);
     if armor == 0
     {
         return amount;

@@ -6,32 +6,52 @@ use std::rc::Rc;
 
 const NBT_KEY: &str = "Attributes";
 
-// a living number a modifier can change, its base is the value beta computes at the read site
+// a living number a modifier can change, an index into the attribute registry where vanilla rows come first
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Attribute
+pub struct Attribute(usize);
+
+pub struct AttributeType
 {
-    MaxHealth,
-    MoveSpeed,
-    AttackDamage,
-    Armor,
-    KnockbackResistance,
-    SwimSpeed,
+    pub m_name: String,
+    // what a read with no base of its own starts from, the vanilla rows use the beta value of their usual read site
+    pub m_default: f64,
+    pub m_min: f64,
+    pub m_max: f64,
 }
 
-pub struct AttributeRow
+struct VanillaRow
 {
-    pub m_attribute: Attribute,
-    pub m_name: &'static str,
+    m_name: &'static str,
+    m_default: f64,
 }
 
-pub const ROWS: [AttributeRow; 6] = [
-    AttributeRow { m_attribute: Attribute::MaxHealth, m_name: "max_health" },
-    AttributeRow { m_attribute: Attribute::MoveSpeed, m_name: "movement_speed" },
-    AttributeRow { m_attribute: Attribute::AttackDamage, m_name: "attack_damage" },
-    AttributeRow { m_attribute: Attribute::Armor, m_name: "armor" },
-    AttributeRow { m_attribute: Attribute::KnockbackResistance, m_name: "knockback_resistance" },
-    AttributeRow { m_attribute: Attribute::SwimSpeed, m_name: "swim_speed" },
+const NAMESPACE: &str = "minecraft:";
+
+// order matches the Attribute consts
+const VANILLA: [VanillaRow; 6] = [
+    VanillaRow { m_name: "minecraft:max_health", m_default: 20.0 },
+    VanillaRow { m_name: "minecraft:movement_speed", m_default: 0.1 },
+    VanillaRow { m_name: "minecraft:attack_damage", m_default: 0.0 },
+    VanillaRow { m_name: "minecraft:armor", m_default: 0.0 },
+    VanillaRow { m_name: "minecraft:knockback_resistance", m_default: 0.0 },
+    VanillaRow { m_name: "minecraft:swim_speed", m_default: 0.02 },
 ];
+
+thread_local!
+{
+    static TYPES: RefCell<Vec<AttributeType>> = RefCell::new(
+        VANILLA
+            .iter()
+            .map(|row| AttributeType
+            {
+                m_name: row.m_name.to_owned(),
+                m_default: row.m_default,
+                m_min: f64::MIN,
+                m_max: f64::MAX,
+            })
+            .collect(),
+    );
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Operation
@@ -55,9 +75,62 @@ pub const OPERATIONS: [OperationRow; 3] = [
 
 impl Attribute
 {
-    pub fn name(self) -> &'static str { ROWS.iter().find(|row| row.m_attribute == self).map_or("", |row| row.m_name) }
+    pub const MAX_HEALTH: Self = Self(0);
+    pub const MOVE_SPEED: Self = Self(1);
+    pub const ATTACK_DAMAGE: Self = Self(2);
+    pub const ARMOR: Self = Self(3);
+    pub const KNOCKBACK_RESISTANCE: Self = Self(4);
+    pub const SWIM_SPEED: Self = Self(5);
 
-    pub fn byName(name: &str) -> Option<Self> { ROWS.iter().find(|row| row.m_name == name).map(|row| row.m_attribute) }
+    pub fn name(self) -> String { TYPES.with(|types| types.borrow()[self.0].m_name.clone()) }
+
+    pub fn default(self) -> f64 { TYPES.with(|types| types.borrow()[self.0].m_default) }
+
+    // saves from before the registry name vanilla attributes without their namespace
+    pub fn byName(name: &str) -> Option<Self>
+    {
+        let full: String = if name.contains(':')
+        {
+            name.to_owned()
+        }
+        else
+        {
+            format!("{NAMESPACE}{name}")
+        };
+        TYPES.with(|types| types.borrow().iter().position(|kind| kind.m_name == full).map(Self))
+    }
+
+    fn clamp(self, value: f64) -> f64
+    {
+        TYPES.with(|types|
+        {
+            let kind: &AttributeType = &types.borrow()[self.0];
+            value.clamp(kind.m_min, kind.m_max)
+        })
+    }
+}
+
+// registering a name again replaces its row and keeps its index, so modifiers already set stay on it
+pub fn register(kind: AttributeType) -> Attribute
+{
+    TYPES.with(|types|
+    {
+        let mut types: RefMut<Vec<AttributeType>> = types.borrow_mut();
+        match types.iter().position(|old| old.m_name == kind.m_name)
+        {
+            Some(index) =>
+            {
+                types[index] = kind;
+                Attribute(index)
+            }
+
+            None =>
+            {
+                types.push(kind);
+                Attribute(types.len() - 1)
+            }
+        }
+    })
 }
 
 impl Operation
@@ -126,7 +199,8 @@ impl Attributes
         };
         let added: f64 = base + of(Operation::Add).sum::<f64>();
         let scaled: f64 = added + added * of(Operation::MultiplyBase).sum::<f64>();
-        of(Operation::MultiplyTotal).fold(scaled, |value, amount| value * (1.0 + amount))
+        let total: f64 = of(Operation::MultiplyTotal).fold(scaled, |value, amount| value * (1.0 + amount));
+        attribute.clamp(total)
     }
 
     // a modifier with the same attribute and id replaces the old one
@@ -157,7 +231,7 @@ impl Attributes
         for modifier in self.m_modifiers.borrow().iter()
         {
             let entry: Rc<NBTBase> = NBTTagCompound::create();
-            entry.compound().setString("Name", Some(JString::from(modifier.m_attribute.name())));
+            entry.compound().setString("Name", Some(JString::from(modifier.m_attribute.name().as_str())));
             entry.compound().setString("Id", Some(JString::from(modifier.m_id.as_str())));
             entry.compound().setDouble("Amount", modifier.m_amount);
             entry.compound().setString("Operation", Some(JString::from(modifier.m_operation.name())));

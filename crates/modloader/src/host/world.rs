@@ -805,6 +805,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 .and_then(|target| crate::attributes::set(&target, &attribute, &modifier, amount, operation)),
         ),
 
+        HostCall::AttributeValue { world: dimension, id, attribute } => ok(
+            entity(dimension, id).and_then(|target| crate::attributes::value(&target, &attribute)),
+            HostReply::Double,
+        ),
+
         HostCall::RemoveModifier { world: dimension, id, attribute, modifier } =>
         {
             unit(entity(dimension, id).and_then(|target| crate::attributes::remove(&target, &attribute, &modifier)))

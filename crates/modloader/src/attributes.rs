@@ -1,10 +1,35 @@
 use crate::network::loader::{self, AttributeSync, SyncedModifier};
-use game::attribute::{Attribute, Modifier, Operation};
+use game::attribute::{self, Attribute, AttributeType, Modifier, Operation};
 use game::entity::Entity;
 use game::entity::entity_living::LivingFields;
 use mod_protocol::Identifier;
 use mod_protocol::abi::ModifierOperation;
+use mod_protocol::spec::AttributeSpec;
 use std::rc::Rc;
+
+pub fn register(id: Identifier, spec: AttributeSpec) -> Result<(), String>
+{
+    if spec.min > spec.max || !(spec.min..=spec.max).contains(&spec.default)
+    {
+        return Err(format!("{id} needs min <= default <= max"));
+    }
+
+    attribute::register(AttributeType
+    {
+        m_name: id.to_string(),
+        m_default: spec.default,
+        m_min: spec.min,
+        m_max: spec.max,
+    });
+    Ok(())
+}
+
+pub fn value(entity: &Entity, attribute: &Identifier) -> Result<f64, String>
+{
+    let attribute: Attribute = attributeOf(attribute)?;
+    entity.m_ext.living().ok_or("only living entities have attributes")?;
+    Ok(attribute::value(entity, attribute, attribute.default()))
+}
 
 pub fn set(
     entity: &Rc<Entity>,
@@ -57,7 +82,7 @@ pub fn syncOwn(entity: &Rc<Entity>)
         .into_iter()
         .map(|modifier| SyncedModifier
         {
-            attribute: modifier.m_attribute.name().to_owned(),
+            attribute: modifier.m_attribute.name(),
             id: modifier.m_id,
             amount: modifier.m_amount,
             operation: modifier.m_operation.name().to_owned(),
@@ -98,7 +123,7 @@ pub fn received(message: AttributeSync)
 
 fn attributeOf(id: &Identifier) -> Result<Attribute, String>
 {
-    id.isVanilla().then(|| Attribute::byName(id.path())).flatten().ok_or_else(|| format!("{id} is not an attribute"))
+    Attribute::byName(&id.to_string()).ok_or_else(|| format!("{id} is not an attribute"))
 }
 
 fn operationOf(operation: ModifierOperation) -> Operation

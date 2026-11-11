@@ -389,14 +389,14 @@ pub fn animateWalk(this: &Entity)
 fn swimSpeed(this: &Entity) -> f32
 {
     const SWIM_SPEED: f32 = 0.02;
-    attribute::value(this, Attribute::SwimSpeed, SWIM_SPEED as f64) as f32
+    attribute::value(this, Attribute::SWIM_SPEED, SWIM_SPEED as f64) as f32
 }
 
 // beta walks every living entity at 0.1 on the ground, movement speed modifiers scale it
 fn landSpeed(this: &Entity) -> f32
 {
     const LAND_SPEED: f32 = 0.1;
-    attribute::value(this, Attribute::MoveSpeed, LAND_SPEED as f64) as f32
+    attribute::value(this, Attribute::MOVE_SPEED, LAND_SPEED as f64) as f32
 }
 
 pub(crate) fn isOnLadder(this: &Rc<Entity>) -> bool

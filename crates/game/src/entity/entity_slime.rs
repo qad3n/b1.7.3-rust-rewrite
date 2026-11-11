@@ -167,7 +167,7 @@ fn onCollideWithPlayer(this: &Rc<Entity>, player: &Rc<Entity>)
         && (this.getDistanceToEntity(player) as f64) < 0.6 * i as f64
         && player.attackEntityFrom(
             &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
-            attribute::whole(this, Attribute::AttackDamage, i),
+            attribute::whole(this, Attribute::ATTACK_DAMAGE, i),
         )
     {
         let pitch: f32 = (this.m_rand.nextFloat() - this.m_rand.nextFloat()) * 0.2 + 1.0;

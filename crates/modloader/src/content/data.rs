@@ -4,8 +4,8 @@ use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::
 {
-    AchievementSpec, BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FluidSpec, ItemSpec, LootSpec,
-    ParticleSpec, RecipeSpec, SpawnModifySpec, TagEntry, TagSpec, TagValue, WorldgenSpec,
+    AchievementSpec, AttributeSpec, BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FluidSpec, ItemSpec,
+    LootSpec, ParticleSpec, RecipeSpec, SpawnModifySpec, TagEntry, TagSpec, TagValue, WorldgenSpec,
 };
 use serde::de::DeserializeOwned;
 use std::cell::RefCell;
@@ -138,6 +138,10 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             "achievements" => parse::<AchievementSpec>(source, &name).map(|spec| super::progress::register(id, spec)),
             "particles" => parse::<ParticleSpec>(source, &name).map(|spec| super::particles::register(id, spec)),
             "effects" => parse::<EffectSpec>(source, &name).and_then(|spec| super::effects::register(id, spec)),
+            "attributes" =>
+            {
+                parse::<AttributeSpec>(source, &name).and_then(|spec| crate::attributes::register(id, spec))
+            }
             "fluids" => parse::<FluidSpec>(source, &name).and_then(|spec| super::fluids::register(id, spec)),
 
             "loot" =>

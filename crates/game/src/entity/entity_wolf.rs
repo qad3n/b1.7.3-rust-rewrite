@@ -452,7 +452,7 @@ fn attackEntity(this: &Rc<Entity>, target: &Rc<Entity>, distance: f32)
         let n: i32 = if isWolfTamed(this) { 4 } else { 2 };
         target.attackEntityFrom(
             &DamageSource::withAttacker(DamageKind::Mob, Some(this)),
-            attribute::whole(this, Attribute::AttackDamage, n),
+            attribute::whole(this, Attribute::ATTACK_DAMAGE, n),
         );
     }
 }

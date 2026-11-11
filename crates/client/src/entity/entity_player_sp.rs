@@ -140,7 +140,7 @@ pub fn handleKeyPress(this: &Entity, key: i32, state: bool)
 
 pub fn getPlayerArmorValue(this: &Entity) -> i32
 {
-    attribute::whole(this, Attribute::Armor, entity_player::inventory(this).getTotalArmorValue())
+    attribute::whole(this, Attribute::ARMOR, entity_player::inventory(this).getTotalArmorValue())
 }
 
 pub fn setHealth(this: &Rc<Entity>, health: i32)
