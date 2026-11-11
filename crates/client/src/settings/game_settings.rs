@@ -60,6 +60,7 @@ pub struct GameSettings
     pub m_thirdPersonView: Cell<bool>,
     pub m_showDebugInfo: Cell<bool>,
     pub m_lastServer: Field<String>,
+    pub m_lastName: Field<String>,
     pub m_discreteScroll: Cell<bool>,
     pub m_smoothCamera: Cell<bool>,
     pub m_debugCamera: Cell<bool>,
@@ -172,6 +173,7 @@ impl GameSettings
             m_thirdPersonView: Cell::new(false),
             m_showDebugInfo: Cell::new(false),
             m_lastServer: Field::new(String::new()),
+            m_lastName: Field::new(String::new()),
             m_discreteScroll: Cell::new(false),
             m_smoothCamera: Cell::new(false),
             m_debugCamera: Cell::new(false),
@@ -431,6 +433,7 @@ impl GameSettings
             "skin" => self.m_skin.set(value(1).to_owned()),
             "texturePacks" => self.m_texturePacks.set(parsePacks(line)),
             "lastServer" if astring.len() >= 2 => self.m_lastServer.set(value(1).to_owned()),
+            "lastName" if astring.len() >= 2 => self.m_lastName.set(value(1).to_owned()),
             _ =>
             {}
         }
@@ -498,6 +501,7 @@ impl GameSettings
             format!("fullscreen:{}", self.m_fullscreen.get()),
             format!("skin:{}", self.m_skin.get()),
             format!("lastServer:{}", self.m_lastServer.get()),
+            format!("lastName:{}", self.m_lastName.get()),
         ];
 
         if let Some(packs) = self.m_texturePacks.get()

@@ -1,6 +1,6 @@
 use crate::client::Minecraft;
 use crate::gui::gui_screen::{GUI_SCREEN, GuiScreenClass};
-use crate::gui::{FontRenderer, GuiButton, GuiConnecting, GuiScreen, GuiTextField};
+use crate::gui::{FontRenderer, GuiButton, GuiName, GuiScreen, GuiTextField};
 use crate::settings::GameSettings;
 use game::locale::StringTranslate;
 use game::port::{parseInt, text};
@@ -124,7 +124,7 @@ const CLASS: GuiScreenClass = GuiScreenClass
                 {
                     jvm::throwable::throw(&jvm::throwable::ARRAY_INDEX, "0");
                 };
-                mc.displayGuiScreen(Some(GuiConnecting::new(&mc, host, port)));
+                mc.displayGuiScreen(Some(GuiName::new(&this.rc(), host, port)));
             }
 
             _ =>
