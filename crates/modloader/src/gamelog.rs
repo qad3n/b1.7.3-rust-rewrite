@@ -1,5 +1,6 @@
 use crate::host::context::{dimension, entityKind};
 use crate::{log, registry};
+use game::damage::DamageSource;
 use game::entity::{Entity, entity_player};
 use game::hooks::GameEvent;
 use game::item::ItemStack;
@@ -44,9 +45,14 @@ pub fn describe(event: &GameEvent<'_>) -> Option<String>
         GameEvent::BucketFill { player, stack, .. } => format!("{} filled {}", name(player), stackName(stack)),
         GameEvent::EntityJoinWorld { entity, .. } => format!("{} spawned at {}", name(entity), position(entity)),
 
-        GameEvent::LivingAttack { entity, damage, amount } =>
+        // environment damage fires every tick before the hurt cooldown so only attacks by an entity log
+        GameEvent::LivingAttack {
+            entity,
+            damage: DamageSource { m_attacker: Some(attacker), m_kind: kind, .. },
+            amount,
+        } =>
         {
-            format!("{} attacked {} for {amount} by {}", actor(damage.m_attacker), name(entity), damage.m_kind.name())
+            format!("{} attacked {} for {amount} by {}", name(attacker), name(entity), kind.name())
         }
 
         GameEvent::LivingDeath { entity, source } =>
