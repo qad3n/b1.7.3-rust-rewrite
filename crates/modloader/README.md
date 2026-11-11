@@ -4,12 +4,12 @@ The game has a mod loader built in. You don't need a separate installer.
 
 ## Playing with mods
 
-1. Put a `.b173mod` file in the `mods/` folder.
+1. Put a `.bmod` file in the `mods/` folder.
    - Client: `mods/` next to `saves/` in the game data folder (see the main README).
    - Server: `server/mods/` in the same data folder.
 2. Start the game or the server.
 
-The same `.b173mod` file works on both sides. When a mod adds content, the server and the client need the same mods installed. If they don't match, the join screen tells you which mods are missing or have the wrong version.
+The same `.bmod` file works on both sides. When a mod adds content, the server and the client need the same mods installed. If they don't match, the join screen tells you which mods are missing or have the wrong version.
 
 With no mod files the game runs as vanilla. Nothing extra loads.
 
@@ -41,7 +41,7 @@ Logs go to `logs/client.log` in the game folder and `logs/server.log` next to `s
 
 ## How it works
 
-- A `.b173mod` file is a zip. It holds a `mod.toml` manifest, optional `data/` and `assets/` folders, and an optional `mod.wasm` with code.
+- A `.bmod` file is a zip. It holds a `mod.toml` manifest, optional `data/` and `assets/` folders, and an optional `mod.wasm` with code.
 - On start the loader reads every mod, checks versions and dependencies, and sorts them into load order. Then it adds their blocks, items, recipes and other content to the game's registries.
 - Blocks and items have names like `ruby:ruby_ore`, not fixed numbers. The loader picks the numbers and saves them in each world, so adding or removing mods doesn't scramble a save. Content from a removed mod becomes a placeholder, and the loader makes one backup of the world first.
 - With mods installed, worlds save blocks and items by name. Chunks store a palette of block names per 16-high section, and item stacks store their item's name. If a world is opened without mods, it still loads from the saved numbers.
@@ -82,7 +82,7 @@ B173_SDK=/path/to/b1.7.3-rust-rewrite/vendor/b1.7.3-modding-sdk/b173_api cargo b
 Commands, run in the mod folder or with `--path <mod dir>`:
 
 - `cargo b173 check` checks `mod.toml` and every data file.
-- `cargo b173 build` makes `target/<id>-<version>.b173mod`.
+- `cargo b173 build` makes `target/<id>-<version>.bmod`.
 - `cargo b173 run --client` or `--server` builds the mod, copies it into the game data folder's `mods/` or `server/mods/`, and starts the game. The game binaries come from `PATH` or `B173_BIN_DIR`.
 
 ### mod.toml

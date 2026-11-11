@@ -3,7 +3,7 @@ use game::resources::Source;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
-pub const MOD_EXTENSION: &str = "b173mod";
+pub const MOD_EXTENSION: &str = "bmod";
 
 pub struct Discovered
 {
@@ -67,7 +67,7 @@ pub struct DiscoveryError
     pub m_reason: String,
 }
 
-// every b173mod file and every folder holding a mod.toml, in file name order
+// every bmod file and every folder holding a mod.toml, in file name order
 pub fn discover(modsDir: &Path) -> (Vec<Discovered>, Vec<DiscoveryError>)
 {
     let mut paths: Vec<PathBuf> = match std::fs::read_dir(modsDir)
