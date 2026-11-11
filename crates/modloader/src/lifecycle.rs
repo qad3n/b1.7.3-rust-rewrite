@@ -32,7 +32,8 @@ pub mod ids
 thread_local!
 {
     static RECIPE_REMOVALS: RefCell<Vec<Identifier>> = const { RefCell::new(Vec::new()) };
-    static PENDING_LOOKUPS: RefCell<Vec<(usize, Identifier, Identifier, Handle)>> = const { RefCell::new(Vec::new()) };
+    // kept by name because a remap moves block ids, every rebuild binds them again
+    static LOOKUPS: RefCell<Vec<(usize, Identifier, Identifier, Handle)>> = const { RefCell::new(Vec::new()) };
     static BLOCK_LIMIT: std::cell::Cell<i32> = const { std::cell::Cell::new(ids::BLOCK_LIMIT) };
     static WORLDGEN: RefCell<Vec<(String, Identifier, mod_protocol::spec::WorldgenSpec)>> = const { RefCell::new(Vec::new()) };
 }
@@ -43,9 +44,33 @@ pub fn queueRecipeRemoval(id: &Identifier) -> Result<(), String>
     Ok(())
 }
 
-pub fn queueLookup(modIndex: usize, api: Identifier, block: Identifier, handler: Handle)
+pub fn addLookup(modIndex: usize, api: Identifier, block: Identifier, handler: Handle)
 {
-    PENDING_LOOKUPS.with(|list| list.borrow_mut().push((modIndex, api, block, handler)));
+    LOOKUPS.with(|list| list.borrow_mut().push((modIndex, api, block, handler)));
+
+    if state::phase() >= Phase::Frozen
+    {
+        bindLookups();
+    }
+}
+
+fn bindLookups()
+{
+    services::clearLookups();
+
+    for (modIndex, api, block, handler) in LOOKUPS.with(|list| list.borrow().clone())
+    {
+        if !state::modAt(modIndex).is_some_and(|runtime| runtime.isActive())
+        {
+            continue;
+        }
+
+        match registry::with(|registries| registries.blockId(&block))
+        {
+            Some(numeric) => services::registerLookup(modIndex, api, numeric, handler),
+            None => fail(&state::modId(modIndex), format!("lookup {api} names unknown block {block}")),
+        }
+    }
 }
 
 // the chunk format decides how many block ids exist, Phase 3 raises it to 4096
@@ -306,15 +331,7 @@ fn applyLate()
     WORLDGEN.with(|list| *list.borrow_mut() = data::takeWorldgen());
     applyWorldgen();
 
-    for (modIndex, api, block, handler) in PENDING_LOOKUPS.with(|list| list.borrow_mut().drain(..).collect::<Vec<_>>())
-    {
-        match registry::with(|registries| registries.blockId(&block))
-        {
-            Some(numeric) => services::registerLookup(modIndex, api, numeric, handler),
-            None => fail(&state::modId(modIndex), format!("lookup {api} names unknown block {block}")),
-        }
-    }
-
+    bindLookups();
     dimensions::finish();
     crate::entities::registerSpawns();
     crate::modify::applySpawns();
@@ -566,6 +583,7 @@ pub fn rebuild()
     buildContent();
     applyRecipes();
     applyWorldgen();
+    bindLookups();
     dimensions::finish();
     callAll(GuestCall::Lifecycle(Lifecycle::Remapped));
     log::info(log::LOADER, &format!("rebuilt mod content for the new id map in {}", took(started)));

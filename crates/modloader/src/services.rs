@@ -82,6 +82,8 @@ pub fn registerLookup(modIndex: usize, api: Identifier, block: i32, handler: Han
     });
 }
 
+pub fn clearLookups() { REGISTRY.with(|registry| registry.borrow_mut().m_lookups.clear()); }
+
 pub fn callLookup(
     api: &Identifier,
     world: i32,

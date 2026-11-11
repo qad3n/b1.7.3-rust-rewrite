@@ -203,21 +203,8 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 
         HostCall::RegisterLookup { api, block, handler } =>
         {
-            let numeric: Option<i32> = crate::registry::with(|registries| registries.blockId(&block));
-            match numeric
-            {
-                Some(numeric) =>
-                {
-                    services::registerLookup(index, api, numeric, handler);
-                    HostReply::Unit
-                }
-
-                None =>
-                {
-                    crate::lifecycle::queueLookup(index, api, block, handler);
-                    HostReply::Unit
-                }
-            }
+            crate::lifecycle::addLookup(index, api, block, handler);
+            HostReply::Unit
         }
 
         HostCall::CallLookup { api, world, pos, side, method, args } =>
