@@ -53,13 +53,14 @@ fn paint(mc: &Rc<Minecraft>, screen: &ModScreen, origin: (i32, i32), mouse: [i32
 }
 
 // true when the click landed on a guest button
-fn click(screen: &ModScreen, x: i32, y: i32, button: i32, origin: (i32, i32)) -> bool
+fn click(mc: &Minecraft, screen: &ModScreen, x: i32, y: i32, button: i32, origin: (i32, i32)) -> bool
 {
     let hit: Option<i32> = screen.m_buttons.borrow().iter().find(|rect| rect.contains(x, y)).map(|rect| rect.m_id);
     match hit
     {
         Some(id) if button == 0 =>
         {
+            super::clickSound(mc);
             send(screen, ScreenOp::Button { id });
             true
         }
@@ -96,7 +97,7 @@ const PLAIN: GuiScreenClass = GuiScreenClass
         let screen: &ModScreen = plainState(this);
         let spec = &screen.m_screen.m_spec;
         let origin: (i32, i32) = ((this.m_width.get() - spec.width) / 2, (this.m_height.get() - spec.height) / 2);
-        click(screen, mouseX, mouseY, button, origin);
+        click(&this.mc(), screen, mouseX, mouseY, button, origin);
     },
 
     // GuiScreen.mouseMovedOrUp passes button -1 for moves so only releases reach the guest
@@ -177,7 +178,7 @@ const CONTAINER: GuiScreenClass = GuiScreenClass
 
     mouseClicked: |this, mouseX, mouseY, button|
     {
-        if !click(&state(this), mouseX, mouseY, button, gui_container::origin(this))
+        if !click(&this.mc(), &state(this), mouseX, mouseY, button, gui_container::origin(this))
         {
             (GUI_CONTAINER.mouseClicked)(this, mouseX, mouseY, button);
         }

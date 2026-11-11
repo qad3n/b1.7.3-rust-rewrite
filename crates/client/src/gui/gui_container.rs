@@ -297,6 +297,7 @@ fn mouseClicked(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, button: i32)
     if modloader::screens::clickOverlays(this.className(), mouseX - left, mouseY - top, button)
     {
         debug!("A mod overlay took mouse button {button} on {}", this.className());
+        crate::modded::overlayClicked(&this.mc(), mouseX, mouseY, button);
         return;
     }
 

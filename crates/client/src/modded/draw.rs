@@ -183,7 +183,12 @@ pub(crate) fn draw(mc: &Rc<Minecraft>, list: &DrawList, originX: i32, originY: i
                 let button: Rc<GuiButton> = GuiButton::withSize(*id, originX + x, originY + y, *w, *h, label);
                 button.m_enabled.set(*enabled);
                 button.drawButton(mc, mouse[0], mouse[1]);
-                buttons.push(ButtonRect { m_id: *id, m_x: originX + x, m_y: originY + y, m_w: *w, m_h: *h });
+
+                // vanilla GuiButton.mousePressed ignores a disabled button
+                if *enabled
+                {
+                    buttons.push(ButtonRect { m_id: *id, m_x: originX + x, m_y: originY + y, m_w: *w, m_h: *h });
+                }
             }
 
             DrawOp::Particle { name, pos, motion } =>

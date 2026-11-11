@@ -11,6 +11,7 @@ pub mod textures;
 
 use crate::client::Minecraft;
 use crate::gui::{GuiIngame, GuiScreen, ScaledResolution};
+use draw::ButtonRect;
 use game::container::Container;
 use game::entity::{Entity, entity_player};
 use game::inventory::{IInventory, InventoryPlayer};
@@ -19,9 +20,18 @@ use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 pub use menu::{MODS_BUTTON, addModsButton, drawModCount, modsScreen, startScreen};
 pub use model::{movingShapes, renderModel, renderOverlays};
-use modloader::mod_protocol::abi::StackData;
+use modloader::mod_protocol::abi::{DrawList, StackData};
 use modloader::screens::OpenRequest;
+use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
+
+const CLICK_SOUND: &str = "random.click";
+
+thread_local!
+{
+    // buttons the container overlays drew last frame, kept so a click can find them
+    static OVERLAY_BUTTONS: RefCell<Vec<ButtonRect>> = const { RefCell::new(Vec::new()) };
+}
 
 // what only the client can do for mods: open screens, place server entities, measure the screen
 struct ClientPlatform
@@ -246,11 +256,34 @@ pub fn drawOverlays(screen: &Rc<crate::gui::GuiScreen>, origin: (i32, i32), size
     GL11::glClear(GL11::GL_DEPTH_BUFFER_BIT);
 
     let relative: [i32; 2] = [mouse[0] - origin.0, mouse[1] - origin.1];
-    for list in modloader::screens::drawOverlays(screen.className(), size, relative)
+    let lists: Vec<DrawList> = modloader::screens::drawOverlays(screen.className(), size, relative);
+
+    let mc: Rc<Minecraft> = screen.mc();
+
+    OVERLAY_BUTTONS.with(|buttons|
     {
-        draw::draw(&screen.mc(), &list, origin.0, origin.1, mouse);
+        let mut rects: RefMut<'_, Vec<ButtonRect>> = buttons.borrow_mut();
+        rects.clear();
+
+        for list in &lists
+        {
+            rects.extend(draw::draw(&mc, list, origin.0, origin.1, mouse));
+        }
+    });
+}
+
+// an overlay that took a left click on one of its buttons gets the vanilla button sound, positions in screen space
+pub fn overlayClicked(mc: &Minecraft, x: i32, y: i32, button: i32)
+{
+    let hit: bool = OVERLAY_BUTTONS.with(|buttons| buttons.borrow().iter().any(|rect| rect.contains(x, y)));
+    if button == 0 && hit
+    {
+        clickSound(mc);
     }
 }
+
+// the sound GuiScreen.mouseClicked plays for a pressed button
+fn clickSound(mc: &Minecraft) { mc.m_sndManager.get().orNpe().playSoundFX(CLICK_SOUND, 1.0, 1.0); }
 
 // lines mods add under the item name of a slot tooltip
 pub fn tooltipLines(stack: &ItemStack) -> Vec<String>
