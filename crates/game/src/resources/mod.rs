@@ -7,11 +7,12 @@ mod sprites;
 mod stack;
 
 use jvm::image::BufferedImage;
-pub(crate) use location::{Location, MINECRAFT};
+pub use location::{Location, MINECRAFT};
 pub use pack::{Layout, Pack};
 pub use source::Source;
 pub(crate) use stack::Stack;
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 const VANILLA_NAME: &str = "Default";
@@ -49,5 +50,11 @@ pub fn readJar(path: &str) -> Option<Vec<u8>> { vanilla().read(&legacy::location
 // a beta sheet such as /terrain.png with sprites from modern packs above the pack that supplied it
 pub fn overlay(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
 {
-    STACK.with(|stack| sheet::overlay(stack.borrow().packs(), path, image))
+    STACK.with(|stack| sheet::overlay(&stack.borrow(), path, image))
 }
+
+// copies of a merged file such as sounds.json lowest first
+pub fn readAll(location: &Location) -> Vec<Vec<u8>> { STACK.with(|stack| stack.borrow().readAll(location)) }
+
+// the pack holding a location and the file on disk for it
+pub fn disk(location: &Location) -> Option<(String, PathBuf)> { STACK.with(|stack| stack.borrow().disk(location)) }

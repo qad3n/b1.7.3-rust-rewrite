@@ -248,6 +248,8 @@ impl Minecraft
             let thread: Rc<ThreadDownloadResources> = Rc::new(ThreadDownloadResources::new(dataDir, self.rc()));
             self.m_downloadResourcesThread.set(Some(Rc::clone(&thread)));
             thread.run();
+            // texture pack sounds go on top once the resources folder is in the pools
+            self.sndManager().rebuild();
         });
     }
 

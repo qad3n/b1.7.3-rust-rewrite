@@ -745,5 +745,6 @@ impl Minecraft
         self.m_sndManager.set(Some(Rc::new(crate::sound::SoundManager::new())));
         self.sndManager().loadSoundSettings(self.m_gameSettings.get());
         self.m_downloadResourcesThread.get().orNpe().reloadResources();
+        self.sndManager().rebuild();
     }
 }

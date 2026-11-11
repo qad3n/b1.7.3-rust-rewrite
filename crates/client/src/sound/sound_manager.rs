@@ -1,4 +1,5 @@
 use crate::settings::GameSettings;
+use crate::sound::texture_pack_sounds::{self, Event, Install, Pool, Sound};
 use crate::sound::{CodecMus, SoundPool, SoundPoolEntry};
 use game::entity::Entity;
 use game::math::math_helper::{cos, sin};
@@ -9,7 +10,7 @@ use jvm::{debug, info};
 use paulscode::sound::codecs::{CodecJOrbis, CodecWav};
 use paulscode::sound::libraries::LibraryLWJGLOpenAL;
 use paulscode::sound::{SoundSystem, SoundSystemConfig};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::f32::consts::PI;
 use std::path::Path;
 use std::rc::Rc;
@@ -33,6 +34,8 @@ pub struct SoundManager
     m_options: Field<Option<Rc<GameSettings>>>,
     m_rand: Random,
     m_ticksBeforeMusic: Cell<i32>,
+    // every file added in order so a texture pack change can rebuild the pools
+    m_installs: RefCell<Vec<Install>>,
 }
 
 impl SoundManager
@@ -51,6 +54,7 @@ impl SoundManager
             m_options: Field::new(None),
             m_rand: rand,
             m_ticksBeforeMusic: Cell::new(ticksBeforeMusic),
+            m_installs: RefCell::new(Vec::new()),
         }
     }
 
@@ -151,11 +155,61 @@ impl SoundManager
         }
     }
 
-    pub fn addSound(&self, path: &str, dir: &Path) { self.m_soundPoolSounds.addSound(path, dir); }
+    pub fn addSound(&self, path: &str, dir: &Path) { self.install(Pool::Sounds, path, dir, false); }
 
-    pub fn addStreaming(&self, path: &str, file: &Path) { self.m_soundPoolStreaming.addSound(path, file); }
+    pub fn addStreaming(&self, path: &str, file: &Path) { self.install(Pool::Streaming, path, file, false); }
 
-    pub fn addMusic(&self, path: &str, file: &Path) { self.m_soundPoolMusic.addSound(path, file); }
+    pub fn addMusic(&self, path: &str, file: &Path) { self.install(Pool::Music, path, file, false); }
+
+    fn pool(&self, pool: Pool) -> &SoundPool
+    {
+        match pool
+        {
+            Pool::Sounds => &self.m_soundPoolSounds,
+            Pool::Streaming => &self.m_soundPoolStreaming,
+            Pool::Music => &self.m_soundPoolMusic,
+        }
+    }
+
+    // vanilla files come from the resources folder and a texture pack may replace them
+    pub fn install(&self, pool: Pool, path: &str, file: &Path, vanilla: bool)
+    {
+        self.pool(pool).addSound(path, file);
+
+        let install: Install =
+            Install { m_pool: pool, m_path: path.to_owned(), m_file: file.to_path_buf(), m_vanilla: vanilla };
+        self.m_installs.borrow_mut().push(install);
+    }
+
+    // adds every file again in its first order with texture pack files and sounds.json events on top
+    pub fn rebuild(&self)
+    {
+        for pool in [Pool::Sounds, Pool::Streaming, Pool::Music]
+        {
+            self.pool(pool).clear();
+        }
+
+        for install in self.m_installs.borrow().iter()
+        {
+            let target: &SoundPool = self.pool(install.m_pool);
+            let Sound { m_name: name, m_file: file } = texture_pack_sounds::resolve(install);
+            target.add(target.key(&install.m_path), name, &file);
+        }
+
+        for Event { m_pool: pool, m_key: key, m_replace: replace, m_sounds: sounds } in texture_pack_sounds::events()
+        {
+            let target: &SoundPool = self.pool(pool);
+            if replace
+            {
+                target.remove(&key);
+            }
+
+            for Sound { m_name: name, m_file: file } in sounds
+            {
+                target.add(key.clone(), name, &file);
+            }
+        }
+    }
 
     pub fn playRandomMusicIfReady(&self)
     {

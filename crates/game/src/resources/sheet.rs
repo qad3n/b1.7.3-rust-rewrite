@@ -1,8 +1,8 @@
 use crate::resources::sprites::{ITEMS, Sprite, TERRAIN};
-use crate::resources::{Location, Pack, legacy};
+use crate::resources::{Location, Stack, legacy};
 use jvm::image::{BufferedImage, ImageIO};
 use jvm::io::ByteArrayInputStream;
-use jvm::warning;
+use jvm::{debug, warning};
 use std::rc::Rc;
 
 const TILES: i32 = 16;
@@ -40,15 +40,16 @@ fn decode(location: &Location, bytes: Vec<u8>) -> Option<BufferedImage>
     }
 }
 
-// the top sprite of each slot from packs above the pack that supplied the whole sheet
-fn find(sheet: &Sheet, above: &[Rc<Pack>]) -> Vec<Paint>
+// the top sprite of each slot when it comes from a pack above the pack that supplied the whole sheet
+fn find(sheet: &Sheet, stack: &Stack, base: usize) -> Vec<Paint>
 {
     let mut found: Vec<Paint> = Vec::new();
 
     for sprite in sheet.m_sprites
     {
         let location: Location = Location::minecraft(&format!("textures/{}/{}.png", sheet.m_folder, sprite.m_name));
-        let Some(bytes) = above.iter().rev().find_map(|pack| pack.read(&location))
+        let owner: Option<usize> = stack.owner(&location).filter(|owner| *owner > base);
+        let Some(bytes) = owner.and_then(|owner| stack.pack(owner).read(&location))
         else
         {
             continue;
@@ -104,7 +105,7 @@ fn paint(base: &BufferedImage, paints: &[Paint]) -> BufferedImage
 }
 
 // modern sprites painted over a beta sheet and the sheet comes back untouched when no pack above it has one
-pub(crate) fn overlay(packs: &[Rc<Pack>], path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
+pub(crate) fn overlay(stack: &Stack, path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
 {
     let path: &str = path.trim_start_matches('/');
     let Some(sheet) = SHEETS.iter().find(|sheet| sheet.m_beta == path)
@@ -114,12 +115,13 @@ pub(crate) fn overlay(packs: &[Rc<Pack>], path: &str, image: Rc<BufferedImage>) 
     };
 
     let whole: Location = legacy::location(path);
-    let base: usize = packs.iter().rposition(|pack| pack.has(&whole)).unwrap_or(0);
-    let paints: Vec<Paint> = find(sheet, &packs[base + 1..]);
+    let base: usize = stack.owner(&whole).unwrap_or(0);
+    let paints: Vec<Paint> = find(sheet, stack, base);
     if paints.is_empty() || image.getWidth() < TILES
     {
         return image;
     }
 
+    debug!("Painting {} texture pack sprites onto {path}", paints.len());
     Rc::new(paint(&image, &paints))
 }
