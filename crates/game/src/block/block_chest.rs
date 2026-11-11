@@ -198,9 +198,52 @@ fn chestAt(world: &Rc<World>, x: i32, y: i32, z: i32) -> Option<Rc<dyn IInventor
         .map(|chest| chest as Rc<dyn IInventory>)
 }
 
+// a chest joined with the chest beside it, as the chest screen and item transfer see it
+pub fn inventory(world: &Rc<World>, x: i32, y: i32, z: i32) -> Option<Rc<dyn IInventory>>
+{
+    combine(world, x, y, z, world.getBlockId(x, y, z), chestAt(world, x, y, z))
+}
+
+fn combine(
+    world: &Rc<World>,
+    x: i32,
+    y: i32,
+    z: i32,
+    id: i32,
+    own: Option<Rc<dyn IInventory>>,
+) -> Option<Rc<dyn IInventory>>
+{
+    let mut iInventory: Option<Rc<dyn IInventory>> = own;
+    if world.getBlockId(x - 1, y, z) == id
+    {
+        iInventory = Some(
+            InventoryLargeChest::new("Large chest", chestAt(world, x - 1, y, z), iInventory) as Rc<dyn IInventory>
+        );
+    }
+    if world.getBlockId(x + 1, y, z) == id
+    {
+        iInventory = Some(
+            InventoryLargeChest::new("Large chest", iInventory, chestAt(world, x + 1, y, z)) as Rc<dyn IInventory>
+        );
+    }
+    if world.getBlockId(x, y, z - 1) == id
+    {
+        iInventory = Some(
+            InventoryLargeChest::new("Large chest", chestAt(world, x, y, z - 1), iInventory) as Rc<dyn IInventory>
+        );
+    }
+    if world.getBlockId(x, y, z + 1) == id
+    {
+        iInventory = Some(
+            InventoryLargeChest::new("Large chest", iInventory, chestAt(world, x, y, z + 1)) as Rc<dyn IInventory>
+        );
+    }
+    iInventory
+}
+
 fn blockActivated(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, player: &Rc<Entity>) -> bool
 {
-    let mut iInventory: Option<Rc<dyn IInventory>> = chestAt(world, x, y, z);
+    let own: Option<Rc<dyn IInventory>> = chestAt(world, x, y, z);
     if world.isBlockNormalCube(x, y + 1, z)
     {
         return true;
@@ -221,30 +264,7 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, p
     {
         return true;
     }
-    if world.getBlockId(x - 1, y, z) == this.m_blockID
-    {
-        iInventory = Some(
-            InventoryLargeChest::new("Large chest", chestAt(world, x - 1, y, z), iInventory) as Rc<dyn IInventory>
-        );
-    }
-    if world.getBlockId(x + 1, y, z) == this.m_blockID
-    {
-        iInventory = Some(
-            InventoryLargeChest::new("Large chest", iInventory, chestAt(world, x + 1, y, z)) as Rc<dyn IInventory>
-        );
-    }
-    if world.getBlockId(x, y, z - 1) == this.m_blockID
-    {
-        iInventory = Some(
-            InventoryLargeChest::new("Large chest", chestAt(world, x, y, z - 1), iInventory) as Rc<dyn IInventory>
-        );
-    }
-    if world.getBlockId(x, y, z + 1) == this.m_blockID
-    {
-        iInventory = Some(
-            InventoryLargeChest::new("Large chest", iInventory, chestAt(world, x, y, z + 1)) as Rc<dyn IInventory>
-        );
-    }
+    let iInventory: Option<Rc<dyn IInventory>> = combine(world, x, y, z, this.m_blockID, own);
     if world.m_multiplayerWorld.get()
     {
         return true;

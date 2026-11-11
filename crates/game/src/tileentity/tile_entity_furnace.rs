@@ -197,7 +197,7 @@ pub fn smeltItem(this: &Rc<TileEntity>)
     }
 }
 
-fn getItemBurnTime(item: Option<Rc<ItemStack>>) -> i32
+pub fn getItemBurnTime(item: Option<Rc<ItemStack>>) -> i32
 {
     let Some(item) = item
     else

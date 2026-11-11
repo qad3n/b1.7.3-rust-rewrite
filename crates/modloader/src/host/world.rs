@@ -630,6 +630,22 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
         HostCall::DamageType => HostReply::Id(crate::damage::current()),
+        HostCall::InsertItem { world: dimension, pos, face, stack, simulate } =>
+        {
+            ok(world(dimension), |world| match stackFrom(&stack)
+            {
+                Some(stack) =>
+                {
+                    HostReply::Int(game::transfer::insert(&world, pos.x, pos.y, pos.z, face, &stack, simulate))
+                }
+                None => HostReply::Error("cannot insert an empty or unknown stack".to_owned()),
+            })
+        }
+        HostCall::ExtractItem { world: dimension, pos, face, max, simulate } => ok(world(dimension), |world| {
+            let taken: Option<Rc<ItemStack>> =
+                game::transfer::extract(&world, pos.x, pos.y, pos.z, face, max, simulate);
+            HostReply::Stack(taken.map(|stack| stackData(&stack)))
+        }),
         HostCall::UnlockAchievement { player: id, achievement } =>
         {
             ok(player(id), |target| HostReply::Bool(crate::content::progress::unlock(&target, &achievement)))
