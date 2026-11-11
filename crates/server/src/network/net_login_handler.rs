@@ -20,7 +20,7 @@ use jvm::throwable::{OrNpe, Throwable};
 use jvm::{debug, info, severe, warning};
 use modloader::netsync::{Outcome, ServerSession};
 use std::cell::{Cell, RefCell};
-use std::net::TcpStream;
+use std::net::{IpAddr, TcpStream};
 use std::rc::{Rc, Weak};
 use std::time::Instant;
 
@@ -310,7 +310,7 @@ impl NetLoginHandler
         self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&start)));
     }
 
-    fn admit(service: &ServerAuth, ip: std::net::IpAddr, name: &str, start: &Message) -> Result<(), String>
+    fn admit(service: &ServerAuth, ip: IpAddr, name: &str, start: &Message) -> Result<(), String>
     {
         let now: Instant = Instant::now();
         let mut limiter: std::cell::RefMut<'_, auth::Limiter> = service.limiter();
@@ -349,6 +349,13 @@ impl NetLoginHandler
             return;
         }
 
+        let Some(ip) = self.netManager().remoteIp()
+        else
+        {
+            self.kickUser(PROTOCOL_ERROR);
+            return;
+        };
+
         let service: Rc<ServerAuth> = self.m_mcServer.auth();
         let mut current: std::cell::RefMut<'_, Option<auth::Handshake>> = self.m_auth.borrow_mut();
         let Some(handshake) = current.as_mut()
@@ -372,7 +379,7 @@ impl NetLoginHandler
                 // counted before the proof so a client that walks away after ke2 still pays the backoff
                 if matches!(reply, Message::Ke2(_))
                 {
-                    service.limiter().failed(&name, Instant::now());
+                    service.limiter().failed(ip, &name, Instant::now());
                 }
 
                 self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&reply)));
@@ -380,11 +387,11 @@ impl NetLoginHandler
 
             auth::Outcome::Wait =>
             {}
-            auth::Outcome::Authed(keys) => self.finishAuth(&service, &name, &display, keys),
+            auth::Outcome::Authed(keys) => self.finishAuth(&service, ip, &name, &display, keys),
 
             auth::Outcome::Fail(reason) =>
             {
-                service.limiter().failed(&name, Instant::now());
+                service.limiter().failed(ip, &name, Instant::now());
                 info!("{} failed to log in as {display}: {reason}", self.who());
                 self.kickUser(&reason);
             }
@@ -420,10 +427,10 @@ impl NetLoginHandler
         }
     }
 
-    fn finishAuth(&self, service: &ServerAuth, name: &str, display: &str, keys: auth::Keys)
+    fn finishAuth(&self, service: &ServerAuth, ip: IpAddr, name: &str, display: &str, keys: auth::Keys)
     {
         *self.m_auth.borrow_mut() = None;
-        service.limiter().succeeded(name);
+        service.limiter().succeeded(ip, name);
         self.netManager().armSecure(keys);
         self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&Message::Secure)));
         self.m_authed.set(true);

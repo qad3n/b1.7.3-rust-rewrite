@@ -28,6 +28,7 @@ use jvm::throwable::OrNpe;
 use jvm::{debug, info, warning};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::net::IpAddr;
 use std::rc::{Rc, Weak};
 use std::time::Instant;
 
@@ -262,11 +263,18 @@ impl NetServerHandler
             return;
         };
 
+        let Some(ip) = self.m_netManager.remoteIp()
+        else
+        {
+            self.kickPlayer("Protocol error");
+            return;
+        };
+
         let now: Instant = Instant::now();
 
         if matches!(message, auth::Message::Ke1(_))
         {
-            if let Err(reason) = self.startChange(&service, &name, &display, now)
+            if let Err(reason) = self.startChange(&service, ip, &name, &display, now)
             {
                 self.authReply(&auth::Message::Result(reason));
                 return;
@@ -289,7 +297,7 @@ impl NetServerHandler
                 // counted before the proof so a client that walks away after ke2 still pays the backoff
                 if matches!(reply, auth::Message::Ke2(_))
                 {
-                    service.limiter().failed(&name, now);
+                    service.limiter().failed(ip, &name, now);
                 }
 
                 self.authReply(&reply);
@@ -300,14 +308,14 @@ impl NetServerHandler
 
             Some(auth::Outcome::Changed) =>
             {
-                service.limiter().succeeded(&name);
+                service.limiter().succeeded(ip, &name);
                 info!("{display} changed their password");
                 Some(String::from("Password changed"))
             }
 
             Some(auth::Outcome::Fail(reason)) =>
             {
-                service.limiter().failed(&name, now);
+                service.limiter().failed(ip, &name, now);
                 info!("{display} failed a password change: {reason}");
                 Some(reason)
             }
@@ -322,14 +330,20 @@ impl NetServerHandler
         }
     }
 
-    fn startChange(&self, service: &ServerAuth, name: &str, display: &str, now: Instant) -> Result<(), String>
+    fn startChange(
+        &self,
+        service: &ServerAuth,
+        ip: IpAddr,
+        name: &str,
+        display: &str,
+        now: Instant,
+    ) -> Result<(), String>
     {
         if !self.m_netManager.secure()
         {
             return Err(String::from("Password changes need an encrypted connection"));
         }
 
-        let ip: std::net::IpAddr = self.m_netManager.remoteIp().ok_or("Protocol error")?;
         service.limiter().attempt(ip, name, now)?;
         *self.m_passwordChange.borrow_mut() = Some(auth::Handshake::change(name, display));
         Ok(())

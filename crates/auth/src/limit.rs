@@ -23,7 +23,7 @@ struct Backoff
     m_until: Instant,
 }
 
-// a failed login delays the next try for that account instead of locking it so nobody can lock a player out
+// a failed login delays the next try for that account from that address so nobody elsewhere can lock a player out
 #[derive(Default)]
 pub struct Limiter
 {
@@ -31,7 +31,7 @@ pub struct Limiter
     m_registrations: HashMap<IpAddr, Vec<Instant>>,
     m_open: HashMap<IpAddr, u32>,
     m_pending: u32,
-    m_failures: HashMap<String, Backoff>,
+    m_failures: HashMap<(String, IpAddr), Backoff>,
 }
 
 impl Limiter
@@ -74,7 +74,8 @@ impl Limiter
     {
         self.m_failures.retain(|_, backoff| backoff.m_until + limits::BACKOFF_MAX > now);
 
-        if let Some(backoff) = self.m_failures.get(name).filter(|backoff| backoff.m_until > now)
+        let key: (String, IpAddr) = (name.to_string(), ip);
+        if let Some(backoff) = self.m_failures.get(&key).filter(|backoff| backoff.m_until > now)
         {
             return Err(retry((backoff.m_until - now).as_secs() + 1));
         }
@@ -87,16 +88,17 @@ impl Limiter
         window(&mut self.m_registrations, ip, now, limits::REGISTRATION_WINDOW, limits::REGISTRATIONS)
     }
 
-    pub fn failed(&mut self, name: &str, now: Instant)
+    pub fn failed(&mut self, ip: IpAddr, name: &str, now: Instant)
     {
+        let key: (String, IpAddr) = (name.to_string(), ip);
         let delay: Duration = self
             .m_failures
-            .get(name)
+            .get(&key)
             .map_or(limits::BACKOFF_START, |backoff| (backoff.m_delay * 2).min(limits::BACKOFF_MAX));
-        self.m_failures.insert(name.to_string(), Backoff { m_delay: delay, m_until: now + delay });
+        self.m_failures.insert(key, Backoff { m_delay: delay, m_until: now + delay });
     }
 
-    pub fn succeeded(&mut self, name: &str) { self.m_failures.remove(name); }
+    pub fn succeeded(&mut self, ip: IpAddr, name: &str) { self.m_failures.remove(&(name.to_string(), ip)); }
 }
 
 fn retry(secs: u64) -> String { format!("Too many attempts, try again in {secs} seconds") }
