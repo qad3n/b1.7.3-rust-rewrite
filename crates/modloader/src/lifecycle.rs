@@ -397,6 +397,9 @@ fn callAll(call: GuestCall)
     }
 }
 
+// mods drop their cached ids and tag members when the id map or the tags change
+pub fn notifyRemapped() { callAll(GuestCall::Lifecycle(Lifecycle::Remapped)); }
+
 pub fn post(kind: EventKind) { events::post(kind, EventData::Empty); }
 
 // discovery to load_complete, the steps of design section 3.4
@@ -582,6 +585,8 @@ fn start(paths: &LoaderPaths)
 
     crate::netsync::checkSides();
     buildContent();
+    // lookups a mod made while registering ran before numeric ids were assigned
+    notifyRemapped();
     removeVanillaRecipes();
     applyRecipes();
     applyLate();
@@ -626,7 +631,7 @@ pub fn rebuild()
     applyWorldgen();
     bindLookups();
     dimensions::finish();
-    callAll(GuestCall::Lifecycle(Lifecycle::Remapped));
+    notifyRemapped();
     log::info(log::LOADER, &format!("rebuilt mod content for the new id map in {}", took(started)));
 }
 

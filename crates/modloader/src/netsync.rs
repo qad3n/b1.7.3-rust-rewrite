@@ -503,6 +503,8 @@ pub fn clientDisconnected()
     {
         crate::remap::apply(&local);
     }
+
+    crate::lifecycle::notifyRemapped();
 }
 
 pub fn isModdedServer() -> bool { CLIENT.with(|client| client.borrow().m_modded) }
@@ -519,6 +521,7 @@ fn applyData(bytes: &[u8]) -> Result<(), String>
     }
 
     crate::content::recipes::finish();
+    crate::lifecycle::notifyRemapped();
     Ok(())
 }
 

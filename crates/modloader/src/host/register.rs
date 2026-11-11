@@ -36,7 +36,11 @@ fn nameOf(kind: RegistryKind, numeric: i32) -> Option<Identifier>
 {
     registry::with(|registries| match kind
     {
-        RegistryKind::Block => registries.m_blocks.byNumeric(numeric).map(|row| row.m_id.clone()),
+        // a hidden state page id answers with the block it extends
+        RegistryKind::Block => registries
+            .m_blocks
+            .byNumeric(numeric)
+            .map(|row| row.m_value.m_page.as_ref().map_or_else(|| row.m_id.clone(), |(base, _)| base.clone())),
         RegistryKind::Item => registries.m_items.byNumeric(numeric).map(|row| row.m_id.clone()),
         RegistryKind::Entity => registries.m_entities.byNumeric(numeric).map(|row| row.m_id.clone()),
         RegistryKind::TileEntity => registries.m_tileEntities.byNumeric(numeric).map(|row| row.m_id.clone()),
