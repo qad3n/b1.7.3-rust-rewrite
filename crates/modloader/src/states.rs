@@ -182,6 +182,20 @@ pub fn clearBindings()
     });
 }
 
+// every numeric id a block spans, its base id first and then its hidden pages
+pub fn pageIds(block: &Identifier) -> Vec<i32>
+{
+    // unbound pages hold 0, which is air
+    STATE.with(|state| {
+        state
+            .borrow()
+            .m_ids
+            .get(block)
+            .map(|ids| ids.iter().copied().filter(|id| *id > 0).collect())
+            .unwrap_or_default()
+    })
+}
+
 pub fn bindPage(numeric: i32, block: &Identifier, page: usize)
 {
     STATE.with(|state| {

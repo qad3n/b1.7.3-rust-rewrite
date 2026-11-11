@@ -99,9 +99,14 @@ pub fn push()
     {
         let members: BTreeMap<Identifier, bool> =
             resolved(kind(row.m_registry), &Identifier::minecraft(row.m_name), &mut Vec::new());
-        let ids: Vec<i32> = crate::registry::with(|registries| {
+        let mut ids: Vec<i32> = crate::registry::with(|registries| {
             members.keys().filter_map(|member| numeric(registries, row.m_registry, member)).collect()
         });
+        // a block with more than 16 states spans hidden page ids that are the same block
+        if row.m_registry == Registry::Block
+        {
+            ids.extend(members.keys().flat_map(crate::states::pageIds));
+        }
         game::tags::set(row.m_tag, &ids);
     }
     for row in &game::tags::BIOME_ROWS
