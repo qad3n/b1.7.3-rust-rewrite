@@ -358,10 +358,23 @@ pub fn validate(spec: &BlockSpec) -> Result<(), String>
         return Err(format!("unknown sound {sound}"));
     }
 
-    Ok(())
+    if let Some(texture) = spec.item.as_ref().and_then(|item| item.texture.as_ref())
+    {
+        super::checkTexture(texture, Atlas::Items)?;
+    }
+
+    textures(spec).try_for_each(|texture| super::checkTexture(texture, Atlas::Terrain))
 }
 
 pub fn requestTextures(spec: &BlockSpec)
+{
+    for texture in textures(spec)
+    {
+        crate::atlas::request(Atlas::Terrain, texture);
+    }
+}
+
+fn textures(spec: &BlockSpec) -> impl Iterator<Item = &String>
 {
     let faces: Option<&FaceTextures> = spec.textures.as_ref();
 
@@ -369,20 +382,15 @@ pub fn requestTextures(spec: &BlockSpec)
     {
         [&bed.top_head, &bed.top_foot, &bed.side_head, &bed.side_foot, &bed.end_head, &bed.end_foot, &bed.bottom]
     });
-    let all = spec
-        .texture
+
+    spec.texture
         .iter()
         .chain(
             faces
                 .into_iter()
                 .flat_map(|faces| [&faces.top, &faces.bottom, &faces.side, &faces.front].into_iter().flatten()),
         )
-        .chain(bed);
-
-    for texture in all
-    {
-        crate::atlas::request(Atlas::Terrain, texture);
-    }
+        .chain(bed)
 }
 
 fn slot(texture: Option<&String>, fallback: i32) -> i32

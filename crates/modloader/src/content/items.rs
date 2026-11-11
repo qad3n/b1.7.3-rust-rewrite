@@ -121,7 +121,7 @@ pub fn validate(spec: &ItemSpec) -> Result<(), String>
         return Err(format!("unknown item template minecraft:{name}, known: {}", known.join(", ")));
     }
 
-    Ok(())
+    spec.texture.iter().try_for_each(|texture| super::checkTexture(texture, Atlas::Items))
 }
 
 pub fn requestTextures(spec: &ItemSpec)

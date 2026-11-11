@@ -32,7 +32,7 @@ const ITEMS_FREE: [i32; 120] = [
 pub const TERRAIN_PATH: &str = "/terrain.png";
 pub const ITEMS_PATH: &str = "/gui/items.png";
 const SHEET_TILES: i32 = 16;
-const VANILLA_TILES: i32 = 256;
+pub(crate) const VANILLA_TILES: i32 = 256;
 
 struct Sprite
 {
@@ -384,12 +384,12 @@ pub fn stitch(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
     image
 }
 
-// the sheet slot of a texture, vanilla terrain/<index> names its own tile
+// the sheet slot of a texture, a vanilla texture names its own tile
 fn sourceSlot(state: &State, atlas: Atlas, source: &Identifier) -> Option<i32>
 {
     if source.isVanilla()
     {
-        return source.path().rsplit_once('/').and_then(|(_, index)| index.parse().ok());
+        return crate::content::vanillaSlot(atlas, source.path());
     }
 
     state.m_slots.get(&(atlas, source.clone())).copied()

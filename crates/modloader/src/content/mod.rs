@@ -14,6 +14,7 @@ pub mod tags;
 pub mod templates;
 pub mod worldgen;
 
+use crate::atlas::Atlas;
 use mod_protocol::Identifier;
 use mod_protocol::spec::{BlockSpec, ItemSpec, ItemToolSpec, ToolSpec};
 use std::cell::RefCell;
@@ -101,30 +102,50 @@ pub(crate) fn putItem(id: i32, data: ItemData)
 
 pub(crate) fn putFuel(id: i32, ticks: i32) { TABLES.with(|tables| tables.borrow_mut().m_fuel.insert(id, ticks)); }
 
-// a registered texture path such as ruby:block/ruby_ore, or a vanilla slot as minecraft:terrain/50
-pub fn textureSlot(texture: &str, atlas: crate::atlas::Atlas) -> Option<i32>
+// a registered texture path such as ruby:block/ruby_ore, or a vanilla one as minecraft:terrain/50 or minecraft:block/diamond_ore
+pub fn textureSlot(texture: &str, atlas: Atlas) -> Option<i32>
 {
     let id: Identifier = Identifier::parse(texture).ok()?;
     if id.isVanilla()
     {
-        let (sheet, slot) = id.path().split_once('/')?;
-
-        let expected: &str = match atlas
-        {
-            crate::atlas::Atlas::Terrain => "terrain",
-            crate::atlas::Atlas::Items => "items",
-        };
-        return if sheet == expected
-        {
-            slot.parse().ok()
-        }
-        else
-        {
-            None
-        };
+        return vanillaSlot(atlas, id.path());
     }
 
     crate::atlas::slotOf(atlas, &id)
+}
+
+// a beta sheet slot by number or by its modern sprite name
+pub(crate) fn vanillaSlot(atlas: Atlas, path: &str) -> Option<i32>
+{
+    let (sheet, name) = path.split_once('/')?;
+
+    match (atlas, sheet)
+    {
+        (Atlas::Terrain, "terrain") | (Atlas::Items, "items") =>
+        {
+            name.parse().ok().filter(|slot| (0..crate::atlas::VANILLA_TILES).contains(slot))
+        }
+        (Atlas::Terrain, "block") => game::resources::terrainSlot(name),
+        (Atlas::Items, "item") => game::resources::itemSlot(name),
+        _ => None,
+    }
+}
+
+// a vanilla texture that names no slot fails the spec, a mod texture is checked when the atlas reads it
+pub(crate) fn checkTexture(texture: &str, atlas: Atlas) -> Result<(), String>
+{
+    let id: Identifier = Identifier::parse(texture).map_err(|error| format!("texture {texture}: {error:?}"))?;
+    if !id.isVanilla() || vanillaSlot(atlas, id.path()).is_some()
+    {
+        return Ok(());
+    }
+
+    let (number, named): (&str, &str) = match atlas
+    {
+        Atlas::Terrain => ("terrain", "block"),
+        Atlas::Items => ("items", "item"),
+    };
+    Err(format!("unknown vanilla texture {texture}, use minecraft:{number}/<slot> or minecraft:{named}/<sprite name>"))
 }
 
 // drops every numeric keyed table before content is rebuilt under a new id map

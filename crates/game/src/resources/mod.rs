@@ -38,6 +38,16 @@ thread_local!
 // the user's extracted b1.7.3 jar read in place
 pub fn vanilla() -> Rc<Pack> { VANILLA.with(Rc::clone) }
 
+// the terrain.png slot under a modern sprite name such as oak_leaves
+pub fn terrainSlot(name: &str) -> Option<i32> { slot(sprites::TERRAIN, name) }
+
+pub fn itemSlot(name: &str) -> Option<i32> { slot(sprites::ITEMS, name) }
+
+fn slot(sheet: &[sprites::Sprite], name: &str) -> Option<i32>
+{
+    sheet.iter().find(|sprite| sprite.m_name == name).map(|sprite| sprite.m_slot as i32)
+}
+
 fn rebuild()
 {
     let mods: Vec<Rc<Pack>> = MODS.with(|mods| mods.borrow().clone());
