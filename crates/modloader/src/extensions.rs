@@ -330,6 +330,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             None => HostReply::Error("screen size exists only on the client".to_owned()),
         },
         HostCall::ItemCatalog => HostReply::Stacks(crate::viewer::itemCatalog()),
+        HostCall::MobList => HostReply::Ids(crate::viewer::mobs()),
         HostCall::RecipeList => HostReply::Recipes(crate::viewer::recipeList()),
         HostCall::ContentGeneration => HostReply::Int(crate::content::recipes::generation()),
         other => HostReply::Error(format!("{other:?} reached no handler")),

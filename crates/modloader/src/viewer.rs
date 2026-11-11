@@ -1,6 +1,6 @@
 use crate::content::recipes;
 use crate::host::context::stackData;
-use crate::registry::{ItemEntry, Registries, Row};
+use crate::registry::{EntityEntry, ItemEntry, Registries, Row, UNASSIGNED};
 use game::crafting::{CraftingManager, FurnaceRecipes, IRecipe};
 use game::item::{Item, ItemStack};
 use game::locale::StatCollector;
@@ -56,6 +56,25 @@ const VARIANTS: [Variants; 9] = [
 ];
 
 const ANY_DAMAGE: i32 = -1;
+
+// the vanilla spawner keys of living entities, the rest of EntityList are projectiles, drops and vehicles
+const VANILLA_MOBS: [&str; 15] = [
+    "Monster",
+    "Creeper",
+    "Skeleton",
+    "Spider",
+    "Giant",
+    "Zombie",
+    "Slime",
+    "Ghast",
+    "PigZombie",
+    "Pig",
+    "Sheep",
+    "Cow",
+    "Chicken",
+    "Squid",
+    "Wolf",
+];
 
 fn variants(id: &Identifier) -> Option<&'static Variants>
 {
@@ -141,6 +160,26 @@ pub fn itemCatalog() -> Vec<StackData>
                 (0..subtypes(&row.m_id)).map(move |damage| StackData { id: row.m_numeric, count, damage })
             })
             .collect()
+    })
+}
+
+fn mob(row: &Row<EntityEntry>) -> bool
+{
+    match &row.m_value.m_spec
+    {
+        Some(spec) => crate::entities::living(spec),
+        None => VANILLA_MOBS.contains(&row.m_value.m_saveKey.as_str()),
+    }
+}
+
+pub fn mobs() -> Vec<Identifier>
+{
+    crate::registry::with(|registries|
+    {
+        let mut rows: Vec<&Row<EntityEntry>> =
+            registries.m_entities.rows().filter(|row| row.m_numeric != UNASSIGNED && mob(row)).collect();
+        rows.sort_by_key(|row| row.m_numeric);
+        rows.into_iter().map(|row| row.m_id.clone()).collect()
     })
 }
 

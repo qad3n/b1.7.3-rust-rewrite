@@ -219,6 +219,12 @@ fn template(spec: &EntitySpec) -> Result<&'static EntityTemplate, String>
     })
 }
 
+// a spawner casts what it makes to EntityLiving, so only living templates may fill one
+pub fn living(spec: &EntitySpec) -> bool
+{
+    template(spec).is_ok_and(|template| template.m_class.isSubclassOf("EntityLiving"))
+}
+
 // mod textures load through the /mods/ path the client texture loader serves from mod assets
 pub fn modTexturePath(texture: &str) -> Option<String>
 {
