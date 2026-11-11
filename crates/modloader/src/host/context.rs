@@ -88,14 +88,15 @@ pub fn blockCtx(world: &Rc<World>, block: i32, x: i32, y: i32, z: i32) -> BlockC
 
 pub fn entityById(world: &World, id: i32) -> Option<Rc<Entity>>
 {
-    let list: Vec<Rc<Entity>> = world.m_loadedEntityList.toVec();
-    list.into_iter().find(|entity| entity.m_entityId.get() == id)
+    world.m_loadedEntityList.with(|entities| entities.iter().find(|entity| entity.m_entityId.get() == id).cloned())
 }
 
+// entity ids are unique across worlds, so an entity the guest placed in the wrong dimension is still found
 pub fn entityIn(dimension: i32, id: i32) -> Option<Rc<Entity>>
 {
-    let world: Rc<World> = world(dimension)?;
-    entityById(&world, id)
+    world(dimension)
+        .and_then(|world| entityById(&world, id))
+        .or_else(|| worlds().iter().find_map(|world| entityById(world, id)))
 }
 
 pub fn entityKind(entity: &Entity) -> Option<Identifier>
