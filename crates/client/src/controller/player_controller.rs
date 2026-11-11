@@ -70,7 +70,7 @@ fn sendUseItem(_this: &Rc<PlayerController>, player: &Rc<Entity>, world: &Rc<Wor
         let inventory: Rc<InventoryPlayer> = entity_player::inventory(player);
         let currentItem: usize = inventory.m_currentItem.get() as usize;
         inventory.m_mainInventory.borrow_mut()[currentItem] = itemStack.clone();
-        if itemStack.orNpe().m_stackSize.get() == 0
+        if itemStack.as_ref().is_some_and(|stack| stack.m_stackSize.get() == 0)
         {
             inventory.m_mainInventory.borrow_mut()[currentItem] = None;
         }
