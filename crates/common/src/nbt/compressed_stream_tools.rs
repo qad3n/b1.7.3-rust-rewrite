@@ -4,6 +4,9 @@ use jvm::throwable::{self, Throwable};
 use jvm::zip::{GZIPInputStream, GZIPOutputStream};
 use std::rc::Rc;
 
+// rewrite: level, player and map files never come near this so a crafted file cannot exhaust memory
+const FILE_LIMIT: u64 = 32 << 20;
+
 pub struct CompressedStreamTools;
 
 impl CompressedStreamTools
@@ -11,7 +14,7 @@ impl CompressedStreamTools
     pub fn readCompressed<S: InputStream>(input: S) -> IoResult<Rc<NBTBase>>
     {
         let mut datainputstream: DataInputStream<GZIPInputStream<S>> =
-            DataInputStream::new(GZIPInputStream::new(input)?);
+            DataInputStream::new(GZIPInputStream::new(input)?.withLimit(FILE_LIMIT));
         let result: Result<IoResult<Rc<NBTBase>>, Throwable> =
             throwable::catchThrowable(&throwable::THROWABLE, || Self::read(&mut datainputstream));
         datainputstream.m_in.close()?;

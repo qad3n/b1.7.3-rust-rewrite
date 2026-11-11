@@ -20,6 +20,9 @@ mod layout
     pub const VERSION_DEFLATE: i8 = 2;
 }
 
+// rewrite: the most one chunk may inflate to, far above any real chunk so a crafted region cannot exhaust memory
+pub(crate) const CHUNK_LIMIT: u64 = 16 << 20;
+
 pub(crate) type ChunkInputStream = DataInputStream<Box<dyn InputStream>>;
 pub(crate) type ChunkOutputStream = DataOutputStream<DeflaterOutputStream<RegionFileChunkBuffer>>;
 
@@ -179,8 +182,16 @@ impl RegionFile
 
         let input: Box<dyn InputStream> = match by
         {
-            layout::VERSION_GZIP => Box::new(GZIPInputStream::new(ByteArrayInputStream::new(byArray))?),
-            layout::VERSION_DEFLATE => Box::new(InflaterInputStream::new(ByteArrayInputStream::new(byArray))),
+            layout::VERSION_GZIP =>
+            {
+                Box::new(GZIPInputStream::new(ByteArrayInputStream::new(byArray))?.withLimit(CHUNK_LIMIT))
+            }
+
+            layout::VERSION_DEFLATE =>
+            {
+                Box::new(InflaterInputStream::new(ByteArrayInputStream::new(byArray)).withLimit(CHUNK_LIMIT))
+            }
+
             _ => return Ok(None),
         };
         Ok(Some(DataInputStream::new(input)))

@@ -1,7 +1,7 @@
 use crate::math::math_helper;
 // java.io.File calls are port stand-ins
 use crate::port::file;
-use crate::storage::region_file::{ChunkOutputStream, RegionFile};
+use crate::storage::region_file::{CHUNK_LIMIT, ChunkOutputStream, RegionFile};
 use crate::storage::region_file_cache::RegionFileCache;
 use crate::storage::save_format_old::SaveFormatOld;
 use crate::storage::save_old_dir::{MC_REGION_VERSION, SaveOldDir};
@@ -89,8 +89,9 @@ impl SaveConverterMcRegion
 
     fn copyChunk(regionfile: &Rc<RegionFile>, chunkfile: &ChunkFile, i: i32, j: i32, abyte: &mut [u8]) -> IoResult<()>
     {
-        let mut datainputstream: DataInputStream<GZIPInputStream<FileInputStream>> =
-            DataInputStream::new(GZIPInputStream::new(FileInputStream::open(chunkfile.getFile())?)?);
+        let mut datainputstream: DataInputStream<GZIPInputStream<FileInputStream>> = DataInputStream::new(
+            GZIPInputStream::new(FileInputStream::open(chunkfile.getFile())?)?.withLimit(CHUNK_LIMIT),
+        );
         let mut dataoutputstream: ChunkOutputStream =
             regionfile.getChunkDataOutputStream(i & REGION_MASK, j & REGION_MASK).orNpe();
 

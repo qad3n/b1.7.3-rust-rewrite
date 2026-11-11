@@ -98,9 +98,24 @@ fn readSlice(reader: &mut impl Read, buf: &mut [u8], off: i32, len: i32) -> IoRe
     }
 }
 
+// rewrite: counts inflated bytes so a small compressed input cannot expand without bound
+fn spend(left: &mut u64, read: IoResult<i32>) -> IoResult<i32>
+{
+    let count: i32 = read?;
+    let used: u64 = count.max(0) as u64;
+    if used > *left
+    {
+        return Err(io::ioError(&ZIP, "inflated data is over the size limit"));
+    }
+
+    *left -= used;
+    Ok(count)
+}
+
 pub struct GZIPInputStream<S: InputStream>
 {
     m_decoder: flate2::read::GzDecoder<StdRead<S>>,
+    m_left: u64,
 }
 
 impl<S: InputStream> GZIPInputStream<S>
@@ -121,17 +136,24 @@ impl<S: InputStream> GZIPInputStream<S>
             }
         }
 
-        Ok(Self { m_decoder: decoder })
+        Ok(Self { m_decoder: decoder, m_left: u64::MAX })
     }
+
+    pub fn withLimit(self, limit: u64) -> Self { Self { m_left: limit, ..self } }
 }
 
 impl<S: InputStream> InputStream for GZIPInputStream<S>
 {
-    fn read(&mut self) -> IoResult<i32> { readByte(&mut self.m_decoder) }
+    fn read(&mut self) -> IoResult<i32>
+    {
+        let byte: i32 = readByte(&mut self.m_decoder)?;
+        spend(&mut self.m_left, Ok((byte >= 0) as i32))?;
+        Ok(byte)
+    }
 
     fn readInto(&mut self, buf: &mut [u8], off: i32, len: i32) -> IoResult<i32>
     {
-        readSlice(&mut self.m_decoder, buf, off, len)
+        spend(&mut self.m_left, readSlice(&mut self.m_decoder, buf, off, len))
     }
 
     fn close(&mut self) -> IoResult<()> { self.m_decoder.get_mut().m_in.close() }
@@ -140,20 +162,31 @@ impl<S: InputStream> InputStream for GZIPInputStream<S>
 pub struct InflaterInputStream<S: InputStream>
 {
     m_decoder: flate2::read::ZlibDecoder<StdRead<S>>,
+    m_left: u64,
 }
 
 impl<S: InputStream> InflaterInputStream<S>
 {
-    pub fn new(input: S) -> Self { Self { m_decoder: flate2::read::ZlibDecoder::new(StdRead { m_in: input }) } }
+    pub fn new(input: S) -> Self
+    {
+        Self { m_decoder: flate2::read::ZlibDecoder::new(StdRead { m_in: input }), m_left: u64::MAX }
+    }
+
+    pub fn withLimit(self, limit: u64) -> Self { Self { m_left: limit, ..self } }
 }
 
 impl<S: InputStream> InputStream for InflaterInputStream<S>
 {
-    fn read(&mut self) -> IoResult<i32> { readByte(&mut self.m_decoder) }
+    fn read(&mut self) -> IoResult<i32>
+    {
+        let byte: i32 = readByte(&mut self.m_decoder)?;
+        spend(&mut self.m_left, Ok((byte >= 0) as i32))?;
+        Ok(byte)
+    }
 
     fn readInto(&mut self, buf: &mut [u8], off: i32, len: i32) -> IoResult<i32>
     {
-        readSlice(&mut self.m_decoder, buf, off, len)
+        spend(&mut self.m_left, readSlice(&mut self.m_decoder, buf, off, len))
     }
 
     fn close(&mut self) -> IoResult<()> { self.m_decoder.get_mut().m_in.close() }
