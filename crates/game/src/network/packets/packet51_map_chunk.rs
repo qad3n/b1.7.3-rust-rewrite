@@ -91,11 +91,26 @@ impl Packet for Packet51MapChunk
         self.m_ySize = packet::read(input)? + 1;
         self.m_zSize = packet::read(input)? + 1;
         self.m_chunkSize = input.readInt()?;
+
+        // a block id byte plus metadata sky light and block light nibbles
+        let nibblesPerBlock: i32 = 5;
+        let nibblesPerByte: i32 = 2;
+        let size: i32 =
+            self.m_xSize.wrapping_mul(self.m_ySize).wrapping_mul(self.m_zSize).wrapping_mul(nibblesPerBlock)
+                / nibblesPerByte;
+
+        // rewrite: deflate grows data by only a small margin so anything larger is a forged allocation
+        let growthDivisor: i32 = 16;
+        let slack: i32 = 1024;
+        if self.m_chunkSize > size + size / growthDivisor + slack
+        {
+            return Err(ioError(&IO, &format!("chunk data of {} bytes is too large", self.m_chunkSize)));
+        }
+
         let mut byArray: Vec<u8> = newByteArray(self.m_chunkSize);
         input.readFully(&mut byArray)?;
 
-        let mut chunk: Vec<u8> =
-            newByteArray(self.m_xSize.wrapping_mul(self.m_ySize).wrapping_mul(self.m_zSize).wrapping_mul(5) / 2);
+        let mut chunk: Vec<u8> = newByteArray(size);
         let mut inflater: Inflater = Inflater::new();
         inflater.setInput(&byArray);
 
