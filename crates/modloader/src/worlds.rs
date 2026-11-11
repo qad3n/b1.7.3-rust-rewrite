@@ -75,25 +75,7 @@ fn makeBiome(id: &mod_protocol::Identifier, sky: u32) -> Rc<BiomeGenBase>
         return biome;
     }
 
-    let spec: Option<ModBiome> = dimensions::biomes().into_iter().find(|biome| biome.m_id == *id);
-    let biome: Rc<BiomeGenBase> = match spec
-    {
-        Some(modBiome) =>
-        {
-            let biome: Rc<BiomeGenBase> = BiomeGenBase::alloc(&MOD_BIOME);
-            biome.m_biomeName.set(Box::leak(modBiome.m_spec.name.clone().into_boxed_str()));
-            biome.m_topBlock.set(blockId(modBiome.m_spec.top_block.as_ref(), Block::GRASS) as i8);
-            biome.m_fillerBlock.set(blockId(modBiome.m_spec.filler_block.as_ref(), Block::DIRT) as i8);
-            // a mod biome spawns only what mods list for it, never the vanilla default animals and monsters
-            biome.m_spawnableMonsterList.clear();
-            biome.m_spawnableCreatureList.clear();
-            biome.m_spawnableWaterCreatureList.clear();
-            crate::entities::addSpawns(&biome, &modBiome.m_id);
-            biome
-        }
-
-        None => BiomeGenBase::plains(),
-    };
+    let biome: Rc<BiomeGenBase> = build(id).unwrap_or_else(BiomeGenBase::plains);
 
     if sky != 0
     {
@@ -102,6 +84,27 @@ fn makeBiome(id: &mod_protocol::Identifier, sky: u32) -> Rc<BiomeGenBase>
 
     MOD_BIOMES.with(|biomes| biomes.borrow_mut().insert(id.clone(), Rc::clone(&biome)));
     biome
+}
+
+fn build(id: &mod_protocol::Identifier) -> Option<Rc<BiomeGenBase>>
+{
+    let modBiome: ModBiome = dimensions::biomes().into_iter().find(|biome| biome.m_id == *id)?;
+    let biome: Rc<BiomeGenBase> = BiomeGenBase::alloc(&MOD_BIOME);
+    biome.m_biomeName.set(Box::leak(modBiome.m_spec.name.clone().into_boxed_str()));
+    biome.m_topBlock.set(blockId(modBiome.m_spec.top_block.as_ref(), Block::GRASS) as i8);
+    biome.m_fillerBlock.set(blockId(modBiome.m_spec.filler_block.as_ref(), Block::DIRT) as i8);
+    // a mod biome spawns only what mods list for it, never the vanilla default animals and monsters
+    biome.m_spawnableMonsterList.clear();
+    biome.m_spawnableCreatureList.clear();
+    biome.m_spawnableWaterCreatureList.clear();
+    crate::entities::addSpawns(&biome, &modBiome.m_id);
+    Some(biome)
+}
+
+// a mod biome's object as its worlds use it, or one built the same way before any world of it exists
+pub fn modBiome(id: &mod_protocol::Identifier) -> Option<Rc<BiomeGenBase>>
+{
+    MOD_BIOMES.with(|biomes| biomes.borrow().get(id).cloned()).or_else(|| build(id))
 }
 
 // one biome object per mod dimension, built from its biome spec or plains

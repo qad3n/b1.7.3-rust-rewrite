@@ -12,6 +12,11 @@ const fn block(name: &'static str, members: &'static [&'static str]) -> VanillaT
     VanillaTag { m_registry: RegistryKind::Block, m_name: name, m_members: members }
 }
 
+const fn biome(name: &'static str, members: &'static [&'static str]) -> VanillaTag
+{
+    VanillaTag { m_registry: RegistryKind::Biome, m_name: name, m_members: members }
+}
+
 const fn fluid(name: &'static str, members: &'static [&'static str]) -> VanillaTag
 {
     VanillaTag { m_registry: RegistryKind::Fluid, m_name: name, m_members: members }
@@ -70,6 +75,31 @@ pub(crate) const TAGS: &[VanillaTag] = &[
     fluid("minecraft:lava", &["minecraft:lava"]),
     fluid("c:oil", &[]),
     fluid("c:fuel", &[]),
+    biome(
+        "minecraft:is_overworld",
+        &[
+            "minecraft:rainforest",
+            "minecraft:swampland",
+            "minecraft:seasonal_forest",
+            "minecraft:forest",
+            "minecraft:savanna",
+            "minecraft:shrubland",
+            "minecraft:taiga",
+            "minecraft:desert",
+            "minecraft:plains",
+            "minecraft:ice_desert",
+            "minecraft:tundra",
+        ],
+    ),
+    biome("minecraft:is_nether", &["minecraft:hell"]),
+    biome("minecraft:is_forest", &["minecraft:forest", "minecraft:seasonal_forest", "minecraft:rainforest"]),
+    biome("minecraft:is_taiga", &["minecraft:taiga"]),
+    biome("minecraft:is_jungle", &["minecraft:rainforest"]),
+    biome("minecraft:is_savanna", &["minecraft:savanna"]),
+    biome("c:is_swamp", &["minecraft:swampland"]),
+    biome("c:is_desert", &["minecraft:desert", "minecraft:ice_desert"]),
+    biome("c:is_plains", &["minecraft:plains", "minecraft:shrubland"]),
+    biome("c:is_snowy", &["minecraft:taiga", "minecraft:ice_desert", "minecraft:tundra"]),
     block("minecraft:dirt", &["minecraft:dirt", "minecraft:grass"]),
     block("minecraft:sand", &["minecraft:sand"]),
     block("minecraft:wool", &["minecraft:wool"]),

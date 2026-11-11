@@ -233,6 +233,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             }))
         }
         HostCall::Features => HostReply::Features(crate::content::features::list()),
+        HostCall::BiomeSpawns { biome, kind } => ok(crate::biomes::spawns(&biome, kind), HostReply::SpawnEntries),
         HostCall::AddMachineJob { machine, job } => unit(crate::content::machines::addJob(&machine, job)),
         HostCall::AddMachineFuel { machine, fuel } => unit(crate::content::machines::addFuel(&machine, fuel)),
         HostCall::MatchMachineJob { machine, inputs, fluids } =>

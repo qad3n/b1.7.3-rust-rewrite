@@ -2,7 +2,7 @@ use crate::dimensions::{self, ModDimension};
 use game::world::World;
 use game::worldgen::{BiomeGenBase, WORLD_CHUNK_MANAGER_HELL, WorldChunkManager, WorldChunkManagerClass};
 use mod_protocol::Identifier;
-use mod_protocol::abi::{ChunkInfo, GuestCall, GuestReply, Handle};
+use mod_protocol::abi::{ChunkInfo, GuestCall, GuestReply, Handle, SpawnEntry};
 use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::{Rc, Weak};
@@ -301,6 +301,31 @@ pub fn biomeAt(world: &World, x: i32, z: i32) -> Option<Identifier>
         .iter()
         .find(|(_, vanilla)| Rc::ptr_eq(&vanilla(), &biome))
         .map(|(name, _)| Identifier::minecraft(name))
+}
+
+// what the game spawns of a kind in a biome by name, every mod's entries and edits applied
+pub fn spawns(biome: &Identifier, kind: mod_protocol::spec::CreatureKind) -> Result<Vec<SpawnEntry>, String>
+{
+    let object: Rc<BiomeGenBase> = if biome.isVanilla()
+    {
+        crate::registry::BIOMES.iter().find(|(name, _)| *name == biome.path()).map(|(_, vanilla)| vanilla())
+    }
+    else
+    {
+        crate::worlds::modBiome(biome)
+    }
+    .ok_or_else(|| format!("{biome} is not a registered biome"))?;
+
+    let entries: Vec<SpawnEntry> = crate::entities::spawnList(&object, kind)
+        .toVec()
+        .iter()
+        .filter_map(|entry|
+        {
+            let entity: Identifier = crate::modify::spawnEntity(entry.m_entityClass)?;
+            Some(SpawnEntry { entity, weight: entry.m_spawnRarityRate })
+        })
+        .collect();
+    Ok(entries)
 }
 
 // a mod turns one column of its dimension to another biome of the dimension's source, on the side owning the world

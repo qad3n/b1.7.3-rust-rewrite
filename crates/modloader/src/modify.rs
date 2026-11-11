@@ -88,6 +88,28 @@ fn cachedClass(entity: &Identifier) -> Option<&'static str>
     Some(class)
 }
 
+// the entity a spawn entry's class names, Entity<save key> for vanilla and the identifier for mods
+pub fn spawnEntity(class: &str) -> Option<Identifier>
+{
+    if let Some(saveKey) = class.strip_prefix("Entity")
+    {
+        let vanilla: Option<Identifier> = crate::registry::with(|registries|
+        {
+            registries
+                .m_entities
+                .rows()
+                .find(|row| row.m_id.isVanilla() && row.m_value.m_saveKey == saveKey)
+                .map(|row| row.m_id.clone())
+        });
+        if vanilla.is_some()
+        {
+            return vanilla;
+        }
+    }
+
+    Identifier::parse(class).ok()
+}
+
 fn spawnClass(entity: &Identifier) -> Option<&'static str>
 {
     let saveKey: String =
