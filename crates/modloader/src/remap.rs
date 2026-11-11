@@ -177,9 +177,20 @@ pub fn apply(snapshot: &RegistrySnapshot) -> Vec<String>
 
     registry::with(|registries|
     {
+        // a block's item form shares its id, so a moved block may not land on a vanilla item
+        let vanillaItems: BTreeSet<i32> =
+            registries.m_items.rows().filter(|row| row.m_id.isVanilla()).map(|row| row.m_numeric).collect();
         let reserved = |name: &str| -> BTreeSet<i32>
         {
-            snapshot.registries.get(name).map(|map| map.values().copied().collect()).unwrap_or_default()
+            let mut taken: BTreeSet<i32> =
+                snapshot.registries.get(name).map(|map| map.values().copied().collect()).unwrap_or_default();
+
+            if name == "block"
+            {
+                taken.extend(vanillaItems.iter().copied());
+            }
+
+            taken
         };
 
         let saved =
