@@ -187,6 +187,6 @@ fn modName(modid: &str) -> String
     match modid
     {
         MINECRAFT => VANILLA_NAME.to_owned(),
-        _ => state::byId(modid).map(|other| other.m_manifest.name.clone()).unwrap_or_default(),
+        _ => state::byId(modid).map(|other| other.m_manifest.displayName().to_owned()).unwrap_or_default(),
     }
 }
