@@ -26,6 +26,7 @@ struct VanillaRow
 }
 
 const NAMESPACE: &str = "minecraft:";
+pub const VANILLA_MAX_HEALTH: i32 = 20;
 
 // order matches the Attribute consts
 const VANILLA: [VanillaRow; 6] = [
@@ -158,6 +159,9 @@ pub fn value(entity: &Entity, attribute: Attribute, base: f64) -> f64
 
 // whole number attributes such as damage and armor drop the fraction as beta casts do
 pub fn whole(entity: &Entity, attribute: Attribute, base: i32) -> i32 { value(entity, attribute, base as f64) as i32 }
+
+// the health an entity heals to, vanilla caps every living entity at 20
+pub fn maxHealth(entity: &Entity) -> i32 { whole(entity, Attribute::MAX_HEALTH, VANILLA_MAX_HEALTH) }
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Modifier

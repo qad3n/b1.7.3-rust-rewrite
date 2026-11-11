@@ -49,7 +49,7 @@ pub(crate) fn heal(this: &Rc<Entity>, amount: i32)
 
     living.m_health.set(living.m_health.get() + amount);
     // rewrite: the cap of 20 comes from the max health hook so mods can raise it
-    let max: i32 = crate::hooks::maxHealth(this);
+    let max: i32 = crate::attribute::maxHealth(this);
     if living.m_health.get() > max
     {
         living.m_health.set(max);

@@ -53,6 +53,32 @@ pub fn set(
     Ok(())
 }
 
+// writing the max health field from before api 1.27 becomes an added modifier on the beta 20
+pub fn setMaxHealth(entity: &Rc<Entity>, health: i32)
+{
+    let Some(living) = entity.m_ext.living()
+    else
+    {
+        return;
+    };
+
+    let id: &str = "loader:max_health";
+    let extra: i32 = health - attribute::VANILLA_MAX_HEALTH;
+    match extra
+    {
+        0 => living.m_attributes.remove(Attribute::MAX_HEALTH, id),
+        _ => living.m_attributes.set(Modifier
+        {
+            m_attribute: Attribute::MAX_HEALTH,
+            m_id: id.to_owned(),
+            m_amount: extra as f64,
+            m_operation: Operation::Add,
+        }),
+    }
+
+    syncOwn(entity);
+}
+
 pub fn remove(entity: &Rc<Entity>, attribute: &Identifier, modifier: &Identifier) -> Result<(), String>
 {
     let attribute: Attribute = attributeOf(attribute)?;

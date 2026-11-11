@@ -184,8 +184,6 @@ pub trait LoaderHooks
 
     fn fuel(&self, _stack: &Rc<ItemStack>) -> Option<i32> { None }
 
-    fn maxHealth(&self, _entity: &Entity) -> Option<i32> { None }
-
     fn invisible(&self, _entity: &Entity) -> bool { false }
 
     fn canHarvest(&self, _block: &Rc<Block>, _stack: Option<&Rc<ItemStack>>) -> Option<bool> { None }
@@ -265,15 +263,6 @@ pub fn spawnAllowed(entity: &Rc<Entity>, allowed: bool) -> bool
 }
 
 pub fn fuel(stack: &Rc<ItemStack>) -> Option<i32> { active()?.fuel(stack) }
-
-// the health a mod lets an entity heal to, vanilla caps every living entity at 20
-pub fn maxHealth(entity: &Entity) -> i32
-{
-    let base: i32 = active().and_then(|hooks| hooks.maxHealth(entity)).unwrap_or(VANILLA_MAX_HEALTH);
-    crate::attribute::whole(entity, crate::attribute::Attribute::MAX_HEALTH, base)
-}
-
-pub const VANILLA_MAX_HEALTH: i32 = 20;
 
 pub fn invisible(entity: &Entity) -> bool { active().is_some_and(|hooks| hooks.invisible(entity)) }
 

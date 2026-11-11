@@ -250,7 +250,7 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         EntityField::Bottom => HostReply::Float(entity.m_boundingBox.m_minY.get() as f32),
         EntityField::MoveSpeed => HostReply::Float(living(entity).map_or(0.0, |fields| fields.m_moveSpeed.get())),
         EntityField::StepHeight => HostReply::Float(entity.m_stepHeight.get()),
-        EntityField::MaxHealth => HostReply::Float(game::hooks::maxHealth(entity) as f32),
+        EntityField::MaxHealth => HostReply::Float(game::attribute::maxHealth(entity) as f32),
         EntityField::DeathTime => HostReply::Float(living(entity).map_or(0, |fields| fields.m_deathTime.get()) as f32),
 
         EntityField::BlockMeta =>
@@ -326,7 +326,7 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::Health => living(entity).into_iter().for_each(|fields| fields.m_health.set(value as i32)),
         EntityField::MoveSpeed => living(entity).into_iter().for_each(|fields| fields.m_moveSpeed.set(value as f32)),
         EntityField::StepHeight => entity.m_stepHeight.set(value as f32),
-        EntityField::MaxHealth => context::setMaxHealth(entity.m_entityId.get(), value as i32),
+        EntityField::MaxHealth => crate::attributes::setMaxHealth(entity, value as i32),
         EntityField::Invisible => context::setInvisible(entity.m_entityId.get(), value != 0.0),
         EntityField::ItemInUse =>
         {}

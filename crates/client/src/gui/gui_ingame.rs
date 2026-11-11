@@ -194,7 +194,7 @@ impl GuiIngame
         let i1: i32 = entity_player_sp::getPlayerArmorValue(player);
         let gui: &Gui = &self.m_gui;
         // rewrite: hearts past ten stack in rows as forge draws a raised max health
-        let rows: HeartRows = HeartRows::of(game::hooks::maxHealth(player));
+        let rows: HeartRows = HeartRows::of(game::attribute::maxHealth(player));
         for j1 in 0..rows.m_hearts
         {
             let mut k1: i32 = j - 32;
