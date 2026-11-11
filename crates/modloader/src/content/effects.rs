@@ -1,13 +1,95 @@
+use crate::host::context::{entityInfo, withWorld};
 use crate::network::loader::{self, EffectSync, SyncedEffect};
+use crate::state;
 use game::attribute::{Attribute, Operation};
-use game::effect::{self, ActiveEffect, EffectType};
+use game::effect::{self, ActiveEffect, EffectHooks, EffectType};
 use game::entity::Entity;
 use mod_protocol::Identifier;
-use mod_protocol::abi::ModifierOperation;
-use mod_protocol::spec::EffectSpec;
+use mod_protocol::abi::{EffectCall, GuestCall, ModifierOperation};
+use mod_protocol::spec::{Behavior, EffectMethod, EffectSpec};
 use std::rc::Rc;
 
-pub fn register(id: Identifier, spec: EffectSpec) -> Result<(), String>
+// a mod's effect behavior, only the methods it overrides cross into wasm
+struct ModEffect
+{
+    m_owner: usize,
+    m_behavior: Behavior<EffectMethod>,
+}
+
+impl ModEffect
+{
+    // the call is built only for a method the mod overrides, ticks run every tick
+    fn call(&self, entity: &Rc<Entity>, method: EffectMethod, build: impl FnOnce() -> EffectCall)
+    {
+        if !self.m_behavior.methods.contains(&method)
+        {
+            return;
+        }
+
+        let Some(runtime) = state::modAt(self.m_owner)
+        else
+        {
+            return;
+        };
+
+        let request: GuestCall = GuestCall::Effect { handle: self.m_behavior.handle, call: build() };
+        withWorld(&entity.world(), || runtime.call(&request));
+    }
+}
+
+impl EffectHooks for ModEffect
+{
+    fn added(&self, entity: &Rc<Entity>, effect: &EffectType, level: i32)
+    {
+        self.call(entity, EffectMethod::Added, || EffectCall::Added
+        {
+            entity: entityInfo(entity),
+            effect: idOf(effect),
+            level,
+        });
+    }
+
+    fn tick(&self, entity: &Rc<Entity>, effect: &EffectType, level: i32, ticks: i32)
+    {
+        self.call(entity, EffectMethod::Tick, || EffectCall::Tick
+        {
+            entity: entityInfo(entity),
+            effect: idOf(effect),
+            level,
+            ticks,
+        });
+    }
+
+    fn removed(&self, entity: &Rc<Entity>, effect: &EffectType)
+    {
+        self.call(entity, EffectMethod::Removed, || EffectCall::Removed
+        {
+            entity: entityInfo(entity),
+            effect: idOf(effect),
+        });
+    }
+}
+
+// effect names come from registered identifiers, so they always parse
+fn idOf(effect: &EffectType) -> Identifier
+{
+    Identifier::parse(&effect.m_name).expect("effect names are registered identifiers")
+}
+
+pub fn registerWith(
+    id: Identifier,
+    spec: EffectSpec,
+    owner: usize,
+    behavior: Behavior<EffectMethod>,
+) -> Result<(), String>
+{
+    let hooks: Rc<dyn EffectHooks> = Rc::new(ModEffect { m_owner: owner, m_behavior: behavior });
+    build(id, spec, Some(hooks))
+}
+
+pub fn register(id: Identifier, spec: EffectSpec) -> Result<(), String> { build(id, spec, None) }
+
+fn build(id: Identifier, spec: EffectSpec, hooks: Option<Rc<dyn EffectHooks>>) -> Result<(), String>
 {
     let mut modifiers: Vec<(Attribute, f64, Operation)> = Vec::new();
     for modifier in &spec.modifiers
@@ -26,6 +108,7 @@ pub fn register(id: Identifier, spec: EffectSpec) -> Result<(), String>
         m_modifiers: modifiers,
         m_interval: spec.interval,
         m_amount: spec.amount,
+        m_hooks: hooks,
     });
 
     Ok(())

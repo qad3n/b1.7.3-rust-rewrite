@@ -21,6 +21,15 @@ pub struct EffectType
     // every interval ticks heals a positive amount or hurts a negative one, 0 for none
     pub m_interval: i32,
     pub m_amount: i32,
+    pub m_hooks: Option<Rc<dyn EffectHooks>>,
+}
+
+// what a mod runs when its effect starts, ticks and ends
+pub trait EffectHooks
+{
+    fn added(&self, entity: &Rc<Entity>, effect: &EffectType, level: i32);
+    fn tick(&self, entity: &Rc<Entity>, effect: &EffectType, level: i32, ticks: i32);
+    fn removed(&self, entity: &Rc<Entity>, effect: &EffectType);
 }
 
 pub struct ActiveEffect
@@ -134,7 +143,7 @@ impl Effects
 fn modifierId(effect: &EffectType) -> String { format!("effect/{}", effect.m_name) }
 
 // a stronger or longer effect replaces the one already there, as later versions do
-pub fn add(entity: &Entity, effect: Rc<EffectType>, level: i32, ticks: i32)
+pub fn add(entity: &Rc<Entity>, effect: Rc<EffectType>, level: i32, ticks: i32)
 {
     let Some(living) = entity.m_ext.living()
     else
@@ -160,9 +169,14 @@ pub fn add(entity: &Entity, effect: Rc<EffectType>, level: i32, ticks: i32)
         }
     }
     applyModifiers(entity, &effect, level);
+
+    if let Some(hooks) = &effect.m_hooks
+    {
+        hooks.added(entity, &effect, level);
+    }
 }
 
-pub fn remove(entity: &Entity, name: &str)
+pub fn remove(entity: &Rc<Entity>, name: &str)
 {
     let Some(living) = entity.m_ext.living()
     else
@@ -180,7 +194,17 @@ pub fn remove(entity: &Entity, name: &str)
     };
     for effect in removed
     {
-        removeModifiers(entity, &effect);
+        end(entity, &effect);
+    }
+}
+
+fn end(entity: &Rc<Entity>, effect: &EffectType)
+{
+    removeModifiers(entity, effect);
+
+    if let Some(hooks) = &effect.m_hooks
+    {
+        hooks.removed(entity, effect);
     }
 }
 
@@ -235,11 +259,17 @@ pub fn tick(entity: &Rc<Entity>)
     let mut pulses: Vec<i32> = Vec::new();
 
     let mut expired: Vec<Rc<EffectType>> = Vec::new();
+    let mut hooked: Vec<(Rc<EffectType>, i32, i32)> = Vec::new();
     {
         let mut active: RefMut<Vec<ActiveEffect>> = living.m_effects.m_active.borrow_mut();
         for effect in active.iter_mut()
         {
             effect.m_ticks -= 1;
+
+            if effect.m_effect.m_hooks.is_some()
+            {
+                hooked.push((Rc::clone(&effect.m_effect), effect.m_level, effect.m_ticks));
+            }
 
             let interval: i32 = effect.m_effect.m_interval;
             if authority && interval > 0 && effect.m_ticks % interval == 0
@@ -256,7 +286,7 @@ pub fn tick(entity: &Rc<Entity>)
         active.retain(|effect| effect.m_ticks > 0);
     }
 
-    // the borrow ends first because hurting or healing may add or remove effects through mod listeners
+    // the borrow ends first because hurting, healing and mod hooks may add or remove effects
     for amount in pulses
     {
         if amount > 0
@@ -269,8 +299,16 @@ pub fn tick(entity: &Rc<Entity>)
         }
     }
 
+    for (effect, level, ticks) in hooked
+    {
+        if let Some(hooks) = &effect.m_hooks
+        {
+            hooks.tick(entity, &effect, level, ticks);
+        }
+    }
+
     for effect in expired
     {
-        removeModifiers(entity, &effect);
+        end(entity, &effect);
     }
 }

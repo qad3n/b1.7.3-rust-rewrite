@@ -140,6 +140,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         HostCall::RegisterEffect { name, spec } => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::effects::register(id, spec)),
         ),
+        HostCall::RegisterEffectBehavior { name, spec, behavior } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::content::effects::registerWith(id, spec, runtime.m_index, behavior)),
+        ),
         HostCall::RegisterAttribute { name, spec } =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::attributes::register(id, spec)))
