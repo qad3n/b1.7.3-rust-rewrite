@@ -42,12 +42,7 @@ impl Minecraft
         info!("Opening world \"{name}\" from saves/{saveName}");
         self.changeWorld1(None);
 
-        // rewrite: the save's mod id map applies before its chunks are read, and a world saved with mods keeps them
-        if let Some(dir) = Self::minecraftDir()
-        {
-            modloader::remap::preload(&dir.join("saves").join(saveName));
-        }
-
+        // rewrite: conversion backs the world up first, before the loader reads or writes anything in it
         let saveLoader: Rc<dyn ISaveFormat> = self.m_saveLoader.get().orNpe();
         if saveLoader.isOldMapFormat(saveName)
         {
@@ -55,6 +50,12 @@ impl Minecraft
         }
         else
         {
+            // rewrite: the save's mod id map applies before its chunks are read, and a world saved with mods keeps them
+            if let Some(dir) = Self::minecraftDir()
+            {
+                modloader::remap::preload(&dir.join("saves").join(saveName));
+            }
+
             let iSaveHandler: Rc<dyn ISaveHandler> = saveLoader.getSaveLoader(saveName, false);
             let world: Rc<World> = World::newFromSave(iSaveHandler, name, seed, None);
             if world.m_isNewWorld.get()

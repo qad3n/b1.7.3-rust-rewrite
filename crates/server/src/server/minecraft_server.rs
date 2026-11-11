@@ -202,8 +202,12 @@ impl MinecraftServer
 
         let auth: Rc<ServerAuth> = self.auth();
         info!("Password auth has {} accounts, registration is {:?}", auth.vault().count(), auth.policy());
+        let storage: SaveConverterMcRegion = SaveConverterMcRegion::new(Path::new("."));
+        let levelName: String = self.propertyManager().getStringProperty("level-name", "world");
+        // rewrite: conversion backs the world up first, before the loader reads or writes anything in it
+        Self::convert(&storage, &levelName);
         // rewrite: the level's saved mod id map applies before the per dimension trackers and player managers exist
-        modloader::remap::preload(Path::new(&self.propertyManager().getStringProperty("level-name", "world")));
+        modloader::remap::preload(Path::new(&levelName));
         self.m_configManager.set(Some(ServerConfigurationManager::new(&this)));
 
         let trackers: Vec<Option<Rc<EntityTracker>>> = modloader::dimensions::serverDimensions()
@@ -212,7 +216,6 @@ impl MinecraftServer
             .collect();
         self.m_entityTracker.set(trackers);
 
-        let s1: String = self.propertyManager().getStringProperty("level-name", "world");
         let s2: String = self.propertyManager().getStringProperty("level-seed", "");
         let mut k: i64 = Random::new().nextLong();
 
@@ -231,32 +234,38 @@ impl MinecraftServer
             }
         }
 
-        info!("Preparing level \"{s1}\"");
+        info!("Preparing level \"{levelName}\"");
 
         let preparing: Instant = Instant::now();
 
-        self.initWorld(&SaveConverterMcRegion::new(Path::new(".")), &s1, k);
-        info!("Level \"{s1}\" prepared in {}", took(preparing));
+        self.initWorld(&levelName, k);
+        info!("Level \"{levelName}\" prepared in {}", took(preparing));
         info!("Done ({})! For help, type \"help\" or \"?\"", took(startup));
         Ok(true)
     }
 
-    fn initWorld(&self, storageSource: &dyn ISaveFormat, saveName: &str, seed: i64)
+    fn convert(storageSource: &dyn ISaveFormat, saveName: &str)
+    {
+        if !storageSource.isOldMapFormat(saveName)
+        {
+            return;
+        }
+
+        info!("Converting map!");
+
+        let converting: Instant = Instant::now();
+
+        storageSource.convertMapFormat(
+            saveName,
+            &ConvertProgress { m_lastTimeMillis: Cell::new(jvm::system::currentTimeMillis()) },
+        );
+        info!("Converted the map in {}", took(converting));
+    }
+
+    fn initWorld(&self, saveName: &str, seed: i64)
     {
         let this: Rc<Self> = self.this();
 
-        if storageSource.isOldMapFormat(saveName)
-        {
-            info!("Converting map!");
-
-            let converting: Instant = Instant::now();
-
-            storageSource.convertMapFormat(
-                saveName,
-                &ConvertProgress { m_lastTimeMillis: Cell::new(jvm::system::currentTimeMillis()) },
-            );
-            info!("Converted the map in {}", took(converting));
-        }
         // mod dimensions get worlds after the overworld and the nether
         let dimensions: Vec<i32> = modloader::dimensions::serverDimensions();
         self.m_worldMngr.set(Some(vec![None; dimensions.len()]));
