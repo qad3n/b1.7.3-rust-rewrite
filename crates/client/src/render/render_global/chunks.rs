@@ -18,6 +18,7 @@ use std::rc::Rc;
 
 // tile special renderers draw within this many blocks of their tile
 const TILE_PADDING: f64 = 1.0;
+const ENTITY_PADDING: f64 = 1.0;
 
 fn interpolate(last: f64, current: f64, tickDelta: f64) -> f64 { last + (current - last) * tickDelta }
 
@@ -33,6 +34,28 @@ fn tileVisible(culler: &dyn ICamera, tileEntity: &TileEntity) -> bool
         x + 1.0 + TILE_PADDING,
         y + 1.0 + TILE_PADDING,
         z + 1.0 + TILE_PADDING,
+    )
+}
+
+// models draw at the interpolated position and overhang their box so the test sweeps back to last tick and pads
+fn entityVisible(culler: &dyn ICamera, entity: &Entity) -> bool
+{
+    if entity.m_ignoreFrustumCheck.get()
+    {
+        return true;
+    }
+
+    let shape: &AxisAlignedBB = &entity.m_boundingBox;
+    let dx: f64 = entity.m_lastTickPosX.get() - entity.posX();
+    let dy: f64 = entity.m_lastTickPosY.get() - entity.posY();
+    let dz: f64 = entity.m_lastTickPosZ.get() - entity.posZ();
+    culler.isBoxInFrustum(
+        shape.m_minX.get() + dx.min(0.0) - ENTITY_PADDING,
+        shape.m_minY.get() + dy.min(0.0) - ENTITY_PADDING,
+        shape.m_minZ.get() + dz.min(0.0) - ENTITY_PADDING,
+        shape.m_maxX.get() + dx.max(0.0) + ENTITY_PADDING,
+        shape.m_maxY.get() + dy.max(0.0) + ENTITY_PADDING,
+        shape.m_maxZ.get() + dz.max(0.0) + ENTITY_PADDING,
     )
 }
 
@@ -94,13 +117,19 @@ impl RenderGlobal
             i += 1;
         }
 
+        let farPlane: f64 = self.m_mc.m_entityRenderer.get().orNpe().farPlane() as f64;
+        let viewRange: f64 = farPlane * farPlane;
+
         let mut k: i32 = 0;
         while k < list.size()
         {
             let entity1: Rc<Entity> = list.get(k);
             let viewEntity: Rc<Entity> = self.renderViewEntity();
-            if entity1.isInRangeToRenderVec3D(cameraPos)
-                && (entity1.m_ignoreFrustumCheck.get() || culler.isBoundingBoxInFrustum(&entity1.m_boundingBox))
+            // small mobs vanish within a few chunks under the size based vanilla range
+            let inRange: bool = entity1.isInRangeToRenderVec3D(cameraPos)
+                || entity1.getDistanceSq(cameraPos.x(), cameraPos.y(), cameraPos.z()) < viewRange;
+            if inRange
+                && entityVisible(culler, &entity1)
                 && (!Rc::ptr_eq(&entity1, &viewEntity)
                     || self.gameSettings().m_thirdPersonView.get()
                     || viewEntity.isPlayerSleeping())

@@ -133,6 +133,8 @@ impl EntityRenderer
 
     fn playerController(&self) -> Rc<PlayerController> { self.m_mc.m_playerController.get().orNpe() }
 
+    pub(crate) fn farPlane(&self) -> f32 { self.m_farPlaneDistance.get() }
+
     pub fn updateRenderer(&self)
     {
         self.m_fogColor2.set(self.m_fogColor1.get());
