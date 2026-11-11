@@ -15,6 +15,7 @@ pub fn new(
     let this: Rc<World> = world_server::alloc(&CLASS);
     world_server::init(&this, server, storage, saveName, dimension, seed);
     this.m_savedDataStorage.set(delegate.m_savedDataStorage.get());
+    this.worldInfo().shareRules(&delegate.worldInfo());
     this
 }
 

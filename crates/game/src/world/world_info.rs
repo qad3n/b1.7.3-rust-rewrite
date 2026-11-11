@@ -1,4 +1,5 @@
 use crate::entity::Entity;
+use crate::gamerule::GameRules;
 use common::nbt::{NBTBase, NBTTagCompound};
 use jvm::field::Field;
 use jvm::string::JString;
@@ -23,6 +24,9 @@ pub struct WorldInfo
     m_rainTime: Cell<i32>,
     m_thundering: Cell<bool>,
     m_thunderTime: Cell<i32>,
+    // the time of day minus the world time, apart only once a frozen day lets them drift
+    m_dayOffset: Cell<i64>,
+    m_rules: Field<Rc<GameRules>>,
 }
 
 impl WorldInfo
@@ -43,6 +47,13 @@ impl WorldInfo
         info.m_raining.set(nbt.getBoolean("raining"));
         info.m_thunderTime.set(nbt.getInteger("thunderTime"));
         info.m_thundering.set(nbt.getBoolean("thundering"));
+
+        if nbt.hasKey("DayTime")
+        {
+            info.m_dayOffset.set(nbt.getLong("DayTime") - info.m_worldTime.get());
+        }
+
+        info.rules().read(nbt);
 
         if nbt.hasKey("Player")
         {
@@ -80,6 +91,8 @@ impl WorldInfo
         info.m_raining.set(data.m_raining.get());
         info.m_thunderTime.set(data.m_thunderTime.get());
         info.m_thundering.set(data.m_thundering.get());
+        info.m_dayOffset.set(data.m_dayOffset.get());
+        info.shareRules(data);
         info
     }
 
@@ -123,6 +136,14 @@ impl WorldInfo
         nbt.setInteger("thunderTime", self.m_thunderTime.get());
         nbt.setBoolean("thundering", self.m_thundering.get());
 
+        // beta has one clock, so a save whose day never stopped keeps the vanilla keys only
+        if self.m_dayOffset.get() != 0
+        {
+            nbt.setLong("DayTime", self.getDayTime());
+        }
+
+        self.rules().write(nbt);
+
         if let Some(playerData) = playerData
         {
             nbt.setCompoundTag("Player", &playerData);
@@ -138,6 +159,15 @@ impl WorldInfo
     pub fn getSpawnZ(&self) -> i32 { self.m_spawnZ.get() }
 
     pub fn getWorldTime(&self) -> i64 { self.m_worldTime.get() }
+
+    pub fn getDayTime(&self) -> i64 { self.m_worldTime.get() + self.m_dayOffset.get() }
+
+    pub fn setDayTime(&self, time: i64) { self.m_dayOffset.set(time - self.m_worldTime.get()); }
+
+    pub fn rules(&self) -> Rc<GameRules> { self.m_rules.get() }
+
+    // every dimension of a save reads and changes the same rules
+    pub fn shareRules(&self, other: &Self) { self.m_rules.set(other.rules()); }
 
     pub fn getSizeOnDisk(&self) -> i64 { self.m_sizeOnDisk.get() }
 

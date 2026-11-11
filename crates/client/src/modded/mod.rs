@@ -226,6 +226,12 @@ pub fn localChat(mc: &Rc<Minecraft>, player: &Rc<Entity>, line: &str)
 
     let reply: Option<String> = match line.strip_prefix('/')
     {
+        Some(command) if command.split_whitespace().next() == Some("gamerule") =>
+        {
+            let args: Vec<&str> = command.split_whitespace().skip(1).collect();
+            Some(game::gamerule::command(&player.world().rules(), &args).unwrap_or_else(|error| error))
+        }
+
         Some(command) =>
         {
             Some(modloader::play::command(command, Some(player), true).unwrap_or_else(|| UNKNOWN_COMMAND.to_owned()))

@@ -193,10 +193,12 @@ fn newExplosion(
     z: f64,
     power: f32,
     createFire: bool,
+    destructive: bool,
 ) -> Rc<Explosion>
 {
     let explosion: Rc<Explosion> = Explosion::new(this, source, x, y, z, power);
     explosion.m_isFlaming.set(createFire);
+    explosion.m_destructive.set(destructive);
     explosion.doExplosionA();
     explosion.doExplosionB(false);
 

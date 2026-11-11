@@ -1,4 +1,5 @@
 use crate::block::{Block, BlockClass, Material, block_breakable};
+use crate::gamerule::GameRule;
 use crate::world::{IBlockAccess, World};
 use jvm::random::Random;
 use std::rc::Rc;
@@ -208,7 +209,8 @@ pub const CLASS: BlockClass = BlockClass
     getRenderBlockPass: |_| 1,
     onEntityCollidedWithBlock: |_, _, _, _, _, entity|
     {
-        if entity.m_ridingEntity.with(Option::is_none) && entity.m_riddenByEntity.with(Option::is_none)
+        let free: bool = entity.m_ridingEntity.with(Option::is_none) && entity.m_riddenByEntity.with(Option::is_none);
+        if free && entity.world().rule(GameRule::NETHER_PORTALS)
         {
             entity.setInPortal();
         }

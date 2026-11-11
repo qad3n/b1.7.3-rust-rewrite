@@ -6,6 +6,7 @@ mod using;
 use crate::block::Block;
 use crate::container::{Container, ContainerPlayer};
 use crate::entity::{Entity, EntityClass, entity_item, entity_living};
+use crate::gamerule::GameRule;
 use crate::inventory::{IInventory, InventoryPlayer};
 use crate::item::{Item, ItemStack};
 use crate::math::math_helper;
@@ -243,6 +244,20 @@ fn onUpdate(this: &Rc<Entity>)
     }
 }
 
+// the respawned player takes over what the dead one kept when keep inventory is on
+pub fn keepInventory(dead: &Rc<Entity>, player: &Rc<Entity>)
+{
+    if !player.world().rule(GameRule::KEEP_INVENTORY)
+    {
+        return;
+    }
+
+    let (from, to): (Rc<InventoryPlayer>, Rc<InventoryPlayer>) = (inventory(dead), inventory(player));
+    to.m_mainInventory.swap(&from.m_mainInventory);
+    to.m_armorInventory.swap(&from.m_armorInventory);
+    to.m_currentItem.set(from.m_currentItem.get());
+}
+
 fn onLivingUpdate(this: &Rc<Entity>)
 {
     let player: &PlayerFields = fields(this);
@@ -250,6 +265,7 @@ fn onLivingUpdate(this: &Rc<Entity>)
     let world: Rc<World> = this.world();
     // rewrite: peaceful regeneration heals to the max health hook instead of 20
     if world.m_difficultySetting.get() == 0
+        && world.rule(GameRule::NATURAL_REGENERATION)
         && living.m_health.get() < crate::attribute::maxHealth(this)
         && this.m_ticksExisted.get() % 20 * 12 == 0
     {

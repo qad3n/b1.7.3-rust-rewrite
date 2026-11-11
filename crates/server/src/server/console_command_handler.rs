@@ -2,6 +2,7 @@ use crate::player::entity_player_mp;
 use crate::server::{ICommandListener, MinecraftServer, ServerAuth, ServerCommand, ServerConfigurationManager};
 use crate::world::world_server;
 use game::entity::{Entity, entity_player};
+use game::gamerule::GameRule;
 use game::item::{Item, ItemStack};
 use game::network::packets::Packet3Chat;
 use game::world::World;
@@ -287,7 +288,7 @@ impl ConsoleCommandHandler
                     {
                         for worldServer in self.worlds()
                         {
-                            worldServer.changeTime(worldServer.getWorldTime() + n as i64);
+                            worldServer.changeTime(worldServer.getDayTime() + n as i64);
                         }
 
                         self.sendNoticeToOps(&string2, &format!("Added {n} to time"));
@@ -341,6 +342,10 @@ impl ConsoleCommandHandler
                 }
             }
         }
+        else if lower.to_string().split_whitespace().next() == Some("gamerule")
+        {
+            self.gameruleCommand(iCommandListener, &string.to_string());
+        }
         else if lower.startsWith("whitelist ")
         {
             self.handleWhitelist(&string2, &string, iCommandListener);
@@ -348,6 +353,34 @@ impl ConsoleCommandHandler
         else
         {
             info!("Unknown console command. Type \"help\" for help.");
+        }
+    }
+
+    // the rules belong to the save, so changing them through the overworld changes every dimension
+    fn gameruleCommand(&self, source: &Rc<dyn ICommandListener>, text: &str)
+    {
+        let args: Vec<&str> = text.split_whitespace().skip(1).collect();
+        let Some(world) = self.worlds().into_iter().next()
+        else
+        {
+            return;
+        };
+
+        match game::gamerule::command(&world.rules(), &args)
+        {
+            Ok(reply) if args.len() == 2 =>
+            {
+                self.sendNoticeToOps(&source.getUsername(), &reply);
+
+                // a player still hears back when ops are not told
+                if !source.console() && !world.rule(GameRule::LOG_ADMIN_COMMANDS)
+                {
+                    source.log(&reply);
+                }
+            }
+
+            Ok(reply) => reply.lines().for_each(|line| source.log(line)),
+            Err(error) => source.log(&error),
         }
     }
 
@@ -424,6 +457,7 @@ impl ConsoleCommandHandler
         source.log("   list                      lists all currently connected players");
         source.log("   say <message>             broadcasts a message to all players");
         source.log("   time <add|set> <amount>   adds to or sets the world time (0-24000)");
+        source.log("   gamerule [rule] [value]   lists, shows or changes a game rule");
         source.log("   auth invite <player>      makes a one-time code a player needs to register");
         source.log("   auth reset <player>       deletes a password account so the player registers again");
     }
@@ -534,9 +568,14 @@ impl ConsoleCommandHandler
     fn sendNoticeToOps(&self, player: &str, message: &str)
     {
         let string: String = format!("{player}: {message}");
-        self.m_minecraftServer
-            .configManager()
-            .sendChatMessageToAllOps(&JString::from(format!("\u{a7}7({string})").as_str()));
+        let broadcast: bool = self.worlds().first().is_none_or(|world| world.rule(GameRule::LOG_ADMIN_COMMANDS));
+        if broadcast
+        {
+            self.m_minecraftServer
+                .configManager()
+                .sendChatMessageToAllOps(&JString::from(format!("\u{a7}7({string})").as_str()));
+        }
+
         info!("{}", string);
     }
 

@@ -49,7 +49,15 @@ fn blockActivated(this: &Rc<Block>, world: &Rc<World>, mut x: i32, y: i32, mut z
             d3 = (d3 + z as f64 + 0.5) / 2.0;
         }
 
-        world.newExplosion(None, (x as f32 + 0.5) as f64, (y as f32 + 0.5) as f64, (z as f32 + 0.5) as f64, 5.0, true);
+        world.newExplosion(
+            None,
+            (x as f32 + 0.5) as f64,
+            (y as f32 + 0.5) as f64,
+            (z as f32 + 0.5) as f64,
+            5.0,
+            true,
+            true,
+        );
         return true;
     }
 

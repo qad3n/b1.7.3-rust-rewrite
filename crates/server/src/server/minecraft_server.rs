@@ -6,6 +6,7 @@ use crate::server::
 };
 use crate::world::{IUpdatePlayerListBox, WorldManager, world_server, world_server_multi};
 use common::world::IProgressUpdate;
+use game::gamerule::GameRule;
 use game::math::{AxisAlignedBB, Vec3D};
 use game::network::packets::Packet4UpdateTime;
 use game::storage::{ISaveFormat, SaveConverterMcRegion, SaveOldDir};
@@ -529,10 +530,12 @@ impl MinecraftServer
             {
                 let worldserver: Rc<World> = self.worldMngr()[k].clone();
 
-                if self.m_deathTime.get() % 20 == 0
+                // a client runs its own clock between updates, so a stopped day is sent every tick
+                let stopped: bool = !worldserver.rule(GameRule::ADVANCE_TIME);
+                if self.m_deathTime.get() % 20 == 0 || stopped
                 {
                     self.configManager().sendPacketToAllPlayersInDimension(
-                        Box::new(Packet4UpdateTime::new(worldserver.getWorldTime())),
+                        Box::new(Packet4UpdateTime::new(worldserver.getDayTime())),
                         worldserver.worldProvider().m_worldType.get(),
                     );
                 }

@@ -1,6 +1,7 @@
 use crate::block::{Block, block_rail};
 use crate::entity::entity_boat::{clearDeadRider, mountBy, pushNearby, scale};
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_item, entity_player, remote};
+use crate::gamerule::GameRule;
 use crate::inventory::IInventory;
 use crate::item::{Item, ItemStack};
 use crate::math::Vec3D;
@@ -960,7 +961,14 @@ pub const CLASS: EntityClass = EntityClass
                 rider.mountEntity(Some(this));
             }
 
+            // the cargo still spills since setEntityDead empties a chest cart
             this.setEntityDead();
+
+            if !this.world().rule(GameRule::ENTITY_DROPS)
+            {
+                return true;
+            }
+
             this.dropItemWithOffset(Item::minecartEmpty().m_shiftedIndex, 1, 0.0);
 
             match cart.m_minecartType.get()

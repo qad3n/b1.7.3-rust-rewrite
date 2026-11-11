@@ -1,5 +1,6 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
 use crate::entity::Entity;
+use crate::gamerule::GameRule;
 use crate::item::{Item, ItemStack};
 use jvm::throwable::OrNpe;
 use std::cell::Cell;
@@ -20,7 +21,7 @@ pub const CLASS: BlockClass = BlockClass
     {
         (BLOCK.onBlockAdded)(this, world, x, y, z);
 
-        if world.isBlockIndirectlyGettingPowered(x, y, z)
+        if world.isBlockIndirectlyGettingPowered(x, y, z) && world.rule(GameRule::TNT_EXPLODES)
         {
             this.onBlockDestroyedByPlayer(world, x, y, z, 1);
             world.setBlockWithNotify(x, y, z, 0);
@@ -32,6 +33,7 @@ pub const CLASS: BlockClass = BlockClass
         if neighborBlock > 0
             && Block::byId(neighborBlock).orNpe().canProvidePower()
             && world.isBlockIndirectlyGettingPowered(x, y, z)
+            && world.rule(GameRule::TNT_EXPLODES)
         {
             this.onBlockDestroyedByPlayer(world, x, y, z, 1);
             world.setBlockWithNotify(x, y, z, 0);
@@ -40,6 +42,11 @@ pub const CLASS: BlockClass = BlockClass
     quantityDropped: |_, _| 0,
     onBlockDestroyedByExplosion: |_, world, x, y, z|
     {
+        if !world.rule(GameRule::TNT_EXPLODES)
+        {
+            return;
+        }
+
         let entity: Rc<Entity> = crate::entity::entity_tnt_primed::create(
             world,
             (x as f32 + 0.5) as f64,
@@ -59,8 +66,14 @@ pub const CLASS: BlockClass = BlockClass
             return;
         }
 
-        if (metadata & 1) == 0
+        // lit tnt mined while tnt cannot explode drops as unlit tnt
+        if (metadata & 1) == 0 || !world.rule(GameRule::TNT_EXPLODES)
         {
+            if !world.rule(GameRule::BLOCK_DROPS)
+            {
+                return;
+            }
+
             this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::TNT, 1, 0));
         }
         else

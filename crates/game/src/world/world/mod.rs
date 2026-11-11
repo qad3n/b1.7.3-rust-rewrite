@@ -8,6 +8,7 @@ mod ticks;
 mod weather;
 
 use crate::entity::Entity;
+use crate::gamerule::{GameRule, GameRules};
 use crate::math::AxisAlignedBB;
 use crate::tileentity::TileEntity;
 use crate::world::
@@ -461,6 +462,13 @@ impl World
     }
 
     pub fn getWorldTime(&self) -> i64 { self.worldInfo().getWorldTime() }
+
+    // the clock the sun and beds follow, the world time keeps scheduled ticks running when the day stops
+    pub fn getDayTime(&self) -> i64 { self.worldInfo().getDayTime() }
+
+    pub fn rules(&self) -> Rc<GameRules> { self.worldInfo().rules() }
+
+    pub fn rule(&self, rule: GameRule) -> bool { self.rules().bool(rule) }
 
     pub fn getSpawnPoint(&self) -> crate::world::ChunkCoordinates
     {

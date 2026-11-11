@@ -1,4 +1,5 @@
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, entity_item};
+use crate::gamerule::GameRule;
 use crate::item::{Item, ItemStack};
 use crate::math::math_helper::floor_double;
 use crate::world::World;
@@ -284,6 +285,12 @@ fn dropAsItem(this: &Rc<Entity>)
     let world: Rc<World> = this.world();
 
     this.setEntityDead();
+
+    if !world.rule(GameRule::ENTITY_DROPS)
+    {
+        return;
+    }
+
     world.entityJoinedWorld(&entity_item::create(
         &world,
         this.posX(),
@@ -332,6 +339,11 @@ pub const CLASS: EntityClass = EntityClass
             this.setBeenAttacked();
 
             let world: Rc<World> = this.world();
+            if !world.rule(GameRule::ENTITY_DROPS)
+            {
+                return true;
+            }
+
             world.entityJoinedWorld(&entity_item::create(
                 &world,
                 this.posX(),

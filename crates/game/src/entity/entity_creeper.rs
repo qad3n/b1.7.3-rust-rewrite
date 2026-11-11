@@ -1,5 +1,6 @@
 use crate::entity::entity_mob::MobFields;
 use crate::entity::{Entity, EntityClass, EntityExt, WatchedValue, entity_creature, entity_living, entity_mob};
+use crate::gamerule::GameRule;
 use crate::item::Item;
 use crate::world::World;
 use jvm::string::JString;
@@ -116,7 +117,8 @@ fn attackEntity(this: &Rc<Entity>, _target: &Rc<Entity>, distance: f32)
         if creeper.m_timeSinceIgnited.get() >= FUSE_TICKS
         {
             let power: f32 = if getPowered(this) { 6.0 } else { 3.0 };
-            world.createExplosion(Some(this), this.posX(), this.posY(), this.posZ(), power);
+            let griefing: bool = world.rule(GameRule::MOB_GRIEFING);
+            world.newExplosion(Some(this), this.posX(), this.posY(), this.posZ(), power, false, griefing);
             this.setEntityDead();
         }
 

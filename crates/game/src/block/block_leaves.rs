@@ -1,6 +1,7 @@
 use crate::block::block_leaves_base::{self, LeavesExt};
 use crate::block::{Block, BlockClass, Material};
 use crate::entity::Entity;
+use crate::gamerule::GameRule;
 use crate::item::{Item, ItemStack};
 use crate::stats::named::ContentStat;
 use crate::tags::{self, Tag};
@@ -175,6 +176,12 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
     if !world.m_multiplayerWorld.get() && shears
     {
         crate::stats::named::count(player, ContentStat::Mined, this.m_blockID, 1);
+
+        if !world.rule(GameRule::BLOCK_DROPS)
+        {
+            return;
+        }
+
         this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::LEAVES, 1, metadata & 3));
     }
     else

@@ -16,6 +16,8 @@ use std::rc::Rc;
 pub struct Explosion
 {
     pub m_isFlaming: Cell<bool>,
+    // a mob explosion with mob griefing off hurts entities but leaves every block
+    pub m_destructive: Cell<bool>,
     m_explosionRNG: Random,
     m_worldObj: Rc<World>,
     pub m_explosionX: Cell<f64>,
@@ -33,6 +35,7 @@ impl Explosion
         Rc::new(Self
         {
             m_isFlaming: Cell::new(false),
+            m_destructive: Cell::new(true),
             m_explosionRNG: Random::new(),
             m_worldObj: Rc::clone(world),
             m_explosionX: Cell::new(x),
@@ -104,6 +107,11 @@ impl Explosion
                     }
                 }
             }
+        }
+
+        if !self.m_destructive.get()
+        {
+            self.m_destroyedBlockPositions.update(JHashSet::clear);
         }
 
         self.m_explosionSize.set(self.m_explosionSize.get() * 2.0);

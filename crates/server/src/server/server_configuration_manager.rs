@@ -282,6 +282,7 @@ impl ServerConfigurationManager
         );
         entityplayermp.m_entityId.set(player.m_entityId.get());
         entity_player::fields(&entityplayermp).m_progress.copyFrom(&entity_player::fields(player).m_progress);
+        entity_player::keepInventory(player, &entityplayermp);
         entity_player_mp::fields(&entityplayermp)
             .m_playerNetServerHandler
             .set(entity_player_mp::fields(player).m_playerNetServerHandler.get());
@@ -784,7 +785,7 @@ impl ServerConfigurationManager
     pub fn sendWorldInfo(&self, player: &Rc<Entity>, world: &Rc<World>)
     {
         let handler: Rc<NetServerHandler> = entity_player_mp::netServerHandler(player);
-        handler.sendPacket(Box::new(Packet4UpdateTime::new(world.getWorldTime())));
+        handler.sendPacket(Box::new(Packet4UpdateTime::new(world.getDayTime())));
 
         if world.isRaining()
         {

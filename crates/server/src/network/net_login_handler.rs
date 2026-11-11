@@ -247,7 +247,7 @@ impl NetLoginHandler
                 modloader::netsync::serverPlayerJoined(entityPlayerMP.m_entityId.get(), session, raw);
             }
 
-            netServerHandler.sendPacket(Box::new(Packet4UpdateTime::new(worldServer.getWorldTime())));
+            netServerHandler.sendPacket(Box::new(Packet4UpdateTime::new(worldServer.getDayTime())));
             entity_player_mp::initMenu(&entityPlayerMP);
         }
 

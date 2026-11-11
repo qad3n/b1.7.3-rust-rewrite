@@ -1,4 +1,5 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
+use crate::gamerule::GameRule;
 use crate::tags::{self, Tag};
 use crate::world::{IBlockAccess, World};
 use jvm::random::Random;
@@ -38,8 +39,26 @@ fn initializeBlock(this: &Rc<Block>)
     setBurnRate(this, Block::CLOTH, 30, 60);
 }
 
+// a radius of -1 lets fire tick everywhere as beta does, 0 nowhere and more only that close to a player
+fn ticking(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
+{
+    match world.rules().int(GameRule::FIRE_SPREAD_RADIUS)
+    {
+        0 => false,
+        radius if radius < 0 => true,
+        radius => world.getClosestPlayer(x as f64 + 0.5, y as f64 + 0.5, z as f64 + 0.5, radius as f64).is_some(),
+    }
+}
+
 fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, random: &Random)
 {
+    // a fire out of reach waits without spreading or burning out and keeps its tick for when the rule allows it
+    if !ticking(world, x, y, z)
+    {
+        world.scheduleBlockUpdate(x, y, z, this.m_blockID, this.tickRate());
+        return;
+    }
+
     let bl: bool = tags::has(Tag::Infiniburn, world.getBlockId(x, y - 1, z));
 
     if !this.canPlaceBlockAt(world, x, y, z)
@@ -172,7 +191,7 @@ fn tryToCatchBlockOnFire(
         world.setBlockWithNotify(x, y, z, 0);
     }
 
-    if flag
+    if flag && world.rule(GameRule::TNT_EXPLODES)
     {
         Block::tnt().onBlockDestroyedByPlayer(world, x, y, z, 1);
     }

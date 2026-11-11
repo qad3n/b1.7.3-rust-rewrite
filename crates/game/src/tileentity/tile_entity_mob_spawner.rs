@@ -1,4 +1,5 @@
 use crate::entity::{Entity, EntityList};
+use crate::gamerule::GameRule;
 use crate::math::AxisAlignedBB;
 use crate::tileentity::{TILE_ENTITY, TileEntity, TileEntityClass};
 use crate::world::World;
@@ -59,7 +60,7 @@ fn updateEntity(this: &Rc<TileEntity>)
         spawner.m_yaw2.set(spawner.m_yaw2.get() - 360.0);
     }
 
-    if !world.m_multiplayerWorld.get()
+    if !world.m_multiplayerWorld.get() && world.rule(GameRule::SPAWNER_BLOCKS_WORK)
     {
         if spawner.m_delay.get() == -1
         {

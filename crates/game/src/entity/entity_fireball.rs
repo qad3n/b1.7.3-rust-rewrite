@@ -2,6 +2,7 @@ use crate::damage::{DamageKind, DamageSource};
 use crate::entity::entity_arrow::{movePosition, rotateTowardsMotion, scaleMotion, spawnBubbles};
 use crate::entity::entity_snowball::{self, ThrowableFields, tickInGround, traceHit};
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt};
+use crate::gamerule::GameRule;
 use crate::math::math_helper::sqrt_double;
 use crate::world::World;
 use std::cell::Cell;
@@ -121,7 +122,8 @@ fn onUpdate(this: &Rc<Entity>)
                     .attackEntityFrom(&DamageSource::withProjectile(DamageKind::Fireball, this, thrower.as_ref()), 0);
             }
 
-            world.newExplosion(None, this.posX(), this.posY(), this.posZ(), 1.0, true);
+            let griefing: bool = world.rule(GameRule::MOB_GRIEFING);
+            world.newExplosion(None, this.posX(), this.posY(), this.posZ(), 1.0, griefing, griefing);
         }
 
         this.setEntityDead();

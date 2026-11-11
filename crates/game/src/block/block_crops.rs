@@ -1,4 +1,5 @@
 use crate::block::{Block, BlockClass, block_flower};
+use crate::gamerule::GameRule;
 use crate::item::{Item, ItemStack};
 use crate::tags::{self, Tag};
 use crate::world::World;
@@ -82,7 +83,7 @@ fn dropBlockAsItemWithChance(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32
 {
     (block_flower::CLASS.dropBlockAsItemWithChance)(this, world, x, y, z, metadata, luck);
 
-    if world.m_multiplayerWorld.get()
+    if world.m_multiplayerWorld.get() || !world.rule(GameRule::BLOCK_DROPS)
     {
         return;
     }

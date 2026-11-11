@@ -1,5 +1,6 @@
 use crate::block::{Block, Material, block_fluid};
 use crate::entity::Entity;
+use crate::gamerule::GameRule;
 use crate::math::math_helper::floor_double;
 use crate::math::{AxisAlignedBB, Vec3D};
 use crate::pathfinding::{PathEntity, Pathfinder};
@@ -619,7 +620,7 @@ impl World
         power: f32,
     ) -> Rc<Explosion>
     {
-        self.newExplosion(source, x, y, z, power, false)
+        self.newExplosion(source, x, y, z, power, false, true)
     }
 
     pub fn getBlockDensity(self: &Rc<Self>, pos: &Vec3D, bounds: &AxisAlignedBB) -> f32
@@ -921,16 +922,16 @@ impl World
 
     pub fn updateAllPlayersSleepingFlag(&self)
     {
-        self.m_allPlayersSleeping.set(!self.m_playerEntities.isEmpty());
+        let players: Vec<Rc<Entity>> = self.m_playerEntities.toVec();
+        let sleeping: usize = players.iter().filter(|player| player.isPlayerSleeping()).count();
+        self.m_allPlayersSleeping.set(!players.is_empty() && sleeping >= self.sleepersNeeded(players.len()));
+    }
 
-        for entityplayer in self.m_playerEntities.toVec()
-        {
-            if !entityplayer.isPlayerSleeping()
-            {
-                self.m_allPlayersSleeping.set(false);
-                break;
-            }
-        }
+    // every player at the default of 100 percent as beta, at least one otherwise
+    fn sleepersNeeded(&self, players: usize) -> usize
+    {
+        let percent: usize = self.rules().int(GameRule::SLEEPING_PERCENTAGE).max(0) as usize;
+        (players * percent).div_ceil(100).max(1)
     }
 
     pub fn wakeUpAllPlayers(&self)
@@ -950,20 +951,15 @@ impl World
 
     pub fn isAllPlayersFullyAsleep(&self) -> bool
     {
-        if self.m_allPlayersSleeping.get() && !self.m_multiplayerWorld.get()
+        if !self.m_allPlayersSleeping.get() || self.m_multiplayerWorld.get()
         {
-            for entityplayer in self.m_playerEntities.toVec()
-            {
-                if !crate::entity::entity_player::isPlayerFullyAsleep(&entityplayer)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return false;
         }
 
-        false
+        let players: Vec<Rc<Entity>> = self.m_playerEntities.toVec();
+        let asleep: usize =
+            players.iter().filter(|player| crate::entity::entity_player::isPlayerFullyAsleep(player)).count();
+        asleep >= self.sleepersNeeded(players.len())
     }
 }
 
@@ -1079,10 +1075,12 @@ pub(crate) fn newExplosion(
     z: f64,
     power: f32,
     createFire: bool,
+    destructive: bool,
 ) -> Rc<Explosion>
 {
     let explosion: Rc<Explosion> = Explosion::new(this, source, x, y, z, power);
     explosion.m_isFlaming.set(createFire);
+    explosion.m_destructive.set(destructive);
     explosion.doExplosionA();
     explosion.doExplosionB(true);
     explosion

@@ -6,6 +6,7 @@ use super::
 use crate::attribute::{self, Attribute};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{Entity, entity_arrow, entity_creature, entity_living, entity_wolf};
+use crate::gamerule::GameRule;
 use crate::item::{Item, ItemStack};
 use crate::math::{AxisAlignedBB, math_helper};
 use crate::stats::StatList;
@@ -28,7 +29,10 @@ pub(crate) fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
         dropPlayerItemWithRandomChoice(this, Some(ItemStack::withItemCount(&Item::appleRed(), 1)), true);
     }
 
-    inventory(this).dropAllItems();
+    if !this.world().rule(GameRule::KEEP_INVENTORY)
+    {
+        inventory(this).dropAllItems();
+    }
 
     if killer.is_some()
     {
@@ -53,7 +57,7 @@ pub(crate) fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amo
 
     living.m_entityAge.set(0);
 
-    if living.m_health.get() <= 0
+    if living.m_health.get() <= 0 || immune(&world, damage.m_kind)
     {
         return false;
     }
@@ -102,6 +106,19 @@ pub(crate) fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, mut amo
 
     addStat(this, StatList::damageTakenStat(), amount);
     (entity_living::CLASS.attackEntityFrom)(this, damage, amount)
+}
+
+// fall, fire and drowning damage to players each follow a rule
+fn immune(world: &World, kind: DamageKind) -> bool
+{
+    let rule: GameRule = match kind
+    {
+        DamageKind::Fall => GameRule::FALL_DAMAGE,
+        DamageKind::InFire | DamageKind::OnFire | DamageKind::Lava => GameRule::FIRE_DAMAGE,
+        DamageKind::Drown => GameRule::DROWNING_DAMAGE,
+        _ => return false,
+    };
+    !world.rule(rule)
 }
 
 pub(crate) fn pvpEnabled(_this: &Rc<Entity>) -> bool { false }

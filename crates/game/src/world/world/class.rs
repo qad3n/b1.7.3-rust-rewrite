@@ -13,7 +13,7 @@ crate::vtable!
         fn doEntityEvent(entity: &Rc<Entity>, event: i8);
         fn entityJoinedWorld(entity: &Rc<Entity>) -> bool;
         fn getChunkProvider() -> Rc<dyn IChunkProvider>;
-        fn newExplosion(source: Option<&Rc<Entity>>, x: f64, y: f64, z: f64, power: f32, createFire: bool) -> Rc<Explosion>;
+        fn newExplosion(source: Option<&Rc<Entity>>, x: f64, y: f64, z: f64, power: f32, createFire: bool, destructive: bool) -> Rc<Explosion>;
         fn obtainEntitySkin(entity: &Rc<Entity>);
         fn playNoteAt(x: i32, y: i32, z: i32, kind: i32, data: i32);
         fn releaseEntitySkin(entity: &Rc<Entity>);

@@ -1,5 +1,6 @@
 use crate::block::Block;
 use crate::entity::Entity;
+use crate::gamerule::GameRule;
 use crate::math::math_helper::floor_double;
 use crate::world::{Chunk, EnumSkyBlock, World};
 use common::world::{ChunkCoordIntPair, NextTickListEntry};
@@ -132,6 +133,7 @@ pub(crate) fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
         this.m_soundCounter.set(this.m_soundCounter.get() - 1);
     }
 
+    let ticks: i32 = this.rules().int(GameRule::RANDOM_TICK_SPEED);
     let mut cursor: HashCursor = this.m_positionsToUpdate.with(|set| set.cursor());
     while cursor.hasNext()
     {
@@ -211,7 +213,7 @@ pub(crate) fn updateBlocksAndPlayCaveSounds(this: &Rc<World>)
             }
         }
 
-        for _ in 0..80
+        for _ in 0..ticks
         {
             let j4: i32 = nextLcg(this) >> 2;
             let i5: i32 = j4 & 15;
@@ -251,7 +253,8 @@ impl World
 {
     pub fn changeTime(&self, time: i64)
     {
-        let i: i64 = time - self.worldInfo().getWorldTime();
+        // the time set is the time of day, the world time moves by the same amount
+        let i: i64 = time - self.worldInfo().getDayTime();
 
         // the tree set holds the entries java shifts through the hash set, the hash set copies only key by position
         self.m_scheduledTickTreeSet.update(|set|
@@ -266,6 +269,6 @@ impl World
                 .collect();
         });
 
-        self.setWorldTime(time);
+        self.setWorldTime(self.getWorldTime() + i);
     }
 }

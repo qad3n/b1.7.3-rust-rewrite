@@ -399,6 +399,7 @@ impl Minecraft
         if let Some(previous) = previous
         {
             entity_player::fields(&player).m_progress.copyFrom(&entity_player::fields(&previous).m_progress);
+            entity_player::keepInventory(&previous, &player);
         }
 
         self.m_thePlayer.set(Some(Rc::clone(&player)));

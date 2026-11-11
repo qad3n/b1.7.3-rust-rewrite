@@ -6,6 +6,7 @@ pub mod damage;
 pub mod effect;
 pub mod entity;
 pub mod fluid;
+pub mod gamerule;
 pub mod hooks;
 pub mod inventory;
 pub mod item;

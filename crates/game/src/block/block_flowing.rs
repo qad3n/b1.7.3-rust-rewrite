@@ -64,7 +64,7 @@ fn updateTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, rando
             k = if l >= 8 { l } else { l + 8 };
         }
 
-        if ext(this).m_numAdjacentSources.get() >= 2 && fluid.m_infinite
+        if ext(this).m_numAdjacentSources.get() >= 2 && fluid.infinite(world)
         {
             if world.getBlockMaterial(x, y - 1, z).isSolid()
             {

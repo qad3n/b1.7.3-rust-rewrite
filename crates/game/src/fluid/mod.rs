@@ -1,4 +1,6 @@
 use crate::block::{Block, Material};
+use crate::gamerule::GameRule;
+use crate::world::World;
 use std::cell::{Cell, RefCell, RefMut};
 use std::rc::Rc;
 
@@ -25,6 +27,8 @@ pub struct Fluid
     pub m_netherDecay: i32,
     // two sources beside a flowing block make a new source
     pub m_infinite: bool,
+    // a vanilla liquid makes sources as its game rule says instead
+    pub m_sourceRule: Option<GameRule>,
     pub m_sprite: i32,
 }
 
@@ -60,6 +64,7 @@ fn vanilla() -> Vec<Rc<Fluid>>
             m_decay: beta::DECAY,
             m_netherDecay: beta::DECAY,
             m_infinite: true,
+            m_sourceRule: Some(GameRule::WATER_SOURCE_CONVERSION),
             m_sprite: beta::WATER_SPRITE,
         }),
         Rc::new(Fluid
@@ -74,6 +79,7 @@ fn vanilla() -> Vec<Rc<Fluid>>
             m_decay: beta::LAVA_DECAY,
             m_netherDecay: beta::DECAY,
             m_infinite: false,
+            m_sourceRule: Some(GameRule::LAVA_SOURCE_CONVERSION),
             m_sprite: beta::LAVA_SPRITE,
         }),
     ]
@@ -82,6 +88,8 @@ fn vanilla() -> Vec<Rc<Fluid>>
 impl Fluid
 {
     pub fn vanilla(&self) -> bool { self.m_name.starts_with("minecraft:") }
+
+    pub fn infinite(&self, world: &World) -> bool { self.m_sourceRule.map_or(self.m_infinite, |rule| world.rule(rule)) }
 }
 
 pub fn of(material: &Rc<Material>) -> Option<Rc<Fluid>>

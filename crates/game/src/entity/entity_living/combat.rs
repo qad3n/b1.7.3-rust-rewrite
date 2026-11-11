@@ -3,6 +3,7 @@ use crate::attribute::{self, Attribute};
 use crate::block::{Block, StepSound};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::{ENTITY, Entity};
+use crate::gamerule::GameRule;
 use crate::loot::{self, LootTable};
 use crate::math::math_helper;
 use crate::port::playSoundAtEntity;
@@ -201,6 +202,7 @@ pub(crate) fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
 
     // mods may replace the drops of a death
     if !this.world().m_multiplayerWorld.get()
+        && this.world().rule(GameRule::MOB_DROPS)
         && !crate::hooks::fire(crate::hooks::GameEvent::LivingDrops { entity: this, source: killer })
     {
         dropLoot(this, killer);

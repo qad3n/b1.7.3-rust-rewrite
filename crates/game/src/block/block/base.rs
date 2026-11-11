@@ -1,5 +1,6 @@
 use crate::block::Block;
 use crate::entity::Entity;
+use crate::gamerule::GameRule;
 use crate::item::ItemStack;
 use crate::loot::{self, LootTable};
 use crate::math::{AxisAlignedBB, MovingObjectPosition, Vec3D};
@@ -91,7 +92,7 @@ pub(crate) fn dropBlockAsItemWithChance(
     luck: f32,
 )
 {
-    if world.m_multiplayerWorld.get()
+    if world.m_multiplayerWorld.get() || !world.rule(GameRule::BLOCK_DROPS)
     {
         return;
     }

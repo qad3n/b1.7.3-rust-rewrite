@@ -1,4 +1,5 @@
 use crate::block::{BLOCK, Block, BlockClass, Material};
+use crate::gamerule::GameRule;
 use crate::math::AxisAlignedBB;
 use crate::world::World;
 use jvm::random::Random;
@@ -97,9 +98,11 @@ pub const CLASS: BlockClass = BlockClass
         2
     },
     updateTick,
-    onEntityWalking: |_, world, x, y, z, _|
+    onEntityWalking: |_, world, x, y, z, entity|
     {
-        if world.m_rand.nextIntBounded(4) == 0
+        // mobs trample farmland only while mob griefing is on
+        let trampling: bool = entity.instanceOf("EntityPlayer") || world.rule(GameRule::MOB_GRIEFING);
+        if trampling && world.m_rand.nextIntBounded(4) == 0
         {
             world.setBlockWithNotify(x, y, z, Block::DIRT);
         }

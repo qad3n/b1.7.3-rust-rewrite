@@ -1,4 +1,5 @@
 use crate::entity::Entity;
+use crate::gamerule::GameRule;
 use crate::math::Vec3D;
 use crate::math::math_helper::{self, floor_double};
 use crate::world::{World, WorldInfo};
@@ -42,13 +43,22 @@ pub(crate) fn tick(this: &Rc<World>)
 
         if !flag
         {
-            let i: i64 = this.worldInfo().getWorldTime() + 24000;
-            this.worldInfo().setWorldTime(i - i % 24000);
+            // the world time moves by as much as the day skips so both clocks keep their gap
+            let day: i64 = this.worldInfo().getDayTime();
+            let i: i64 = day + 24000;
+            this.worldInfo().setWorldTime(this.worldInfo().getWorldTime() + i - i % 24000 - day);
             this.wakeUpAllPlayers();
         }
     }
 
-    crate::entity::SpawnerAnimals::performSpawning(this, this.m_spawnHostileMobs.get(), this.m_spawnPeacefulMobs.get());
+    if this.rule(GameRule::SPAWN_MOBS)
+    {
+        crate::entity::SpawnerAnimals::performSpawning(
+            this,
+            this.m_spawnHostileMobs.get(),
+            this.m_spawnPeacefulMobs.get(),
+        );
+    }
     this.chunkProvider().unload100OldestChunks();
 
     let j: i32 = this.calculateSkylightSubtracted(1.0);
@@ -70,25 +80,22 @@ pub(crate) fn tick(this: &Rc<World>)
         this.saveWorld(false, None);
     }
 
-    this.worldInfo().setWorldTime(l);
+    let info: Rc<WorldInfo> = this.worldInfo();
+    let day: i64 = info.getDayTime();
+    info.setWorldTime(l);
+
+    if !this.rule(GameRule::ADVANCE_TIME)
+    {
+        info.setDayTime(day);
+    }
+
     this.TickUpdates(false);
     this.updateBlocksAndPlayCaveSounds();
 }
 
-pub(crate) fn updateWeather(this: &Rc<World>)
+// counts the rain and thunder timers down and flips the weather when one runs out
+fn cycleWeather(this: &World, info: &WorldInfo)
 {
-    if this.worldProvider().m_hasNoSky.get()
-    {
-        return;
-    }
-
-    let info: Rc<WorldInfo> = this.worldInfo();
-
-    if this.m_thunderCooldown.get() > 0
-    {
-        this.m_thunderCooldown.set(this.m_thunderCooldown.get() - 1);
-    }
-
     let mut i: i32 = info.getThunderTime();
     if i <= 0
     {
@@ -133,6 +140,26 @@ pub(crate) fn updateWeather(this: &Rc<World>)
         {
             info.setRaining(!info.getRaining());
         }
+    }
+}
+
+pub(crate) fn updateWeather(this: &Rc<World>)
+{
+    if this.worldProvider().m_hasNoSky.get()
+    {
+        return;
+    }
+
+    let info: Rc<WorldInfo> = this.worldInfo();
+
+    if this.m_thunderCooldown.get() > 0
+    {
+        this.m_thunderCooldown.set(this.m_thunderCooldown.get() - 1);
+    }
+
+    if this.rule(GameRule::ADVANCE_WEATHER)
+    {
+        cycleWeather(this, &info);
     }
 
     this.m_prevRainingStrength.set(this.m_rainingStrength.get());
@@ -286,7 +313,7 @@ impl World
 
     pub fn getCelestialAngle(&self, tickDelta: f32) -> f32
     {
-        self.worldProvider().calculateCelestialAngle(self.worldInfo().getWorldTime(), tickDelta)
+        self.worldProvider().calculateCelestialAngle(self.worldInfo().getDayTime(), tickDelta)
     }
 
     pub fn getCloudColor(&self, tickDelta: f32) -> Rc<Vec3D>

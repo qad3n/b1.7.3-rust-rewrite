@@ -1,5 +1,6 @@
 use crate::block::{Block, Material};
 use crate::entity::{ENTITY, Entity, EntityClass, EntityExt, remote};
+use crate::gamerule::GameRule;
 use crate::item::Item;
 use crate::math::AxisAlignedBB;
 use crate::math::math_helper::floor_double;
@@ -56,6 +57,11 @@ pub fn createAt(world: &Rc<World>, x: f64, y: f64, z: f64) -> Rc<Entity>
 
 fn dropParts(this: &Rc<Entity>)
 {
+    if !this.world().rule(GameRule::ENTITY_DROPS)
+    {
+        return;
+    }
+
     for _ in 0..3
     {
         this.dropItemWithOffset(Block::PLANKS, 1, 0.0);

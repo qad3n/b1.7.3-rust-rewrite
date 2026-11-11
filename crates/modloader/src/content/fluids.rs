@@ -78,6 +78,7 @@ pub fn register(id: Identifier, spec: FluidSpec) -> Result<(), String>
         ),
         m_netherDecay: spec.nether_decay.unwrap_or(defaults::NETHER_DECAY),
         m_infinite: spec.infinite.unwrap_or(!lava),
+        m_sourceRule: None,
         m_sprite: fluid::sprite(&Material::water()),
     });
 

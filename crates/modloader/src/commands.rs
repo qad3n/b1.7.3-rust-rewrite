@@ -21,7 +21,7 @@ thread_local!
 }
 
 // vanilla server commands keep their names, a mod command may not shadow them
-const VANILLA: [&str; 17] = [
+const VANILLA: [&str; 18] = [
     "list",
     "stop",
     "save-all",
@@ -39,6 +39,7 @@ const VANILLA: [&str; 17] = [
     "tell",
     "time",
     "say",
+    "gamerule",
 ];
 
 // every command answers to /<modid>:<name>, the plain /<name> goes to the first mod in load order that asks for it
