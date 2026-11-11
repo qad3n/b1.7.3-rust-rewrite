@@ -1,31 +1,12 @@
 use crate::client::Minecraft;
 use jvm::warning;
-use std::fmt::Write;
 use std::fs::{self, OpenOptions};
 use std::io::Write as _;
 use std::path::PathBuf;
 
 const PIN_FILE: &str = "auth_servers.txt";
-const FINGERPRINT_BYTES: usize = 8;
 
 fn pinPath() -> PathBuf { Minecraft::getMinecraftDir().join(PIN_FILE) }
-
-pub fn fingerprint(key: &[u8]) -> String
-{
-    let mut text: String = String::new();
-
-    for (i, byte) in key.iter().take(FINGERPRINT_BYTES).enumerate()
-    {
-        if i > 0
-        {
-            text.push(':');
-        }
-
-        let _ = write!(text, "{byte:02X}");
-    }
-
-    text
-}
 
 fn hex(key: &[u8]) -> String { key.iter().map(|byte| format!("{byte:02x}")).collect() }
 
@@ -49,8 +30,7 @@ pub fn check(server: &str, key: &[u8]) -> Result<(), String>
     {
         Some(pinned) if pinned == wanted => Ok(()),
         Some(_) => Err(format!(
-            "The key of {server} changed to {}, this may not be the real server. Remove its line from {PIN_FILE} only if the owner confirms the new key",
-            fingerprint(key)
+            "The key of {server} changed, this may not be the real server. Remove its line from {PIN_FILE} only if the owner confirms the new key"
         )),
 
         None =>

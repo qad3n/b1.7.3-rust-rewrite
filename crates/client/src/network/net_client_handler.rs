@@ -174,10 +174,8 @@ impl NetClientHandler
             auth::Mode::Register => AuthScreen::Register { invite },
         };
 
-        let fingerprint: String = server_keys::fingerprint(&key);
-
         self.m_serverKey.set(key);
-        self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), screen, &fingerprint)));
+        self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), screen)));
     }
 
     pub fn submitAuth(&self, screen: AuthScreen, values: &[String]) -> Result<(), String>
@@ -279,8 +277,7 @@ impl NetClientHandler
             return;
         }
 
-        let fingerprint: String = server_keys::fingerprint(&key);
-        self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), AuthScreen::Change, &fingerprint)));
+        self.m_mc.displayGuiScreen(Some(GuiAuth::new(&self.rc(), AuthScreen::Change)));
     }
 
     fn worldClient(&self) -> Rc<World> { self.m_worldClient.get().orNpe() }

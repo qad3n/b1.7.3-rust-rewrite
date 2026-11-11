@@ -26,7 +26,7 @@ struct Entry
 
 const PASSWORD: Entry = Entry { m_label: "Password", m_masked: true };
 const CONFIRM: Entry = Entry { m_label: "Confirm password", m_masked: true };
-const INVITE: Entry = Entry { m_label: "Invite code from an op", m_masked: false };
+const INVITE: Entry = Entry { m_label: "Invite code from an op", m_masked: true };
 const CURRENT: Entry = Entry { m_label: "Current password", m_masked: true };
 const NEW: Entry = Entry { m_label: "New password", m_masked: true };
 const CONFIRM_NEW: Entry = Entry { m_label: "Confirm new password", m_masked: true };
@@ -91,7 +91,6 @@ struct AuthExt
 {
     m_handler: Rc<NetClientHandler>,
     m_kind: AuthScreen,
-    m_fingerprint: String,
     m_fields: RefCell<Vec<Rc<GuiTextField>>>,
     m_status: Field<Option<(String, bool)>>,
     m_sent: Cell<bool>,
@@ -269,9 +268,6 @@ const CLASS: GuiScreenClass = GuiScreenClass
 
         this.m_gui.drawCenteredString(&font, ext.m_kind.title(), center, top(this) - 40, TEXT_COLOR);
 
-        let key: String = format!("Server key {}", ext.m_fingerprint);
-        this.m_gui.drawCenteredString(&font, &key, center, top(this) - 26, LABEL_COLOR);
-
         for (i, entry) in ext.m_kind.entries().iter().enumerate()
         {
             this.m_gui.drawString(&font, entry.m_label, x, top(this) + i as i32 * layout::ROW, LABEL_COLOR);
@@ -297,13 +293,12 @@ pub struct GuiAuth;
 
 impl GuiAuth
 {
-    pub fn new(handler: &Rc<NetClientHandler>, kind: AuthScreen, fingerprint: &str) -> Rc<GuiScreen>
+    pub fn new(handler: &Rc<NetClientHandler>, kind: AuthScreen) -> Rc<GuiScreen>
     {
         let ext: AuthExt = AuthExt
         {
             m_handler: Rc::clone(handler),
             m_kind: kind,
-            m_fingerprint: fingerprint.to_string(),
             m_fields: RefCell::new(Vec::new()),
             m_status: Field::new(None),
             m_sent: Cell::new(false),
