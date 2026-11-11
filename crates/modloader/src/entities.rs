@@ -578,6 +578,17 @@ pub fn setData(entity: &Entity, key: &str, bytes: Vec<u8>)
     DATA.with(|data| data.borrow_mut().entry(entity.m_entityId.get()).or_default().insert(key.to_owned(), bytes));
 }
 
+// a mod's seat height on a mount, kept beside the mods' own entity data
+const SEAT_KEY: &str = "loader:seat";
+
+pub fn seat(mount: &Entity) -> Option<f64>
+{
+    let bytes: [u8; 8] = data(mount, SEAT_KEY).try_into().ok()?;
+    Some(f64::from_le_bytes(bytes))
+}
+
+pub fn setSeat(mount: &Entity, height: f64) { setData(mount, SEAT_KEY, height.to_le_bytes().to_vec()); }
+
 fn syncedKey(owner: &str) -> String { format!("{SYNCED_PREFIX}{owner}") }
 
 // each mod keeps its own synced bytes on an entity, so two mods syncing data on the player never overwrite each other

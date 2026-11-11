@@ -81,8 +81,11 @@ pub(crate) fn updateRidden(this: &Rc<Entity>)
 pub(crate) fn updateRiderPosition(this: &Rc<Entity>)
 {
     let rider: Rc<Entity> = this.m_riddenByEntity.get().orNpe();
-    rider.setPosition(this.posX(), this.posY() + this.getMountedYOffset() + rider.getYOffset(), this.posZ());
+    rider.setPosition(this.posX(), this.posY() + seat(this) + rider.getYOffset(), this.posZ());
 }
+
+// mods may seat riders higher or lower than the mount's own getMountedYOffset
+pub fn seat(this: &Rc<Entity>) -> f64 { crate::hooks::seat(this).unwrap_or_else(|| this.getMountedYOffset()) }
 
 pub(crate) fn getMountedYOffset(this: &Rc<Entity>) -> f64 { this.m_height.get() as f64 * 0.75 }
 

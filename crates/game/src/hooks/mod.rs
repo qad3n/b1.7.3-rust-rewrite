@@ -188,6 +188,9 @@ pub trait LoaderHooks
 
     fn strVsBlock(&self, _block: &Rc<Block>, _stack: Option<&Rc<ItemStack>>) -> Option<f32> { None }
 
+    // a mod's own seat height for riders of this mount
+    fn seat(&self, _mount: &Entity) -> Option<f64> { None }
+
     fn populate(&self, _world: &Rc<World>, _chunkX: i32, _chunkZ: i32) {}
 
     // a vanilla structure finished building, named by key with its inclusive corners
@@ -271,6 +274,8 @@ pub fn strVsBlock(block: &Rc<Block>, stack: Option<&Rc<ItemStack>>) -> Option<f3
 {
     active()?.strVsBlock(block, stack)
 }
+
+pub fn seat(mount: &Entity) -> Option<f64> { active()?.seat(mount) }
 
 pub fn populate(world: &Rc<World>, chunkX: i32, chunkZ: i32)
 {

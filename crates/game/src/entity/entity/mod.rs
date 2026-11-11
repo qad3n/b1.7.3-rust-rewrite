@@ -2,6 +2,7 @@ mod class;
 mod movement;
 mod nbt;
 mod riding;
+pub use riding::seat;
 mod update;
 
 use crate::entity::DataWatcher;

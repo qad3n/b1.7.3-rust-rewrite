@@ -301,6 +301,8 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         }
 
         EntityField::MinecartType => HostReply::Float(minecartType(entity) as f32),
+        EntityField::Seat => HostReply::Float(game::entity::seat(entity) as f32),
+        EntityField::BodyYaw => HostReply::Float(living(entity).map_or(0.0, |fields| fields.m_renderYawOffset.get())),
     }
 }
 
@@ -379,6 +381,11 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
 
         EntityField::MinecartType =>
         {}
+        EntityField::Seat => crate::entities::setSeat(entity, value),
+        EntityField::BodyYaw =>
+        {
+            living(entity).into_iter().for_each(|fields| fields.m_renderYawOffset.set(value as f32))
+        }
     }
 }
 

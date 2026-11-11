@@ -39,6 +39,6 @@ pub mod remote;
 mod spawner_animals;
 
 pub use data_watcher::{DataWatcher, WatchableObject, WatchedValue};
-pub use entity::{ENTITY, Entity, EntityClass, EntityExt, NoExt};
+pub use entity::{ENTITY, Entity, EntityClass, EntityExt, NoExt, seat};
 pub use entity_list::EntityList;
 pub use spawner_animals::SpawnerAnimals;

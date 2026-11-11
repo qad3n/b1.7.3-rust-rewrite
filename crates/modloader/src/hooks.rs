@@ -42,6 +42,8 @@ impl LoaderHooks for Hooks
         content::harvest::strVsBlock(block, stack)
     }
 
+    fn seat(&self, mount: &Entity) -> Option<f64> { crate::entities::seat(mount) }
+
     fn populate(&self, world: &Rc<World>, chunkX: i32, chunkZ: i32)
     {
         content::worldgen::populate(world, chunkX, chunkZ);

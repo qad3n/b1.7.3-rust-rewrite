@@ -411,7 +411,7 @@ pub const CLASS: EntityClass = EntityClass
         let d2: f64 = jvm::math::sin(this.m_rotationYaw.get() as f64 * PI / 180.0) * 0.4;
         rider.setPosition(
             this.posX() + d,
-            this.posY() + this.getMountedYOffset() + rider.getYOffset(),
+            this.posY() + crate::entity::seat(this) + rider.getYOffset(),
             this.posZ() + d2,
         );
     },
