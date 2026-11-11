@@ -10,7 +10,7 @@ pub(crate) const CURRENT: i32 = 1;
 
 fn stampPath(world: &Path) -> PathBuf { world.join(STAMP_FILE) }
 
-pub(crate) fn stamped(world: &Path) -> i32
+fn stamped(world: &Path) -> i32
 {
     let path: PathBuf = stampPath(world);
     let Ok(text) = std::fs::read_to_string(&path)
@@ -63,16 +63,18 @@ fn backupName(saveName: &str) -> String
     )
 }
 
-// backups sit in their own folder so the world list never shows them
-pub(crate) fn backup(savesDir: &Path, saveName: &str) -> std::io::Result<PathBuf>
+// backups sit in a folder beside the worlds so the world list never shows them
+pub fn backup(world: &Path) -> std::io::Result<PathBuf>
 {
-    let target: PathBuf = savesDir.join(BACKUP_DIR).join(backupName(saveName));
+    let name: String = world.file_name().map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+    let saves: &Path = world.parent().unwrap_or(Path::new(""));
+    let target: PathBuf = saves.join(BACKUP_DIR).join(backupName(&name));
     if target.exists()
     {
         return Err(std::io::Error::new(std::io::ErrorKind::AlreadyExists, format!("{} exists", target.display())));
     }
 
-    let bytes: u64 = copyTree(&savesDir.join(saveName), &target)?;
-    info!("Backed up {saveName} ({bytes} bytes) to {}", target.display());
+    let bytes: u64 = copyTree(world, &target)?;
+    info!("Backed up {} ({bytes} bytes) to {}", world.display(), target.display());
     Ok(target)
 }

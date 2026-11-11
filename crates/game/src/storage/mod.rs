@@ -12,7 +12,7 @@ mod save_format_old;
 mod save_handler;
 mod save_handler_mp;
 mod save_old_dir;
-mod world_format;
+pub mod world_format;
 
 pub use chunk_file::ChunkFile;
 pub use chunk_loader::ChunkLoader;

@@ -310,27 +310,6 @@ pub fn onWorldLoad(world: &Rc<World>)
     }
 }
 
-fn copyTree(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()>
-{
-    std::fs::create_dir_all(to)?;
-
-    for entry in std::fs::read_dir(from)?.flatten()
-    {
-        let target: std::path::PathBuf = to.join(entry.file_name());
-
-        if entry.path().is_dir()
-        {
-            copyTree(&entry.path(), &target)?;
-        }
-        else
-        {
-            std::fs::copy(entry.path(), target)?;
-        }
-    }
-
-    Ok(())
-}
-
 // one copy of the world before the first load that holds content of a removed mod
 fn backup(dir: &std::path::Path)
 {
@@ -340,20 +319,14 @@ fn backup(dir: &std::path::Path)
         return;
     }
 
-    let stamp: i64 = jvm::system::currentTimeMillis();
-    let target: std::path::PathBuf = dir.with_file_name(format!(
-        "{}_backup_{stamp}",
-        dir.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default()
-    ));
-
-    match copyTree(dir, &target)
+    match game::storage::world_format::backup(dir)
     {
-        Ok(()) =>
+        Ok(target) =>
         {
             crate::log::warn(crate::log::LOADER, &format!("world backed up to {}", target.display()));
 
             let marked: std::io::Result<()> = std::fs::create_dir_all(dir.join(persist::LOADER_DIR))
-                .and_then(|()| std::fs::write(&marker, stamp.to_string()));
+                .and_then(|()| std::fs::write(&marker, jvm::system::currentTimeMillis().to_string()));
 
             if let Err(error) = marked
             {

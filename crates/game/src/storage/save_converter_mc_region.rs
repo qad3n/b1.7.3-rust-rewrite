@@ -276,7 +276,7 @@ impl ISaveFormat for SaveConverterMcRegion
 
     fn convertMapFormat(&self, saveName: &str, listener: &dyn IProgressUpdate) -> bool
     {
-        if let Err(error) = world_format::backup(&self.m_base.m_dir, saveName)
+        if let Err(error) = world_format::backup(&self.m_base.m_dir.join(saveName))
         {
             throwable::throw(&throwable::RUNTIME, &format!("could not back up {saveName}, not converting it: {error}"));
         }
