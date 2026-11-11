@@ -13,7 +13,12 @@ pub struct Packet250ModPayload
     pub m_data: Vec<u8>,
 }
 
-const MAX_BYTES: u32 = 1 << 20;
+mod limits
+{
+    pub const CLIENTBOUND: u32 = 1 << 20;
+    // rewrite: covers the loader serverbound frame limit and the auth messages with room to spare
+    pub const SERVERBOUND: u32 = 1 << 17;
+}
 
 fn readVarint(input: &mut PacketInput) -> IoResult<u32>
 {
@@ -68,18 +73,13 @@ impl Packet250ModPayload
     {
         Self { m_base: PacketBase::chunkData(), m_channel: channel, m_data: data }
     }
-}
 
-impl Packet for Packet250ModPayload
-{
-    fn base(&self) -> &PacketBase { &self.m_base }
-
-    fn readPacketData(&mut self, input: &mut PacketInput) -> IoResult<()>
+    fn readCapped(&mut self, input: &mut PacketInput, max: u32) -> IoResult<()>
     {
         self.m_channel = readVarint(input)?;
 
         let length: u32 = readVarint(input)?;
-        if length > MAX_BYTES
+        if length > max
         {
             return Err(ioError(&IO, &format!("mod payload of {length} bytes is too large")));
         }
@@ -88,6 +88,29 @@ impl Packet for Packet250ModPayload
         input.readFully(&mut data)?;
         self.m_data = data;
         Ok(())
+    }
+}
+
+impl Packet for Packet250ModPayload
+{
+    fn base(&self) -> &PacketBase { &self.m_base }
+
+    fn readPacketData(&mut self, input: &mut PacketInput) -> IoResult<()>
+    {
+        self.readCapped(input, limits::CLIENTBOUND)
+    }
+
+    fn readSided(&mut self, input: &mut PacketInput, server: bool) -> IoResult<()>
+    {
+        let max: u32 = if server
+        {
+            limits::SERVERBOUND
+        }
+        else
+        {
+            limits::CLIENTBOUND
+        };
+        self.readCapped(input, max)
     }
 
     fn writePacketData(&self, output: &mut PacketOutput) -> IoResult<()>

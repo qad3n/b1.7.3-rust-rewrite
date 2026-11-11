@@ -47,6 +47,9 @@ pub trait Packet: Any + Send + PacketClone
 
     fn readPacketData(&mut self, input: &mut PacketInput) -> IoResult<()>;
 
+    // the server reads what clients send, a packet with tighter limits in that direction overrides this
+    fn readSided(&mut self, input: &mut PacketInput, _server: bool) -> IoResult<()> { self.readPacketData(input) }
+
     fn writePacketData(&self, output: &mut PacketOutput) -> IoResult<()>;
 
     fn processPacket(&self, handler: &dyn NetHandler);
@@ -203,7 +206,7 @@ pub fn readPacket(input: &mut PacketInput, server: bool) -> IoResult<Option<Box<
             return Err(ioError(&IO, &format!("Bad packet id {i}")));
         };
 
-        packet.readPacketData(input)?;
+        packet.readSided(input, server)?;
         Ok(Some(packet))
     };
     let packet: Box<dyn Packet> = match body(&mut i)
