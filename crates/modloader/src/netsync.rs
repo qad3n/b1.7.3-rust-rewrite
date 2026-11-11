@@ -289,6 +289,8 @@ pub struct ServerSession
     m_step: ServerStep,
     m_peer: Option<Hello>,
     m_channels: Vec<Identifier>,
+    // the full data table goes out once, a client asking again is misbehaving
+    m_dataSent: bool,
 }
 
 impl ServerSession
@@ -299,7 +301,7 @@ impl ServerSession
 
         send(sender, &Control::Hello(localHello(false)));
         send(sender, &Control::Channels(channels.clone()));
-        Self { m_who: who, m_step: ServerStep::Hello, m_peer: None, m_channels: channels }
+        Self { m_who: who, m_step: ServerStep::Hello, m_peer: None, m_channels: channels, m_dataSent: false }
     }
 
     pub fn peer(&self) -> Option<&Hello> { self.m_peer.as_ref() }
@@ -349,8 +351,10 @@ impl ServerSession
                 Outcome::Continue
             }
 
-            (ServerStep::Data, Control::DataRequest) =>
+            (ServerStep::Data, Control::DataRequest) if !self.m_dataSent =>
             {
+                self.m_dataSent = true;
+
                 let table: DataTable = (recipeTable(), crate::content::tags::table());
                 send(sender, &Control::Data(DataSync::Full(wire::encode(&table))));
                 Outcome::Continue
