@@ -65,6 +65,7 @@ impl Minecraft
     // runs after the texture pack stack changed
     pub fn reloadTexturePacks(&self)
     {
+        game::locale::StringTranslate::reload();
         self.m_renderEngine.get().orNpe().refreshTextures();
         self.sndManager().rebuild();
     }

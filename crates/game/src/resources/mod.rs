@@ -54,7 +54,19 @@ pub fn overlay(path: &str, image: Rc<BufferedImage>) -> Rc<BufferedImage>
 }
 
 // copies of a merged file such as sounds.json lowest first
-pub fn readAll(location: &Location) -> Vec<Vec<u8>> { STACK.with(|stack| stack.borrow().readAll(location)) }
+pub fn readAll(location: &Location) -> Vec<Vec<u8>>
+{
+    readEach(std::slice::from_ref(location)).into_iter().map(|(_, bytes)| bytes).collect()
+}
+
+// copies of several merged files lowest pack first with the index of the location each one is for
+pub fn readEach(locations: &[Location]) -> Vec<(usize, Vec<u8>)>
+{
+    STACK.with(|stack| stack.borrow().readEach(locations))
+}
+
+// where a modern pack keeps a beta jar file such as /lang/en_US.lang
+pub fn betaLocation(path: &str) -> Location { legacy::location(path) }
 
 // the pack holding a location and the file on disk for it
 pub fn disk(location: &Location) -> Option<(String, PathBuf)> { STACK.with(|stack| stack.borrow().disk(location)) }

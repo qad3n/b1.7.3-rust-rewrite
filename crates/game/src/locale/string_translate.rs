@@ -1,13 +1,19 @@
+use crate::resources::Location;
 use jvm::io::ByteArrayInputStream;
 use jvm::properties::Properties;
-use jvm::throwable::OrNpe;
-use std::cell::OnceCell;
+use jvm::warning;
+use serde_json::{Map, Value};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 thread_local!
 {
-    static INSTANCE: OnceCell<Rc<StringTranslate>> = const { OnceCell::new() };
+    static INSTANCE: RefCell<Option<Rc<StringTranslate>>> = const { RefCell::new(None) };
 }
+
+// the beta files load in this order and a modern json file goes on top within each texture pack
+const LANG_FILES: [&str; 2] = ["/lang/en_US.lang", "/lang/stats_US.lang"];
+const LANG_JSON: &str = "lang/en_us.json";
 
 // rewrite options the vanilla lang files never had
 const REWRITE_KEYS: [(&str, &str); 2] = [("options.vsync", "Use VSync"), ("options.fullscreen", "Fullscreen")];
@@ -17,11 +23,49 @@ pub struct StringTranslate
     m_translateTable: Properties,
 }
 
-fn loadTable(table: &mut Properties, path: &str) -> jvm::io::IoResult<()>
+fn loadJson(table: &mut Properties, bytes: &[u8])
 {
-    // class path resources load from the assets folder through port
-    let mut stream: ByteArrayInputStream = crate::port::getResourceAsStream(path).orNpe();
-    table.load(&mut stream)
+    match serde_json::from_slice::<Map<String, Value>>(bytes)
+    {
+        Ok(entries) =>
+        {
+            for (key, text) in entries.iter().filter_map(|(key, value)| Some((key, value.as_str()?)))
+            {
+                table.setProperty(key, text);
+            }
+        }
+
+        Err(error) => warning!("Skipping a texture pack {LANG_JSON}: {error}"),
+    }
+}
+
+// every texture pack copy lowest first so a higher pack replaces single keys
+fn loadTables(table: &mut Properties) -> jvm::io::IoResult<()>
+{
+    let mut locations: Vec<Location> = LANG_FILES.iter().map(|path| crate::resources::betaLocation(path)).collect();
+    locations.push(Location::minecraft(LANG_JSON));
+
+    let copies: Vec<(usize, Vec<u8>)> = crate::resources::readEach(&locations);
+
+    // beta threw when a jar lang file was missing
+    for which in 0..LANG_FILES.len()
+    {
+        if !copies.iter().any(|(file, _)| *file == which)
+        {
+            jvm::throwable::npe();
+        }
+    }
+
+    for (which, bytes) in copies
+    {
+        match LANG_FILES.get(which)
+        {
+            Some(_) => table.load(&mut ByteArrayInputStream::new(bytes))?,
+            None => loadJson(table, &bytes),
+        }
+    }
+
+    Ok(())
 }
 
 impl StringTranslate
@@ -29,10 +73,7 @@ impl StringTranslate
     fn new() -> Self
     {
         let mut table: Properties = Properties::new();
-        let loaded: jvm::io::IoResult<()> =
-            loadTable(&mut table, "/lang/en_US.lang").and_then(|()| loadTable(&mut table, "/lang/stats_US.lang"));
-
-        if let Err(error) = loaded
+        if let Err(error) = loadTables(&mut table)
         {
             error.printStackTrace();
         }
@@ -50,8 +91,11 @@ impl StringTranslate
 
     pub fn getInstance() -> Rc<Self>
     {
-        INSTANCE.with(|instance| Rc::clone(instance.get_or_init(|| Rc::new(Self::new()))))
+        INSTANCE.with(|instance| Rc::clone(instance.borrow_mut().get_or_insert_with(|| Rc::new(Self::new()))))
     }
+
+    // texture packs changed so the next lookup loads the tables again
+    pub fn reload() { INSTANCE.with(|instance| *instance.borrow_mut() = None); }
 
     // mod lang files are consulted before the vanilla table
     fn lookup(&self, key: &str) -> Option<String>

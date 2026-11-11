@@ -26,8 +26,8 @@ fn element<'a>(parts: &[&'a str], index: usize) -> Result<&'a str, Throwable>
 
 fn load(guidMap: &mut HashMap<i32, String>) -> Result<(), Throwable>
 {
-    // port getResourceAsStream reads the assets folder in place of the jar
-    let Some(mut stream) = crate::port::getResourceAsStream("/achievement/map.txt")
+    // achievement ids are stat data so texture packs never change them
+    let Some(mut stream) = crate::resources::readJar("/achievement/map.txt").map(jvm::io::ByteArrayInputStream::new)
     else
     {
         return Err(Throwable::new(&jvm::throwable::NULL_POINTER, None));

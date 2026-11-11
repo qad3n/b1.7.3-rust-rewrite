@@ -12,7 +12,8 @@ fn getAllowedCharacters() -> String
 {
     let mut s: String = String::new();
 
-    let Some(mut stream) = crate::port::getResourceAsStream("/font.txt")
+    // the allowed chat characters are game rules so texture packs never change them
+    let Some(mut stream) = crate::resources::readJar("/font.txt").map(jvm::io::ByteArrayInputStream::new)
     else
     {
         return s;

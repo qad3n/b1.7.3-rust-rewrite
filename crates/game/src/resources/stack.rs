@@ -38,25 +38,27 @@ impl Stack
         self.m_packs[self.owner(location)?].read(location)
     }
 
-    // every copy of a merged file lowest first and a filter drops the copies below it
-    pub(crate) fn readAll(&self, location: &Location) -> Vec<Vec<u8>>
+    // copies of merged files lowest pack first and in the given order within a pack
+    // a filter keeps the copy of its own pack and drops the copies below it
+    pub(crate) fn readEach(&self, locations: &[Location]) -> Vec<(usize, Vec<u8>)>
     {
-        let mut copies: Vec<Vec<u8>> = Vec::new();
+        let lowest: Vec<usize> = locations
+            .iter()
+            .map(|location| self.m_packs.iter().rposition(|pack| pack.blocks(location)).unwrap_or(0))
+            .collect();
+        let mut copies: Vec<(usize, Vec<u8>)> = Vec::new();
 
-        for pack in self.m_packs.iter().rev()
+        for (index, pack) in self.m_packs.iter().enumerate()
         {
-            if let Some(bytes) = pack.read(location)
+            for (which, location) in locations.iter().enumerate().filter(|(which, _)| index >= lowest[*which])
             {
-                copies.push(bytes);
-            }
-
-            if pack.blocks(location)
-            {
-                break;
+                if let Some(bytes) = pack.read(location)
+                {
+                    copies.push((which, bytes));
+                }
             }
         }
 
-        copies.reverse();
         copies
     }
 
