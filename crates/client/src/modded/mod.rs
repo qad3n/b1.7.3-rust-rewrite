@@ -358,7 +358,8 @@ fn devToolsEnabled() -> bool
 }
 
 // with B173_DEVSHOT set, a devcmd.request file in the game folder runs test lines on the main thread and answers in
-// devcmd.done: world <save> [seed], quit, set <x> <y> <z> <id>, hold <item> [count], held, use, and /<mod command> such as /loader column 0 8 8
+// devcmd.done: world <save> [seed], quit, set <x> <y> <z> <id>, hold <item> [count], held, use, look <yaw> <pitch>, screen,
+// click <x> <y> [button] in gui coordinates, type <text>, key <lwjgl code>, close, and /<mod command> such as /loader column 0 8 8
 pub fn devCommands(mc: &Minecraft)
 {
     if !devToolsEnabled()
@@ -482,6 +483,91 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
         {
             mc.clickMouse(1);
             "used held item".to_owned()
+        }
+
+        ["screen"] => mc.m_currentScreen.get().map_or("no screen".to_owned(), |screen|
+        {
+            format!("{} {}x{}", screen.m_class.m_name, screen.m_width.get(), screen.m_height.get())
+        }),
+
+        ["click", x, y, rest @ ..] =>
+        {
+            let Some(screen) = mc.m_currentScreen.get()
+            else
+            {
+                return "no screen".to_owned();
+            };
+            let (Ok(x), Ok(y)) = (x.parse::<i32>(), y.parse::<i32>())
+            else
+            {
+                return format!("click takes gui coordinates: {line}");
+            };
+            let button: i32 = rest.first().and_then(|button| button.parse().ok()).unwrap_or(0);
+
+            // a press and its release, as GuiScreen.handleMouseInput passes them
+            screen.mouseClicked(x, y, button);
+            screen.mouseMovedOrUp(x, y, button);
+            format!("clicked {} at {x} {y}", screen.m_class.m_name)
+        }
+
+        ["type", text] =>
+        {
+            let Some(screen) = mc.m_currentScreen.get()
+            else
+            {
+                return "no screen".to_owned();
+            };
+
+            // characters only, no LWJGL key codes, as a text field reads them
+            for unit in text.encode_utf16()
+            {
+                screen.keyTyped(unit, 0);
+            }
+
+            format!("typed {} characters into {}", text.chars().count(), screen.m_class.m_name)
+        }
+
+        ["look", yaw, pitch] =>
+        {
+            let Some(player) = mc.m_thePlayer.get()
+            else
+            {
+                return "no player".to_owned();
+            };
+            let (Ok(yaw), Ok(pitch)) = (yaw.parse::<f32>(), pitch.parse::<f32>())
+            else
+            {
+                return format!("look takes degrees: {line}");
+            };
+
+            player.m_rotationYaw.set(yaw);
+            player.m_rotationPitch.set(pitch);
+            player.m_prevRotationYaw.set(yaw);
+            player.m_prevRotationPitch.set(pitch);
+            format!("looking at yaw {yaw} pitch {pitch}")
+        }
+
+        ["key", code] =>
+        {
+            let Some(screen) = mc.m_currentScreen.get()
+            else
+            {
+                return "no screen".to_owned();
+            };
+            let Ok(code) = code.parse::<i32>()
+            else
+            {
+                return format!("key takes an LWJGL key code: {line}");
+            };
+
+            screen.keyTyped(0, code);
+            format!("pressed key {code} on {}", screen.m_class.m_name)
+        }
+
+        ["close"] =>
+        {
+            mc.displayGuiScreen(None);
+            "closed the screen".to_owned()
         }
 
         _ => match line.strip_prefix('/')
