@@ -13,6 +13,7 @@ use game::math::vec3d::Vec3D;
 use game::math::{AxisAlignedBB, MovingObjectPosition};
 use game::tileentity::TileEntity;
 use game::world::{World, WorldInfo};
+use mod_protocol::Identifier;
 use mod_protocol::abi::{BlockInfo, BlockPos, EntityField, HostCall, HostReply, StackRef};
 use std::cell::RefMut;
 use std::collections::BTreeMap;
@@ -39,6 +40,16 @@ pub(crate) fn player(id: i32) -> Result<Rc<Entity>, String>
         .flat_map(|world| world.m_playerEntities.toVec())
         .find(|player| player.m_entityId.get() == id)
         .ok_or_else(|| format!("no player with entity id {id}"))
+}
+
+// a registered entity id such as minecraft:pig becomes the save key the spawner stores, other names pass through
+fn spawnerKey(entity: String) -> String
+{
+    let key: Option<String> = Identifier::parse(&entity).ok().and_then(|id|
+    {
+        crate::registry::with(|registries| registries.m_entities.get(&id).map(|row| row.m_value.m_saveKey.clone()))
+    });
+    key.unwrap_or(entity)
 }
 
 fn authoritative(world: &World) -> Result<(), String>
@@ -943,7 +954,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 world.getBlockTileEntity(pos.x, pos.y, pos.z).ok_or_else(|| format!("no spawner tile at {pos:?}"))?;
             game::tileentity::tile_entity_mob_spawner::setMobID(
                 &tile,
-                Some(jvm::string::JString::from(entity.as_str())),
+                Some(jvm::string::JString::from(spawnerKey(entity).as_str())),
             );
             Ok(())
         })),
