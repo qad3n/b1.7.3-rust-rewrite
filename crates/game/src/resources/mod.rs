@@ -26,20 +26,38 @@ thread_local!
         Layout::Jar,
         Source::Folder(crate::port::assetRoot()),
     ));
-    static STACK: RefCell<Stack> = RefCell::new(Stack::new(vec![vanilla()]));
+    static MODS: RefCell<Vec<Rc<Pack>>> = const { RefCell::new(Vec::new()) };
+    static USER: RefCell<Vec<Rc<Pack>>> = const { RefCell::new(Vec::new()) };
+    static STACK: RefCell<Stack> = RefCell::new(Stack::new(vec![vanilla()], 1));
 }
 
 // the user's extracted b1.7.3 jar read in place
 pub fn vanilla() -> Rc<Pack> { VANILLA.with(Rc::clone) }
 
-// texture packs above the vanilla jar, lowest first
-pub fn install(packs: &[Rc<Pack>])
+fn rebuild()
 {
-    let stack: Vec<Rc<Pack>> = std::iter::once(vanilla()).chain(packs.iter().cloned()).collect();
-    STACK.with(|current| *current.borrow_mut() = Stack::new(stack));
+    let mods: Vec<Rc<Pack>> = MODS.with(|mods| mods.borrow().clone());
+    let user: Vec<Rc<Pack>> = USER.with(|user| user.borrow().clone());
+    let first: usize = 1 + mods.len();
+    let stack: Vec<Rc<Pack>> = std::iter::once(vanilla()).chain(mods).chain(user).collect();
+    STACK.with(|current| *current.borrow_mut() = Stack::new(stack, first));
 }
 
-pub(crate) fn read(location: &Location) -> Option<Vec<u8>> { STACK.with(|stack| stack.borrow().read(location)) }
+// one pack per active mod in load order between the jar and the texture packs
+pub fn setMods(packs: Vec<Rc<Pack>>)
+{
+    MODS.with(|mods| *mods.borrow_mut() = packs);
+    rebuild();
+}
+
+// texture packs the player picked lowest first
+pub fn install(packs: &[Rc<Pack>])
+{
+    USER.with(|user| *user.borrow_mut() = packs.to_vec());
+    rebuild();
+}
+
+pub fn read(location: &Location) -> Option<Vec<u8>> { STACK.with(|stack| stack.borrow().read(location)) }
 
 // a jar path such as /lang/en_US.lang
 pub fn readBeta(path: &str) -> Option<Vec<u8>> { read(&legacy::location(path)) }
@@ -62,11 +80,26 @@ pub fn readAll(location: &Location) -> Vec<Vec<u8>>
 // copies of several merged files lowest pack first with the index of the location each one is for
 pub fn readEach(locations: &[Location]) -> Vec<(usize, Vec<u8>)>
 {
-    STACK.with(|stack| stack.borrow().readEach(locations))
+    STACK.with(|stack| stack.borrow().readEach(locations, false))
 }
+
+// the same copies from the texture packs the player picked only
+pub fn readUser(locations: &[Location]) -> Vec<(usize, Vec<u8>)>
+{
+    STACK.with(|stack| stack.borrow().readEach(locations, true))
+}
+
+// the stack index of the pack serving a location
+pub fn owner(location: &Location) -> Option<usize> { STACK.with(|stack| stack.borrow().owner(location)) }
+
+// minecraft and every mod namespace
+pub fn namespaces() -> Vec<String> { STACK.with(|stack| stack.borrow().namespaces()) }
 
 // where a modern pack keeps a beta jar file such as /lang/en_US.lang
 pub fn betaLocation(path: &str) -> Location { legacy::location(path) }
 
-// the pack holding a location and the file on disk for it
-pub fn disk(location: &Location) -> Option<(String, PathBuf)> { STACK.with(|stack| stack.borrow().disk(location)) }
+// the pack holding a location above the floor pack and the file on disk for it
+pub fn disk(location: &Location, floor: Option<&str>) -> Option<(String, PathBuf)>
+{
+    STACK.with(|stack| stack.borrow().disk(location, floor))
+}

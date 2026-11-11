@@ -21,6 +21,8 @@ const REWRITE_KEYS: [(&str, &str); 2] = [("options.vsync", "Use VSync"), ("optio
 pub struct StringTranslate
 {
     m_translateTable: Properties,
+    // keys from texture packs the player picked that win over mod lang files too
+    m_packTable: Properties,
 }
 
 fn loadJson(table: &mut Properties, bytes: &[u8])
@@ -39,13 +41,42 @@ fn loadJson(table: &mut Properties, bytes: &[u8])
     }
 }
 
+fn locations(namespace: &str) -> Vec<Location>
+{
+    let beta = |path: &&str| Location::new(namespace, &crate::resources::betaLocation(path).m_path);
+    LANG_FILES.iter().map(beta).chain(std::iter::once(Location::new(namespace, LANG_JSON))).collect()
+}
+
+fn loadCopies(table: &mut Properties, copies: Vec<(usize, Vec<u8>)>) -> jvm::io::IoResult<()>
+{
+    for (which, bytes) in copies
+    {
+        // each namespace lists the beta files then the json file
+        match LANG_FILES.get(which % (LANG_FILES.len() + 1))
+        {
+            Some(_) => table.load(&mut ByteArrayInputStream::new(bytes))?,
+            None => loadJson(table, &bytes),
+        }
+    }
+
+    Ok(())
+}
+
+// texture pack keys in every namespace since lang keys share one table
+fn loadPackTable(table: &mut Properties)
+{
+    let all: Vec<Location> = crate::resources::namespaces().iter().flat_map(|namespace| locations(namespace)).collect();
+
+    if let Err(error) = loadCopies(table, crate::resources::readUser(&all))
+    {
+        error.printStackTrace();
+    }
+}
+
 // every texture pack copy lowest first so a higher pack replaces single keys
 fn loadTables(table: &mut Properties) -> jvm::io::IoResult<()>
 {
-    let mut locations: Vec<Location> = LANG_FILES.iter().map(|path| crate::resources::betaLocation(path)).collect();
-    locations.push(Location::minecraft(LANG_JSON));
-
-    let copies: Vec<(usize, Vec<u8>)> = crate::resources::readEach(&locations);
+    let copies: Vec<(usize, Vec<u8>)> = crate::resources::readEach(&locations(crate::resources::MINECRAFT));
 
     // beta threw when a jar lang file was missing
     for which in 0..LANG_FILES.len()
@@ -56,16 +87,7 @@ fn loadTables(table: &mut Properties) -> jvm::io::IoResult<()>
         }
     }
 
-    for (which, bytes) in copies
-    {
-        match LANG_FILES.get(which)
-        {
-            Some(_) => table.load(&mut ByteArrayInputStream::new(bytes))?,
-            None => loadJson(table, &bytes),
-        }
-    }
-
-    Ok(())
+    loadCopies(table, copies)
 }
 
 impl StringTranslate
@@ -86,7 +108,9 @@ impl StringTranslate
             }
         }
 
-        Self { m_translateTable: table }
+        let mut packTable: Properties = Properties::new();
+        loadPackTable(&mut packTable);
+        Self { m_translateTable: table, m_packTable: packTable }
     }
 
     pub fn getInstance() -> Rc<Self>
@@ -97,10 +121,13 @@ impl StringTranslate
     // texture packs changed so the next lookup loads the tables again
     pub fn reload() { INSTANCE.with(|instance| *instance.borrow_mut() = None); }
 
-    // mod lang files are consulted before the vanilla table
+    // texture pack keys then mod lang files then the vanilla table
     fn lookup(&self, key: &str) -> Option<String>
     {
-        crate::hooks::translate(key).or_else(|| self.m_translateTable.getPropertyOrNull(key))
+        self.m_packTable
+            .getPropertyOrNull(key)
+            .or_else(|| crate::hooks::translate(key))
+            .or_else(|| self.m_translateTable.getPropertyOrNull(key))
     }
 
     pub fn translateKey(&self, key: &str) -> String { self.lookup(key).unwrap_or_else(|| key.to_owned()) }

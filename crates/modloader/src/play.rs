@@ -1,5 +1,4 @@
 use crate::host::context::{self, dimension, withWorld};
-use crate::state::ModRuntime;
 use crate::{events, state};
 use game::entity::{Entity, entity_player};
 use game::world::World;
@@ -288,15 +287,16 @@ pub fn interact(player: &Rc<Entity>, pos: BlockPos, face: i32) -> bool
     events::post(EventKind::PlayerInteract, data).canceled
 }
 
-// /mods/<namespace>/<path> textures come from the mod that owns the namespace
+// /mods/<namespace>/<path> textures come from the top texture pack layer holding them which is the mod unless a pack replaces it
 pub fn modAsset(path: &str) -> Option<Vec<u8>>
 {
     let rest: &str = path.strip_prefix("/mods/")?;
     let (namespace, file) = rest.split_once('/')?;
-    let runtime: Rc<ModRuntime> = state::byId(namespace)?;
-    let bytes: Option<Vec<u8>> = runtime.m_source.borrow_mut().read(&format!("assets/{namespace}/{file}"));
-    bytes
+    game::resources::read(&game::resources::Location::new(namespace, file))
 }
+
+// texture packs changed so mod sprites are read again before the sheets reload
+pub fn reloadAssets() { crate::lifecycle::loadSprites(); }
 
 pub fn shutdown() { crate::lifecycle::shutdown(); }
 

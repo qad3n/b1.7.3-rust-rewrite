@@ -75,15 +75,7 @@ impl Pack
     // a zip or a folder from the texturepacks folder, legacy when it has no pack.mcmeta
     pub fn open(path: &Path) -> Result<Self, String>
     {
-        let mut source: Source = if path.is_dir()
-        {
-            Source::Folder(path.to_path_buf())
-        }
-        else
-        {
-            let file: std::fs::File = std::fs::File::open(path).map_err(|error| error.to_string())?;
-            Source::Archive(path.to_path_buf(), zip::ZipArchive::new(file).map_err(|error| error.to_string())?)
-        };
+        let mut source: Source = Source::open(path)?;
 
         let name: String = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
         let Some(bytes) = source.read(files::META)

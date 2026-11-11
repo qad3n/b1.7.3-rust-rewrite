@@ -8,10 +8,12 @@ use crate::resolver::{self, Candidate, Problem, Resolution};
 use crate::state::{self, ModRuntime, Phase};
 use crate::wasm::ModInstance;
 use crate::{atlas, dimensions, events, log, services, side, tiles};
+use game::resources::{Layout, Location, Pack, Source};
 use jvm::logging::took;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{EventData, EventKind, GuestCall, Handle, Lifecycle};
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -337,25 +339,40 @@ fn applyLate()
     crate::modify::applySpawns();
 }
 
-fn loadSprites()
+fn sprite(id: &Identifier) -> Location { Location::new(id.namespace(), &format!("textures/{}.png", id.path())) }
+
+// each mod is a texture pack layer above the jar so the player's packs can retexture it
+fn installPacks()
+{
+    let mut packs: Vec<Rc<Pack>> = Vec::new();
+
+    for runtime in state::mods()
+    {
+        let path: PathBuf = runtime.m_source.borrow().path().to_path_buf();
+        match Source::open(&path)
+        {
+            Ok(source) => packs.push(Rc::new(Pack::new(runtime.id(), &[], Layout::Modern, source))),
+            Err(reason) => log::warn(runtime.id(), &format!("assets could not be opened: {reason}")),
+        }
+    }
+
+    game::resources::setMods(packs);
+}
+
+pub(crate) fn loadSprites()
 {
     if !side::isClient()
     {
         return;
     }
 
-    let mods: Vec<Rc<ModRuntime>> = state::mods();
-
-    let read = |path: &str, id: &Identifier| -> Option<Vec<u8>>
-    {
-        let owner: Rc<ModRuntime> = mods.iter().find(|runtime| runtime.id() == id.namespace())?.clone();
-        let bytes: Option<Vec<u8>> = owner.m_source.borrow_mut().read(path);
-        bytes
-    };
     let problems: Vec<String> =
-        atlas::loadSprites(&|id: &Identifier| read(&atlas::texturePath(id), id), &|id: &Identifier|
+        atlas::loadSprites(&|id: &Identifier| game::resources::read(&sprite(id)), &|id: &Identifier|
         {
-            read(&atlas::metaPath(id), id).and_then(|bytes| String::from_utf8(bytes).ok())
+            // a .mcmeta only counts from the pack serving the png or one above it
+            let meta: Location = Location::new(id.namespace(), &format!("textures/{}.png.mcmeta", id.path()));
+            let current: bool = game::resources::owner(&meta) >= game::resources::owner(&sprite(id));
+            game::resources::read(&meta).filter(|_| current).and_then(|bytes| String::from_utf8(bytes).ok())
         });
 
     for problem in problems
@@ -508,6 +525,11 @@ fn start(paths: &LoaderPaths)
     }
 
     state::setMods(runtimes.into_iter().map(Rc::new).collect());
+
+    if side::isClient()
+    {
+        installPacks();
+    }
 
     for runtime in state::mods()
     {

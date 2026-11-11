@@ -2,7 +2,7 @@ use crate::client::Minecraft;
 use crate::entity::entity_client_player_mp;
 use crate::network::net_client_handler::NetClientHandler;
 use crate::render::OpenGlCapsChecker;
-use crate::sound::Pool;
+use crate::sound::{Origin, Pool};
 use game::storage::ISaveFormat;
 use jvm::throwable::OrNpe;
 use std::path::{Path, PathBuf};
@@ -50,15 +50,15 @@ impl Minecraft
 
         if string.eq_ignore_ascii_case("sound") || string.eq_ignore_ascii_case("newsound")
         {
-            self.sndManager().install(Pool::Sounds, path, file, true);
+            self.sndManager().install(Pool::Sounds, path, file, Origin::Resources);
         }
         else if string.eq_ignore_ascii_case("streaming")
         {
-            self.sndManager().install(Pool::Streaming, path, file, true);
+            self.sndManager().install(Pool::Streaming, path, file, Origin::Resources);
         }
         else if string.eq_ignore_ascii_case("music") || string.eq_ignore_ascii_case("newmusic")
         {
-            self.sndManager().install(Pool::Music, path, file, true);
+            self.sndManager().install(Pool::Music, path, file, Origin::Resources);
         }
     }
 
@@ -66,6 +66,7 @@ impl Minecraft
     pub fn reloadTexturePacks(&self)
     {
         game::locale::StringTranslate::reload();
+        modloader::play::reloadAssets();
         self.m_renderEngine.get().orNpe().refreshTextures();
         self.sndManager().rebuild();
     }

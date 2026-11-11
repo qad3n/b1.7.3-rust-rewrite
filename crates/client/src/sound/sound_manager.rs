@@ -1,5 +1,5 @@
 use crate::settings::GameSettings;
-use crate::sound::texture_pack_sounds::{self, Event, Install, Pool, Sound};
+use crate::sound::texture_pack_sounds::{self, Event, Install, Origin, Pool, Sound};
 use crate::sound::{CodecMus, SoundPool, SoundPoolEntry};
 use game::entity::Entity;
 use game::math::math_helper::{cos, sin};
@@ -155,11 +155,11 @@ impl SoundManager
         }
     }
 
-    pub fn addSound(&self, path: &str, dir: &Path) { self.install(Pool::Sounds, path, dir, false); }
+    pub fn addSound(&self, path: &str, dir: &Path) { self.install(Pool::Sounds, path, dir, Origin::Mod); }
 
-    pub fn addStreaming(&self, path: &str, file: &Path) { self.install(Pool::Streaming, path, file, false); }
+    pub fn addStreaming(&self, path: &str, file: &Path) { self.install(Pool::Streaming, path, file, Origin::Mod); }
 
-    pub fn addMusic(&self, path: &str, file: &Path) { self.install(Pool::Music, path, file, false); }
+    pub fn addMusic(&self, path: &str, file: &Path) { self.install(Pool::Music, path, file, Origin::Mod); }
 
     fn pool(&self, pool: Pool) -> &SoundPool
     {
@@ -171,13 +171,13 @@ impl SoundManager
         }
     }
 
-    // vanilla files come from the resources folder and a texture pack may replace them
-    pub fn install(&self, pool: Pool, path: &str, file: &Path, vanilla: bool)
+    // a texture pack above the origin of a file may replace it
+    pub fn install(&self, pool: Pool, path: &str, file: &Path, origin: Origin)
     {
         self.pool(pool).addSound(path, file);
 
         let install: Install =
-            Install { m_pool: pool, m_path: path.to_owned(), m_file: file.to_path_buf(), m_vanilla: vanilla };
+            Install { m_pool: pool, m_path: path.to_owned(), m_file: file.to_path_buf(), m_origin: origin };
         self.m_installs.borrow_mut().push(install);
     }
 

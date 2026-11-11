@@ -11,6 +11,18 @@ pub enum Source
 
 impl Source
 {
+    // a folder as it is or a zip file
+    pub fn open(path: &Path) -> Result<Self, String>
+    {
+        if path.is_dir()
+        {
+            return Ok(Self::Folder(path.to_path_buf()));
+        }
+
+        let file: File = File::open(path).map_err(|error| error.to_string())?;
+        Ok(Self::Archive(path.to_path_buf(), ZipArchive::new(file).map_err(|error| error.to_string())?))
+    }
+
     pub fn path(&self) -> &Path
     {
         match self
