@@ -170,9 +170,7 @@ pub fn player(kind: EventKind, player: &Rc<Entity>)
     }
     if kind == EventKind::PlayerLogin
     {
-        crate::attributes::syncOwn(player);
-        crate::content::effects::syncOwn(player);
-        crate::content::progress::syncOwn(player);
+        resync(player);
     }
 
     let action: &str = match kind
@@ -192,8 +190,23 @@ pub fn player(kind: EventKind, player: &Rc<Entity>)
     events::post(kind, EventData::Player { player: player.m_entityId.get(), world, name });
 }
 
+// a player's own client keeps a copy of its attributes, effects and progress, sent again whenever it makes a new
+// player object: on login, respawn and dimension change
+pub fn resync(player: &Rc<Entity>)
+{
+    if !active()
+    {
+        return;
+    }
+
+    crate::attributes::syncOwn(player);
+    crate::content::effects::syncOwn(player);
+    crate::content::progress::syncOwn(player);
+}
+
 pub fn dimensionChanged(player: &Rc<Entity>, from: i32, to: i32)
 {
+    resync(player);
     if active()
     {
         let name: String = crate::gamelog::name(player);

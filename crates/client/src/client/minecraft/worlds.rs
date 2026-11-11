@@ -342,7 +342,13 @@ impl Minecraft
             world.setEntityDead(&player);
         }
         self.m_renderViewEntity.set(None);
+        let previous: Option<Rc<Entity>> = self.m_thePlayer.get();
         let player: Rc<Entity> = self.playerController().createPlayer(&world);
+        // rewrite: mod stats and achievements outlive the dead player object
+        if let Some(previous) = previous
+        {
+            entity_player::fields(&player).m_progress.copyFrom(&entity_player::fields(&previous).m_progress);
+        }
         self.m_thePlayer.set(Some(Rc::clone(&player)));
         // the respawned player replaces the old one for mod packets and events
         modloader::play::playerChanged(Some(Rc::clone(&player)));

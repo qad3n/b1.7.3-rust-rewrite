@@ -259,6 +259,7 @@ impl ServerConfigurationManager
             &ItemInWorldManager::new(&self.m_mcServer.getWorldManager(playerFields.m_dimension.get())),
         );
         entityplayermp.m_entityId.set(player.m_entityId.get());
+        entity_player::fields(&entityplayermp).m_progress.copyFrom(&entity_player::fields(player).m_progress);
         entity_player_mp::fields(&entityplayermp)
             .m_playerNetServerHandler
             .set(entity_player_mp::fields(player).m_playerNetServerHandler.get());
@@ -311,6 +312,8 @@ impl ServerConfigurationManager
         self.m_playerEntities.add(Rc::clone(&entityplayermp));
         entity_player_mp::initMenu(&entityplayermp);
         entity_player_mp::afterRespawn(&entityplayermp);
+        // the client made a new player object for the respawn packet, so mod state goes to it again
+        modloader::play::resync(&entityplayermp);
         entityplayermp
     }
 
@@ -394,6 +397,8 @@ impl ServerConfigurationManager
         player.setWorld(Some(Rc::clone(&worldserver1)));
         self.sendWorldInfo(player, &worldserver1);
         self.sendPlayerInfo(player);
+        // the client made a new player object for the respawn packet, so mod state goes to it again
+        modloader::play::resync(player);
     }
 
     pub fn onTick(&self)

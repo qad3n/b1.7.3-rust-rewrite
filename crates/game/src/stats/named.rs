@@ -170,6 +170,13 @@ impl Progress
 {
     pub fn stats(&self) -> BTreeMap<String, i32> { self.m_stats.borrow().clone() }
 
+    // a respawned player keeps what the dead one earned, beta makes a new player object on respawn
+    pub fn copyFrom(&self, other: &Progress)
+    {
+        *self.m_stats.borrow_mut() = other.m_stats.borrow().clone();
+        *self.m_achievements.borrow_mut() = other.m_achievements.borrow().clone();
+    }
+
     pub fn earned(&self) -> BTreeSet<String> { self.m_achievements.borrow().clone() }
 
     // a server's copy for this client's own player, newly earned achievements still get their toast
