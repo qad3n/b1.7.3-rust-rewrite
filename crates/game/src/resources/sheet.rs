@@ -6,16 +6,16 @@ use jvm::io::ByteArrayInputStream;
 use jvm::{debug, warning};
 use std::rc::Rc;
 
-const TILES: i32 = 16;
+pub(crate) const TILES: i32 = 16;
 
-struct Sheet
+pub(crate) struct Sheet
 {
-    m_beta: &'static str,
-    m_folder: &'static str,
-    m_sprites: &'static [Sprite],
+    pub(crate) m_beta: &'static str,
+    pub(crate) m_folder: &'static str,
+    pub(crate) m_sprites: &'static [Sprite],
 }
 
-const SHEETS: &[Sheet] = &[
+pub(crate) const SHEETS: &[Sheet] = &[
     Sheet { m_beta: "terrain.png", m_folder: "block", m_sprites: TERRAIN },
     Sheet { m_beta: "gui/items.png", m_folder: "item", m_sprites: ITEMS },
 ];

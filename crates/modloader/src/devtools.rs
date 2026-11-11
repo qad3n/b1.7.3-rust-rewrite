@@ -4,12 +4,14 @@ use game::inventory::{IInventory, InventoryPlayer};
 use game::world::{IChunkProvider, World};
 use game::worldgen::{EnumCreatureType, SpawnListEntry};
 use mod_protocol::abi::Sender;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Instant;
 
 // console and op tools for checking ported content without a client: generate terrain, map it, read columns
 pub const COMMAND: &str = "loader";
-const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player> | spawns <dim> <monster|creature|water> <x> <y> <z> | structures <dim> | structure <dim> <x> <y> <z> | locate <dim> <structure> <x> <z> [radius]";
+const TEMPLATE_FOLDER: &str = "texturepacks/vanilla_template";
+const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player> | spawns <dim> <monster|creature|water> <x> <y> <z> | structures <dim> | structure <dim> <x> <y> <z> | locate <dim> <structure> <x> <z> [radius] | texturepack export [folder]";
 
 mod map
 {
@@ -499,6 +501,19 @@ fn entities(world: &World) -> String
     format!("loaded [{}] players [{}]", loaded.join("; "), players.join("; "))
 }
 
+// writes the vanilla files as a modern texture pack folder to start a pack from
+fn texturePack(args: &[String]) -> Result<String, String>
+{
+    if args.get(1).map(String::as_str) != Some("export")
+    {
+        return Err(USAGE.to_owned());
+    }
+
+    let target: PathBuf = args.get(2).map_or_else(|| jvm::data_dir::root().join(TEMPLATE_FOLDER), PathBuf::from);
+    let count: usize = game::resources::export(&target)?;
+    Ok(format!("wrote {count} files to {}", target.display()))
+}
+
 fn run(args: &[String]) -> Result<String, String>
 {
     let tool: &str = args.first().map(String::as_str).ok_or(USAGE)?;
@@ -507,6 +522,8 @@ fn run(args: &[String]) -> Result<String, String>
         "tp" => return teleport(args),
         "use" => return useItem(args),
         "interact" => return interact(args),
+
+        "texturepack" => return texturePack(args),
 
         "close" =>
         {

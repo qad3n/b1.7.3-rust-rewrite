@@ -91,6 +91,12 @@ const FILES: &[File] = &[
     File { m_beta: "title/splashes.txt", m_modern: "texts/splashes.txt" },
 ];
 
+// every beta file and its modern path in table order
+pub(crate) fn files() -> impl Iterator<Item = (&'static str, &'static str)>
+{
+    FILES.iter().map(|file| (file.m_beta, file.m_modern))
+}
+
 // a file the table does not know keeps its beta path under the minecraft namespace
 pub(crate) fn location(path: &str) -> Location
 {

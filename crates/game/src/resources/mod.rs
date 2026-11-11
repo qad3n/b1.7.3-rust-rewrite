@@ -1,4 +1,5 @@
 mod animation;
+mod export;
 mod legacy;
 mod location;
 mod pack;
@@ -8,6 +9,7 @@ mod sprites;
 mod stack;
 
 pub use animation::{Frame, animate, painted};
+pub use export::export;
 use jvm::image::BufferedImage;
 pub use location::{Location, MINECRAFT};
 pub use pack::{Layout, Pack};

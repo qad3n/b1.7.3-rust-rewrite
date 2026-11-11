@@ -301,3 +301,7 @@ pub(crate) const ITEMS: &[Sprite] = &[
     Sprite { m_slot: 240, m_name: "music_disc_13", m_span: 1 },
     Sprite { m_slot: 241, m_name: "music_disc_cat", m_span: 1 },
 ];
+
+// sprites the beta texture effects redraw every tick so an exported template leaves them out and the effects keep running
+pub(crate) const EFFECTS: &[&str] =
+    &["nether_portal", "fire_0", "fire_1", "water_still", "water_flow", "lava_still", "lava_flow", "compass", "clock"];
