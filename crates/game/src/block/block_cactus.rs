@@ -4,7 +4,7 @@ use crate::math::AxisAlignedBB;
 use crate::world::World;
 use std::rc::Rc;
 
-fn canBlockStay(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
+fn canBlockStay(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
     if world.getBlockMaterial(x - 1, y, z).isSolid()
         || world.getBlockMaterial(x + 1, y, z).isSolid()
@@ -15,7 +15,7 @@ fn canBlockStay(_this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) ->
     }
 
     let n: i32 = world.getBlockId(x, y - 1, z);
-    n == Block::CACTUS || n == Block::SAND
+    n == this.m_blockID || n == Block::SAND
 }
 
 pub const CLASS: BlockClass = BlockClass

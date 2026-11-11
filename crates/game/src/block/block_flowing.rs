@@ -1,5 +1,5 @@
 use crate::block::block_fluid::{self, getFlowDecay};
-use crate::block::{Block, BlockClass, Material};
+use crate::block::{Block, BlockClass, Material, block_door, block_ladder};
 use crate::fluid::{Fluid, FluidStyle};
 use crate::world::World;
 use jvm::random::Random;
@@ -272,20 +272,23 @@ fn getOptimalFlowDirections(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32,
 fn blockBlocksFlow(world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
 {
     let n: i32 = world.getBlockId(x, y, z);
-    if n == Block::DOOR_WOOD
-        || n == Block::DOOR_STEEL
-        || n == Block::SIGN_POST
-        || n == Block::LADDER
-        || n == Block::REED
-    {
-        return true;
-    }
     if n == 0
     {
         return false;
     }
 
-    Block::byId(n).orNpe().m_blockMaterial.getIsSolid()
+    let block: Rc<Block> = Block::byId(n).orNpe();
+    // by class so mod doors and ladders hold water back like beta's
+    let holds: bool = n == Block::SIGN_POST
+        || n == Block::REED
+        || block.instanceOf(block_door::CLASS.m_name)
+        || block.instanceOf(block_ladder::CLASS.m_name);
+    if holds
+    {
+        return true;
+    }
+
+    block.m_blockMaterial.getIsSolid()
 }
 
 fn getSmallestFlowDecay(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, depth: i32) -> i32

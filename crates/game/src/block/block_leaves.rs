@@ -182,7 +182,7 @@ fn harvestBlock(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32
             return;
         }
 
-        this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::LEAVES, 1, metadata & 3));
+        this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(this.m_blockID, 1, metadata & 3));
     }
     else
     {

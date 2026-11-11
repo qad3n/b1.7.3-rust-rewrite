@@ -74,7 +74,7 @@ pub const CLASS: BlockClass = BlockClass
                 return;
             }
 
-            this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(Block::TNT, 1, 0));
+            this.dropBlockAsItem_do(world, x, y, z, ItemStack::withDamage(this.m_blockID, 1, 0));
         }
         else
         {
