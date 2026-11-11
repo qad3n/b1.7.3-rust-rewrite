@@ -141,8 +141,10 @@ fn parts(tag: &Identifier) -> (&str, &str) { tag.path().split_once('/').unwrap_o
 
 fn unifiable(settings: &Settings, tag: &Identifier) -> bool
 {
-    let (kind, _): (&str, &str) = parts(tag);
-    tag.namespace() == COMMON && settings.prefixes.iter().any(|allowed| allowed == kind)
+    // a parent such as c:ores holds every material, only a tag naming one material is a group
+    let (kind, material): (&str, &str) = parts(tag);
+    let named: bool = !material.is_empty();
+    named && tag.namespace() == COMMON && settings.prefixes.iter().any(|allowed| allowed == kind)
 }
 
 // how many kinds of each material every mod adds, item and block tags counted together
