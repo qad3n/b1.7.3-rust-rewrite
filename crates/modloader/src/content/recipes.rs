@@ -223,9 +223,11 @@ fn ingredientOf(spec: &IngredientSpec) -> Result<Ingredient, String>
 }
 
 // removals use the vanilla list order the registry was seeded from, so they run before any mod recipe is added
-pub fn removeVanilla(indices: &mut [i32])
+pub fn removeVanilla(indices: &mut Vec<i32>)
 {
     indices.sort_unstable();
+    // two mods removing one recipe would otherwise shift the list and remove its neighbour
+    indices.dedup();
 
     let manager: Rc<CraftingManager> = CraftingManager::getInstance();
 
