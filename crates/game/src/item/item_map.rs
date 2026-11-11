@@ -1,5 +1,5 @@
-use crate::block::Block;
 use crate::block::map_color::MapColor;
+use crate::block::{BLOCK_IDS, Block};
 use crate::entity::Entity;
 use crate::item::{Item, ItemClass, ItemStack, MapData, item_map_base};
 use crate::math::math_helper;
@@ -95,7 +95,8 @@ pub fn update(world: &Rc<World>, entity: &Rc<Entity>, base: &MapDataBase)
             let bl: bool = n16 * n16 + n17 * n17 > (n8 - 2) * (n8 - 2);
             let n18: i32 = (n4 / n3 + i - n / 2) * n3;
             let n19: i32 = (n5 / n3 + j - n2 / 2) * n3;
-            let mut nArray: [i32; 256] = [0; 256];
+            // counts every block id so mod blocks past beta's 256 fit
+            let mut nArray: [i32; BLOCK_IDS] = [0; BLOCK_IDS];
             let chunk: Rc<Chunk> = world.getChunkFromBlockCoords(n18, n19);
             let n23: i32 = n18 & 0xF;
             let n24: i32 = n19 & 0xF;
