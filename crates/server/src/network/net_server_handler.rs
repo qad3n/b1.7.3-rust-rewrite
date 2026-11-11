@@ -342,6 +342,14 @@ impl NetHandler for NetServerHandler
 
     fn handlePlayerInput(&self, packet: &Packet27Position)
     {
+        let values: [f32; 4] =
+            [packet.getSidewaysSpeed(), packet.getForwardSpeed(), packet.getPitch(), packet.getYaw()];
+        if !values.iter().all(|value| value.is_finite())
+        {
+            self.kickPlayer("Illegal position");
+            return;
+        }
+
         entity_player_mp::setMovementType(
             &self.player(),
             packet.getSidewaysSpeed(),
@@ -357,6 +365,16 @@ impl NetHandler for NetServerHandler
     {
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(self.dimension());
         let player: Rc<Entity> = self.player();
+
+        // rewrite: nan slips past every range check below and would leave the player at an undefined position
+        let coordinates: [f64; 4] = [packet.m_xPosition, packet.m_yPosition, packet.m_zPosition, packet.m_stance];
+        let finite: bool =
+            coordinates.iter().all(|value| value.is_finite()) && packet.m_yaw.is_finite() && packet.m_pitch.is_finite();
+        if !finite
+        {
+            self.kickPlayer("Illegal position");
+            return;
+        }
 
         self.m_moved.set(true);
 
