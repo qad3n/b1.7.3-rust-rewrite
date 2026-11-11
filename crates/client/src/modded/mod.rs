@@ -326,10 +326,17 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
             // as GuiSelectWorld and GuiCreateWorld do before a single player world starts
             mc.m_playerController.set(Some(crate::controller::player_controller_sp::new(&mc.rc())));
             mc.startWorld(save, save, seed);
+            mc.displayGuiScreen(None);
             format!("opened {save}")
         }
         ["quit"] =>
         {
+            // as the pause menu's quit button, a server hears that the player left
+            if mc.isMultiplayerWorld()
+                && let Some(world) = mc.m_theWorld.get()
+            {
+                world.sendQuittingDisconnectingPacket();
+            }
             mc.changeWorld1(None);
             mc.displayGuiScreen(Some(crate::gui::GuiMainMenu::new()));
             "quit to title".to_owned()
