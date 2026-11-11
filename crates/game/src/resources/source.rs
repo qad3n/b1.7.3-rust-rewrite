@@ -1,7 +1,10 @@
+use jvm::warning;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
+
+const ENTRY_LIMIT: u64 = 256 << 20;
 
 pub enum Source
 {
@@ -35,11 +38,19 @@ impl Source
     {
         match self
         {
-            Self::Archive(_, archive) =>
+            Self::Archive(path, archive) =>
             {
-                let mut entry: zip::read::ZipFile<'_, File> = archive.by_name(name).ok()?;
-                let mut bytes: Vec<u8> = Vec::with_capacity(entry.size() as usize);
-                entry.read_to_end(&mut bytes).ok()?;
+                let entry: zip::read::ZipFile<'_, File> = archive.by_name(name).ok()?;
+                let mut bytes: Vec<u8> = Vec::new();
+                // rewrite: the declared size is not trusted so a forged entry cannot allocate or inflate without bound
+                entry.take(ENTRY_LIMIT + 1).read_to_end(&mut bytes).ok()?;
+
+                if bytes.len() as u64 > ENTRY_LIMIT
+                {
+                    warning!("{name} in {} is over the {ENTRY_LIMIT} byte entry limit", path.display());
+                    return None;
+                }
+
                 Some(bytes)
             }
 
