@@ -1,4 +1,4 @@
-use crate::manifest::{Manifest, SideSpec};
+use crate::manifest::{Manifest, ModKind, SideSpec};
 use mod_protocol::identifier::isValidModId;
 use mod_protocol::{API_MAJOR, API_MINOR};
 use semver::{Version, VersionReq};
@@ -301,6 +301,34 @@ fn cascade(resolver: &mut Resolver<'_>, active: &mut BTreeSet<usize>, mut failed
     }
 }
 
+// every installed file counts so a mod skipped for its side or failed still keeps its library
+fn needed(candidates: &[Candidate], library: usize) -> bool
+{
+    let manifest: &Manifest = &candidates[library].m_manifest;
+    let names = |id: &String| *id == manifest.id || manifest.provides.contains(id);
+
+    candidates
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| *index != library)
+        .any(|(_, user)| user.m_manifest.depends.keys().chain(user.m_manifest.optional.keys()).any(names))
+}
+
+// an unused library still loads but the player learns it can go
+fn checkLibraries(resolver: &mut Resolver<'_>, active: &BTreeSet<usize>)
+{
+    for index in active.iter().copied()
+    {
+        let library: bool = resolver.m_candidates[index].m_manifest.kind == ModKind::Library;
+        if !library || needed(resolver.m_candidates, index)
+        {
+            continue;
+        }
+
+        resolver.problem(index, "is a library that no installed mod uses".to_owned());
+    }
+}
+
 fn sort(resolver: &mut Resolver<'_>, active: &BTreeSet<usize>) -> Vec<usize>
 {
     let mut edges: BTreeMap<usize, BTreeSet<usize>> = BTreeMap::new();
@@ -398,6 +426,7 @@ pub fn resolve(candidates: &[Candidate], physical: SideSpec) -> Resolution
 
     let failed: BTreeSet<usize> = checkRelations(&mut resolver, &active);
     cascade(&mut resolver, &mut active, failed);
+    checkLibraries(&mut resolver, &active);
 
     let order: Vec<usize> = sort(&mut resolver, &active);
     Resolution { m_order: order, m_skipped: skipped, m_problems: resolver.m_problems }

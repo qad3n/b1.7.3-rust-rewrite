@@ -28,6 +28,15 @@ impl SideSpec
     }
 }
 
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ModKind
+{
+    #[default]
+    Mod,
+    Library,
+}
+
 #[derive(Deserialize, Clone, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct NetworkSpec
@@ -62,6 +71,8 @@ pub struct Manifest
     #[serde(default)]
     pub license: String,
     pub api: String,
+    #[serde(default)]
+    pub kind: ModKind,
     #[serde(default)]
     pub side: SideSpec,
     #[serde(default)]

@@ -7,7 +7,7 @@ use jvm::throwable::OrNpe;
 use lwjgl::Sys;
 use lwjgl::input::{Keyboard, Mouse};
 use modloader::log;
-use modloader::manifest::Manifest;
+use modloader::manifest::{Manifest, ModKind};
 use modloader::resolver::Problem;
 use modloader::state::{self, ModRuntime};
 use std::cell::{Cell, Ref, RefCell};
@@ -60,6 +60,7 @@ const SELECT_HINT: &str = "Select a mod to see its details";
 enum Status
 {
     Loaded,
+    Library,
     Warning,
     Failed,
     Skipped,
@@ -73,8 +74,9 @@ struct StatusRow
     m_color: i32,
 }
 
-const STATUSES: [StatusRow; 4] = [
+const STATUSES: [StatusRow; 5] = [
     StatusRow { m_status: Status::Loaded, m_label: "Loaded", m_summary: "loaded", m_color: 0x55FF55 },
+    StatusRow { m_status: Status::Library, m_label: "Library", m_summary: "library", m_color: 0x55FFFF },
     StatusRow { m_status: Status::Warning, m_label: "Warning", m_summary: "with warnings", m_color: 0xFFFF55 },
     StatusRow { m_status: Status::Failed, m_label: "Failed", m_summary: "failed", m_color: RED },
     StatusRow { m_status: Status::Skipped, m_label: "Skipped", m_summary: "skipped", m_color: GREY },
@@ -239,14 +241,16 @@ fn modEntry(runtime: Rc<ModRuntime>, problems: &mut Vec<Problem>) -> Entry
         std::mem::take(problems).into_iter().partition(|problem| owns(&runtime, problem));
     *problems = rest;
 
-    let status: Status = match (runtime.isActive() && runtime.m_instance.is_some(), own.is_empty())
+    let manifest: &Manifest = &runtime.m_manifest;
+
+    let status: Status = match (runtime.isActive() && runtime.m_instance.is_some(), own.is_empty(), manifest.kind)
     {
-        (false, _) => Status::Failed,
-        (true, true) => Status::Loaded,
-        (true, false) => Status::Warning,
+        (false, _, _) => Status::Failed,
+        (true, true, ModKind::Mod) => Status::Loaded,
+        (true, true, ModKind::Library) => Status::Library,
+        (true, false, _) => Status::Warning,
     };
 
-    let manifest: &Manifest = &runtime.m_manifest;
     let mut details: Vec<Line> = own.into_iter().map(|problem| (problem.m_reason, status.row().m_color)).collect();
 
     if !manifest.description.is_empty()
