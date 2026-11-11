@@ -1126,7 +1126,10 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             world.createExplosion(None, pos[0], pos[1], pos[2], power);
             Ok(())
         })),
-        call @ (HostCall::ExplosionResistance { .. } | HostCall::BlastBlock { .. } | HostCall::BlockDensity { .. }) =>
+        call @ (HostCall::ExplosionResistance { .. }
+        | HostCall::BlastBlock { .. }
+        | HostCall::BlockDensity { .. }
+        | HostCall::ExplodeWith { .. }) =>
         {
             crate::blast::handle(call)
         }

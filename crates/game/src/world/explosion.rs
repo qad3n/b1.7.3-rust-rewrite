@@ -13,11 +13,16 @@ use jvm::throwable::OrNpe;
 use std::cell::Cell;
 use std::rc::Rc;
 
+const VANILLA_DROP_CHANCE: f32 = 0.3;
+
 pub struct Explosion
 {
     pub m_isFlaming: Cell<bool>,
     // a mob explosion with mob griefing off hurts entities but leaves every block
     pub m_destructive: Cell<bool>,
+    // a mod explosion may drop blocks at its own chance and scale entity damage, vanilla keeps 0.3 and 1
+    pub m_dropChance: Cell<f32>,
+    pub m_damageScale: Cell<f32>,
     m_explosionRNG: Random,
     m_worldObj: Rc<World>,
     pub m_explosionX: Cell<f64>,
@@ -36,6 +41,8 @@ impl Explosion
         {
             m_isFlaming: Cell::new(false),
             m_destructive: Cell::new(true),
+            m_dropChance: Cell::new(VANILLA_DROP_CHANCE),
+            m_damageScale: Cell::new(1.0),
             m_explosionRNG: Random::new(),
             m_worldObj: Rc::clone(world),
             m_explosionX: Cell::new(x),
@@ -157,7 +164,8 @@ impl Explosion
             let d14: f64 = (1.0 - d4) * d13;
             entity.attackEntityFrom(
                 &DamageSource::withAttacker(DamageKind::Explosion, self.m_exploder.as_ref()),
-                ((d14 * d14 + d14) / 2.0 * 8.0 * self.m_explosionSize.get() as f64 + 1.0) as i32,
+                (((d14 * d14 + d14) / 2.0 * 8.0 * self.m_explosionSize.get() as f64 + 1.0)
+                    * self.m_damageScale.get() as f64) as i32,
             );
 
             let d8: f64 = d14;
@@ -243,7 +251,14 @@ impl Explosion
             if i1 > 0
                 && !crate::hooks::fire(crate::hooks::GameEvent::ExplosionAffect { world, x: j, y: k, z: l, block: i1 })
             {
-                Block::byId(i1).orNpe().dropBlockAsItemWithChance(world, j, k, l, world.getBlockMetadata(j, k, l), 0.3);
+                Block::byId(i1).orNpe().dropBlockAsItemWithChance(
+                    world,
+                    j,
+                    k,
+                    l,
+                    world.getBlockMetadata(j, k, l),
+                    self.m_dropChance.get(),
+                );
                 world.setBlockWithNotify(j, k, l, 0);
                 Block::byId(i1).orNpe().onBlockDestroyedByExplosion(world, j, k, l);
             }

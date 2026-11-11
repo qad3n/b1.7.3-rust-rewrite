@@ -1,9 +1,8 @@
-use crate::host::context;
-use crate::host::{ok, unit};
+use crate::host::{context, ok, unit};
 use game::block::Block;
 use game::entity::Entity;
 use game::math::Vec3D;
-use game::world::World;
+use game::world::{Explosion, World};
 use mod_protocol::abi::{BlockPos, HostCall, HostReply};
 use std::rc::Rc;
 
@@ -45,13 +44,44 @@ fn density(world: &Rc<World>, from: [f64; 3], id: i32) -> Result<f32, String>
     Ok(world.getBlockDensity(&point, &entity.m_boundingBox))
 }
 
+// a whole explosion run here, a ray pass over thousands of blocks would overrun a guest call's time budget
+fn explode(world: &Rc<World>, at: [f64; 3], power: f32, drop: f32, damage: f32, fire: bool) -> Result<(), String>
+{
+    if !crate::side::isAuthority(world)
+    {
+        return Err("only the side that owns the world may change it".to_owned());
+    }
+
+    let explosion: Rc<Explosion> = Explosion::new(world, None, at[0], at[1], at[2], power);
+    explosion.m_isFlaming.set(fire);
+    explosion.m_dropChance.set(drop);
+    explosion.m_damageScale.set(damage);
+    explosion.doExplosionA();
+    explosion.doExplosionB(true);
+    Ok(())
+}
+
 pub fn handle(call: HostCall) -> HostReply
 {
     match call
     {
         HostCall::ExplosionResistance { block } => HostReply::Float(resistance(block)),
-        HostCall::BlastBlock { world: dimension, pos, chance } => unit(world(dimension).and_then(|world| blast(&world, pos, chance))),
-        HostCall::BlockDensity { world: dimension, from, id } => ok(world(dimension).and_then(|world| density(&world, from, id)), HostReply::Float),
+
+        HostCall::BlastBlock { world: dimension, pos, chance } =>
+        {
+            unit(world(dimension).and_then(|world| blast(&world, pos, chance)))
+        }
+
+        HostCall::ExplodeWith { world: dimension, at, power, drop, damage, fire } =>
+        {
+            unit(world(dimension).and_then(|world| explode(&world, at, power, drop, damage, fire)))
+        }
+
+        HostCall::BlockDensity { world: dimension, from, id } =>
+        {
+            ok(world(dimension).and_then(|world| density(&world, from, id)), HostReply::Float)
+        }
+
         other => HostReply::Error(format!("not an explosion call: {other:?}")),
     }
 }
