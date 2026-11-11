@@ -1,8 +1,8 @@
 use crate::entity::{Entity, entity_player};
 // java.io.File calls are port stand-ins
 use crate::port::file;
-use crate::storage::IPlayerFileData;
 use crate::storage::chunk_loader::{ChunkLoader, catchException};
+use crate::storage::{IPlayerFileData, world_format};
 use crate::world::{IChunkLoader, ISaveHandler, WorldInfo, WorldProvider};
 use common::nbt::{CompressedStreamTools, NBTBase, NBTTagCompound};
 use common::world::MINECRAFT_EXCEPTION;
@@ -64,6 +64,15 @@ impl SaveHandler
         let now: i64 = jvm::system::currentTimeMillis();
         let saveDirectory: PathBuf = savesDir.join(name);
         file::mkdirs(&saveDirectory);
+
+        // rewrite: a world made here needs no conversion or backup when it next opens
+        if readWorldInfo(&saveDirectory).is_none() && !world_format::current(&saveDirectory)
+        {
+            if let Err(error) = world_format::stamp(&saveDirectory)
+            {
+                warning!("Could not stamp new world {}: {error}", saveDirectory.display());
+            }
+        }
 
         let playersDirectory: PathBuf = saveDirectory.join("players");
         let dataDir: PathBuf = saveDirectory.join("data");

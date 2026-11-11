@@ -5,7 +5,7 @@ use crate::storage::region_file::{CHUNK_LIMIT, ChunkOutputStream, RegionFile};
 use crate::storage::region_file_cache::RegionFileCache;
 use crate::storage::save_format_old::SaveFormatOld;
 use crate::storage::save_old_dir::{MC_REGION_VERSION, SaveOldDir};
-use crate::storage::{ChunkFile, ISaveFormat, SaveFormatComparator};
+use crate::storage::{ChunkFile, ISaveFormat, SaveFormatComparator, world_format};
 use crate::world::{ISaveHandler, WorldInfo};
 use common::world::IProgressUpdate;
 use jvm::info;
@@ -168,6 +168,48 @@ impl SaveConverterMcRegion
             listener.setLoadingProgress(progress(index, total));
         }
     }
+
+    fn convertAlpha(&self, saveName: &str, listener: &dyn IProgressUpdate)
+    {
+        listener.setLoadingProgress(0);
+
+        let mut arraylist: Vec<ChunkFile> = Vec::new();
+        let mut arraylist1: Vec<PathBuf> = Vec::new();
+        let mut arraylist2: Vec<ChunkFile> = Vec::new();
+        let mut arraylist3: Vec<PathBuf> = Vec::new();
+        let file1: PathBuf = self.m_base.m_dir.join(saveName);
+        let file2: PathBuf = file1.join("DIM-1");
+
+        info!("Scanning folders...");
+        self.collectAlphaChunkFiles(&file1, &mut arraylist, &mut arraylist1);
+
+        if file::exists(&file2)
+        {
+            self.collectAlphaChunkFiles(&file2, &mut arraylist2, &mut arraylist3);
+        }
+
+        let i: i32 = (arraylist.len() + arraylist2.len() + arraylist1.len() + arraylist3.len()) as i32;
+        info!("Total conversion count is {i}");
+
+        let size: i32 = arraylist.len() as i32;
+        let size2: i32 = arraylist2.len() as i32;
+        let size1: i32 = arraylist1.len() as i32;
+
+        self.convertAlphaChunksToRegions(&file1, &mut arraylist, 0, i, listener);
+        self.convertAlphaChunksToRegions(&file2, &mut arraylist2, size, i, listener);
+
+        let worldinfo: Rc<WorldInfo> = self.getData(saveName).orNpe();
+        worldinfo.setSaveVersion(MC_REGION_VERSION);
+
+        let isavehandler: Rc<dyn ISaveHandler> = self.getSaveLoader(saveName, false);
+        isavehandler.saveWorldInfo(&worldinfo);
+        self.deleteAlphaChunkFiles(&arraylist1, size + size2, i, listener);
+
+        if file::exists(&file2)
+        {
+            self.deleteAlphaChunkFiles(&arraylist3, size + size2 + size1, i, listener);
+        }
+    }
 }
 
 impl ISaveFormat for SaveConverterMcRegion
@@ -224,52 +266,33 @@ impl ISaveFormat for SaveConverterMcRegion
 
     fn rename(&self, saveName: &str, newName: &str) { self.m_base.rename(saveName, newName); }
 
+    // rewrite: a world this game has not stamped yet converts too, after a backup
     fn isOldMapFormat(&self, saveName: &str) -> bool
     {
-        self.getData(saveName).is_some_and(|worldinfo| worldinfo.getSaveVersion() == 0)
+        let world: PathBuf = self.m_base.m_dir.join(saveName);
+        self.getData(saveName)
+            .is_some_and(|worldinfo| worldinfo.getSaveVersion() == 0 || !world_format::current(&world))
     }
 
     fn convertMapFormat(&self, saveName: &str, listener: &dyn IProgressUpdate) -> bool
     {
-        listener.setLoadingProgress(0);
-
-        let mut arraylist: Vec<ChunkFile> = Vec::new();
-        let mut arraylist1: Vec<PathBuf> = Vec::new();
-        let mut arraylist2: Vec<ChunkFile> = Vec::new();
-        let mut arraylist3: Vec<PathBuf> = Vec::new();
-        let file1: PathBuf = self.m_base.m_dir.join(saveName);
-        let file2: PathBuf = file1.join("DIM-1");
-
-        info!("Scanning folders...");
-        self.collectAlphaChunkFiles(&file1, &mut arraylist, &mut arraylist1);
-
-        if file::exists(&file2)
+        if let Err(error) = world_format::backup(&self.m_base.m_dir, saveName)
         {
-            self.collectAlphaChunkFiles(&file2, &mut arraylist2, &mut arraylist3);
+            throwable::throw(&throwable::RUNTIME, &format!("could not back up {saveName}, not converting it: {error}"));
         }
 
-        let i: i32 = (arraylist.len() + arraylist2.len() + arraylist1.len() + arraylist3.len()) as i32;
-        info!("Total conversion count is {i}");
-
-        let size: i32 = arraylist.len() as i32;
-        let size2: i32 = arraylist2.len() as i32;
-        let size1: i32 = arraylist1.len() as i32;
-
-        self.convertAlphaChunksToRegions(&file1, &mut arraylist, 0, i, listener);
-        self.convertAlphaChunksToRegions(&file2, &mut arraylist2, size, i, listener);
-
-        let worldinfo: Rc<WorldInfo> = self.getData(saveName).orNpe();
-        worldinfo.setSaveVersion(MC_REGION_VERSION);
-
-        let isavehandler: Rc<dyn ISaveHandler> = self.getSaveLoader(saveName, false);
-        isavehandler.saveWorldInfo(&worldinfo);
-        self.deleteAlphaChunkFiles(&arraylist1, size + size2, i, listener);
-
-        if file::exists(&file2)
+        if self.getData(saveName).is_some_and(|worldinfo| worldinfo.getSaveVersion() == 0)
         {
-            self.deleteAlphaChunkFiles(&arraylist3, size + size2 + size1, i, listener);
+            self.convertAlpha(saveName, listener);
         }
 
+        let world: PathBuf = self.m_base.m_dir.join(saveName);
+        if let Err(error) = world_format::stamp(&world)
+        {
+            throwable::throw(&throwable::RUNTIME, &format!("could not stamp {}: {error}", world.display()));
+        }
+
+        info!("{saveName} is at world format {}", world_format::CURRENT);
         true
     }
 }
