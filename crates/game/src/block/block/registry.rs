@@ -19,6 +19,8 @@ pub fn unpackBreak(data: i32) -> (i32, i32) { (data & (BLOCK_IDS as i32 - 1), da
 thread_local!
 {
     static INIT: Cell<u8> = const { Cell::new(0) };
+    // bumped on every register and unregister so tables derived from the list know when to rebuild
+    static GENERATION: Cell<u32> = const { Cell::new(0) };
     static BLOCKS_LIST: RefCell<[Option<Rc<Block>>; BLOCK_IDS]> = const { RefCell::new([const { None }; BLOCK_IDS]) };
     static TICK_ON_LOAD: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
     static OPAQUE_CUBE_LOOKUP: RefCell<[bool; BLOCK_IDS]> = const { RefCell::new([false; BLOCK_IDS]) };
@@ -54,6 +56,7 @@ fn index(id: i32) -> usize
 pub(crate) fn register(id: i32, block: &Rc<Block>)
 {
     BLOCKS_LIST.with(|list| list.borrow_mut()[index(id)] = Some(Rc::clone(block)));
+    GENERATION.with(|generation| generation.update(|value| value.wrapping_add(1)));
 }
 
 pub(crate) fn setOpaqueCubeLookup(id: i32, value: bool)
@@ -229,6 +232,8 @@ impl Block
     // an item id that names a block, vanilla ones are below 256 and 12-bit mod blocks reach 4095
     pub fn isBlockItem(id: i32) -> bool { (0..BLOCK_IDS as i32).contains(&id) && Self::byId(id).is_some() }
 
+    pub fn generation() -> u32 { GENERATION.with(Cell::get) }
+
     pub fn exists(id: i32) -> bool { BLOCKS_LIST.with(|list| list.borrow()[index(id)].is_some()) }
 
     pub fn tickOnLoad(id: i32) -> bool
@@ -279,6 +284,7 @@ impl Block
     pub fn unregister(id: i32)
     {
         BLOCKS_LIST.with(|list| list.borrow_mut()[index(id)] = None);
+        GENERATION.with(|generation| generation.update(|value| value.wrapping_add(1)));
 
         for table in [&TICK_ON_LOAD, &OPAQUE_CUBE_LOOKUP, &IS_BLOCK_CONTAINER, &CAN_BLOCK_GRASS, &UPDATE_CLIENTS]
         {
