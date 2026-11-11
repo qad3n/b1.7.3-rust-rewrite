@@ -169,6 +169,12 @@ pub fn packetRows() -> impl Iterator<Item = (i32, bool, bool)>
     PACKETS.iter().map(|row| (row.m_id, row.m_clientbound, row.m_serverbound))
 }
 
+pub fn matches<T: Packet>(packet: &dyn Packet) -> bool
+{
+    let any: &dyn Any = packet;
+    any.is::<T>()
+}
+
 pub fn getNewPacket(id: i32) -> Option<Box<dyn Packet>>
 {
     PACKETS.iter().find(|row| row.m_id == id).map(|row| (row.m_create)())

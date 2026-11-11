@@ -1,6 +1,6 @@
 use crate::network::net_handler::NetHandler;
 use crate::network::packet::{self, Packet, PacketInput, PacketOutput};
-use crate::network::packets::Packet250ModPayload;
+use crate::network::packets::{Packet0KeepAlive, Packet250ModPayload, Packet255KickDisconnect};
 // java monitors and null stream errors come from port
 use crate::port::network::{lock, npeError};
 use jvm::debug;
@@ -42,6 +42,12 @@ fn socketError(error: &std::io::Error) -> Throwable
 type Slot<T> = Arc<Mutex<Option<T>>>;
 
 fn cipherError(message: String) -> Throwable { ioError(&IO, &message) }
+
+// between arming keys and the peer marker only these can still arrive in plaintext and none acts as the player
+fn plaintextAllowed(packet: &dyn Packet) -> bool
+{
+    packet::matches::<Packet0KeepAlive>(packet) || packet::matches::<Packet255KickDisconnect>(packet)
+}
 
 struct SocketInputStream
 {
@@ -373,6 +379,10 @@ impl Shared
                         .ok_or_else(|| ioError(&IO, "secure marker received without keys"))?;
                     *lock(&self.m_open) = Some(opener);
                     self.m_readSecure.store(true, Ordering::Release);
+                }
+                else if lock(&self.m_armedOpen).is_some() && !plaintextAllowed(packet.as_ref())
+                {
+                    return Err(ioError(&IO, "plaintext packet after auth"));
                 }
 
                 TOTAL_READ_SIZE[packet.getPacketId() as usize].fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
