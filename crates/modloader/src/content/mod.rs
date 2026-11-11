@@ -12,6 +12,7 @@ pub mod progress;
 pub mod recipes;
 pub mod tags;
 pub mod templates;
+mod vanilla_tags;
 pub mod worldgen;
 
 use crate::atlas::Atlas;

@@ -111,7 +111,15 @@ pub fn seed()
         let members: Vec<Identifier> = row.m_seeds.iter().filter_map(|name| vanillaBiome(name)).collect();
         add(RegistryKind::Biome, Identifier::minecraft(row.m_name), members, false);
     }
+
+    for row in super::vanilla_tags::TAGS
+    {
+        let members: Vec<Identifier> = row.m_members.iter().map(|member| vanillaId(member)).collect();
+        add(row.m_registry, vanillaId(row.m_name), members, false);
+    }
 }
+
+fn vanillaId(name: &str) -> Identifier { Identifier::parse(name).expect("vanilla tag rows hold valid identifiers") }
 
 // engine tags read numbers, so every change and every new id map resolves them again
 pub fn push()
