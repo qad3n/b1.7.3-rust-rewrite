@@ -10,6 +10,7 @@ use crate::render::
     ClippingHelperImpl, EffectRenderer, Frustrum, GLAllocation, ICamera, ItemRenderer, RenderGlobal, RenderHelper,
 };
 use crate::settings::{GameSettings, MouseFilter, MouseHelper};
+use game::attribute::{self, Attribute};
 use game::entity::{Entity, entity_living};
 use game::math::{AxisAlignedBB, MovingObjectPosition, Vec3D, math_helper};
 use game::world::{ChunkProviderLoadOrGenerate, IChunkProvider, World};
@@ -170,10 +171,13 @@ impl EntityRenderer
             return;
         };
 
-        let mut d: f64 = self.playerController().getBlockReachDistance() as f64;
+        // mods widen reach through the interaction range attributes, beta's own numbers are their bases
+        let controllerReach: f64 = self.playerController().getBlockReachDistance() as f64;
+        let mut d: f64 = attribute::value(&view, Attribute::BLOCK_REACH, controllerReach);
+        let entityReach: f64 = attribute::value(&view, Attribute::ENTITY_REACH, attribute::ENTITY_REACH);
         self.m_mc.m_objectMouseOver.set(entity_living::rayTrace(&view, d, tickDelta));
 
-        let mut d2: f64 = d;
+        let mut d2: f64 = d.max(entityReach);
         let vec3D: Rc<Vec3D> = entity_living::getPosition(&view, tickDelta);
 
         if let Some(hit) = self.m_mc.m_objectMouseOver.get()
@@ -188,9 +192,9 @@ impl EntityRenderer
         }
         else
         {
-            if d2 > 3.0
+            if d2 > entityReach
             {
-                d2 = 3.0;
+                d2 = entityReach;
             }
 
             d = d2;

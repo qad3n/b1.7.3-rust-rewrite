@@ -1,6 +1,7 @@
 use crate::player::entity_player_mp;
 use crate::server::{ICommandListener, MinecraftServer, ServerAuth};
 use crate::world::world_server;
+use game::attribute::{self, Attribute};
 use game::container::{Container, Slot};
 use game::damage::{DamageKind, DamageSource};
 use game::entity::{Entity, entity_living, entity_player};
@@ -31,6 +32,14 @@ use std::collections::HashMap;
 use std::net::IpAddr;
 use std::rc::{Rc, Weak};
 use std::time::Instant;
+
+// beta's server checks allow this far past a player's reach, its 6, 8 and 6 blocks on the vanilla reach
+mod reach
+{
+    pub const DIG_SLACK: f64 = 2.0;
+    pub const PLACE_SLACK: f64 = 4.0;
+    pub const USE_SLACK: f64 = 3.0;
+}
 
 pub struct NetServerHandler
 {
@@ -642,7 +651,9 @@ impl NetHandler for NetServerHandler
             let d1: f64 = player.m_posY.get() - (j as f64 + 0.5);
             let d3: f64 = player.m_posZ.get() - (k as f64 + 0.5);
             let d5: f64 = d0 * d0 + d1 * d1 + d3 * d3;
-            if d5 > 36.0
+            let reach: f64 =
+                attribute::value(&player, Attribute::BLOCK_REACH, attribute::BLOCK_REACH) + reach::DIG_SLACK;
+            if d5 > reach * reach
             {
                 return;
             }
@@ -737,8 +748,10 @@ impl NetHandler for NetServerHandler
                 j1 = i1;
             }
 
+            let placeReach: f64 =
+                attribute::value(&player, Attribute::BLOCK_REACH, attribute::BLOCK_REACH) + reach::PLACE_SLACK;
             if self.m_hasMoved.get()
-                && player.getDistanceSq(i as f64 + 0.5, j as f64 + 0.5, k as f64 + 0.5) < 64.0
+                && player.getDistanceSq(i as f64 + 0.5, j as f64 + 0.5, k as f64 + 0.5) < placeReach * placeReach
                 && (j1 > 16 || flag)
             {
                 entity_player_mp::fields(&player).m_itemInWorldManager.get().orNpe().activeBlockOrUseItem(
@@ -942,9 +955,11 @@ impl NetHandler for NetServerHandler
         let worldserver: Rc<World> = self.m_mcServer.getWorldManager(self.dimension());
         let player: Rc<Entity> = self.player();
         let entity: Option<Rc<Entity>> = world_server::getEntity(&worldserver, packet.m_targetEntity);
+        let useReach: f64 =
+            attribute::value(&player, Attribute::ENTITY_REACH, attribute::ENTITY_REACH) + reach::USE_SLACK;
         if let Some(entity) = entity
             && entity_living::canEntityBeSeen(&player, &entity)
-            && player.getDistanceSqToEntity(&entity) < 36.0
+            && player.getDistanceSqToEntity(&entity) < useReach * useReach
         {
             if packet.m_isLeftClick == 0
             {
