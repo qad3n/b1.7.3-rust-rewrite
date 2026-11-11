@@ -1,4 +1,4 @@
-use super::vanilla::{self, BIOME_NAMES, BLOCK_NAMES, DIMENSIONS, ITEM_NAMES, RECORD_NAMES};
+use super::vanilla::{self, BIOMES, BLOCK_NAMES, DIMENSIONS, ITEM_NAMES, RECORD_NAMES};
 use super::{Registry, SyncedRegistry};
 use game::block::Block;
 use game::crafting::{CraftingManager, FurnaceRecipes};
@@ -110,7 +110,7 @@ impl Registries
         {
             registries.m_dimensions.seed(Identifier::minecraft(name), numeric, DimensionEntry);
         }
-        for (numeric, name) in BIOME_NAMES.iter().enumerate()
+        for (numeric, (name, _)) in BIOMES.iter().enumerate()
         {
             registries.m_biomes.seed(Identifier::minecraft(name), numeric as i32, BiomeEntry);
         }

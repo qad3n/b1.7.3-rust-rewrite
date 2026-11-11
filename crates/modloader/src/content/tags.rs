@@ -85,6 +85,11 @@ pub fn seed()
             crate::registry::with(|registries| row.m_seeds.iter().filter_map(|n| name(registries, row, *n)).collect());
         add(kind(row.m_registry), Identifier::minecraft(row.m_name), members, false);
     }
+    for row in &game::tags::BIOME_ROWS
+    {
+        let members: Vec<Identifier> = row.m_seeds.iter().filter_map(|name| vanillaBiome(name)).collect();
+        add(RegistryKind::Biome, Identifier::minecraft(row.m_name), members, false);
+    }
 }
 
 // engine tags read numbers, so every change and every new id map resolves them again
@@ -99,6 +104,35 @@ pub fn push()
         });
         game::tags::set(row.m_tag, &ids);
     }
+    for row in &game::tags::BIOME_ROWS
+    {
+        let members: BTreeMap<Identifier, bool> =
+            resolved(RegistryKind::Biome, &Identifier::minecraft(row.m_name), &mut Vec::new());
+        let names: BTreeSet<String> = members.keys().filter_map(biomeName).collect();
+        game::tags::setBiomes(row.m_tag, names);
+    }
+}
+
+// beta biomes go by their display name, a vanilla identifier maps through the shared biome table
+fn vanillaBiome(name: &str) -> Option<Identifier>
+{
+    crate::registry::BIOMES
+        .iter()
+        .find(|(_, biome)| biome().m_biomeName.get() == name)
+        .map(|(path, _)| Identifier::minecraft(path))
+}
+
+fn biomeName(id: &Identifier) -> Option<String>
+{
+    if id.isVanilla()
+    {
+        return crate::registry::BIOMES
+            .iter()
+            .find(|(path, _)| *path == id.path())
+            .map(|(_, biome)| biome().m_biomeName.get().to_owned());
+    }
+
+    crate::dimensions::biomes().into_iter().find(|biome| biome.m_id == *id).map(|biome| biome.m_spec.name)
 }
 
 // after a content build every registry is complete, so missing required members are real mistakes

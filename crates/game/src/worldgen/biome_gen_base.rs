@@ -27,7 +27,6 @@ pub struct BiomeGenBase
     pub m_spawnableMonsterList: Rc<JArrayList<SpawnListEntry>>,
     pub m_spawnableCreatureList: Rc<JArrayList<SpawnListEntry>>,
     pub m_spawnableWaterCreatureList: Rc<JArrayList<SpawnListEntry>>,
-    m_enableSnow: Cell<bool>,
     m_enableRain: Cell<bool>,
 }
 
@@ -107,20 +106,17 @@ impl Biomes
             m_taiga: crate::worldgen::biome_gen_taiga::create()
                 .setColor(3060051)
                 .setBiomeName("Taiga")
-                .setEnableSnow()
                 .setMutatedColor(8107825),
             m_desert: BiomeGenBase::alloc(&BIOME_GEN_DESERT).setColor(16421912).setBiomeName("Desert").setDisableRain(),
             m_plains: BiomeGenBase::alloc(&BIOME_GEN_DESERT).setColor(16767248).setBiomeName("Plains"),
             m_iceDesert: BiomeGenBase::alloc(&BIOME_GEN_DESERT)
                 .setColor(16772499)
                 .setBiomeName("Ice Desert")
-                .setEnableSnow()
                 .setDisableRain()
                 .setMutatedColor(12899129),
             m_tundra: BiomeGenBase::alloc(&BIOME_GEN_BASE)
                 .setColor(5762041)
                 .setBiomeName("Tundra")
-                .setEnableSnow()
                 .setMutatedColor(12899129),
             m_hell: crate::worldgen::biome_gen_hell::create().setColor(0xFF0000).setBiomeName("Hell").setDisableRain(),
             m_sky: crate::worldgen::biome_gen_sky::create().setColor(0x8080FF).setBiomeName("Sky").setDisableRain(),
@@ -218,7 +214,6 @@ impl BiomeGenBase
             m_spawnableMonsterList: Rc::new(JArrayList::new()),
             m_spawnableCreatureList: Rc::new(JArrayList::new()),
             m_spawnableWaterCreatureList: Rc::new(JArrayList::new()),
-            m_enableSnow: Cell::new(false),
             m_enableRain: Cell::new(true),
         };
         biome.m_spawnableMonsterList.add(SpawnListEntry::new("EntitySpider", 10));
@@ -237,12 +232,6 @@ impl BiomeGenBase
     fn setDisableRain(self: Rc<Self>) -> Rc<Self>
     {
         self.m_enableRain.set(false);
-        self
-    }
-
-    fn setEnableSnow(self: Rc<Self>) -> Rc<Self>
-    {
-        self.m_enableSnow.set(true);
         self
     }
 
@@ -286,11 +275,12 @@ impl BiomeGenBase
         }
     }
 
-    pub fn getEnableSnow(&self) -> bool { self.m_enableSnow.get() }
+    // the snowy biome tag starts with beta's taiga, ice desert and tundra
+    pub fn getEnableSnow(&self) -> bool { crate::tags::biomeHas(crate::tags::BiomeTag::Snowy, self.m_biomeName.get()) }
 
     pub fn canSpawnLightningBolt(&self) -> bool
     {
-        if self.m_enableSnow.get()
+        if self.getEnableSnow()
         {
             return false;
         }

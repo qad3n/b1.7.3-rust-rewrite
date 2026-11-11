@@ -25,7 +25,6 @@ const PATH_RANGE: f32 = 16.0;
 
 type Constructor = fn(Option<Rc<World>>) -> Rc<Entity>;
 type ClassPatch = (EntityMethod, fn(&mut EntityClass));
-type BiomeRow = (&'static str, fn() -> Rc<game::worldgen::BiomeGenBase>);
 
 pub struct EntityTemplate
 {
@@ -682,20 +681,7 @@ pub fn numericOf(entity: &Entity) -> Option<i32>
 
 pub(crate) fn biomesFor(spawn: &mod_protocol::spec::SpawnSpec) -> Vec<Rc<game::worldgen::BiomeGenBase>>
 {
-    use game::worldgen::BiomeGenBase;
-    let all: [BiomeRow; 11] = [
-        ("rainforest", BiomeGenBase::rainforest),
-        ("swampland", BiomeGenBase::swampland),
-        ("seasonal_forest", BiomeGenBase::seasonalForest),
-        ("forest", BiomeGenBase::forest),
-        ("savanna", BiomeGenBase::savanna),
-        ("shrubland", BiomeGenBase::shrubland),
-        ("taiga", BiomeGenBase::taiga),
-        ("desert", BiomeGenBase::desert),
-        ("plains", BiomeGenBase::plains),
-        ("ice_desert", BiomeGenBase::iceDesert),
-        ("tundra", BiomeGenBase::tundra),
-    ];
+    let all: &[crate::registry::BiomeRow] = &crate::registry::BIOMES[..crate::registry::OVERWORLD_BIOMES];
     all.iter()
         .filter(|(name, _)| {
             spawn.biomes.is_empty() || spawn.biomes.iter().any(|id| id.isVanilla() && id.path() == *name)

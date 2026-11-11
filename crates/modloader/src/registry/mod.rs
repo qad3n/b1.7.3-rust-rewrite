@@ -10,6 +10,7 @@ pub use tables::{
     BiomeEntry, BlockEntry, DimensionEntry, EntityEntry, FuelEntry, ItemEntry, PacketEntry, RecipeEntry, Registries,
     SYNCED_ORDER, TileEntityEntry,
 };
+pub(crate) use vanilla::{BIOMES, BiomeRow, OVERWORLD_BIOMES};
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq)]
 pub enum RegistryError

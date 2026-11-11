@@ -1,4 +1,5 @@
 use crate::block::{BLOCK_IDS, Block};
+use std::collections::BTreeSet;
 use std::sync::{LazyLock, PoisonError, RwLock, RwLockReadGuard};
 
 // item ids sit past the 256 block ids
@@ -144,6 +145,39 @@ pub const ROWS: [TagRow; 17] = [
     },
     TagRow { m_tag: Tag::WolfFood, m_name: "wolf_food", m_registry: Registry::Item, m_seeds: &[PORK_RAW, PORK_COOKED] },
 ];
+
+// biome tags, keyed by the biome's name since beta biomes have no numeric ids
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum BiomeTag
+{
+    Snowy,
+}
+
+pub struct BiomeTagRow
+{
+    pub m_tag: BiomeTag,
+    pub m_name: &'static str,
+    pub m_seeds: &'static [&'static str],
+}
+
+// rows follow BiomeTag order
+pub const BIOME_ROWS: [BiomeTagRow; 1] =
+    [BiomeTagRow { m_tag: BiomeTag::Snowy, m_name: "snowy", m_seeds: &["Taiga", "Ice Desert", "Tundra"] }];
+
+static BIOMES: LazyLock<RwLock<Vec<BTreeSet<String>>>> = LazyLock::new(|| {
+    RwLock::new(BIOME_ROWS.iter().map(|row| row.m_seeds.iter().map(|name| (*name).to_owned()).collect()).collect())
+});
+
+pub fn biomeHas(tag: BiomeTag, biome: &str) -> bool
+{
+    BIOMES.read().unwrap_or_else(PoisonError::into_inner)[tag as usize].contains(biome)
+}
+
+// the loader's resolved biome names replace the beta seeds of one biome tag
+pub fn setBiomes(tag: BiomeTag, names: BTreeSet<String>)
+{
+    BIOMES.write().unwrap_or_else(PoisonError::into_inner)[tag as usize] = names;
+}
 
 // shared with chunk generation threads, so one lock instead of a thread local
 static SETS: LazyLock<RwLock<Vec<Vec<u64>>>> = LazyLock::new(|| RwLock::new(ROWS.iter().map(seeded).collect()));

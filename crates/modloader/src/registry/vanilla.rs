@@ -1,3 +1,6 @@
+use game::worldgen::BiomeGenBase;
+use std::rc::Rc;
+
 // modern names for the b1.7.3 numeric ids, index is the block id
 pub const BLOCK_NAMES: [&str; 97] = [
     "air",
@@ -209,22 +212,27 @@ pub const ITEM_NAMES: [&str; 104] = [
 
 pub const RECORD_NAMES: [(i32, &str); 2] = [(2256, "record_13"), (2257, "record_cat")];
 
-// BiomeGenBase statics in declaration order
-pub const BIOME_NAMES: [&str; 13] = [
-    "rainforest",
-    "swampland",
-    "seasonal_forest",
-    "forest",
-    "savanna",
-    "shrubland",
-    "taiga",
-    "desert",
-    "plains",
-    "ice_desert",
-    "tundra",
-    "hell",
-    "sky",
+pub type BiomeRow = (&'static str, fn() -> Rc<BiomeGenBase>);
+
+// BiomeGenBase statics in declaration order with their modern names, the overworld ones first
+pub const BIOMES: [BiomeRow; 13] = [
+    ("rainforest", BiomeGenBase::rainforest),
+    ("swampland", BiomeGenBase::swampland),
+    ("seasonal_forest", BiomeGenBase::seasonalForest),
+    ("forest", BiomeGenBase::forest),
+    ("savanna", BiomeGenBase::savanna),
+    ("shrubland", BiomeGenBase::shrubland),
+    ("taiga", BiomeGenBase::taiga),
+    ("desert", BiomeGenBase::desert),
+    ("plains", BiomeGenBase::plains),
+    ("ice_desert", BiomeGenBase::iceDesert),
+    ("tundra", BiomeGenBase::tundra),
+    ("hell", BiomeGenBase::hell),
+    ("sky", BiomeGenBase::sky),
 ];
+
+// hell and sky close the list and never take overworld spawns
+pub const OVERWORLD_BIOMES: usize = 11;
 
 pub const DIMENSIONS: [(i32, &str); 2] = [(0, "overworld"), (-1, "the_nether")];
 
