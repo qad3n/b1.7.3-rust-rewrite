@@ -23,8 +23,8 @@ impl EntityRenderer
         {
             f = 60.0;
         }
-        // rewrite: 1.7 narrows the view while a bow draws
-        f *= bowZoom(&entityLiving);
+        // rewrite: 1.7 narrows the view while a bow draws, eased per tick and blended per frame
+        f *= self.m_prevZoom.get() + (self.m_zoom.get() - self.m_prevZoom.get()) * tickDelta;
 
         let living: &LivingFields = entity_living::fields(&entityLiving);
         if living.m_health.get() <= 0
@@ -34,6 +34,16 @@ impl EntityRenderer
         }
 
         f + self.m_newFov.get() + (self.m_oldFov.get() - self.m_newFov.get()) * tickDelta
+    }
+
+    // EntityRenderer.updateFovModifierHand, the zoom closes half the gap to its target each tick
+    pub(crate) fn updateZoom(&self, viewer: &Rc<Entity>)
+    {
+        const EASE: f32 = 0.5;
+
+        let zoom: f32 = self.m_zoom.get();
+        self.m_prevZoom.set(zoom);
+        self.m_zoom.set(zoom + (bowZoom(viewer) - zoom) * EASE);
     }
 
     pub(crate) fn hurtCameraEffect(&self, tickDelta: f32)

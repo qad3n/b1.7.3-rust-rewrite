@@ -49,6 +49,8 @@ pub struct EntityRenderer
     m_newCamYaw: Cell<f32>,
     m_oldFov: Cell<f32>,
     m_newFov: Cell<f32>,
+    m_zoom: Cell<f32>,
+    m_prevZoom: Cell<f32>,
     m_oldCamRoll: Cell<f32>,
     m_newCamRoll: Cell<f32>,
     m_cloudFog: Cell<bool>,
@@ -100,6 +102,8 @@ impl EntityRenderer
             m_newCamYaw: Cell::new(0.0),
             m_oldFov: Cell::new(0.0),
             m_newFov: Cell::new(0.0),
+            m_zoom: Cell::new(1.0),
+            m_prevZoom: Cell::new(1.0),
             m_oldCamRoll: Cell::new(0.0),
             m_newCamRoll: Cell::new(0.0),
             m_cloudFog: Cell::new(false),
@@ -144,6 +148,8 @@ impl EntityRenderer
         }
 
         let view: Rc<Entity> = self.renderViewEntity();
+        self.updateZoom(&view);
+
         let f: f32 = self.theWorld().getLightBrightness(
             math_helper::floor_double(view.posX()),
             math_helper::floor_double(view.posY()),
