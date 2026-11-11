@@ -2,7 +2,7 @@ use super::ANY_DAMAGE;
 use crate::content;
 use crate::registry::{BlockEntry, EntityEntry, Registries, Row, UNASSIGNED};
 use game::block::Block;
-use game::loot::{LootEntry, LootPool, LootTable};
+use game::loot::{LootEntry, LootPool, LootRules, LootTable};
 use jvm::random::Random;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{LootDrop, LootSource, LootView, StackData};
@@ -374,10 +374,33 @@ fn poolDrops(pool: &LootPool) -> Vec<LootDrop>
                 max: entry.m_max,
                 chance: entry.m_weight as f32 / total as f32,
                 player: entry.m_player,
-                note: Some(format!("One pick of a weighted pool, rolled {rolls} times")),
+                note: Some(format!("One pick of a weighted pool, rolled {rolls} times{}", ruleNote(&entry.m_rules))),
             })
         })
         .collect()
+}
+
+// the labels of an entry's conditions and count rule, so a viewer shows what a drop needs
+fn ruleNote(rules: &LootRules) -> String
+{
+    let names =
+        |list: &[u32]| list.iter().map(|rule| crate::content::loot::label(*rule)).collect::<Vec<String>>().join(", ");
+    let mut note: String = String::new();
+
+    if !rules.m_when.is_empty()
+    {
+        note.push_str(&format!(", only when {}", names(&rules.m_when)));
+    }
+    if !rules.m_unless.is_empty()
+    {
+        note.push_str(&format!(", never when {}", names(&rules.m_unless)));
+    }
+    if let Some(rule) = rules.m_count
+    {
+        note.push_str(&format!(", count from {}", crate::content::loot::label(rule)));
+    }
+
+    note
 }
 
 fn entryDrop(entry: &LootEntry) -> LootDrop

@@ -119,7 +119,15 @@ pub(crate) fn dropBlockAsItemWithChance(
 
     if let Some(table) = table
     {
-        for stack in loot::roll(&table, &world.m_rand, false, metadata)
+        let context: loot::LootContext = loot::LootContext
+        {
+            m_world: Some(world),
+            m_pos: Some([x, y, z]),
+            m_block: this.m_blockID,
+            m_blockMeta: metadata,
+            ..loot::LootContext::default()
+        };
+        for stack in loot::roll(&table, &world.m_rand, &context)
         {
             dropBlockAsItem_do(world, x, y, z, stack);
         }

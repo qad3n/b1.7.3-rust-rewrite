@@ -251,7 +251,15 @@ fn blockDrops(world: &Rc<World>, pos: BlockPos) -> Vec<StackData>
 
     if let Some(table) = table
     {
-        let rolled: Vec<Rc<ItemStack>> = game::loot::roll(&table, &world.m_rand, false, meta);
+        let context: game::loot::LootContext = game::loot::LootContext
+        {
+            m_world: Some(world),
+            m_pos: Some([pos.x, pos.y, pos.z]),
+            m_block: block.m_blockID,
+            m_blockMeta: meta,
+            ..game::loot::LootContext::default()
+        };
+        let rolled: Vec<Rc<ItemStack>> = game::loot::roll(&table, &world.m_rand, &context);
         drops.extend(
             rolled
                 .iter()

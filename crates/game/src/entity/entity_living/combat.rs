@@ -226,8 +226,16 @@ fn dropLoot(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
         return;
     };
 
-    let byPlayer: bool = killer.is_some_and(|killer| killer.instanceOf("EntityPlayer"));
-    for stack in loot::roll(&table, &this.m_rand, byPlayer, 0)
+    let world: Rc<World> = this.world();
+    let context: loot::LootContext = loot::LootContext
+    {
+        m_world: Some(&world),
+        m_entity: Some(this),
+        m_killer: killer,
+        m_byPlayer: killer.is_some_and(|killer| killer.instanceOf("EntityPlayer")),
+        ..loot::LootContext::default()
+    };
+    for stack in loot::roll(&table, &this.m_rand, &context)
     {
         this.entityDropItem(stack, 0.0);
     }

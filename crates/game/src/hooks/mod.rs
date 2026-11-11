@@ -207,6 +207,13 @@ pub trait LoaderHooks
     // a mod dimension may name what can spawn at a spot instead of its biome, as Forge's getPossibleCreatures
     fn ownsSpawns(&self, _world: &World) -> bool { false }
 
+    fn lootCondition(&self, _rule: u32, _context: &crate::loot::LootContext, _random: &jvm::random::Random) -> bool
+    {
+        false
+    }
+
+    fn lootCount(&self, _rule: u32, _context: &crate::loot::LootContext, _random: &jvm::random::Random) -> i32 { 0 }
+
     fn spawnList(
         &self,
         _world: &Rc<World>,
@@ -302,6 +309,17 @@ pub fn worldProvider(dimension: i32) -> Option<Rc<crate::world::WorldProvider>> 
 pub fn createEntity(key: &str, world: &Rc<World>) -> Option<Rc<Entity>> { active()?.createEntity(key, world) }
 
 pub fn ownsSpawns(world: &World) -> bool { active().is_some_and(|hooks| hooks.ownsSpawns(world)) }
+
+// only mod loot tables carry rules, so without the loader no entry asks
+pub fn lootCondition(rule: u32, context: &crate::loot::LootContext, random: &jvm::random::Random) -> bool
+{
+    active().is_some_and(|hooks| hooks.lootCondition(rule, context, random))
+}
+
+pub fn lootCount(rule: u32, context: &crate::loot::LootContext, random: &jvm::random::Random) -> i32
+{
+    active().map_or(0, |hooks| hooks.lootCount(rule, context, random))
+}
 
 pub fn spawnList(
     world: &Rc<World>,

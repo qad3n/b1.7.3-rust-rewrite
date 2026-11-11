@@ -44,6 +44,16 @@ impl LoaderHooks for Hooks
 
     fn seat(&self, mount: &Entity) -> Option<f64> { crate::entities::seat(mount) }
 
+    fn lootCondition(&self, rule: u32, context: &game::loot::LootContext, random: &jvm::random::Random) -> bool
+    {
+        content::loot::check(rule, context, random)
+    }
+
+    fn lootCount(&self, rule: u32, context: &game::loot::LootContext, random: &jvm::random::Random) -> i32
+    {
+        content::loot::count(rule, context, random)
+    }
+
     fn populate(&self, world: &Rc<World>, chunkX: i32, chunkZ: i32)
     {
         content::worldgen::populate(world, chunkX, chunkZ);

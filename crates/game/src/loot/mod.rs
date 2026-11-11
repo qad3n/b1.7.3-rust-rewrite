@@ -1,4 +1,6 @@
+use crate::entity::Entity;
 use crate::item::ItemStack;
+use crate::world::World;
 use jvm::random::Random;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -30,6 +32,46 @@ pub struct PoolEntry
     pub m_weight: i32,
     pub m_player: bool,
     pub m_blockMeta: Option<i32>,
+    pub m_rules: LootRules,
+}
+
+// conditions a mod registered that must all pass or all fail, and its rule for the count, by the loader's numbers
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct LootRules
+{
+    pub m_when: Vec<u32>,
+    pub m_unless: Vec<u32>,
+    pub m_count: Option<u32>,
+}
+
+// what one roll knows about the drop, for the conditions and count rules of mods
+#[derive(Clone, Copy, Default)]
+pub struct LootContext<'a>
+{
+    pub m_world: Option<&'a Rc<World>>,
+    pub m_pos: Option<[i32; 3]>,
+    pub m_block: i32,
+    pub m_blockMeta: i32,
+    pub m_entity: Option<&'a Rc<Entity>>,
+    pub m_killer: Option<&'a Rc<Entity>>,
+    pub m_byPlayer: bool,
+}
+
+impl LootContext<'_>
+{
+    fn allows(&self, player: bool, blockMeta: Option<i32>) -> bool
+    {
+        (!player || self.m_byPlayer) && blockMeta.is_none_or(|meta| meta == self.m_blockMeta)
+    }
+}
+
+impl LootRules
+{
+    fn pass(&self, context: &LootContext, random: &Random) -> bool
+    {
+        self.m_when.iter().all(|rule| crate::hooks::lootCondition(*rule, context, random))
+            && !self.m_unless.iter().any(|rule| crate::hooks::lootCondition(*rule, context, random))
+    }
 }
 
 // rolled between min and max times, each roll picking one entry by weight
@@ -75,14 +117,13 @@ pub fn clear()
 }
 
 // the stacks a table rolls, the random is only touched for entries that pass their conditions
-pub fn roll(table: &LootTable, random: &Random, byPlayer: bool, blockMeta: i32) -> Vec<Rc<ItemStack>>
+pub fn roll(table: &LootTable, random: &Random, context: &LootContext) -> Vec<Rc<ItemStack>>
 {
     let mut stacks: Vec<Rc<ItemStack>> = Vec::new();
 
     for entry in &table.m_entries
     {
-        let allowed: bool = (!entry.m_player || byPlayer) && entry.m_blockMeta.is_none_or(|meta| meta == blockMeta);
-        if !allowed || random.nextFloat() >= entry.m_chance
+        if !context.allows(entry.m_player, entry.m_blockMeta) || random.nextFloat() >= entry.m_chance
         {
             continue;
         }
@@ -96,7 +137,7 @@ pub fn roll(table: &LootTable, random: &Random, byPlayer: bool, blockMeta: i32) 
 
     for pool in &table.m_pools
     {
-        rollPool(pool, random, byPlayer, blockMeta, &mut stacks);
+        rollPool(pool, random, context, &mut stacks);
     }
 
     stacks
@@ -112,11 +153,15 @@ fn between(random: &Random, min: i32, max: i32) -> i32
     min
 }
 
-fn rollPool(pool: &LootPool, random: &Random, byPlayer: bool, blockMeta: i32, stacks: &mut Vec<Rc<ItemStack>>)
+fn rollPool(pool: &LootPool, random: &Random, context: &LootContext, stacks: &mut Vec<Rc<ItemStack>>)
 {
-    let allowed =
-        |entry: &&PoolEntry| (!entry.m_player || byPlayer) && entry.m_blockMeta.is_none_or(|meta| meta == blockMeta);
-    let total: i32 = pool.m_entries.iter().filter(allowed).map(|entry| entry.m_weight.max(0)).sum();
+    // a mod condition may call into a mod, so each one runs once per pool
+    let allowed: Vec<&PoolEntry> = pool
+        .m_entries
+        .iter()
+        .filter(|entry| context.allows(entry.m_player, entry.m_blockMeta) && entry.m_rules.pass(context, random))
+        .collect();
+    let total: i32 = allowed.iter().map(|entry| entry.m_weight.max(0)).sum();
     if total <= 0
     {
         return;
@@ -125,7 +170,7 @@ fn rollPool(pool: &LootPool, random: &Random, byPlayer: bool, blockMeta: i32, st
     for _ in 0..between(random, pool.m_min, pool.m_max)
     {
         let mut pick: i32 = random.nextIntBounded(total);
-        let Some(entry) = pool.m_entries.iter().filter(allowed).find(|entry|
+        let Some(entry) = allowed.iter().find(|entry|
         {
             pick -= entry.m_weight.max(0);
             pick < 0
@@ -135,7 +180,11 @@ fn rollPool(pool: &LootPool, random: &Random, byPlayer: bool, blockMeta: i32, st
             continue;
         };
 
-        let count: i32 = between(random, entry.m_min, entry.m_max);
+        let count: i32 = match entry.m_rules.m_count
+        {
+            Some(rule) => crate::hooks::lootCount(rule, context, random),
+            None => between(random, entry.m_min, entry.m_max),
+        };
         if let Some(item) = entry.m_item
             && count > 0
         {

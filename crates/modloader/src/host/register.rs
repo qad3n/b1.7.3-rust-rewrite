@@ -1,4 +1,5 @@
 use super::{ok, unit};
+use crate::content::loot::RuleKind;
 use crate::content::{data, tags};
 use crate::registry::{self, RegistryError, TileEntityEntry};
 use crate::state::{self, ModRuntime, Phase};
@@ -183,10 +184,33 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
 
         HostCall::AddLootPool { target, id, pool } =>
         {
+            let added: Result<(), String> = crate::content::loot::addPool(target, id, pool.into());
+
+            crate::content::loot::push(false);
+            unit(added)
+        }
+
+        HostCall::AddConditionalPool { target, id, pool } =>
+        {
             let added: Result<(), String> = crate::content::loot::addPool(target, id, pool);
 
             crate::content::loot::push(false);
             unit(added)
+        }
+
+        HostCall::RegisterLootCondition { name, label, handler } =>
+        {
+            unit(registering().and_then(|()| runtime.own(&name)).and_then(|id|
+            {
+                crate::content::loot::registerRule(runtime.m_index, id, label, RuleKind::Condition, handler)
+            }))
+        }
+        HostCall::RegisterLootCount { name, label, handler } =>
+        {
+            unit(registering().and_then(|()| runtime.own(&name)).and_then(|id|
+            {
+                crate::content::loot::registerRule(runtime.m_index, id, label, RuleKind::Count, handler)
+            }))
         }
 
         HostCall::RegisterMachine { name, spec } => unit(

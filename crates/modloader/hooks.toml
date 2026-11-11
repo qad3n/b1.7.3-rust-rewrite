@@ -737,3 +737,21 @@ side = "server"
 cancellable = false
 result = false
 fires_in = "WorldGenDungeons::generate once a dungeon is built"
+
+[[hook]]
+name = "loot_condition"
+version = 1
+kind = "component"
+side = "server"
+cancellable = false
+result = true
+fires_in = "loot::roll for pool entries that name a mod loot condition"
+
+[[hook]]
+name = "loot_count"
+version = 1
+kind = "component"
+side = "server"
+cancellable = false
+result = true
+fires_in = "loot::roll for pool entries that name a mod count rule"

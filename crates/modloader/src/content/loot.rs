@@ -1,19 +1,56 @@
 use crate::host::context::stackData;
 use crate::registry::Registries;
-use game::loot::{LootEntry, LootPool, LootTable, PoolEntry};
+use game::loot::{LootContext, LootEntry, LootPool, LootRules, LootTable, PoolEntry};
 use jvm::random::Random;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{LootTarget, RegistryKind, StackData};
-use mod_protocol::spec::{LootEntrySpec, LootPoolSpec, LootSpec};
+use mod_protocol::abi::{BlockPos, GuestCall, GuestReply, Handle, LootTarget, RegistryKind, StackData};
+use mod_protocol::spec::{ConditionalLootSpec, ConditionalPoolSpec, LootEntrySpec, LootSpec};
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
+
+// the rule number an entry gets for a name nothing registered, a condition that never passes and a count of none
+const UNKNOWN: u32 = u32::MAX;
 
 #[derive(Default)]
 struct Merged
 {
     m_keepBeta: bool,
     m_entries: Vec<LootEntrySpec>,
-    m_pools: Vec<LootPoolSpec>,
+    m_pools: Vec<ConditionalPoolSpec>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum RuleKind
+{
+    Condition,
+    Count,
+}
+
+#[derive(Clone, Copy)]
+enum Answer
+{
+    Guest(usize, Handle),
+    KilledByPlayer,
+}
+
+// a loot condition or count rule, its number is its place in the list
+struct Rule
+{
+    m_id: Identifier,
+    m_label: String,
+    m_kind: RuleKind,
+    m_answer: Answer,
+}
+
+fn builtins() -> Vec<Rule>
+{
+    vec![Rule
+    {
+        m_id: Identifier::minecraft("killed_by_player"),
+        m_label: "Killed by a player".to_owned(),
+        m_kind: RuleKind::Condition,
+        m_answer: Answer::KilledByPlayer,
+    }]
 }
 
 thread_local!
@@ -22,6 +59,114 @@ thread_local!
     static LOOT: RefCell<BTreeMap<(RegistryKind, Identifier), Merged>> = const { RefCell::new(BTreeMap::new()) };
     // chest tables only mods roll, so they stay as specs and resolve on each roll
     static CHESTS: RefCell<BTreeMap<Identifier, Merged>> = const { RefCell::new(BTreeMap::new()) };
+    static RULES: RefCell<Vec<Rule>> = RefCell::new(builtins());
+}
+
+pub fn registerRule(
+    modIndex: usize,
+    id: Identifier,
+    label: String,
+    kind: RuleKind,
+    handler: Handle,
+) -> Result<(), String>
+{
+    RULES.with(|rules|
+    {
+        let mut rules: RefMut<Vec<Rule>> = rules.borrow_mut();
+        if rules.iter().any(|rule| rule.m_id == id)
+        {
+            return Err(format!("loot rule {id} is already registered"));
+        }
+
+        rules.push(Rule { m_id: id, m_label: label, m_kind: kind, m_answer: Answer::Guest(modIndex, handler) });
+        Ok(())
+    })
+}
+
+fn ruleNumber(id: &Identifier, kind: RuleKind, problems: &mut Vec<String>) -> u32
+{
+    let number: Option<usize> =
+        RULES.with(|rules| rules.borrow().iter().position(|rule| rule.m_id == *id && rule.m_kind == kind));
+    match number
+    {
+        Some(number) => number as u32,
+        None =>
+        {
+            let noun: &str = match kind
+            {
+                RuleKind::Condition => "condition",
+                RuleKind::Count => "count rule",
+            };
+            problems.push(format!("loot names {noun} {id}, which is not registered"));
+            UNKNOWN
+        }
+    }
+}
+
+// how viewers name a rule
+pub fn label(rule: u32) -> String
+{
+    RULES.with(|rules| rules.borrow().get(rule as usize).map(|rule| rule.m_label.clone())).unwrap_or_default()
+}
+
+fn answer(rule: u32) -> Option<Answer>
+{
+    RULES.with(|rules| rules.borrow().get(rule as usize).map(|rule| rule.m_answer))
+}
+
+// a guest sees the dying entity and its killer by id, the broken block by name and the killer's held stack
+fn guestContext(context: &LootContext, random: &Random) -> mod_protocol::abi::LootContext
+{
+    mod_protocol::abi::LootContext
+    {
+        world: context.m_world.map_or(0, |world| crate::host::context::dimension(world)),
+        pos: context.m_pos.map(|[x, y, z]| BlockPos { x, y, z }),
+        state: context.m_pos.and_then(|_| crate::states::describe(context.m_block, context.m_blockMeta)),
+        entity: context.m_entity.map(|entity| entity.m_entityId.get()),
+        killer: context.m_killer.map(|killer| killer.m_entityId.get()),
+        tool: context.m_killer.and_then(|killer| killer.getHeldItem()).map(|stack| stackData(&stack)),
+        seed: random.nextLong(),
+    }
+}
+
+fn ask(modIndex: usize, context: &LootContext, call: GuestCall) -> Option<GuestReply>
+{
+    let runtime: std::rc::Rc<crate::state::ModRuntime> = crate::state::modAt(modIndex)?;
+    match context.m_world
+    {
+        Some(world) => crate::host::context::withWorld(world, || runtime.call(&call)),
+        None => runtime.call(&call),
+    }
+}
+
+pub fn check(rule: u32, context: &LootContext, random: &Random) -> bool
+{
+    match answer(rule)
+    {
+        Some(Answer::KilledByPlayer) => context.m_byPlayer,
+        Some(Answer::Guest(modIndex, handler)) =>
+        {
+            let call: GuestCall = GuestCall::LootCondition { handler, context: guestContext(context, random) };
+            matches!(ask(modIndex, context, call), Some(GuestReply::Bool(true)))
+        }
+        None => false,
+    }
+}
+
+pub fn count(rule: u32, context: &LootContext, random: &Random) -> i32
+{
+    let Some(Answer::Guest(modIndex, handler)) = answer(rule)
+    else
+    {
+        return 0;
+    };
+
+    let call: GuestCall = GuestCall::LootCount { handler, context: guestContext(context, random) };
+    match ask(modIndex, context, call)
+    {
+        Some(GuestReply::Int(count)) => count,
+        _ => 0,
+    }
 }
 
 pub fn add(registry: RegistryKind, target: Identifier, spec: LootSpec) -> Result<(), String>
@@ -75,7 +220,7 @@ pub fn addChest(table: Identifier, spec: LootSpec) -> Result<(), String>
 }
 
 // a pool joins a block's or entity's merged loot like its entries do, or a chest table
-pub fn addPool(target: LootTarget, id: Identifier, pool: LootPoolSpec) -> Result<(), String>
+pub fn addPool(target: LootTarget, id: Identifier, pool: ConditionalPoolSpec) -> Result<(), String>
 {
     match target
     {
@@ -126,7 +271,7 @@ pub fn rollChest(table: &Identifier, seed: i64) -> Result<Vec<StackData>, String
 
     let resolved: LootTable = resolved.ok_or_else(|| format!("no chest loot table {table}"))?;
     let random: Random = Random::withSeed(seed);
-    Ok(game::loot::roll(&resolved, &random, false, 0).iter().map(|stack| stackData(stack)).collect())
+    Ok(game::loot::roll(&resolved, &random, &LootContext::default()).iter().map(|stack| stackData(stack)).collect())
 }
 
 // every chest table with its items resolved, an entry naming an unregistered item is left out
@@ -179,7 +324,7 @@ fn build(registries: &Registries, keepBeta: bool, merged: &Merged, problems: &mu
 }
 
 // an entry naming an unregistered item keeps its weight and drops nothing, so the other odds stay as written
-fn resolvePool(registries: &Registries, pool: &LootPoolSpec, problems: &mut Vec<String>) -> LootPool
+fn resolvePool(registries: &Registries, pool: &ConditionalPoolSpec, problems: &mut Vec<String>) -> LootPool
 {
     let entries: Vec<PoolEntry> = pool
         .entries
@@ -205,10 +350,30 @@ fn resolvePool(registries: &Registries, pool: &LootPoolSpec, problems: &mut Vec<
                 m_weight: entry.weight,
                 m_player: entry.player,
                 m_blockMeta: entry.block_meta,
+                m_rules: rules(entry, problems),
             }
         })
         .collect();
     LootPool { m_min: pool.rolls, m_max: pool.max_rolls.unwrap_or(pool.rolls), m_entries: entries }
+}
+
+// an unless naming no rule keeps the entry out, as a when naming none does
+fn rules(entry: &ConditionalLootSpec, problems: &mut Vec<String>) -> LootRules
+{
+    let mut when: Vec<u32> = entry.when.iter().map(|id| ruleNumber(id, RuleKind::Condition, problems)).collect();
+    let mut unless: Vec<u32> = Vec::new();
+
+    for id in &entry.unless
+    {
+        match ruleNumber(id, RuleKind::Condition, problems)
+        {
+            UNKNOWN => when.push(UNKNOWN),
+            number => unless.push(number),
+        }
+    }
+
+    let count: Option<u32> = entry.count_by.as_ref().map(|id| ruleNumber(id, RuleKind::Count, problems));
+    LootRules { m_when: when, m_unless: unless, m_count: count }
 }
 
 // the game keys loot by numbers and save keys, so every content build and id map change resolves it again
