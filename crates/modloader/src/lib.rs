@@ -41,7 +41,6 @@ pub mod side;
 pub mod sounds;
 pub mod state;
 pub mod states;
-pub mod steering;
 pub mod structures;
 pub mod textures;
 pub mod tiles;

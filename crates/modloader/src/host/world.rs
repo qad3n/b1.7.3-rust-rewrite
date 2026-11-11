@@ -6,7 +6,7 @@ use crate::state::ModRuntime;
 use crate::tiles::{self, ModTileExt};
 use game::container::Container;
 use game::damage::{DamageKind, DamageSource};
-use game::entity::{Entity, entity_player};
+use game::entity::{Entity, entity_living, entity_player};
 use game::inventory::{IInventory, InventoryPlayer};
 use game::item::ItemStack;
 use game::math::vec3d::Vec3D;
@@ -223,8 +223,13 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         EntityField::Jumping => HostReply::Bool(living(entity).is_some_and(|fields| fields.m_isJumping.get())),
         EntityField::Yaw => HostReply::Float(entity.m_rotationYaw.get()),
         EntityField::Pitch => HostReply::Float(entity.m_rotationPitch.get()),
-        EntityField::AirJumps => HostReply::Float(crate::steering::airJumps(entity) as f32),
-        EntityField::MountSpeed => HostReply::Float(crate::steering::speed(entity)),
+        EntityField::AirJumps | EntityField::MountSpeed =>
+        {
+            HostReply::Error("air jumps and mount speed were removed in api 1.28 with steering".to_owned())
+        }
+
+        EntityField::InLava => HostReply::Bool(entity.handleLavaMovement()),
+        EntityField::Slipperiness => HostReply::Float(entity_living::groundSlipperiness(entity, &entity.world())),
         EntityField::TargetId => HostReply::Float(
             creature(entity)
                 .and_then(|fields| fields.m_playerToAttack.get())
@@ -298,8 +303,8 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::Jumping => living(entity).into_iter().for_each(|fields| fields.m_isJumping.set(value > 0.0)),
         EntityField::Yaw => entity.m_rotationYaw.set(value as f32),
         EntityField::Pitch => entity.m_rotationPitch.set(value as f32),
-        EntityField::AirJumps => crate::steering::setAirJumps(entity, value as i32),
-        EntityField::MountSpeed => crate::steering::setSpeed(entity, value as f32),
+        EntityField::AirJumps | EntityField::MountSpeed | EntityField::InLava | EntityField::Slipperiness =>
+        {}
 
         EntityField::TargetId =>
         {
@@ -690,6 +695,23 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         {
             unit(entity(dimension, id).map(|entity| crate::entities::setData(&entity, runtime.id(), data)))
         }
+
+        HostCall::Accelerate { world: dimension, id, strafe, forward, factor } =>
+        {
+            unit(entity(dimension, id).map(|entity| entity.moveFlying(strafe, forward, factor)))
+        }
+
+        HostCall::Step { world: dimension, id, motion: [x, y, z] } =>
+        {
+            unit(entity(dimension, id).map(|entity| entity.moveEntity(x, y, z)))
+        }
+
+        HostCall::AnimateWalk { world: dimension, id } => unit(entity(dimension, id).and_then(|entity|
+        {
+            living(&entity).ok_or("only living entities walk")?;
+            entity_living::animateWalk(&entity);
+            Ok(())
+        })),
 
         HostCall::MoveEntity { world: dimension, id, pos, motion, rotation } =>
         {

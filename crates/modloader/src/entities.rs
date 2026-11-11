@@ -243,6 +243,11 @@ pub fn modTexturePath(texture: &str) -> Option<String>
 
 pub fn register(id: Identifier, owner: usize, spec: EntitySpec) -> Result<(), String>
 {
+    if spec.steering.is_some()
+    {
+        return Err(format!("{id} sets steering, removed in api 1.28, move it with EntityBehavior::onTravel instead"));
+    }
+
     let template: &'static EntityTemplate = template(&spec)?;
     let texture: Option<JString> =
         spec.texture.as_deref().and_then(modTexturePath).map(|path| JString::from(path.as_str()));
@@ -378,15 +383,15 @@ fn deathSound(this: &Rc<Entity>) -> Option<String>
 // an Ai behavior replaces the template's AI tick entirely
 fn ai(this: &Rc<Entity>) { callEntity(this, EntityCall::Ai { entity: entityInfo(this) }); }
 
-fn steeredMove(this: &Rc<Entity>, strafe: f32, forward: f32)
+fn travel(this: &Rc<Entity>, strafe: f32, forward: f32)
 {
-    let steering: Option<mod_protocol::spec::SteeringSpec> =
-        typeOf(this).and_then(|entityType| entityType.m_spec.steering);
-
-    if !steering.is_some_and(|steering| crate::steering::travel(this, &steering))
+    if let Some(GuestReply::Bool(true)) =
+        callEntity(this, EntityCall::Travel { entity: entityInfo(this), strafe, forward })
     {
-        (parentClass(this).moveEntityWithHeading)(this, strafe, forward);
+        return;
     }
+
+    (parentClass(this).moveEntityWithHeading)(this, strafe, forward);
 }
 
 fn texture(this: &Rc<Entity>) -> Option<JString>
@@ -449,11 +454,6 @@ fn classFor(entityType: &Rc<EntityType>) -> &'static EntityClass
             class.getEntityTexture = texture;
             class.dropFewItems = dropItems;
 
-            if entityType.m_spec.steering.is_some()
-            {
-                class.moveEntityWithHeading = steeredMove;
-            }
-
             if entityType.m_spec.persistent
             {
                 class.canDespawn = |_| false;
@@ -472,7 +472,7 @@ fn classFor(entityType: &Rc<EntityType>) -> &'static EntityClass
                 class.getDeathSound = deathSound;
             }
 
-            let methods: [ClassPatch; 7] = [
+            let methods: [ClassPatch; 8] = [
                 (EntityMethod::Tick, |class| class.onUpdate = tick),
                 (EntityMethod::LivingUpdate, |class| class.onLivingUpdate = livingUpdate),
                 (EntityMethod::Interact, |class| class.interact = interact),
@@ -480,6 +480,7 @@ fn classFor(entityType: &Rc<EntityType>) -> &'static EntityClass
                 (EntityMethod::Death, |class| class.onDeath = death),
                 (EntityMethod::CanSpawn, |class| class.getCanSpawnHere = canSpawn),
                 (EntityMethod::Ai, |class| class.updatePlayerActionState = ai),
+                (EntityMethod::Travel, |class| class.moveEntityWithHeading = travel),
             ];
 
             for (method, apply) in methods
