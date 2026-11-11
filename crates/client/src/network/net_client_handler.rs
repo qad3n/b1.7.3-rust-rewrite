@@ -222,7 +222,13 @@ impl NetClientHandler
             Some(Ok(auth::ClientStep::Secure(keys, ke3))) =>
             {
                 *self.m_auth.borrow_mut() = None;
-                self.netManager().armSecure(keys);
+
+                if !self.netManager().armSecure(keys)
+                {
+                    self.authFailed("Protocol error");
+                    return;
+                }
+
                 self.sendAuth(&ke3);
             }
 

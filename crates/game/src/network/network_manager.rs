@@ -416,6 +416,12 @@ impl Shared
         {
             Some(packet) =>
             {
+                TOTAL_READ_SIZE[packet.getPacketId() as usize].fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
+
+                let size: usize = wireSize(packet.as_ref());
+                // armSecure holds this lock too so each packet is either queued before its scan or checked here after it
+                let mut inbox: std::sync::MutexGuard<'_, Inbox> = lock(&self.m_readPackets);
+
                 if Packet250ModPayload::secureMarker(packet.as_ref())
                 {
                     let opener: auth::Opener = lock(&self.m_armedOpen)
@@ -429,10 +435,6 @@ impl Shared
                     return Err(ioError(&IO, "plaintext packet after auth"));
                 }
 
-                TOTAL_READ_SIZE[packet.getPacketId() as usize].fetch_add(packet.getPacketSize() + 1, Ordering::Relaxed);
-
-                let size: usize = wireSize(packet.as_ref());
-                let mut inbox: std::sync::MutexGuard<'_, Inbox> = lock(&self.m_readPackets);
                 // rewrite: a vanilla server queues input without limit so a flood could exhaust memory
                 if self.m_isServerHandler && inbox.full(size)
                 {
@@ -734,10 +736,20 @@ impl NetworkManager
     pub fn peerTag(&self) -> String { self.remoteIp().map_or_else(|| String::from("unknown peer"), auth::tag) }
 
     // takes effect only at the next secure marker each way so no packet is ever read with the wrong cipher
-    pub fn armSecure(&self, keys: auth::Keys)
+    // false when the peer already sent packets past its proof that could act for it unencrypted
+    pub fn armSecure(&self, keys: auth::Keys) -> bool
     {
+        let mut inbox: std::sync::MutexGuard<'_, Inbox> = lock(&self.m_shared.m_readPackets);
         *lock(&self.m_shared.m_armedOpen) = Some(keys.m_open);
         *lock(&self.m_shared.m_armedSeal) = Some(keys.m_seal);
+
+        let clean: bool = inbox.m_packets.iter().all(|packet| plaintextAllowed(packet.as_ref()));
+        if !clean
+        {
+            inbox.clear();
+        }
+
+        clean
     }
 
     pub fn secure(&self) -> bool

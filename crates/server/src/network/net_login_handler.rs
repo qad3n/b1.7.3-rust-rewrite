@@ -431,7 +431,13 @@ impl NetLoginHandler
     {
         *self.m_auth.borrow_mut() = None;
         service.limiter().succeeded(ip, name);
-        self.netManager().armSecure(keys);
+
+        if !self.netManager().armSecure(keys)
+        {
+            self.kickUser(PROTOCOL_ERROR);
+            return;
+        }
+
         self.netManager().addToSendQueue(Box::new(Packet250ModPayload::auth(&Message::Secure)));
         self.m_authed.set(true);
         info!("{} logged in with a password as {display}", self.who());
