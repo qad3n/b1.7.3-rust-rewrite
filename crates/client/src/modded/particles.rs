@@ -1,6 +1,7 @@
 use crate::render::particle::entity_fx::{self, FXFields};
-use crate::render::particle::{entity_portal_fx, entity_slime_fx};
+use crate::render::particle::{entity_digging_fx, entity_portal_fx, entity_slime_fx};
 use crate::render::{RenderGlobal, vanillaParticle};
+use game::block::Block;
 use game::entity::Entity;
 use game::item::Item;
 use game::world::World;
@@ -8,6 +9,7 @@ use modloader::content::particles::ParticleKind;
 use std::rc::Rc;
 
 const ICON_CRACK: &str = "iconcrack_";
+const BLOCK_CRACK: &str = "blockcrack_";
 const TINTED_PORTAL: &str = "tintportal_";
 const HEX: u32 = 16;
 const CHANNEL: f32 = 255.0;
@@ -24,6 +26,7 @@ pub fn spawn(
     let [x, y, z] = pos;
     registered(global, name, world, pos, motion)
         .or_else(|| iconCrack(name, world, x, y, z))
+        .or_else(|| blockCrack(name, world, pos, motion))
         .or_else(|| tintedPortal(name, world, pos, motion))
 }
 
@@ -89,4 +92,15 @@ fn iconCrack(name: &str, world: &Rc<World>, x: f64, y: f64, z: f64) -> Option<Rc
     let particle: Rc<Entity> = entity_slime_fx::new(world, x, y, z, &item);
     entity_fx::fx(&particle).m_particleTextureIndex.set(item.getIconFromDamage(damage.parse().ok()?));
     Some(particle)
+}
+
+// blockcrack_<block id>_<meta>: bits of a block flying off with the given motion, as later versions name EntityDiggingFX
+fn blockCrack(name: &str, world: &Rc<World>, pos: [f64; 3], motion: [f64; 3]) -> Option<Rc<Entity>>
+{
+    let rest: &str = name.strip_prefix(BLOCK_CRACK)?;
+    let (id, meta) = rest.split_once('_').unwrap_or((rest, "0"));
+    let block: Rc<Block> = Block::byId(id.parse().ok()?)?;
+    let [x, y, z] = pos;
+    let [velocityX, velocityY, velocityZ] = motion;
+    Some(entity_digging_fx::new(world, x, y, z, velocityX, velocityY, velocityZ, &block, 0, meta.parse().ok()?))
 }
