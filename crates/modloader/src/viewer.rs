@@ -9,6 +9,7 @@ use mod_protocol::abi::{RecipeShape, RecipeView, StackData};
 use std::rc::Rc;
 
 pub mod loot;
+pub mod machines;
 
 // block items nobody holds: flowing liquids, fire, technical blocks and the blocks a separate item places
 const HIDDEN: [&str; 22] = [

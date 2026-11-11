@@ -174,6 +174,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
 
         HostCall::SetChestLoot { table, spec } => unit(crate::content::loot::addChest(table, spec)),
 
+        HostCall::RegisterMachine { name, spec } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name.to_string()))
+                .and_then(|id| crate::content::machines::register(id, spec)),
+        ),
+        HostCall::AddMachineRecipe { machine, recipe } => unit(crate::content::machines::addRecipe(&machine, recipe)),
+        HostCall::AddWorkstation { machine, item } => unit(crate::content::machines::addWorkstation(&machine, item)),
+
         HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
         HostCall::TagsOf { registry, id } => HostReply::Ids(tags::of(registry, &id)),
 

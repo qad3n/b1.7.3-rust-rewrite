@@ -6,6 +6,7 @@ pub mod harvest;
 pub mod items;
 pub mod lang;
 pub mod loot;
+pub mod machines;
 pub mod particles;
 pub mod progress;
 pub mod recipes;
