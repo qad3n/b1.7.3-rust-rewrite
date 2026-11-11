@@ -1,5 +1,5 @@
-use crate::discovery::Source;
 use crate::registry::{BlockEntry, ItemEntry, RecipeEntry, Registry};
+use game::resources::Source;
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::

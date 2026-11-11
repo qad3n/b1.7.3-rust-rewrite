@@ -1,8 +1,8 @@
 use crate::config::ModConfig;
-use crate::discovery::Source;
 use crate::manifest::Manifest;
 use crate::resolver::Problem;
 use crate::wasm::ModInstance;
+use game::resources::Source;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{GuestCall, GuestReply, Lifecycle};
 use std::cell::{Cell, RefCell};

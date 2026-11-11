@@ -8,7 +8,7 @@ use game::locale::StringTranslate;
 use game::math::math_helper;
 use game::port::text;
 use jvm::field::Field;
-use jvm::io::{FileInputStream, InputStream};
+use jvm::io::{ByteArrayInputStream, InputStream};
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
@@ -31,7 +31,7 @@ fn fields(this: &GuiScreen) -> &MainMenuExt { this.ext::<MainMenuExt>() }
 
 fn readSplashes() -> Option<Vec<String>>
 {
-    let mut stream: FileInputStream = assets::getResourceAsStream("/title/splashes.txt")?;
+    let mut stream: ByteArrayInputStream = assets::getResourceAsStream("/title/splashes.txt")?;
     let mut bytes: Vec<u8> = Vec::new();
 
     loop

@@ -4,7 +4,7 @@ use crate::render::{GLAllocation, RenderEngine, Tessellator};
 use crate::settings::GameSettings;
 use game::port::text;
 use jvm::image::{BufferedImage, ImageIO};
-use jvm::io::FileInputStream;
+use jvm::io::ByteArrayInputStream;
 use jvm::string::JString;
 use jvm::throwable::{self, OrNpe};
 use lwjgl::buffers::{FloatBuffer, IntBuffer};
@@ -69,7 +69,7 @@ impl FontRenderer
 {
     pub fn new(options: &GameSettings, fontPath: &str, textureManager: &RenderEngine) -> Self
     {
-        let mut stream: Option<FileInputStream> = assets::getResourceAsStream(fontPath);
+        let mut stream: Option<ByteArrayInputStream> = assets::getResourceAsStream(fontPath);
         let bufferedimage: BufferedImage = match ImageIO::read(stream.as_mut())
         {
             Ok(image) => image.orNpe(),

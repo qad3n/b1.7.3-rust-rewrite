@@ -884,6 +884,7 @@ dependencies = [
  "auth",
  "common",
  "jvm",
+ "zip",
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ use game::entity::Entity;
 use game::item::Item;
 use game::world::{ChunkCoordinates, World};
 use jvm::image::{BufferedImage, ImageIO};
-use jvm::io::{FileInputStream, IoResult};
+use jvm::io::{ByteArrayInputStream, IoResult};
 use jvm::math;
 use jvm::throwable::OrNpe;
 use std::cell::{Cell, RefCell};
@@ -14,7 +14,7 @@ use std::rc::Rc;
 
 pub(crate) fn readTile(path: &str, x: i32, y: i32, pixels: &mut [i32]) -> IoResult<()>
 {
-    let mut stream: Option<FileInputStream> = assets::getResourceAsStream(path);
+    let mut stream: Option<ByteArrayInputStream> = assets::getResourceAsStream(path);
     let image: BufferedImage = ImageIO::read(stream.as_mut())?.orNpe();
     image.getRGBRegion(x, y, 16, 16, pixels, 0, 16);
     Ok(())

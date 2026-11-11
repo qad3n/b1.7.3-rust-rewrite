@@ -15,6 +15,7 @@ pub mod math;
 pub mod network;
 pub mod pathfinding;
 pub mod port;
+pub mod resources;
 pub mod stats;
 pub mod storage;
 pub mod tags;

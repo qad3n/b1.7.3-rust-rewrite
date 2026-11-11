@@ -2,7 +2,7 @@ use crate::assets;
 use crate::client::Minecraft;
 use crate::render::{RenderEngine, TexturePackBase, TexturePackFields};
 use jvm::image::{BufferedImage, ImageIO};
-use jvm::io::FileInputStream;
+use jvm::io::ByteArrayInputStream;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 use std::cell::Cell;
@@ -43,7 +43,7 @@ impl TexturePackDefault
         pack.m_texturePackFileName.set(Some("Default".to_owned()));
         pack.m_firstDescriptionLine.set(Some("The default look of Minecraft".to_owned()));
 
-        let mut stream: Option<FileInputStream> = assets::getResourceAsStream("/pack.png");
+        let mut stream: Option<ByteArrayInputStream> = assets::getResourceAsStream("/pack.png");
         let thumbnail: Option<Rc<BufferedImage>> = match ImageIO::read(stream.as_mut())
         {
             Ok(image) => image.map(Rc::new),
