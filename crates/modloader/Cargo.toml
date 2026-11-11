@@ -8,6 +8,7 @@ publish.workspace = true
 common = { path = "../common" }
 game = { path = "../game" }
 jvm = { path = "../jvm" }
+mod_assets = { path = "../../vendor/b1.7.3-modding-sdk/mod_assets" }
 mod_protocol = { path = "../../vendor/b1.7.3-modding-sdk/mod_protocol" }
 png = "0.17"
 semver = "1"

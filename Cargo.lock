@@ -1277,6 +1277,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "mod_assets"
+version = "0.1.0"
+dependencies = [
+ "png",
+ "serde",
+ "serde_json",
+ "sha2",
+ "toml",
+ "zip",
+]
+
+[[package]]
 name = "mod_protocol"
 version = "0.1.0"
 dependencies = [
@@ -1292,6 +1304,7 @@ dependencies = [
  "common",
  "game",
  "jvm",
+ "mod_assets",
  "mod_protocol",
  "png",
  "semver",

@@ -45,6 +45,7 @@ pub mod sounds;
 pub mod state;
 pub mod states;
 pub mod structures;
+pub mod supplied;
 pub mod tech;
 pub mod textures;
 pub mod tiles;

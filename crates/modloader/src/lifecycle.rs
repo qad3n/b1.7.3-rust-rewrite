@@ -344,12 +344,18 @@ fn applyLate()
 fn sprite(id: &Identifier) -> Location { Location::new(id.namespace(), &format!("textures/{}.png", id.path())) }
 
 // each mod is a texture pack layer above the jar so the player's packs can retexture it
+// art converted from the player's download sits just below the mod's own files
 fn installPacks()
 {
     let mut packs: Vec<Rc<Pack>> = Vec::new();
 
     for runtime in state::mods()
     {
+        if let Some(cache) = crate::supplied::pack(runtime.id())
+        {
+            packs.push(Rc::new(Pack::new(runtime.id(), &[], Layout::Modern, Source::Folder(cache))));
+        }
+
         let path: PathBuf = runtime.m_source.borrow().path().to_path_buf();
         match Source::open(&path)
         {
@@ -513,7 +519,17 @@ fn start(paths: &LoaderPaths)
     for runtime in &mut runtimes
     {
         let id: String = runtime.id().to_owned();
-        let problems: Vec<String> = data::load(&id, &mut runtime.m_source.borrow_mut());
+        let supplied: Result<(), String> = if side::isClient()
+        {
+            crate::supplied::prepare(paths, &id, &mut runtime.m_source.borrow_mut())
+        }
+        else
+        {
+            Ok(())
+        };
+
+        let mut problems: Vec<String> = data::load(&id, &mut runtime.m_source.borrow_mut());
+        problems.extend(supplied.err());
         for problem in problems
         {
             state::problem(&id, &runtime.m_file, &problem);
