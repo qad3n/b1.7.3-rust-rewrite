@@ -136,7 +136,9 @@ pub fn displayName(stack: &Rc<ItemStack>) -> String
 
 fn listed(registries: &Registries, row: &Row<ItemEntry>) -> bool
 {
-    if Item::byId(row.m_numeric).is_none() || (row.m_id.isVanilla() && HIDDEN.contains(&row.m_id.path()))
+    // rows registered this session have no numeric id until registration ends
+    let unbuilt: bool = row.m_numeric == crate::registry::UNASSIGNED || Item::byId(row.m_numeric).is_none();
+    if unbuilt || (row.m_id.isVanilla() && HIDDEN.contains(&row.m_id.path()))
     {
         return false;
     }
