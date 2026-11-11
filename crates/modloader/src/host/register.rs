@@ -159,7 +159,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             // abi 2 never checked the name, one outside the namespace still registers under the block's path
             let fallback: Result<Identifier, String> =
                 Identifier::new(&owner, &format!("worldgen/{}", spec.block.path())).map_err(|error| error.to_string());
-            unit(runtime.own(&name).or(fallback).map(|id| data::registerWorldgen(&owner, id, spec)))
+            unit(registering().and(runtime.own(&name).or(fallback)).map(|id| data::registerWorldgen(&owner, id, spec)))
         }
 
         HostCall::DefineConfig { entries } => unit(runtime.m_config.borrow_mut().define(entries)),
