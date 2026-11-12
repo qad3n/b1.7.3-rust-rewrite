@@ -195,7 +195,11 @@ fn harvest(this: &Rc<Block>, world: &Rc<World>, player: &Rc<Entity>, x: i32, y: 
     if !handled(callBlock(this, Some(world), BlockCall::Harvest { ctx: context, player: player.m_entityId.get() }))
     {
         (parent(this).harvestBlock)(this, world, player, x, y, z, metadata);
+        return;
     }
+
+    // a mod harvest step replaces beta's harvestBlock but still counts the block as mined like every source mod did
+    game::stats::named::count(player, game::stats::named::ContentStat::Mined, this.m_blockID, 1);
 }
 
 fn canPlaceAt(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32) -> bool
