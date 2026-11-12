@@ -486,8 +486,14 @@ fn height(spec: &HeightSpec, random: &Random) -> i32
 }
 
 // WorldGenMinable with any block state and any replaceable tag, the same random draws as beta's ores
-fn ore(world: &Rc<World>, random: &Random, state: (i32, i32), size: i32, at: [i32; 3], replaces: &HashSet<i32>)
--> bool
+pub(crate) fn ore(
+    world: &Rc<World>,
+    random: &Random,
+    state: (i32, i32),
+    size: i32,
+    at: [i32; 3],
+    replaces: &HashSet<i32>,
+) -> bool
 {
     let [x, y, z] = at;
     let angle: f32 = random.nextFloat() * jvm::math::PI as f32;
