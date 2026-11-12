@@ -372,6 +372,7 @@ impl GameRules
 
     fn load(&self, name: String, text: String)
     {
+        let name: String = crate::hooks::renamed(&name);
         let Some(rule) = GameRule::byName(&name)
         else
         {

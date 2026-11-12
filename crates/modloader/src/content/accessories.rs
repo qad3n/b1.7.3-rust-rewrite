@@ -56,14 +56,20 @@ fn load(entity: &Entity) -> Vec<Saved>
         return Vec::new();
     }
 
-    mod_protocol::wire::decode(&bytes).unwrap_or_else(|error|
+    let saved: Vec<Saved> = mod_protocol::wire::decode(&bytes).unwrap_or_else(|error|
     {
         crate::log::warn(
             crate::log::LOADER,
             &format!("accessories of entity {} unreadable: {error}", entity.m_entityId.get()),
         );
         Vec::new()
-    })
+    });
+    saved.into_iter().map(renamed).collect()
+}
+
+fn renamed(saved: Saved) -> Saved
+{
+    Saved { m_slot: crate::remap::rename(&saved.m_slot), m_item: crate::remap::rename(&saved.m_item), ..saved }
 }
 
 // a slot an uninstalled mod registered keeps its item until that mod comes back

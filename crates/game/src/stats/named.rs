@@ -234,7 +234,8 @@ impl Progress
 
             for entry in tag.compound().getValues()
             {
-                stats.insert(entry.getKey().to_string(), tag.compound().getInteger(&entry.getKey().to_string()));
+                let key: String = entry.getKey().to_string();
+                stats.insert(renamedStat(&key), tag.compound().getInteger(&key));
             }
         }
 
@@ -247,9 +248,19 @@ impl Progress
             {
                 if let Some(name) = list.list().tagAt(i).stringTag().m_stringValue.get()
                 {
-                    achievements.insert(name.to_string());
+                    achievements.insert(crate::hooks::renamed(&name.to_string()));
                 }
             }
         }
+    }
+}
+
+// content stats save as <kind>/<registry name>, so only the name part follows a rename
+fn renamedStat(key: &str) -> String
+{
+    match key.split_once('/')
+    {
+        Some((kind, name)) => format!("{kind}/{}", crate::hooks::renamed(name)),
+        None => crate::hooks::renamed(key),
     }
 }

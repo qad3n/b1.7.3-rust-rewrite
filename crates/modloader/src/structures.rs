@@ -413,8 +413,11 @@ pub fn load(world: &World)
         crate::persist::read(world, FILE).and_then(|bytes| crate::persist::decode(FILE, &bytes)).unwrap_or_default();
     let mut built: Built = Built::default();
 
-    for entry in saved
+    for mut entry in saved
     {
+        entry.dimension = crate::remap::rename(&entry.dimension);
+        entry.start.structure = crate::remap::rename(&entry.start.structure);
+
         match dimensionNumeric(&entry.dimension)
         {
             Some(numeric) => built.insert(numeric, entry.start),

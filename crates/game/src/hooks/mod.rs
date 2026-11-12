@@ -250,6 +250,9 @@ pub trait LoaderHooks
     {
         None
     }
+
+    // the current name of a saved registry name a mod has since renamed
+    fn rename(&self, _name: &str) -> Option<String> { None }
 }
 
 thread_local!
@@ -359,6 +362,12 @@ pub fn blockName(block: i32, meta: i32) -> Option<(String, Vec<(String, String)>
 pub fn blockByName(name: &str, properties: &[(String, String)], block: i32, meta: i32) -> Option<(i32, i32)>
 {
     active()?.blockByName(name, properties, block, meta)
+}
+
+// every saved registry name passes here before lookup so renamed content keeps loading
+pub fn renamed(name: &str) -> String
+{
+    active().and_then(|hooks| hooks.rename(name)).unwrap_or_else(|| name.to_owned())
 }
 
 const ITEM_NAME: &str = "loader:id";

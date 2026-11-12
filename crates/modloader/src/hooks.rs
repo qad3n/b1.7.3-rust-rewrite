@@ -144,7 +144,7 @@ impl LoaderHooks for Hooks
 
     fn itemByName(&self, name: &str) -> Option<i32>
     {
-        let id: mod_protocol::Identifier = mod_protocol::Identifier::parse(name).ok()?;
+        let id: mod_protocol::Identifier = crate::remap::rename(&mod_protocol::Identifier::parse(name).ok()?);
         crate::registry::with(|registries| registries.itemId(&id))
     }
 
@@ -156,6 +156,13 @@ impl LoaderHooks for Hooks
     fn blockByName(&self, name: &str, properties: &[(String, String)], block: i32, meta: i32) -> Option<(i32, i32)>
     {
         crate::palette::resolve(name, properties, block, meta)
+    }
+
+    fn rename(&self, name: &str) -> Option<String>
+    {
+        let id: mod_protocol::Identifier = mod_protocol::Identifier::parse(name).ok()?;
+        let renamed: mod_protocol::Identifier = crate::remap::rename(&id);
+        (renamed != id).then(|| renamed.to_string())
     }
 }
 

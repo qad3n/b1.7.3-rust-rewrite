@@ -273,7 +273,7 @@ impl Attributes
         {
             let tag: Rc<NBTBase> = list.list().tagAt(i);
             let entry: &NBTTagCompound = tag.compound();
-            let name: String = text(entry, "Name");
+            let name: String = crate::hooks::renamed(&text(entry, "Name"));
             let (Some(attribute), Some(operation)) =
                 (Attribute::byName(&name), Operation::byName(&text(entry, "Operation")))
             else

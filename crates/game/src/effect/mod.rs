@@ -124,7 +124,7 @@ impl Effects
             let tag: Rc<NBTBase> = list.list().tagAt(i);
             let entry: &NBTTagCompound = tag.compound();
             let name: String = entry.getString("Name").map(|name| name.to_string()).unwrap_or_default();
-            let Some(effect) = byName(&name)
+            let Some(effect) = byName(&crate::hooks::renamed(&name))
             else
             {
                 self.m_unread.keep(tag);

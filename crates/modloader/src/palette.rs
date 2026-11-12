@@ -52,7 +52,7 @@ pub fn resolve(name: &str, properties: &[(String, String)], block: i32, meta: i3
         return Some((0, 0));
     }
 
-    let known: Option<(i32, i32)> = Identifier::parse(name).ok().and_then(|id|
+    let known: Option<(i32, i32)> = Identifier::parse(name).ok().map(|id| crate::remap::rename(&id)).and_then(|id|
     {
         let values: BTreeMap<String, String> = properties.iter().cloned().collect();
 
