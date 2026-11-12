@@ -13,7 +13,7 @@ mod stack_draw;
 pub mod textures;
 
 use crate::client::Minecraft;
-use crate::gui::{GuiIngame, GuiScreen, ScaledResolution};
+use crate::gui::{GuiIngame, GuiInventory, GuiScreen, ScaledResolution};
 use draw::ButtonRect;
 use game::container::Container;
 use game::entity::{Entity, entity_player};
@@ -361,7 +361,7 @@ fn devToolsEnabled() -> bool
 
 // with B173_DEVSHOT set, a devcmd.request file in the game folder runs test lines on the main thread and answers in
 // devcmd.done: world <save> [seed], quit, set <x> <y> <z> <id>, hold <item> [count], held, use, look <yaw> <pitch>, screen,
-// click <x> <y> [button] in gui coordinates, type <text>, key <lwjgl code>, close, and /<mod command> such as /loader column 0 8 8
+// click <x> <y> [button] in gui coordinates, type <text>, key <lwjgl code>, close, menu, inventory, chat <text>, and /<mod command>
 pub fn devCommands(mc: &Minecraft)
 {
     if !devToolsEnabled()
@@ -570,6 +570,37 @@ fn devCommand(mc: &Minecraft, line: &str) -> String
         {
             mc.displayGuiScreen(None);
             "closed the screen".to_owned()
+        }
+
+        ["chat", words @ ..] =>
+        {
+            let Some(player) = mc.m_thePlayer.get()
+            else
+            {
+                return "no player".to_owned();
+            };
+
+            let message: String = words.join(" ");
+            player.sendChatMessage(&message);
+            format!("sent {message}")
+        }
+
+        ["menu"] =>
+        {
+            mc.displayInGameMenu();
+            "opened the game menu".to_owned()
+        }
+
+        ["inventory"] =>
+        {
+            let Some(player) = mc.m_thePlayer.get()
+            else
+            {
+                return "no player".to_owned();
+            };
+
+            mc.displayGuiScreen(Some(GuiInventory::new(&player)));
+            "opened the inventory".to_owned()
         }
 
         _ => match line.strip_prefix('/')
