@@ -1,14 +1,16 @@
 use crate::gui::{FontRenderer, GUI_SCREEN, GuiButton, GuiScreen, GuiScreenClass};
 use game::entity::{Entity, entity_player};
+use game::item::ItemStack;
 use game::stats::named;
-use std::cell::Cell;
+use std::cell::{Cell, Ref, RefCell};
+use std::ops::Range;
 use std::rc::Rc;
 
 // mod achievements and mod stats on pages of their own, opened by a button on the vanilla screens
 mod layout
 {
-    pub const ROWS: usize = 12;
     pub const ROW_HEIGHT: i32 = 12;
+    pub const DETAIL_GAP: i32 = 4;
     pub const TOP: i32 = 40;
     pub const TITLE_Y: i32 = 20;
     pub const HALF_WIDTH: i32 = 150;
@@ -32,6 +34,7 @@ mod color
     pub const DONE: i32 = 0x55FF55;
     pub const LOCKED: i32 = 0x808080;
     pub const VALUE: i32 = 0xFFFFFF;
+    pub const DETAIL: i32 = 0xA0A0A0;
 }
 
 // the vanilla achievement and stats screens open these pages with this button id
@@ -41,6 +44,7 @@ struct Row
 {
     m_label: String,
     m_value: String,
+    m_detail: String,
     m_color: i32,
 }
 
@@ -50,15 +54,61 @@ struct PageExt
     m_title: &'static str,
     m_rows: Vec<Row>,
     m_page: Cell<usize>,
+    // index of the first row on each page, rows wrap their detail so pages hold what fits
+    m_starts: RefCell<Vec<usize>>,
 }
 
 fn fields(this: &GuiScreen) -> &PageExt { this.ext::<PageExt>() }
 
-fn pages(this: &GuiScreen) -> usize { fields(this).m_rows.len().div_ceil(layout::ROWS).max(1) }
+fn pages(this: &GuiScreen) -> usize { fields(this).m_starts.borrow().len() }
+
+fn width() -> i32 { layout::HALF_WIDTH * 2 }
+
+fn rowHeight(font: &FontRenderer, row: &Row) -> i32
+{
+    match row.m_detail.is_empty()
+    {
+        true => layout::ROW_HEIGHT,
+        false => layout::ROW_HEIGHT + font.splitAndGetHeight(&row.m_detail, width()) + layout::DETAIL_GAP,
+    }
+}
+
+fn paginate(this: &GuiScreen)
+{
+    let font: Rc<FontRenderer> = this.fontRenderer();
+    let room: i32 = this.m_height.get() - layout::TOP - layout::BOTTOM_MARGIN - layout::BUTTON_HEIGHT;
+    let mut starts: Vec<usize> = vec![0];
+    let mut used: i32 = 0;
+
+    for (index, row) in fields(this).m_rows.iter().enumerate()
+    {
+        let height: i32 = rowHeight(&font, row);
+        if 0 < used && room < used + height
+        {
+            starts.push(index);
+            used = 0;
+        }
+
+        used += height;
+    }
+
+    let ext: &PageExt = fields(this);
+    ext.m_page.set(ext.m_page.get().min(starts.len() - 1));
+    ext.m_starts.replace(starts);
+}
+
+fn shown(this: &GuiScreen) -> Range<usize>
+{
+    let ext: &PageExt = fields(this);
+    let starts: Ref<Vec<usize>> = ext.m_starts.borrow();
+    let page: usize = ext.m_page.get();
+    starts[page]..starts.get(page + 1).copied().unwrap_or(ext.m_rows.len())
+}
 
 fn build(this: &GuiScreen)
 {
     this.m_controlList.clear();
+    paginate(this);
 
     let center: i32 = this.m_width.get() / 2;
     let bottom: i32 = this.m_height.get() - layout::BOTTOM_MARGIN;
@@ -117,13 +167,15 @@ const CLASS: GuiScreenClass = GuiScreenClass
         let center: i32 = this.m_width.get() / 2;
         this.m_gui.drawCenteredString(&font, ext.m_title, center, layout::TITLE_Y, color::TITLE);
 
-        let rows = ext.m_rows.iter().skip(ext.m_page.get() * layout::ROWS).take(layout::ROWS);
-        for (index, row) in rows.enumerate()
+        let left: i32 = center - layout::HALF_WIDTH;
+        let mut y: i32 = layout::TOP;
+        for row in &ext.m_rows[shown(this)]
         {
-            let y: i32 = layout::TOP + index as i32 * layout::ROW_HEIGHT;
             let right: i32 = center + layout::HALF_WIDTH - font.getStringWidth(&row.m_value);
-            this.m_gui.drawString(&font, &row.m_label, center - layout::HALF_WIDTH, y, row.m_color);
+            this.m_gui.drawString(&font, &row.m_label, left, y, row.m_color);
             this.m_gui.drawString(&font, &row.m_value, right, y, color::VALUE);
+            font.splitAndDraw(&row.m_detail, left, y + layout::ROW_HEIGHT, width(), color::DETAIL);
+            y += rowHeight(&font, row);
         }
 
         (GUI_SCREEN.drawScreen)(this, mouseX, mouseY, tickDelta);
@@ -133,7 +185,14 @@ const CLASS: GuiScreenClass = GuiScreenClass
 
 fn page(parent: &Rc<GuiScreen>, title: &'static str, rows: Vec<Row>) -> Rc<GuiScreen>
 {
-    let ext: PageExt = PageExt { m_parent: Rc::clone(parent), m_title: title, m_rows: rows, m_page: Cell::new(0) };
+    let ext: PageExt = PageExt
+    {
+        m_parent: Rc::clone(parent),
+        m_title: title,
+        m_rows: rows,
+        m_page: Cell::new(0),
+        m_starts: RefCell::new(Vec::new()),
+    };
     GuiScreen::construct(&CLASS, Box::new(ext))
 }
 
@@ -148,7 +207,8 @@ pub fn achievements(parent: &Rc<GuiScreen>, player: &Entity) -> Rc<GuiScreen>
             Row
             {
                 m_label: achievement.m_title.clone(),
-                m_value: achievement.m_description.clone(),
+                m_value: String::new(),
+                m_detail: achievement.m_description.clone(),
                 m_color: if earned { color::DONE } else { color::LOCKED },
             }
         })
@@ -163,21 +223,34 @@ pub fn stats(parent: &Rc<GuiScreen>, player: &Entity) -> Rc<GuiScreen>
         .m_progress
         .stats()
         .into_iter()
-        .map(|(name, value)| Row { m_label: label(&name), m_value: value.to_string(), m_color: color::VALUE })
+        .map(|(name, value)| Row
+        {
+            m_label: label(&name),
+            m_value: value.to_string(),
+            m_detail: String::new(),
+            m_color: color::VALUE,
+        })
         .collect();
     page(parent, "Mod Statistics", rows)
 }
 
-// content stats read as their kind then the translated name of what they count
+// content stats read as their kind then the name of what they count as its tooltip shows it
 fn label(name: &str) -> String
 {
-    let (kind, id) = name.split_once('/').unwrap_or(("", name));
-    let item: String = modloader::content::lang::translate(id).unwrap_or_else(|| id.to_owned());
+    let (kind, id): (&str, &str) = name.split_once('/').unwrap_or(("", name));
+    let item: String = itemLabel(id).unwrap_or_else(|| id.to_owned());
     match kind
     {
         "" => item,
         kind => format!("{kind} {item}"),
     }
+}
+
+fn itemLabel(name: &str) -> Option<String>
+{
+    let id: modloader::Identifier = modloader::Identifier::parse(name).ok()?;
+    let numeric: i32 = modloader::registry::with(|registries| registries.itemId(&id))?;
+    Some(modloader::viewer::displayName(&ItemStack::withDamage(numeric, 1, 0)))
 }
 
 pub fn hasAchievements() -> bool { !named::achievements().is_empty() }
