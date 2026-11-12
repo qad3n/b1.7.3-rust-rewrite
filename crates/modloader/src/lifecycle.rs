@@ -307,6 +307,7 @@ fn removeRecipes()
             Some((true, numeric)) => vanilla.push(numeric),
             Some((false, _)) =>
             {
+                log::debug(log::LOADER, &format!("recipe {id} removed by a data file"));
                 REMOVED_RECIPES.with(|removed| removed.borrow_mut().insert(id));
             }
 
