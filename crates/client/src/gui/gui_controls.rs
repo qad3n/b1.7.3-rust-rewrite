@@ -48,6 +48,8 @@ const CLASS: GuiScreenClass = GuiScreenClass
             this.m_height.get() / 6 + 168,
             &stringTranslate.translateKey("gui.done"),
         ));
+        // mod keybinds live on their own page behind a button, the vanilla list stays as it is
+        crate::modded::keys::addButton(this);
         ext.m_screenTitle.set(stringTranslate.translateKey("controls.title"));
     },
 
@@ -62,6 +64,10 @@ const CLASS: GuiScreenClass = GuiScreenClass
         if button.m_id.get() == 200
         {
             this.mc().displayGuiScreen(Some(Rc::clone(&ext.m_parentScreen)));
+        }
+        else if button.m_id.get() == crate::modded::keys::OPEN_BUTTON
+        {
+            this.mc().displayGuiScreen(Some(crate::modded::keys::screen(&this.rc())));
         }
         else
         {

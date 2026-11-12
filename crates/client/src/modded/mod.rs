@@ -1,6 +1,7 @@
 mod config_menu;
 mod draw;
 pub mod entity_model;
+pub mod keys;
 mod menu;
 mod model;
 pub mod music;
