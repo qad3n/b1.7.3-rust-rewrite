@@ -128,11 +128,20 @@ impl RenderGlobal
             // small mobs vanish within a few chunks under the size based vanilla range
             let inRange: bool = entity1.isInRangeToRenderVec3D(cameraPos)
                 || entity1.getDistanceSq(cameraPos.x(), cameraPos.y(), cameraPos.z()) < viewRange;
-            if inRange
-                && entityVisible(culler, &entity1)
-                && (!Rc::ptr_eq(&entity1, &viewEntity)
-                    || self.gameSettings().m_thirdPersonView.get()
-                    || viewEntity.isPlayerSleeping())
+            let own: bool = Rc::ptr_eq(&entity1, &viewEntity);
+            // beta culls the sleeping viewer by its tiny box below the bed camera so padding would draw the head into view
+            let visible: bool = if own
+            {
+                entity1.m_ignoreFrustumCheck.get() || culler.isBoundingBoxInFrustum(&entity1.m_boundingBox)
+            }
+            else
+            {
+                entityVisible(culler, &entity1)
+            };
+            let drawn: bool = inRange
+                && visible
+                && (!own || self.gameSettings().m_thirdPersonView.get() || viewEntity.isPlayerSleeping());
+            if drawn
             {
                 let j: i32 = math_helper::floor_double(entity1.posY()).clamp(0, world.height() - 1);
                 if world.blockExists(
