@@ -63,6 +63,12 @@ impl EntityRenderer
             let vec3D3: Rc<Vec3D> = world.getCloudColor(tickDelta);
             self.setFogColor(vec3D3.m_xCoord.get() as f32, vec3D3.m_yCoord.get() as f32, vec3D3.m_zCoord.get() as f32);
         }
+        else if let Some(fog) = game::fluid::fogAround(&entityLiving)
+        {
+            // a mod fluid's own fog, tinted by its still block's colour
+            let [red, green, blue]: [f32; 3] = game::math::math_helper::rgb(fog);
+            self.setFogColor(red, green, blue);
+        }
         else if entityLiving.isInsideOfMaterial(&Material::water())
         {
             self.setFogColor(0.02, 0.02, 0.2);

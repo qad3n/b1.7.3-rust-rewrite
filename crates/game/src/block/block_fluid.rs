@@ -286,14 +286,7 @@ pub const CLASS: BlockClass = BlockClass
     colorMultiplier: |_, _, _, _, _| 0xFFFFFF,
     getBlockTextureFromSide: |this, face|
     {
-        if face == 0 || face == 1
-        {
-            this.m_blockIndexInTexture.get()
-        }
-        else
-        {
-            this.m_blockIndexInTexture.get() + 1
-        }
+        fluid::faceSprite(&this.m_blockMaterial, face, this.m_blockIndexInTexture.get())
     },
     renderAsNormalBlock: |_| false,
     isOpaqueCube: |_| false,

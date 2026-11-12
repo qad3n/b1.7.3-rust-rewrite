@@ -71,3 +71,11 @@ pub fn stringNullOrLengthZero(string: Option<&jvm::string::JString>) -> bool
         Some(text) => text.length() == 0,
     }
 }
+
+// 0xRRGGBB as red, green and blue from 0 to 1
+pub fn rgb(color: u32) -> [f32; 3]
+{
+    const CHANNEL: u32 = 0xFF;
+    const BITS: u32 = 8;
+    [2, 1, 0].map(|index| ((color >> (BITS * index)) & CHANNEL) as f32 / CHANNEL as f32)
+}

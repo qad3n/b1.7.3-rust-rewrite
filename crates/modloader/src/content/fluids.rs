@@ -208,7 +208,9 @@ pub fn register(id: Identifier, spec: FluidSpec) -> Result<(), String>
         m_netherDecay: spec.nether_decay.unwrap_or(defaults::NETHER_DECAY),
         m_infinite: spec.infinite.unwrap_or(!lava),
         m_sourceRule: None,
-        m_sprite: fluid::sprite(&Material::water()),
+        m_sprite: Cell::new(fluid::sprite(&Material::water())),
+        m_flowSprite: Cell::new(fluid::sprite(&Material::water()) + 1),
+        m_fog: Cell::new(None),
     });
 
     // a fluid's own bucket drains to a vanilla bucket like water's
@@ -281,5 +283,20 @@ pub fn push()
         row.m_flowing.set(flowing);
         row.m_still.set(still);
         row.m_bucket.set(bucket.unwrap_or(0));
+
+        // the still and flowing blocks' own textures, animated when their sprites carry frames
+        if let (Some(stillBlock), Some(flowingBlock)) =
+            (game::block::Block::byId(still), game::block::Block::byId(flowing))
+        {
+            row.m_sprite.set(stillBlock.m_blockIndexInTexture.get());
+            row.m_flowSprite.set(flowingBlock.m_blockIndexInTexture.get());
+        }
+
+        // the still block's colour tints the fog under the fluid
+        let tint: Option<u32> = crate::registry::with(|registries|
+        {
+            registries.m_blocks.get(&spec.still).and_then(|row| row.m_value.m_spec.as_ref()).and_then(|spec| spec.color)
+        });
+        row.m_fog.set(tint);
     }
 }

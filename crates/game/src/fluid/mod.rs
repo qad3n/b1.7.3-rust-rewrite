@@ -29,7 +29,11 @@ pub struct Fluid
     pub m_infinite: bool,
     // a vanilla liquid makes sources as its game rule says instead
     pub m_sourceRule: Option<GameRule>,
-    pub m_sprite: i32,
+    // still and flowing sprites, beta's flowing water and lava sit one slot after the still sprite
+    pub m_sprite: Cell<i32>,
+    pub m_flowSprite: Cell<i32>,
+    // the fog colour under the fluid, None keeps water's or lava's
+    pub m_fog: Cell<Option<u32>>,
 }
 
 mod beta
@@ -65,7 +69,9 @@ fn vanilla() -> Vec<Rc<Fluid>>
             m_netherDecay: beta::DECAY,
             m_infinite: true,
             m_sourceRule: Some(GameRule::WATER_SOURCE_CONVERSION),
-            m_sprite: beta::WATER_SPRITE,
+            m_sprite: Cell::new(beta::WATER_SPRITE),
+            m_flowSprite: Cell::new(beta::WATER_SPRITE + 1),
+            m_fog: Cell::new(None),
         }),
         Rc::new(Fluid
         {
@@ -80,7 +86,9 @@ fn vanilla() -> Vec<Rc<Fluid>>
             m_netherDecay: beta::DECAY,
             m_infinite: false,
             m_sourceRule: Some(GameRule::LAVA_SOURCE_CONVERSION),
-            m_sprite: beta::LAVA_SPRITE,
+            m_sprite: Cell::new(beta::LAVA_SPRITE),
+            m_flowSprite: Cell::new(beta::LAVA_SPRITE + 1),
+            m_fog: Cell::new(None),
         }),
     ]
 }
@@ -125,7 +133,29 @@ pub fn add(fluid: Fluid)
 }
 
 // the terrain sprite of a fluid block, any unknown liquid draws as water as beta did
-pub fn sprite(material: &Rc<Material>) -> i32 { of(material).map_or(beta::WATER_SPRITE, |fluid| fluid.m_sprite) }
+pub fn sprite(material: &Rc<Material>) -> i32 { of(material).map_or(beta::WATER_SPRITE, |fluid| fluid.m_sprite.get()) }
+
+// the sprite a fluid block shows on a face, mod fluids name their flowing sprite instead of the next slot
+pub fn faceSprite(material: &Rc<Material>, face: i32, still: i32) -> i32
+{
+    match of(material).filter(|fluid| !fluid.vanilla())
+    {
+        Some(fluid) if face <= 1 => fluid.m_sprite.get(),
+        Some(fluid) => fluid.m_flowSprite.get(),
+        None if face <= 1 => still,
+        None => still + 1,
+    }
+}
+
+// the fog colour of a mod fluid the entity's eyes are in
+pub fn fogAround(entity: &Rc<crate::entity::Entity>) -> Option<u32>
+{
+    let world: Rc<crate::world::World> = entity.m_worldObj.get()?;
+    let x: i32 = crate::math::math_helper::floor_double(entity.posX());
+    let y: i32 = crate::math::math_helper::floor_double(entity.posY() + f64::from(entity.getEyeHeight()));
+    let z: i32 = crate::math::math_helper::floor_double(entity.posZ());
+    of(&world.getBlockMaterial(x, y, z)).filter(|fluid| !fluid.vanilla()).and_then(|fluid| fluid.m_fog.get())
+}
 
 // runs for each mod fluid of a style without collecting them, entity movement asks this every tick
 pub fn eachModded(style: FluidStyle, mut body: impl FnMut(&Fluid))
