@@ -274,45 +274,75 @@ fn blockExt() -> Box<BlockRenderExt>
 
 pub fn newTNTPrimed() -> Rc<Render> { plain(&RENDER_TNT_PRIMED, 0.5, blockExt()) }
 
+// rewrite: RenderTNTPrimed's swell and white flash around any block, so mod primed blocks draw the same way
+fn renderPrimed(this: &Render, entity: &Rc<Entity>, at: [f64; 3], partial: f32, fuse: i32, block: &Rc<Block>, meta: i32)
+{
+    let [x, y, z]: [f64; 3] = at;
+
+    GL11::glPushMatrix();
+    GL11::glTranslatef(x as f32, y as f32, z as f32);
+
+    if fuse as f32 - partial + 1.0 < 10.0
+    {
+        let mut f3: f32 = (1.0 - (fuse as f32 - partial + 1.0) / 10.0).clamp(0.0, 1.0);
+        f3 *= f3;
+        f3 *= f3;
+        let f4: f32 = 1.0 + f3 * 0.3;
+        GL11::glScalef(f4, f4, f4);
+    }
+
+    let f3: f32 = (1.0 - (fuse as f32 - partial + 1.0) / 100.0) * 0.8;
+
+    this.loadTexture("/terrain.png");
+    blockRenderer(this).renderBlockOnInventory(block, meta, entity.getEntityBrightness(partial));
+
+    if fuse / 5 % 2 == 0
+    {
+        GL11::glDisable(GL11::GL_TEXTURE_2D);
+        GL11::glDisable(GL11::GL_LIGHTING);
+        GL11::glEnable(GL11::GL_BLEND);
+        GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_DST_ALPHA);
+        GL11::glColor4f(1.0, 1.0, 1.0, f3);
+        blockRenderer(this).renderBlockOnInventory(block, meta, 1.0);
+        GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+        GL11::glDisable(GL11::GL_BLEND);
+        GL11::glEnable(GL11::GL_LIGHTING);
+        GL11::glEnable(GL11::GL_TEXTURE_2D);
+    }
+
+    GL11::glPopMatrix();
+}
+
 pub const RENDER_TNT_PRIMED: RenderClass = RenderClass
 {
     m_name: "RenderTNTPrimed",
     m_parent: Some(&RENDER),
     doRender: |this, entity, d, d2, d3, _, f2|
     {
-        GL11::glPushMatrix();
-        GL11::glTranslatef(d as f32, d2 as f32, d3 as f32);
-
         let fuse: i32 = entity_tnt_primed::fields(entity).m_fuse.get();
-        if fuse as f32 - f2 + 1.0 < 10.0
+        renderPrimed(this, entity, [d, d2, d3], f2, fuse, &Block::tnt(), 0);
+    },
+    ..RENDER
+};
+
+pub fn newPrimedBlock() -> Rc<Render> { plain(&RENDER_PRIMED_BLOCK, 0.5, blockExt()) }
+
+// rewrite: a mod's primed block, drawn as RenderTNTPrimed draws TNT
+pub const RENDER_PRIMED_BLOCK: RenderClass = RenderClass
+{
+    m_name: "RenderModPrimedBlock",
+    m_parent: Some(&RENDER),
+    doRender: |this, entity, d, d2, d3, _, f2|
+    {
+        let fields: &entity_falling_sand::FallingSandFields = entity_falling_sand::fields(entity);
+        let Some(block) = Block::byId(fields.m_blockID.get())
+        else
         {
-            let mut f3: f32 = (1.0 - (fuse as f32 - f2 + 1.0) / 10.0).clamp(0.0, 1.0);
-            f3 *= f3;
-            f3 *= f3;
-            let f4: f32 = 1.0 + f3 * 0.3;
-            GL11::glScalef(f4, f4, f4);
-        }
+            return;
+        };
 
-        let f3: f32 = (1.0 - (fuse as f32 - f2 + 1.0) / 100.0) * 0.8;
-
-        this.loadTexture("/terrain.png");
-        blockRenderer(this).renderBlockOnInventory(&Block::tnt(), 0, entity.getEntityBrightness(f2));
-
-        if fuse / 5 % 2 == 0
-        {
-            GL11::glDisable(GL11::GL_TEXTURE_2D);
-            GL11::glDisable(GL11::GL_LIGHTING);
-            GL11::glEnable(GL11::GL_BLEND);
-            GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_DST_ALPHA);
-            GL11::glColor4f(1.0, 1.0, 1.0, f3);
-            blockRenderer(this).renderBlockOnInventory(&Block::tnt(), 0, 1.0);
-            GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
-            GL11::glDisable(GL11::GL_BLEND);
-            GL11::glEnable(GL11::GL_LIGHTING);
-            GL11::glEnable(GL11::GL_TEXTURE_2D);
-        }
-
-        GL11::glPopMatrix();
+        let fuse: i32 = modloader::entities::fuse(entity);
+        renderPrimed(this, entity, [d, d2, d3], f2, fuse, &block, fields.m_metadata.get());
     },
     ..RENDER
 };

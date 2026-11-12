@@ -83,6 +83,102 @@ fn createMovingBlock(world: Option<Rc<World>>) -> Rc<Entity>
     entity
 }
 
+mod primed
+{
+    // EntityTNTPrimed.onUpdate
+    pub const GRAVITY: f32 = 0.04;
+    pub const DRAG: f32 = 0.98;
+    pub const GROUND_DRAG: f32 = 0.7;
+    pub const BOUNCE: f64 = -0.5;
+    pub const SMOKE_HEIGHT: f64 = 0.5;
+}
+
+// EntityTNTPrimed's fall, bounce and smoke for a block the mod picks, the mod's tick sets it off below zero
+fn primedUpdate(this: &Rc<Entity>)
+{
+    this.m_prevPosX.set(this.posX());
+    this.m_prevPosY.set(this.posY());
+    this.m_prevPosZ.set(this.posZ());
+    this.m_motionY.set(this.m_motionY.get() - f64::from(primed::GRAVITY));
+    this.moveEntity(this.m_motionX.get(), this.m_motionY.get(), this.m_motionZ.get());
+
+    let drag: f64 = f64::from(primed::DRAG);
+    this.m_motionX.set(this.m_motionX.get() * drag);
+    this.m_motionY.set(this.m_motionY.get() * drag);
+    this.m_motionZ.set(this.m_motionZ.get() * drag);
+
+    if this.m_onGround.get()
+    {
+        let ground: f64 = f64::from(primed::GROUND_DRAG);
+        this.m_motionX.set(this.m_motionX.get() * ground);
+        this.m_motionZ.set(this.m_motionZ.get() * ground);
+        this.m_motionY.set(this.m_motionY.get() * primed::BOUNCE);
+    }
+
+    let fuse: i32 = fuse(this);
+    setFuse(this, fuse - 1);
+
+    if fuse > 0
+    {
+        this.world().spawnParticle(
+            "smoke",
+            this.posX(),
+            this.posY() + primed::SMOKE_HEIGHT,
+            this.posZ(),
+            0.0,
+            0.0,
+            0.0,
+        );
+    }
+}
+
+// a primed block keeps its fuse in falling sand's fallTime, which nothing else of it reads
+pub const PRIMED_BLOCK: EntityClass = EntityClass
+{
+    m_name: "EntityModPrimedBlock",
+    m_parent: Some(&game::entity::entity_falling_sand::CLASS),
+    onUpdate: primedUpdate,
+    writeEntityToNBT: |this, nbt|
+    {
+        let fields: &FallingSandFields = game::entity::entity_falling_sand::fields(this);
+        nbt.setInteger("Tile", fields.m_blockID.get());
+        nbt.setByte("Data", fields.m_metadata.get() as i8);
+        nbt.setShort("Fuse", fields.m_fallTime.get() as i16);
+    },
+    readEntityFromNBT: |this, nbt|
+    {
+        let fields: &FallingSandFields = game::entity::entity_falling_sand::fields(this);
+        fields.m_blockID.set(nbt.getInteger("Tile"));
+        fields.m_metadata.set(i32::from(nbt.getByte("Data")));
+        fields.m_fallTime.set(i32::from(nbt.getShort("Fuse")));
+    },
+    ..game::entity::entity_falling_sand::CLASS
+};
+
+// EntityTNTPrimed.fuse or a primed block's, 0 for anything else
+pub fn fuse(entity: &Entity) -> i32
+{
+    if entity.instanceOf("EntityTNTPrimed")
+    {
+        return game::entity::entity_tnt_primed::fields(entity).m_fuse.get();
+    }
+
+    let primed: bool = entity.instanceOf(PRIMED_BLOCK.m_name);
+    primed.then(|| game::entity::entity_falling_sand::fields(entity).m_fallTime.get()).unwrap_or(0)
+}
+
+pub fn setFuse(entity: &Entity, value: i32)
+{
+    if entity.instanceOf("EntityTNTPrimed")
+    {
+        game::entity::entity_tnt_primed::fields(entity).m_fuse.set(value);
+    }
+    else if entity.instanceOf(PRIMED_BLOCK.m_name)
+    {
+        game::entity::entity_falling_sand::fields(entity).m_fallTime.set(value);
+    }
+}
+
 // EntityMob that never looks for a target and only fights whoever hurts it, the pig zombie's anger without the zombie
 pub const NEUTRAL_MONSTER: EntityClass = EntityClass
 {
@@ -102,7 +198,7 @@ pub const PASSIVE_MONSTER: EntityClass = EntityClass
     ..game::entity::entity_mob::CLASS
 };
 
-pub const ENTITY_TEMPLATES: [EntityTemplate; 19] = [
+pub const ENTITY_TEMPLATES: [EntityTemplate; 20] = [
     EntityTemplate { m_name: "projectile", m_class: &PROJECTILE, m_create: game::entity::entity_snowball::new },
     // EntityArrow itself: flies, sticks in blocks, drawn by RenderArrow and picked up when a player shot it
     EntityTemplate
@@ -199,6 +295,8 @@ pub const ENTITY_TEMPLATES: [EntityTemplate; 19] = [
         m_class: &game::entity::entity_pig_zombie::CLASS,
         m_create: game::entity::entity_pig_zombie::new,
     },
+    // a lit block falling and bouncing as primed TNT does until the mod sets it off
+    EntityTemplate { m_name: "primed_block", m_class: &PRIMED_BLOCK, m_create: createMovingBlock },
 ];
 
 pub struct EntityType
@@ -1002,25 +1100,60 @@ pub fn sendSpawn(entity: &Rc<Entity>, player: &Rc<Entity>) -> bool
     true
 }
 
-// a moving block's block and metadata live in falling sand's fields, which the spawn message does not carry
-fn sendMovingBlock(entity: &Rc<Entity>, player: &Rc<Entity>)
+// a moving block's block, metadata and fuse live in falling sand's fields, which the spawn message does not carry
+fn movingMessage(entity: &Entity) -> Option<MovingBlock>
 {
     if !entity.instanceOf("EntityFallingSand")
     {
-        return;
+        return None;
     }
 
     let fields: &FallingSandFields = game::entity::entity_falling_sand::fields(entity);
-
-    let message: MovingBlock = crate::network::loader::MovingBlock
+    Some(MovingBlock
     {
         id: entity.m_entityId.get(),
         block: fields.m_blockID.get(),
         meta: fields.m_metadata.get(),
+        fuse: fuse(entity),
+    })
+}
+
+fn sendMovingBlock(entity: &Rc<Entity>, player: &Rc<Entity>)
+{
+    let Some(message) = movingMessage(entity)
+    else
+    {
+        return;
     };
 
     let channel: Identifier = crate::network::loader::id(crate::network::loader::MOVING_BLOCK);
     crate::network::sendToPlayer(&channel, player, mod_protocol::wire::encode(&message));
+}
+
+// a server write to what a moving block draws reaches the players near it, as one set right after its spawn
+pub fn syncMovingBlock(entity: &Entity)
+{
+    let Some(world) = entity.m_worldObj.get().filter(|world| !world.m_multiplayerWorld.get())
+    else
+    {
+        return;
+    };
+
+    let Some(message) = movingMessage(entity)
+    else
+    {
+        return;
+    };
+
+    let channel: Identifier = crate::network::loader::id(crate::network::loader::MOVING_BLOCK);
+    let pos: [f64; 3] = [entity.posX(), entity.posY(), entity.posZ()];
+    crate::network::sendNear(
+        &channel,
+        &world,
+        pos,
+        crate::network::Reach::Sphere,
+        &mod_protocol::wire::encode(&message),
+    );
 }
 
 // the synced bytes of any entity, players included, for a player who just started seeing it

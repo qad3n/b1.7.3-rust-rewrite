@@ -92,13 +92,14 @@ pub struct BiomeColumn
     pub biome: String,
 }
 
-// the block and metadata a mod's moving block draws, sent right after its spawn
+// the block, metadata and fuse a mod's moving or primed block draws, sent after its spawn and on a server write
 #[derive(Serialize, Deserialize)]
 pub struct MovingBlock
 {
     pub id: i32,
     pub block: i32,
     pub meta: i32,
+    pub fuse: i32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -277,6 +278,7 @@ fn movingBlock(message: MovingBlock)
     let fields: &FallingSandFields = game::entity::entity_falling_sand::fields(&entity);
     fields.m_blockID.set(message.block);
     fields.m_metadata.set(message.meta);
+    crate::entities::setFuse(&entity, message.fuse);
 }
 
 fn tileData(message: super::sync::TileData)

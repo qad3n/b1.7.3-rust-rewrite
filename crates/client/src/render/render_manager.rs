@@ -70,6 +70,7 @@ impl RenderManager
             ("EntityItem", RenderItem::createRender()),
             ("EntityTNTPrimed", render_objects::newTNTPrimed()),
             ("EntityFallingSand", render_objects::newFallingSand()),
+            (modloader::entities::PRIMED_BLOCK.m_name, render_objects::newPrimedBlock()),
             ("EntityMinecart", render_objects::newMinecart()),
             ("EntityBoat", render_objects::newBoat()),
             ("EntityFish", render_objects::newFish()),

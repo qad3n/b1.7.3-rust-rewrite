@@ -324,6 +324,7 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         EntityField::MinecartType => HostReply::Float(minecartType(entity) as f32),
         EntityField::Seat => HostReply::Float(game::entity::seat(entity) as f32),
         EntityField::BodyYaw => HostReply::Float(living(entity).map_or(0.0, |fields| fields.m_renderYawOffset.get())),
+        EntityField::Fuse => HostReply::Float(crate::entities::fuse(entity) as f32),
     }
 }
 
@@ -341,6 +342,9 @@ fn setHealth(fields: &game::entity::entity_living::LivingFields, health: i32)
 // riding is read only, a mount changes through the riding api
 fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
 {
+    let drawn: bool = matches!(field, EntityField::Block | EntityField::BlockMeta | EntityField::Fuse)
+        && entityField(entity, field) != HostReply::Float(value as i32 as f32);
+
     match field
     {
         EntityField::FallDistance => entity.m_fallDistance.set(value as f32),
@@ -418,6 +422,13 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         {
             living(entity).into_iter().for_each(|fields| fields.m_renderYawOffset.set(value as f32))
         }
+
+        EntityField::Fuse => crate::entities::setFuse(entity, value as i32),
+    }
+
+    if drawn
+    {
+        crate::entities::syncMovingBlock(entity);
     }
 }
 
