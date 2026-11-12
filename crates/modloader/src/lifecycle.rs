@@ -140,14 +140,14 @@ fn instantiate(runtime: &mut ModRuntime, paths: &LoaderPaths) -> Result<(), Stri
     Ok(())
 }
 
+// skip is checked per candidate since most ranges run to i32::MAX
 fn allocate(
     first: i32,
     limit: i32,
-    skip: &dyn Fn(i32) -> bool,
+    skip: impl Fn(i32) -> bool,
 ) -> impl FnMut(&Identifier, &dyn Fn(i32) -> bool) -> Option<i32>
 {
-    let skip: Vec<bool> = (first..limit).map(skip).collect();
-    move |_, taken| (first..limit).find(|candidate| !skip[(candidate - first) as usize] && !taken(*candidate))
+    move |_, taken| (first..limit).find(|candidate| !skip(*candidate) && !taken(*candidate))
 }
 
 fn freezeRegistries() -> Result<(), RegistryError>
@@ -159,17 +159,17 @@ fn freezeRegistries() -> Result<(), RegistryError>
         let vanillaItems: std::collections::HashSet<i32> =
             registries.m_items.rows().filter(|row| row.m_id.isVanilla()).map(|row| row.m_numeric).collect();
         // block ids above 255 must not land on a vanilla item id, the item form shares the number
-        registries.m_blocks.freeze(allocate(ids::BLOCK_FIRST_FREE, blockLimit, &|id| vanillaItems.contains(&id)))?;
+        registries.m_blocks.freeze(allocate(ids::BLOCK_FIRST_FREE, blockLimit, |id| vanillaItems.contains(&id)))?;
 
         let blocks: std::collections::BTreeMap<Identifier, i32> = registries.m_blocks.snapshot();
-        let mut items = allocate(ids::ITEM_FIRST, ids::ITEM_LIMIT, &|_| false);
+        let mut items = allocate(ids::ITEM_FIRST, ids::ITEM_LIMIT, |_| false);
         registries.m_items.freeze(|id, taken| blocks.get(id).copied().or_else(|| items(id, taken)))?;
-        registries.m_entities.freeze(allocate(ids::ENTITY_FIRST, i32::MAX, &|_| false))?;
-        registries.m_tileEntities.freeze(allocate(ids::TILE_ENTITY_FIRST, i32::MAX, &|_| false))?;
-        registries.m_recipes.freeze(allocate(ids::RECIPE_FIRST, i32::MAX, &|_| false))?;
-        registries.m_smelting.freeze(allocate(ids::RECIPE_FIRST, i32::MAX, &|_| false))?;
-        registries.m_dimensions.freeze(allocate(ids::DIMENSION_FIRST, i8::MAX as i32, &|_| false))?;
-        registries.m_biomes.freeze(allocate(ids::BIOME_FIRST, i32::MAX, &|_| false))?;
+        registries.m_entities.freeze(allocate(ids::ENTITY_FIRST, i32::MAX, |_| false))?;
+        registries.m_tileEntities.freeze(allocate(ids::TILE_ENTITY_FIRST, i32::MAX, |_| false))?;
+        registries.m_recipes.freeze(allocate(ids::RECIPE_FIRST, i32::MAX, |_| false))?;
+        registries.m_smelting.freeze(allocate(ids::RECIPE_FIRST, i32::MAX, |_| false))?;
+        registries.m_dimensions.freeze(allocate(ids::DIMENSION_FIRST, i8::MAX as i32, |_| false))?;
+        registries.m_biomes.freeze(allocate(ids::BIOME_FIRST, i32::MAX, |_| false))?;
         registries.freezeNamed();
         registries.m_fuel.freeze(|_, _| None)
     })
