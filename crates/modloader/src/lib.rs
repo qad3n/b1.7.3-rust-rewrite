@@ -83,6 +83,7 @@ pub fn bootstrap(root: &Path)
         );
     }
 
+    // set before loading, config files read while mods register and freeze come from these folders
+    PATHS.with(|slot| slot.set(paths.clone()).ok());
     lifecycle::load(&paths);
-    PATHS.with(|slot| slot.set(paths).ok());
 }
