@@ -563,6 +563,13 @@ const CLASS: GuiScreenClass = GuiScreenClass
         match button.m_id.get()
         {
             0 => this.mc().displayGuiScreen(Some(Rc::clone(&ext.m_parent))),
+            crate::modded::progress::OPEN_BUTTON =>
+            {
+                if let Some(player) = this.mc().m_thePlayer.get()
+                {
+                    this.mc().displayGuiScreen(Some(crate::modded::progress::stats(&this.rc(), &player)));
+                }
+            }
             1 => ext.m_selectedStatsList.set(ext.m_generalStats.get()),
             3 => ext.m_selectedStatsList.set(ext.m_itemStats.get()),
             2 => ext.m_selectedStatsList.set(ext.m_blockStats.get()),
@@ -591,6 +598,13 @@ pub(crate) fn createButtons(this: &GuiScreen)
     let stringtranslate: Rc<StringTranslate> = StringTranslate::getInstance();
     let center: i32 = this.m_width.get() / 2;
     let height: i32 = this.m_height.get();
+
+    // mod statistics are a page of their own left of the done button
+    if this.mc().m_thePlayer.get().is_some_and(|player| crate::modded::progress::hasStats(&player))
+    {
+        this.m_controlList.add(crate::modded::progress::button(center - 154, height - 28, 150));
+    }
+
     this.m_controlList.add(GuiButton::withSize(
         0,
         center + 4,

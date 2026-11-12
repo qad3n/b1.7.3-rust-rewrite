@@ -429,6 +429,16 @@ const CLASS: GuiScreenClass = GuiScreenClass
             20,
             &StatCollector::translateToLocal("gui.done"),
         ));
+
+        // mod achievements are a page of their own beside beta's tree
+        if crate::modded::progress::hasAchievements()
+        {
+            this.m_controlList.add(crate::modded::progress::button(
+                this.m_width.get() / 2 - 60,
+                this.m_height.get() / 2 + 74,
+                80,
+            ));
+        }
     },
 
     actionPerformed: |this, button|
@@ -436,6 +446,12 @@ const CLASS: GuiScreenClass = GuiScreenClass
         if button.m_id.get() == 1
         {
             closeToGame(&this.mc());
+        }
+
+        if button.m_id.get() == crate::modded::progress::OPEN_BUTTON
+            && let Some(player) = this.mc().m_thePlayer.get()
+        {
+            this.mc().displayGuiScreen(Some(crate::modded::progress::achievements(&this.rc(), &player)));
         }
 
         (GUI_SCREEN.actionPerformed)(this, button);

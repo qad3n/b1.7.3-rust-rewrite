@@ -7,6 +7,7 @@ mod model;
 pub mod music;
 pub mod particles;
 pub mod player_layers;
+pub mod progress;
 mod screen;
 mod stack_draw;
 pub mod textures;
