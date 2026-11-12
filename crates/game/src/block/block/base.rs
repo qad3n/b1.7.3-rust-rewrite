@@ -119,12 +119,15 @@ pub(crate) fn dropBlockAsItemWithChance(
 
     if let Some(table) = table
     {
+        let harvester: Option<Rc<Entity>> = loot::harvester();
         let context: loot::LootContext = loot::LootContext
         {
             m_world: Some(world),
             m_pos: Some([x, y, z]),
             m_block: this.m_blockID,
             m_blockMeta: metadata,
+            m_killer: harvester.as_ref(),
+            m_byPlayer: harvester.is_some(),
             ..loot::LootContext::default()
         };
         for stack in loot::roll(&table, &world.m_rand, &context)
@@ -365,5 +368,5 @@ pub(crate) fn harvestBlock(
 )
 {
     crate::stats::named::count(player, ContentStat::Mined, this.m_blockID, 1);
-    this.dropBlockAsItem(world, x, y, z, metadata);
+    loot::harvesting(player, || this.dropBlockAsItem(world, x, y, z, metadata));
 }

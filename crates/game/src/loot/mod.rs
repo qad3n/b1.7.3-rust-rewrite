@@ -45,6 +45,23 @@ pub struct LootRules
 }
 
 // what one roll knows about the drop, for the conditions and count rules of mods
+thread_local!
+{
+    // the player whose dig is dropping a block, so block loot can ask about them and their tool
+    static HARVESTER: RefCell<Option<Rc<Entity>>> = const { RefCell::new(None) };
+}
+
+pub fn harvesting<R>(player: &Rc<Entity>, body: impl FnOnce() -> R) -> R
+{
+    let outer: Option<Rc<Entity>> = HARVESTER.with(|slot| slot.replace(Some(Rc::clone(player))));
+    let result: R = body();
+
+    HARVESTER.with(|slot| slot.replace(outer));
+    result
+}
+
+pub fn harvester() -> Option<Rc<Entity>> { HARVESTER.with(|slot| slot.borrow().clone()) }
+
 #[derive(Clone, Copy, Default)]
 pub struct LootContext<'a>
 {
