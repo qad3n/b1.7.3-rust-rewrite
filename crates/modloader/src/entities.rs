@@ -207,7 +207,13 @@ thread_local!
     static TYPES: RefCell<HashMap<Identifier, Rc<EntityType>>> = RefCell::new(HashMap::new());
     // per entity mod bytes by entity id, saved under ModData for every entity that has them
     static DATA: RefCell<HashMap<i32, BTreeMap<String, Vec<u8>>>> = RefCell::new(HashMap::new());
+    // per entity mod values that live only while the entity is in a world
+    static TRANSIENT: RefCell<HashMap<i32, BTreeMap<String, Vec<u8>>>> = RefCell::new(HashMap::new());
 }
+
+// saved entity values go in ModData, a player's kept ones survive death as well
+const STATE_SAVED: &str = "state:";
+const STATE_KEPT: &str = "state+:";
 
 fn template(spec: &EntitySpec) -> Result<&'static EntityTemplate, String>
 {
@@ -703,6 +709,98 @@ pub fn pose(entity: &Rc<Entity>, input: mod_protocol::abi::PoseInput) -> Option<
 }
 
 pub fn forget(entity: &Entity) { DATA.with(|data| data.borrow_mut().remove(&entity.m_entityId.get())); }
+
+fn stateKey(owner: &str, key: &str, kept: bool) -> String
+{
+    let prefix: &str = if kept { STATE_KEPT } else { STATE_SAVED };
+    format!("{prefix}{owner}/{key}")
+}
+
+// a mod's named value on an entity, transient or saved with it
+pub fn value(entity: &Entity, owner: &str, key: &str, saved: bool) -> Vec<u8>
+{
+    if !saved
+    {
+        let transient: String = format!("{owner}/{key}");
+        return TRANSIENT.with(|values|
+        {
+            values
+                .borrow()
+                .get(&entity.m_entityId.get())
+                .and_then(|map| map.get(&transient).cloned())
+                .unwrap_or_default()
+        });
+    }
+
+    let kept: Vec<u8> = data(entity, &stateKey(owner, key, true));
+    if kept.is_empty()
+    {
+        data(entity, &stateKey(owner, key, false))
+    }
+    else
+    {
+        kept
+    }
+}
+
+pub fn setValue(entity: &Entity, owner: &str, key: &str, saved: bool, kept: bool, bytes: Vec<u8>)
+{
+    let id: i32 = entity.m_entityId.get();
+    if !saved
+    {
+        let transient: String = format!("{owner}/{key}");
+        TRANSIENT.with(|values|
+        {
+            let mut values = values.borrow_mut();
+            let map: &mut BTreeMap<String, Vec<u8>> = values.entry(id).or_default();
+            match bytes.is_empty()
+            {
+                true => map.remove(&transient),
+                false => map.insert(transient, bytes),
+            };
+        });
+        return;
+    }
+
+    DATA.with(|data|
+    {
+        let mut data = data.borrow_mut();
+        let map: &mut BTreeMap<String, Vec<u8>> = data.entry(id).or_default();
+        map.remove(&stateKey(owner, key, !kept));
+        match bytes.is_empty()
+        {
+            true => map.remove(&stateKey(owner, key, kept)),
+            false => map.insert(stateKey(owner, key, kept), bytes),
+        };
+    });
+}
+
+// an entity left its world; a player who travels keeps everything, one who died keeps only kept values
+pub fn removed(entity: &Entity)
+{
+    let id: i32 = entity.m_entityId.get();
+    if !entity.instanceOf("EntityPlayer")
+    {
+        forget(entity);
+        TRANSIENT.with(|values| values.borrow_mut().remove(&id));
+        return;
+    }
+
+    let died: bool = entity.m_ext.living().is_some_and(|living| living.m_health.get() <= 0);
+    if !died
+    {
+        return;
+    }
+
+    TRANSIENT.with(|values| values.borrow_mut().remove(&id));
+    DATA.with(|data|
+    {
+        if let Some(map) = data.borrow_mut().get_mut(&id)
+        {
+            map.retain(|key, _| !key.starts_with(STATE_SAVED));
+        }
+    });
+}
 
 // each mod key becomes one byte array in the ModData compound of the entity
 pub fn writeData(entity: &Entity, nbt: &NBTTagCompound)

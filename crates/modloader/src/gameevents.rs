@@ -64,6 +64,7 @@ fn kindOf(event: &GameEvent<'_>) -> EventKind
         GameEvent::ItemToss { .. } => EventKind::ItemToss,
         GameEvent::EntityJoinWorld { .. } => EventKind::EntityJoinWorld,
         GameEvent::EntityTick { .. } => EventKind::EntityTick,
+        GameEvent::EntityRemove { .. } => EventKind::EntityRemove,
         GameEvent::LivingAttack { .. } => EventKind::LivingAttack,
         GameEvent::LivingDeath { .. } => EventKind::LivingDeath,
         GameEvent::LivingDrops { .. } => EventKind::LivingDrops,
@@ -90,7 +91,18 @@ pub fn fire(event: GameEvent<'_>) -> bool
     }
 
     let line: Option<String> = gamelog::describe(&event);
+    let removing: Option<Rc<Entity>> = match &event
+    {
+        GameEvent::EntityRemove { entity, .. } => Some(Rc::clone(entity)),
+        _ => None,
+    };
     let canceled: bool = dispatch(event);
+
+    // listeners read an entity's values first, then the loader drops what it kept for it
+    if let Some(entity) = removing
+    {
+        crate::entities::removed(&entity);
+    }
 
     if let Some(line) = line
     {
@@ -242,6 +254,11 @@ fn dispatch(event: GameEvent<'_>) -> bool
                 crate::unify::convert(&stack);
             }
 
+            post(Some(world), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
+        }
+
+        GameEvent::EntityRemove { world, entity } =>
+        {
             post(Some(world), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
         }
 

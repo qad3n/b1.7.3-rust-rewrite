@@ -114,6 +114,11 @@ pub enum GameEvent<'a>
         entity: &'a Rc<Entity>
     },
 
+    EntityRemove
+    {
+        world: &'a Rc<World>, entity: &'a Rc<Entity>
+    },
+
     LivingAttack
     {
         entity: &'a Rc<Entity>, damage: &'a DamageSource<'a>, amount: &'a mut i32

@@ -786,6 +786,16 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(entity(dimension, id).map(|entity| crate::entities::setData(&entity, runtime.id(), data)))
         }
 
+        HostCall::EntityValue { world: dimension, id, key, saved } => ok(entity(dimension, id), |entity|
+        {
+            HostReply::Bytes(crate::entities::value(&entity, runtime.id(), &key, saved))
+        }),
+
+        HostCall::SetEntityValue { world: dimension, id, key, saved, kept, data } => unit(
+            entity(dimension, id)
+                .map(|entity| crate::entities::setValue(&entity, runtime.id(), &key, saved, kept, data)),
+        ),
+
         HostCall::Accelerate { world: dimension, id, strafe, forward, factor } =>
         {
             unit(entity(dimension, id).map(|entity| entity.moveFlying(strafe, forward, factor)))

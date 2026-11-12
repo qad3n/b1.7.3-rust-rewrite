@@ -72,6 +72,9 @@ pub(crate) fn obtainEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
 
 pub(crate) fn releaseEntitySkin(this: &Rc<World>, entity: &Rc<Entity>)
 {
+    // every way an entity leaves a world passes here, so mods and the loader drop what they keep for it
+    crate::hooks::fire(crate::hooks::GameEvent::EntityRemove { world: this, entity });
+
     let mut i: i32 = 0;
     while i < this.m_worldAccesses.size()
     {

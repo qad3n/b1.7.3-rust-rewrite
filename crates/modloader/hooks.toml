@@ -397,6 +397,15 @@ result = false
 fires_in = "World::updateEntityWithOptionalForce"
 
 [[hook]]
+name = "entity_remove"
+version = 1
+kind = "event"
+side = "both"
+cancellable = false
+result = false
+fires_in = "World::releaseEntitySkin"
+
+[[hook]]
 name = "living_attack"
 version = 1
 kind = "event"
