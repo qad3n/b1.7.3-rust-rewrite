@@ -161,6 +161,8 @@ impl LoaderHooks for Hooks
 
     fn ruleChanged(&self, name: &str, value: &str) { crate::gamerules::changed(name, value); }
 
+    fn statChanged(&self, player: &Rc<Entity>) { crate::content::progress::syncOwn(player); }
+
     fn overworldBiomes(&self) -> bool { crate::biomes::hasOverworld() }
 
     fn overworldBiome(&self, temperature: f64, downfall: f64) -> Option<Rc<game::worldgen::BiomeGenBase>>

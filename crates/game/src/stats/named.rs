@@ -73,6 +73,7 @@ pub fn count(player: &Rc<Entity>, kind: ContentStat, id: i32, amount: i32)
     {
         player.addStat(None, amount);
         add(player, &format!("{}/{name}", kind.name()), amount);
+        crate::hooks::statChanged(player);
         return;
     }
 

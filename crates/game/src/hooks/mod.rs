@@ -262,6 +262,9 @@ pub trait LoaderHooks
     // a game rule took a new value, a server passes it on to modded clients
     fn ruleChanged(&self, _name: &str, _value: &str) {}
 
+    // the game counted a stat by name, a server passes the player's progress on to the client
+    fn statChanged(&self, _player: &Rc<Entity>) {}
+
     // whether a damage type is in a damage type tag
     fn damageTagged(&self, _kind: &str, _tag: &str) -> bool { false }
 
@@ -395,6 +398,14 @@ pub fn ruleChanged(name: &str, value: &str)
     if let Some(hooks) = active()
     {
         hooks.ruleChanged(name, value);
+    }
+}
+
+pub fn statChanged(player: &Rc<Entity>)
+{
+    if let Some(hooks) = active()
+    {
+        hooks.statChanged(player);
     }
 }
 
