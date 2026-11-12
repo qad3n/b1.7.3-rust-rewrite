@@ -456,7 +456,7 @@ fn entitiesIn(world: &World, min: [f64; 3], max: [f64; 3]) -> HostReply
     HostReply::Entities(found.iter().map(entityInfo).collect())
 }
 
-// <game folder>/moddata/<modid>/<key>.dat, outside every save as BuildCraft keeps its blueprints
+// <game folder>/moddata/<modid>/<key>.dat, outside every save for data such as blueprints that outlives one save
 fn sharedPath(runtime: &Rc<ModRuntime>, key: &str) -> Result<std::path::PathBuf, String>
 {
     const FOLDER: &str = "moddata";
