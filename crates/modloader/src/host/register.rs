@@ -301,6 +301,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
 
         HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
+        HostCall::RegisterConfigTask { name, handler } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::configtasks::register(runtime.m_index, id, handler)),
+        ),
         HostCall::RegisterComponent { name, synced } => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::network::stacks::register(id, synced)),
         ),

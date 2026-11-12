@@ -280,6 +280,7 @@ enum ServerStep
     Hello,
     Registry,
     Data,
+    Tasks,
 }
 
 // one modded client in the configuration phase, created when its login carried the loader magic
@@ -291,6 +292,8 @@ pub struct ServerSession
     m_channels: Vec<Identifier>,
     // the full data table goes out once, a client asking again is misbehaving
     m_dataSent: bool,
+    // mod configuration tasks still to run, the first one waits for its ack
+    m_tasks: std::collections::VecDeque<Identifier>,
 }
 
 impl ServerSession
@@ -301,10 +304,36 @@ impl ServerSession
 
         send(sender, &Control::Hello(localHello(false)));
         send(sender, &Control::Channels(channels.clone()));
-        Self { m_who: who, m_step: ServerStep::Hello, m_peer: None, m_channels: channels, m_dataSent: false }
+        Self
+        {
+            m_who: who,
+            m_step: ServerStep::Hello,
+            m_peer: None,
+            m_channels: channels,
+            m_dataSent: false,
+            m_tasks: std::collections::VecDeque::new(),
+        }
     }
 
     pub fn peer(&self) -> Option<&Hello> { self.m_peer.as_ref() }
+
+    // sends the next task that has something for this player, or finishes the configuration
+    fn nextTask(&mut self, sender: &dyn Fn(u32, Vec<u8>)) -> Outcome
+    {
+        while let Some(task) = self.m_tasks.front().cloned()
+        {
+            if let Some(payload) = crate::configtasks::payload(&task, &self.m_who)
+            {
+                send(sender, &Control::Task(task.to_string(), payload));
+                return Outcome::Continue;
+            }
+
+            self.m_tasks.pop_front();
+        }
+
+        send(sender, &Control::Done);
+        Outcome::Done
+    }
 
     pub fn channels(&self) -> &[Identifier] { &self.m_channels }
 
@@ -373,8 +402,16 @@ impl ServerSession
                     crate::log::LOADER,
                     &format!("{} passed the {} check, registry and data synced", self.m_who, checkMode()),
                 );
-                send(sender, &Control::Done);
-                Outcome::Done
+                self.m_tasks = self.m_peer.as_ref().map(crate::configtasks::forPeer).unwrap_or_default().into();
+                self.m_step = ServerStep::Tasks;
+                self.nextTask(sender)
+            }
+
+            (ServerStep::Tasks, Control::Ack(ack))
+                if self.m_tasks.front().is_some_and(|task| task.to_string() == ack) =>
+            {
+                self.m_tasks.pop_front();
+                self.nextTask(sender)
             }
 
             (_, Control::Refused(entries)) => Outcome::Kick(format!("Content mismatch: {}", entries.join(", "))),
@@ -682,6 +719,18 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
             }
 
             crate::content::served::apply(served);
+        }
+
+        Control::Task(name, bytes) =>
+        {
+            let done: Result<(), String> = Identifier::parse(&name)
+                .map_err(|error| error.to_string())
+                .and_then(|id| crate::configtasks::receive(&id, bytes));
+            match done
+            {
+                Ok(()) => send(sender, &Control::Ack(name)),
+                Err(reason) => send(sender, &Control::Refused(vec![format!("{name}: {reason}")])),
+            }
         }
 
         Control::Done =>

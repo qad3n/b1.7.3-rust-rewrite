@@ -7,6 +7,7 @@ pub mod catalog;
 pub mod classes;
 pub mod commands;
 pub mod config;
+pub mod configtasks;
 pub mod containers;
 pub mod content;
 pub mod damage;
