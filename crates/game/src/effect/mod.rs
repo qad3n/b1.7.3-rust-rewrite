@@ -1,7 +1,7 @@
 use crate::attribute::{Attribute, Modifier, Operation};
 use crate::damage::{DamageKind, DamageSource};
 use crate::entity::Entity;
-use common::nbt::{NBTBase, NBTTagCompound, NBTTagList};
+use common::nbt::{NBTBase, NBTTagCompound, NBTTagList, Unread};
 use jvm::string::JString;
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
@@ -66,6 +66,7 @@ pub fn clear() { TYPES.with(|types| types.borrow_mut().clear()); }
 pub struct Effects
 {
     m_active: RefCell<Vec<ActiveEffect>>,
+    m_unread: Unread,
 }
 
 impl Effects
@@ -85,7 +86,7 @@ impl Effects
     // written only when an effect is active, so a vanilla save is unchanged
     pub fn write(&self, nbt: &NBTTagCompound)
     {
-        if self.empty()
+        if self.empty() && self.m_unread.empty()
         {
             return;
         }
@@ -101,12 +102,15 @@ impl Effects
             list.list().setTag(entry);
         }
 
+        self.m_unread.writeInto(&list);
         nbt.setTag(NBT_KEY, &list);
     }
 
-    // effects whose type no mod registers any more are dropped, their modifiers are already saved with the attributes
+    // effects whose type no mod registers any more are kept as saved, so reinstalling the mod restores them
     pub fn read(&self, nbt: &NBTTagCompound)
     {
+        self.m_unread.clear();
+
         if !nbt.hasKey(NBT_KEY)
         {
             return;
@@ -123,6 +127,7 @@ impl Effects
             let Some(effect) = byName(&name)
             else
             {
+                self.m_unread.keep(tag);
                 continue;
             };
 

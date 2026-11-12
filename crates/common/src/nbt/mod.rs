@@ -12,6 +12,7 @@ pub mod nbt_tag_list;
 pub mod nbt_tag_long;
 pub mod nbt_tag_short;
 pub mod nbt_tag_string;
+pub mod unread;
 
 pub use compressed_stream_tools::CompressedStreamTools;
 pub use nbt_base::{NBTBase, NBTTag};
@@ -26,3 +27,4 @@ pub use nbt_tag_list::NBTTagList;
 pub use nbt_tag_long::NBTTagLong;
 pub use nbt_tag_short::NBTTagShort;
 pub use nbt_tag_string::NBTTagString;
+pub use unread::Unread;

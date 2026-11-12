@@ -1,5 +1,5 @@
 use crate::entity::Entity;
-use common::nbt::{NBTBase, NBTTagCompound, NBTTagList};
+use common::nbt::{NBTBase, NBTTagCompound, NBTTagList, Unread};
 use jvm::string::JString;
 use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
@@ -184,6 +184,7 @@ pub struct Modifier
 pub struct Attributes
 {
     m_modifiers: RefCell<Vec<Modifier>>,
+    m_unread: Unread,
 }
 
 impl Attributes
@@ -232,7 +233,7 @@ impl Attributes
     // written only when a modifier exists, so a vanilla save is unchanged
     pub fn write(&self, nbt: &NBTTagCompound)
     {
-        if self.empty()
+        if self.empty() && self.m_unread.empty()
         {
             return;
         }
@@ -249,11 +250,15 @@ impl Attributes
             list.list().setTag(entry);
         }
 
+        self.m_unread.writeInto(&list);
         nbt.setTag(NBT_KEY, &list);
     }
 
+    // modifiers of an attribute no mod registers any more are kept as saved
     pub fn read(&self, nbt: &NBTTagCompound)
     {
+        self.m_unread.clear();
+
         if !nbt.hasKey(NBT_KEY)
         {
             return;
@@ -268,10 +273,12 @@ impl Attributes
         {
             let tag: Rc<NBTBase> = list.list().tagAt(i);
             let entry: &NBTTagCompound = tag.compound();
+            let name: String = text(entry, "Name");
             let (Some(attribute), Some(operation)) =
-                (Attribute::byName(&text(entry, "Name")), Operation::byName(&text(entry, "Operation")))
+                (Attribute::byName(&name), Operation::byName(&text(entry, "Operation")))
             else
             {
+                self.m_unread.keep(tag);
                 continue;
             };
 
