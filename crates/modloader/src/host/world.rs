@@ -327,6 +327,17 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
     }
 }
 
+// a dead entity stays dead as beta's heal leaves it, a server ignores the respawn of a player whose health came back
+fn setHealth(fields: &game::entity::entity_living::LivingFields, health: i32)
+{
+    if fields.m_health.get() <= 0 && 0 < health
+    {
+        return;
+    }
+
+    fields.m_health.set(health);
+}
+
 // riding is read only, a mount changes through the riding api
 fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
 {
@@ -381,7 +392,7 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::Block => movingBlock(entity).into_iter().for_each(|fields| fields.m_blockID.set(value as i32)),
         EntityField::Collided | EntityField::Bottom =>
         {}
-        EntityField::Health => living(entity).into_iter().for_each(|fields| fields.m_health.set(value as i32)),
+        EntityField::Health => living(entity).into_iter().for_each(|fields| setHealth(fields, value as i32)),
         EntityField::MoveSpeed => living(entity).into_iter().for_each(|fields| fields.m_moveSpeed.set(value as f32)),
         EntityField::StepHeight => entity.m_stepHeight.set(value as f32),
         EntityField::MaxHealth => crate::attributes::setMaxHealth(entity, value as i32),
