@@ -1,7 +1,7 @@
 use crate::gui::{FontRenderer, GUI_SCREEN, GuiButton, GuiScreen, GuiScreenClass};
 use game::entity::{Entity, entity_player};
 use game::item::ItemStack;
-use game::stats::named;
+use game::stats::named::{self, ModStat};
 use std::cell::{Cell, Ref, RefCell};
 use std::ops::Range;
 use std::rc::Rc;
@@ -216,22 +216,33 @@ pub fn achievements(parent: &Rc<GuiScreen>, player: &Entity) -> Rc<GuiScreen>
     page(parent, "Mod Achievements", rows)
 }
 
-// every stat mods count, by name
+// every registered mod stat as beta lists its general stats, then the mod content this player counted
 pub fn stats(parent: &Rc<GuiScreen>, player: &Entity) -> Rc<GuiScreen>
 {
-    let rows: Vec<Row> = entity_player::fields(player)
-        .m_progress
-        .stats()
-        .into_iter()
-        .map(|(name, value)| Row
-        {
-            m_label: label(&name),
-            m_value: value.to_string(),
-            m_detail: String::new(),
-            m_color: color::VALUE,
-        })
+    let mut registered: Vec<Rc<ModStat>> = named::stats();
+    registered.sort_by(|left, right| left.m_name.cmp(&right.m_name));
+
+    let mut rows: Vec<Row> = registered
+        .iter()
+        .map(|stat| statRow(stat.m_title.clone(), stat.m_formatter.format(named::value(player, &stat.m_name))))
         .collect();
+
+    for (name, value) in entity_player::fields(player).m_progress.stats()
+    {
+        if named::custom(&name)
+        {
+            continue;
+        }
+
+        rows.push(statRow(label(&name), value.to_string()));
+    }
+
     page(parent, "Mod Statistics", rows)
+}
+
+fn statRow(label: String, value: String) -> Row
+{
+    Row { m_label: label, m_value: value, m_detail: String::new(), m_color: color::VALUE }
 }
 
 // content stats read as their kind then the name of what they count as its tooltip shows it
@@ -239,11 +250,7 @@ fn label(name: &str) -> String
 {
     let (kind, id): (&str, &str) = name.split_once('/').unwrap_or(("", name));
     let item: String = itemLabel(id).unwrap_or_else(|| id.to_owned());
-    match kind
-    {
-        "" => item,
-        kind => format!("{kind} {item}"),
-    }
+    format!("{kind} {item}")
 }
 
 fn itemLabel(name: &str) -> Option<String>
@@ -255,7 +262,10 @@ fn itemLabel(name: &str) -> Option<String>
 
 pub fn hasAchievements() -> bool { !named::achievements().is_empty() }
 
-pub fn hasStats(player: &Entity) -> bool { !entity_player::fields(player).m_progress.stats().is_empty() }
+pub fn hasStats(player: &Entity) -> bool
+{
+    !named::stats().is_empty() || !entity_player::fields(player).m_progress.stats().is_empty()
+}
 
 pub fn button(x: i32, y: i32, width: i32) -> Rc<GuiButton>
 {

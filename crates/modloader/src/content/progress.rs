@@ -1,11 +1,19 @@
 use crate::network::loader::{self, ProgressSync};
 use game::entity::{Entity, entity_player};
-use game::stats::named::{self, ModAchievement};
+use game::stats::named::{self, ModAchievement, ModStat};
+use game::stats::{IStatType, StatBase};
 use mod_protocol::Identifier;
-use mod_protocol::spec::AchievementSpec;
+use mod_protocol::abi::RegistryKind;
+use mod_protocol::spec::{AchievementSpec, StatFormat, StatSpec};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::rc::Rc;
+
+const FORMATS: [(StatFormat, &dyn IStatType); 3] = [
+    (StatFormat::Number, StatBase::NUMBER_FORMATTER),
+    (StatFormat::Time, StatBase::TIME_FORMATTER),
+    (StatFormat::Distance, StatBase::DISTANCE_FORMATTER),
+];
 
 thread_local!
 {
@@ -15,10 +23,9 @@ thread_local!
 
 pub fn register(id: Identifier, spec: AchievementSpec) -> Result<(), String>
 {
-    crate::registry::claim(mod_protocol::abi::RegistryKind::Achievement, &id)?;
+    crate::registry::claim(RegistryKind::Achievement, &id)?;
 
     let name: String = id.to_string();
-    let text = |key: &str| super::lang::translate(key).unwrap_or_else(|| key.to_owned());
 
     named::registerAchievement(ModAchievement
     {
@@ -32,6 +39,40 @@ pub fn register(id: Identifier, spec: AchievementSpec) -> Result<(), String>
     ICONS.with(|icons| icons.borrow_mut().insert(name, spec.icon));
     Ok(())
 }
+
+pub fn registerStat(id: Identifier, spec: StatSpec) -> Result<(), String>
+{
+    crate::registry::claim(RegistryKind::Stat, &id)?;
+
+    let formatter: &'static dyn IStatType =
+        FORMATS.iter().find(|(format, _)| *format == spec.format).map_or(StatBase::NUMBER_FORMATTER, |row| row.1);
+    named::registerStat(ModStat { m_name: id.to_string(), m_title: text(&spec.title), m_formatter: formatter });
+    Ok(())
+}
+
+// a custom stat counted without registration still lists, titled by its lang key stat.<modid>.<name> or its name
+fn implicit(name: &str) -> bool
+{
+    if !named::custom(name) || named::stat(name).is_some()
+    {
+        return false;
+    }
+
+    let Ok(id) = Identifier::parse(name)
+    else
+    {
+        return false;
+    };
+
+    let title: String = super::lang::translate(&format!("stat.{}.{}", id.namespace(), id.path()))
+        .unwrap_or_else(|| id.path().to_owned());
+    crate::registry::with(|registries| registries.seedName(RegistryKind::Stat, id));
+    // keyed by the name as counted so a bare name still finds its value
+    named::registerStat(ModStat { m_name: name.to_owned(), m_title: title, m_formatter: StatBase::NUMBER_FORMATTER });
+    true
+}
+
+fn text(key: &str) -> String { super::lang::translate(key).unwrap_or_else(|| key.to_owned()) }
 
 pub fn push()
 {
@@ -62,6 +103,11 @@ pub fn unlock(player: &Rc<Entity>, achievement: &Identifier) -> bool
 
 pub fn addStat(player: &Rc<Entity>, stat: &str, amount: i32)
 {
+    if implicit(stat)
+    {
+        crate::log::warn(crate::log::LOADER, &format!("stat {stat} was counted before it was registered"));
+    }
+
     named::add(player, stat, amount);
     syncOwn(player);
 }
@@ -92,6 +138,11 @@ pub fn received(message: ProgressSync)
     {
         return;
     };
+
+    for (name, _) in &message.stats
+    {
+        implicit(name);
+    }
 
     entity_player::fields(&player)
         .m_progress

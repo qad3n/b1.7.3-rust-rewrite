@@ -58,6 +58,7 @@ pub fn apply(owner: &Owner, file: DataFile) -> Result<(), String>
         DataFile::Recipe(id, spec) => registerRecipe(id, modId, spec),
         DataFile::States(id, spec) => crate::states::register(id, &spec),
         DataFile::Achievement(id, spec) => super::progress::register(id, spec),
+        DataFile::Stat(id, spec) => super::progress::registerStat(id, spec),
         DataFile::Particle(id, spec) => super::particles::register(id, spec),
         DataFile::Effect(id, spec) => super::effects::register(id, spec),
         DataFile::Attribute(id, spec) => crate::attributes::register(id, spec),

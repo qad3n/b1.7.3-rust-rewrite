@@ -148,6 +148,12 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::progress::register(id, spec)),
         ),
 
+        HostCall::RegisterStat { name, spec } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::content::progress::registerStat(id, spec)),
+        ),
+
         HostCall::RegisterParticle { name, spec } => unit(
             registering()
                 .and_then(|()| runtime.own(&name))

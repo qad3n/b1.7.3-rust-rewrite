@@ -1,6 +1,6 @@
 use crate::entity::{Entity, entity_player};
 use crate::item::ItemStack;
-use crate::stats::{Achievement, StatBase, StatList};
+use crate::stats::{Achievement, IStatType, StatBase, StatList};
 use common::nbt::{NBTBase, NBTTagCompound, NBTTagList, NBTTagString};
 use jvm::string::JString;
 use std::cell::{Ref, RefCell, RefMut};
@@ -51,6 +51,14 @@ pub struct ModAchievement
     pub m_parent: Option<String>,
 }
 
+// a mod stat, kept apart from beta's StatList so its stats file and checksum never see it
+pub struct ModStat
+{
+    pub m_name: String,
+    pub m_title: String,
+    pub m_formatter: &'static dyn IStatType,
+}
+
 // stats and achievements a player earned with mod content or from mods, saved in the player file
 #[derive(Default)]
 pub struct Progress
@@ -62,6 +70,7 @@ pub struct Progress
 thread_local!
 {
     static ACHIEVEMENTS: RefCell<Vec<Rc<ModAchievement>>> = const { RefCell::new(Vec::new()) };
+    static STATS: RefCell<Vec<Rc<ModStat>>> = const { RefCell::new(Vec::new()) };
     // achievements this client saw unlock, the client shows each once as beta's toast
     static TOASTS: RefCell<Vec<Rc<ModAchievement>>> = const { RefCell::new(Vec::new()) };
 }
@@ -108,6 +117,26 @@ pub fn value(player: &Entity, name: &str) -> i32
 {
     entity_player::fields(player).m_progress.m_stats.borrow().get(name).copied().unwrap_or(0)
 }
+
+pub fn registerStat(stat: ModStat)
+{
+    STATS.with(|list|
+    {
+        let mut list: RefMut<Vec<Rc<ModStat>>> = list.borrow_mut();
+        list.retain(|old| old.m_name != stat.m_name);
+        list.push(Rc::new(stat));
+    });
+}
+
+pub fn stat(name: &str) -> Option<Rc<ModStat>>
+{
+    STATS.with(|list| list.borrow().iter().find(|stat| stat.m_name == name).cloned())
+}
+
+pub fn stats() -> Vec<Rc<ModStat>> { STATS.with(|list| list.borrow().clone()) }
+
+// content stats are named <kind>/<registry name> and follow the block and item registries instead
+pub fn custom(name: &str) -> bool { !name.contains('/') }
 
 pub fn registerAchievement(achievement: ModAchievement)
 {
