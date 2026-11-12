@@ -264,7 +264,8 @@ fn loadBlockGeneratorData(
 
             temperature[i] = d3;
             humidity[i] = d4;
-            biomes[i] = Some(BiomeGenBase::getBiomeFromLookup(d3, d4));
+            let modded: Option<Rc<BiomeGenBase>> = crate::hooks::overworldBiome(d3, d4);
+            biomes[i] = Some(modded.unwrap_or_else(|| BiomeGenBase::getBiomeFromLookup(d3, d4)));
             i += 1;
         }
     }

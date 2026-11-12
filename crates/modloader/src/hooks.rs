@@ -161,6 +161,13 @@ impl LoaderHooks for Hooks
 
     fn ruleChanged(&self, name: &str, value: &str) { crate::gamerules::changed(name, value); }
 
+    fn overworldBiomes(&self) -> bool { crate::biomes::hasOverworld() }
+
+    fn overworldBiome(&self, temperature: f64, downfall: f64) -> Option<Rc<game::worldgen::BiomeGenBase>>
+    {
+        crate::biomes::overworld(temperature, downfall)
+    }
+
     fn damageTagged(&self, kind: &str, tag: &str) -> bool
     {
         let (Ok(kind), Ok(tag)) = (mod_protocol::Identifier::parse(kind), mod_protocol::Identifier::parse(tag))

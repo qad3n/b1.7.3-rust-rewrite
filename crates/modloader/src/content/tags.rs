@@ -157,6 +157,7 @@ fn vanillaId(name: &str) -> Identifier { Identifier::parse(name).expect("vanilla
 pub fn push()
 {
     super::custom::invalidate();
+    crate::biomes::invalidateOverworld();
 
     for row in &game::tags::ROWS
     {

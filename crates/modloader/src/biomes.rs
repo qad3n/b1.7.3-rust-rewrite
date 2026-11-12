@@ -424,3 +424,62 @@ pub fn save(world: &World)
 
 // a source forgets its chunks with the world that owned it
 pub fn forget(manager: &WorldChunkManager) { SOURCES.with(|sources| sources.borrow_mut().remove(&key(manager))); }
+
+// a mod biome in minecraft:is_overworld at its climate, reaching further the higher its weight
+struct Placed
+{
+    m_climate: (f64, f64),
+    m_reach: f64,
+    m_biome: Rc<BiomeGenBase>,
+}
+
+thread_local!
+{
+    // built on first use after each tag change, an empty list costs one check per column
+    static OVERWORLD: RefCell<Option<Rc<Vec<Placed>>>> = const { RefCell::new(None) };
+}
+
+const OVERWORLD_TAG: &str = "is_overworld";
+// how far in temperature and downfall a mod biome of the base weight reaches from its own climate
+const CLIMATE_REACH: f64 = 0.1;
+const BASE_WEIGHT: f64 = 10.0;
+
+pub fn hasOverworld() -> bool { !placed().is_empty() }
+
+pub fn invalidateOverworld() { OVERWORLD.with(|slot| slot.borrow_mut().take()); }
+
+fn placed() -> Rc<Vec<Placed>>
+{
+    if let Some(list) = OVERWORLD.with(|slot| slot.borrow().clone())
+    {
+        return list;
+    }
+
+    let tagged: Vec<Identifier> =
+        crate::content::tags::values(mod_protocol::abi::RegistryKind::Biome, &Identifier::minecraft(OVERWORLD_TAG));
+    let list: Vec<Placed> = dimensions::biomes()
+        .into_iter()
+        .filter(|biome| !biome.m_id.isVanilla() && tagged.contains(&biome.m_id))
+        .filter_map(|biome|
+        {
+            let reach: f64 = CLIMATE_REACH * (f64::from(biome.m_spec.weight.max(1)) / BASE_WEIGHT).sqrt();
+            let climate: (f64, f64) = (f64::from(biome.m_spec.temperature), f64::from(biome.m_spec.rainfall));
+            Some(Placed { m_climate: climate, m_reach: reach, m_biome: crate::worlds::modBiome(&biome.m_id)? })
+        })
+        .collect();
+    let list: Rc<Vec<Placed>> = Rc::new(list);
+    OVERWORLD.with(|slot| *slot.borrow_mut() = Some(Rc::clone(&list)));
+    list
+}
+
+// the nearest overworld mod biome whose reach covers the climate, beta's biome otherwise
+pub fn overworld(temperature: f64, downfall: f64) -> Option<Rc<BiomeGenBase>>
+{
+    let list: Rc<Vec<Placed>> = placed();
+    list.iter()
+        .map(|placed| (placed.m_climate.0 - temperature).hypot(placed.m_climate.1 - downfall) / placed.m_reach)
+        .zip(list.iter())
+        .filter(|(distance, _)| *distance <= 1.0)
+        .min_by(|left, right| left.0.total_cmp(&right.0))
+        .map(|(_, placed)| Rc::clone(&placed.m_biome))
+}

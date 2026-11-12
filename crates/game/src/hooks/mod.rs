@@ -264,6 +264,12 @@ pub trait LoaderHooks
 
     // whether a damage type is in a damage type tag
     fn damageTagged(&self, _kind: &str, _tag: &str) -> bool { false }
+
+    // whether any mod biome joins overworld generation
+    fn overworldBiomes(&self) -> bool { false }
+
+    // a mod biome that takes this climate of the overworld instead of beta's biome
+    fn overworldBiome(&self, _temperature: f64, _downfall: f64) -> Option<Rc<crate::worldgen::BiomeGenBase>> { None }
 }
 
 thread_local!
@@ -373,6 +379,13 @@ pub fn blockName(block: i32, meta: i32) -> Option<(String, Vec<(String, String)>
 pub fn blockByName(name: &str, properties: &[(String, String)], block: i32, meta: i32) -> Option<(i32, i32)>
 {
     active()?.blockByName(name, properties, block, meta)
+}
+
+pub fn overworldBiomes() -> bool { active().is_some_and(|hooks| hooks.overworldBiomes()) }
+
+pub fn overworldBiome(temperature: f64, downfall: f64) -> Option<Rc<crate::worldgen::BiomeGenBase>>
+{
+    active()?.overworldBiome(temperature, downfall)
 }
 
 pub fn damageTagged(kind: &str, tag: &str) -> bool { active().is_some_and(|hooks| hooks.damageTagged(kind, tag)) }

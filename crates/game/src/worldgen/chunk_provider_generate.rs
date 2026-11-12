@@ -100,7 +100,8 @@ impl ChunkProviderGenerate
     // blocks a worker made ahead, its random state carried over as if this generator had made them
     fn prefetched(&self, world: &World, manager: &WorldChunkManager, chunkX: i32, chunkZ: i32) -> Option<Vec<i8>>
     {
-        if manager.m_class.m_name != WORLD_CHUNK_MANAGER.m_name
+        // worker threads know only beta's biomes, so mod overworld biomes keep generation on this thread
+        if manager.m_class.m_name != WORLD_CHUNK_MANAGER.m_name || crate::hooks::overworldBiomes()
         {
             return None;
         }
