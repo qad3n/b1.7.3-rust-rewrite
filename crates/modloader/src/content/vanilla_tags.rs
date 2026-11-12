@@ -104,7 +104,8 @@ pub(crate) const TAGS: &[VanillaTag] = &[
     ),
     entity("c:neutral", &["minecraft:pig_zombie", "minecraft:wolf"]),
     entity("c:passive", &["minecraft:pig", "minecraft:sheep", "minecraft:cow", "minecraft:chicken", "minecraft:squid"]),
-    entity("minecraft:undead", &["minecraft:skeleton", "minecraft:giant", "minecraft:zombie", "minecraft:pig_zombie"]),
+    // the giant is no undead in modern minecraft nor in the 1.7 mods that read this tag
+    entity("minecraft:undead", &["minecraft:skeleton", "minecraft:zombie", "minecraft:pig_zombie"]),
     entity("minecraft:arthropod", &["minecraft:spider"]),
     entity("minecraft:skeletons", &["minecraft:skeleton"]),
     entity("minecraft:zombies", &["minecraft:zombie", "minecraft:pig_zombie"]),
