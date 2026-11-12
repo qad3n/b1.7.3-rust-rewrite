@@ -419,6 +419,12 @@ impl GuiIngame
             return;
         }
 
+        // container screens leave lighting and depth on, which darkens and hides a flat icon quad
+        let lit: bool = GL11::glIsEnabled(GL11::GL_LIGHTING);
+        let depth: bool = GL11::glIsEnabled(GL11::GL_DEPTH_TEST);
+        GL11::glDisable(GL11::GL_LIGHTING);
+        GL11::glDisable(GL11::GL_DEPTH_TEST);
+
         let x: i32 = right - ICON - MARGIN;
 
         for (row, (kind, level, ticks)) in living.m_effects.list().into_iter().enumerate()
@@ -433,11 +439,14 @@ impl GuiIngame
             else
             {
                 GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+                GL11::glEnable(GL11::GL_BLEND);
+                GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
                 GL11::glBindTexture(3553, self.renderEngine().getTexture(&kind.m_icon));
                 GL11::glPushMatrix();
                 GL11::glTranslatef(x as f32, y as f32, 0.0);
                 Self::drawOverlayQuad(ICON, ICON, 0.0, 0.0, 1.0, 1.0);
                 GL11::glPopMatrix();
+                GL11::glDisable(GL11::GL_BLEND);
             }
             let seconds: i32 = ticks.max(0) / TICKS_PER_SECOND;
 
@@ -454,6 +463,16 @@ impl GuiIngame
         }
 
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+
+        if lit
+        {
+            GL11::glEnable(GL11::GL_LIGHTING);
+        }
+
+        if depth
+        {
+            GL11::glEnable(GL11::GL_DEPTH_TEST);
+        }
     }
 
     fn drawOverlayQuad(width: i32, height: i32, u0: f64, v0: f64, u1: f64, v1: f64)
