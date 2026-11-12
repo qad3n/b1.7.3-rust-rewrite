@@ -99,13 +99,21 @@ fn build(id: Identifier, spec: EffectSpec, hooks: Option<Rc<dyn EffectHooks>>) -
         modifiers.push((attribute, modifier.amount, operation(modifier.operation)));
     }
 
+    let icon: String =
+        match spec.icon.as_deref()
+        {
+            Some(icon) => crate::entities::modTexturePath(icon)
+                .ok_or_else(|| format!("effect icon {icon} is not a texture name"))?,
+            None => String::new(),
+        };
+
     crate::registry::claim(mod_protocol::abi::RegistryKind::Effect, &id)?;
     effect::register(EffectType
     {
         m_name: id.to_string(),
         m_color: spec.color as i32,
         m_beneficial: spec.beneficial,
-        m_icon: spec.icon.unwrap_or_default(),
+        m_icon: icon,
         m_modifiers: modifiers,
         m_interval: spec.interval,
         m_amount: spec.amount,
