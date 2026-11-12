@@ -40,7 +40,7 @@ pub fn loadOverrides(config: &Path) -> Vec<(String, String)>
         return Vec::new();
     }
 
-    let mut source: Source = match Source::open(config)
+    let mut source: Source = match Source::open(&root)
     {
         Ok(source) => source,
         Err(error) => return vec![(crate::log::LOADER.to_owned(), format!("{}: {error}", root.display()))],
