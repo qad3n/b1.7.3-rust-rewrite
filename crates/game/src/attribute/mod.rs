@@ -31,7 +31,10 @@ pub const BLOCK_REACH: f64 = 4.0;
 pub const ENTITY_REACH: f64 = 3.0;
 
 // order matches the Attribute consts
-const VANILLA: [VanillaRow; 8] = [
+// beta's speed for every living entity moving through the air
+pub const AIR_SPEED: f64 = 0.02;
+
+const VANILLA: [VanillaRow; 9] = [
     VanillaRow { m_name: "minecraft:max_health", m_default: 20.0 },
     VanillaRow { m_name: "minecraft:movement_speed", m_default: 0.1 },
     VanillaRow { m_name: "minecraft:attack_damage", m_default: 0.0 },
@@ -41,6 +44,7 @@ const VANILLA: [VanillaRow; 8] = [
     // beta's survival reach for blocks and for the entities it points at
     VanillaRow { m_name: "minecraft:block_interaction_range", m_default: BLOCK_REACH },
     VanillaRow { m_name: "minecraft:entity_interaction_range", m_default: ENTITY_REACH },
+    VanillaRow { m_name: "minecraft:air_speed", m_default: AIR_SPEED },
 ];
 
 thread_local!
@@ -91,6 +95,7 @@ impl Attribute
     pub const SWIM_SPEED: Self = Self(5);
     pub const BLOCK_REACH: Self = Self(6);
     pub const ENTITY_REACH: Self = Self(7);
+    pub const AIR_SPEED: Self = Self(8);
 
     pub fn name(self) -> String { TYPES.with(|types| types.borrow()[self.0].m_name.clone()) }
 

@@ -308,13 +308,13 @@ pub(crate) fn moveEntityWithHeading(this: &Rc<Entity>, sideways: f32, forwards: 
         let mut f: f32 = groundSlipperiness(this, &world);
         let f2: f32 = 0.16277136 / (f * f * f);
 
-        let scale = if this.m_onGround.get()
+        let scale: f32 = if this.m_onGround.get()
         {
             landSpeed(this) * f2
         }
         else
         {
-            0.02
+            airSpeed(this)
         };
         this.moveFlying(sideways, forwards, scale);
         f = groundSlipperiness(this, &world);
@@ -391,6 +391,9 @@ fn swimSpeed(this: &Entity) -> f32
     const SWIM_SPEED: f32 = 0.02;
     attribute::value(this, Attribute::SWIM_SPEED, SWIM_SPEED as f64) as f32
 }
+
+// beta moves every living entity at 0.02 in the air, air speed modifiers scale it
+fn airSpeed(this: &Entity) -> f32 { attribute::value(this, Attribute::AIR_SPEED, attribute::AIR_SPEED) as f32 }
 
 // beta walks every living entity at 0.1 on the ground, movement speed modifiers scale it
 fn landSpeed(this: &Entity) -> f32
