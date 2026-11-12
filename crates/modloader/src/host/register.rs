@@ -19,6 +19,16 @@ fn registering() -> Result<(), String>
     }
 }
 
+// data other content reads, such as tags, loot and machine recipes, may still be added while setup runs
+fn loading() -> Result<(), String>
+{
+    match state::phase()
+    {
+        Phase::Register | Phase::Frozen => Ok(()),
+        phase => Err(format!("content data is added while mods load, the loader is in {phase:?}")),
+    }
+}
+
 fn resolve(kind: RegistryKind, id: &Identifier) -> Option<i32>
 {
     registry::with(|registries| match kind
@@ -123,19 +133,16 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         ),
         HostCall::ModifySpawns { spec } => unit(registering().map(|()| crate::modify::queueSpawn(&owner, spec))),
 
-        HostCall::AddTag { registry, tag, values } =>
+        HostCall::AddTag { registry, tag, values } => unit(loading().map(|()|
         {
             tags::add(registry, tag, values, false);
             tags::push();
-            HostReply::Unit
-        }
-
-        HostCall::AddTagEntries { registry, tag, entries, replace } =>
+        })),
+        HostCall::AddTagEntries { registry, tag, entries, replace } => unit(loading().map(|()|
         {
             tags::addEntries(registry, tag, entries, replace);
             tags::push();
-            HostReply::Unit
-        }
+        })),
 
         HostCall::RegisterAchievement { name, spec } =>
         {
@@ -174,17 +181,21 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
 
         HostCall::SetLoot { registry, target, spec } =>
         {
-            let added: Result<(), String> = crate::content::loot::add(registry, target, spec);
+            let added: Result<(), String> = loading().and_then(|()| crate::content::loot::add(registry, target, spec));
 
             crate::content::loot::push(false);
             unit(added)
         }
 
-        HostCall::SetChestLoot { table, spec } => unit(crate::content::loot::addChest(table, spec)),
+        HostCall::SetChestLoot { table, spec } =>
+        {
+            unit(loading().and_then(|()| crate::content::loot::addChest(table, spec)))
+        }
 
         HostCall::AddLootPool { target, id, pool } =>
         {
-            let added: Result<(), String> = crate::content::loot::addPool(target, id, pool.into());
+            let added: Result<(), String> =
+                loading().and_then(|()| crate::content::loot::addPool(target, id, pool.into()));
 
             crate::content::loot::push(false);
             unit(added)
@@ -192,7 +203,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
 
         HostCall::AddConditionalPool { target, id, pool } =>
         {
-            let added: Result<(), String> = crate::content::loot::addPool(target, id, pool);
+            let added: Result<(), String> = loading().and_then(|()| crate::content::loot::addPool(target, id, pool));
 
             crate::content::loot::push(false);
             unit(added)
@@ -218,8 +229,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
                 .and_then(|()| runtime.own(&name.to_string()))
                 .and_then(|id| crate::content::machines::register(id, spec)),
         ),
-        HostCall::AddMachineRecipe { machine, recipe } => unit(crate::content::machines::addRecipe(&machine, recipe)),
-        HostCall::AddWorkstation { machine, item } => unit(crate::content::machines::addWorkstation(&machine, item)),
+        HostCall::AddMachineRecipe { machine, recipe } =>
+        {
+            unit(loading().and_then(|()| crate::content::machines::addRecipe(&machine, recipe)))
+        }
+        HostCall::AddWorkstation { machine, item } =>
+        {
+            unit(loading().and_then(|()| crate::content::machines::addWorkstation(&machine, item)))
+        }
         HostCall::RegisterAccessorySlot { name, spec } => unit(
             registering()
                 .and_then(|()| runtime.own(&name.to_string()))
@@ -234,10 +251,13 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
         HostCall::Features => HostReply::Features(crate::content::features::list()),
         HostCall::BiomeSpawns { biome, kind } => ok(crate::biomes::spawns(&biome, kind), HostReply::SpawnEntries),
-        HostCall::AddMachineJob { machine, job } => unit(crate::content::machines::addJob(&machine, job, Vec::new())),
+        HostCall::AddMachineJob { machine, job } =>
+        {
+            unit(loading().and_then(|()| crate::content::machines::addJob(&machine, job, Vec::new())))
+        }
         HostCall::AddMachineJobRules { machine, job, rules } =>
         {
-            unit(registering().and_then(|()| crate::content::machines::addJob(&machine, job, rules)))
+            unit(loading().and_then(|()| crate::content::machines::addJob(&machine, job, rules)))
         }
         HostCall::RegisterFluidContainer { spec } =>
         {
@@ -247,7 +267,10 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         HostCall::FillContainer { stack, fluid } => HostReply::Swap(crate::content::fluids::fill(&stack, &fluid)),
         HostCall::DrainContainer { stack } => HostReply::Swap(crate::content::fluids::drain(&stack)),
         HostCall::FluidContainers => HostReply::FluidContainers(crate::content::fluids::containers()),
-        HostCall::AddMachineFuel { machine, fuel } => unit(crate::content::machines::addFuel(&machine, fuel)),
+        HostCall::AddMachineFuel { machine, fuel } =>
+        {
+            unit(loading().and_then(|()| crate::content::machines::addFuel(&machine, fuel)))
+        }
         HostCall::MatchMachineJob { machine, inputs, fluids } =>
         {
             HostReply::Job(crate::content::machines::matchJob(&machine, &inputs, &fluids))
