@@ -27,6 +27,11 @@ const fn damage(name: &'static str, members: &'static [&'static str]) -> Vanilla
     VanillaTag { m_registry: RegistryKind::DamageType, m_name: name, m_members: members }
 }
 
+const fn entity(name: &'static str, members: &'static [&'static str]) -> VanillaTag
+{
+    VanillaTag { m_registry: RegistryKind::Entity, m_name: name, m_members: members }
+}
+
 const fn item(name: &'static str, members: &'static [&'static str]) -> VanillaTag
 {
     VanillaTag { m_registry: RegistryKind::Item, m_name: name, m_members: members }
@@ -82,6 +87,27 @@ pub(crate) const TAGS: &[VanillaTag] = &[
     damage("minecraft:is_fall", &["minecraft:fall"]),
     damage("minecraft:is_drowning", &["minecraft:drown"]),
     damage("minecraft:bypasses_armor", &[]),
+    // behaviour toward players so mods tell hostile from neutral from passive without naming mobs
+    // spider stays hostile alone since it hunts on sight in the dark where it spawns and only daylight calms it
+    entity(
+        "c:hostile",
+        &[
+            "minecraft:monster",
+            "minecraft:creeper",
+            "minecraft:skeleton",
+            "minecraft:spider",
+            "minecraft:giant",
+            "minecraft:zombie",
+            "minecraft:slime",
+            "minecraft:ghast",
+        ],
+    ),
+    entity("c:neutral", &["minecraft:pig_zombie", "minecraft:wolf"]),
+    entity("c:passive", &["minecraft:pig", "minecraft:sheep", "minecraft:cow", "minecraft:chicken", "minecraft:squid"]),
+    entity("minecraft:undead", &["minecraft:skeleton", "minecraft:giant", "minecraft:zombie", "minecraft:pig_zombie"]),
+    entity("minecraft:arthropod", &["minecraft:spider"]),
+    entity("minecraft:skeletons", &["minecraft:skeleton"]),
+    entity("minecraft:zombies", &["minecraft:zombie", "minecraft:pig_zombie"]),
     // fluid tags name fluids, so mods' oils and fuels join shared groups machines take
     fluid("minecraft:water", &["minecraft:water"]),
     fluid("minecraft:lava", &["minecraft:lava"]),
