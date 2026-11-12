@@ -130,6 +130,7 @@ pub fn apply(owner: &Owner, file: DataFile) -> Result<(), String>
         DataFile::ChestLoot(table, spec) => super::loot::addChest(table, spec),
         DataFile::Structure(id, spec) => crate::structures::register(owner.index("structures")?, id, spec, None),
         DataFile::Biome(id, spec) => crate::dimensions::registerBiome(owner.index("biomes")?, id, spec),
+        DataFile::Template(id, spec) => super::structure_templates::register(id, spec),
     }
 }
 

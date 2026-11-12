@@ -16,6 +16,7 @@ pub mod progress;
 pub mod recipes;
 pub mod retrogen;
 pub mod served;
+pub mod structure_templates;
 pub mod tags;
 pub mod templates;
 mod vanilla_tags;

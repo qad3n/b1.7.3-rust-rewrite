@@ -301,6 +301,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
 
         HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
+        HostCall::RegisterTemplate { name, spec } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::content::structure_templates::register(id, spec)),
+        ),
         HostCall::RegisterConfigTask { name, handler } => unit(
             registering()
                 .and_then(|()| runtime.own(&name))

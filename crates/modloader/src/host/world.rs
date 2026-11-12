@@ -786,6 +786,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(entity(dimension, id).map(|entity| crate::entities::setData(&entity, runtime.id(), data)))
         }
 
+        HostCall::PlaceTemplate { world: dimension, template, origin, rotation, seed } => ok(
+            world(dimension).and_then(|world|
+            {
+                crate::content::structure_templates::place(&world, &template, origin, rotation, seed)
+            }),
+            HostReply::Bool,
+        ),
+
         // the vanilla note block path runs the event here and sends it to every client near the block
         HostCall::BlockEvent { world: dimension, pos, kind, data } => unit(world(dimension).map(|world|
         {
