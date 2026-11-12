@@ -199,7 +199,14 @@ fn label(name: &str) -> String
     let (namespace, path): (&str, &str) = name.split_once(':').unwrap_or(("", name));
     modloader::content::lang::translate(&format!("key.{namespace}.{path}"))
         .or_else(|| modloader::content::lang::translate(path))
-        .unwrap_or_else(|| name.to_owned())
+        .unwrap_or_else(|| readable(path))
+}
+
+// a key no lang file names reads as its last word so ic2.key.suit shows as Suit
+fn readable(path: &str) -> String
+{
+    let word: &str = path.rsplit('.').next().unwrap_or(path);
+    modloader::config::humanize(word)
 }
 
 pub fn screen(parent: &Rc<GuiScreen>) -> Rc<GuiScreen>
