@@ -786,6 +786,12 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(entity(dimension, id).map(|entity| crate::entities::setData(&entity, runtime.id(), data)))
         }
 
+        // the vanilla note block path runs the event here and sends it to every client near the block
+        HostCall::BlockEvent { world: dimension, pos, kind, data } => unit(world(dimension).map(|world|
+        {
+            world.playNoteAt(pos.x, pos.y, pos.z, kind, data);
+        })),
+
         HostCall::EntityValue { world: dimension, id, key, saved } => ok(entity(dimension, id), |entity|
         {
             HostReply::Bytes(crate::entities::value(&entity, runtime.id(), &key, saved))

@@ -146,6 +146,15 @@ fn randomDisplayTick(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32
     }
 }
 
+fn blockEvent(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, kind: i32, data: i32)
+{
+    let call: BlockCall = BlockCall::BlockEvent { ctx: ctx(this, world, x, y, z), kind, data };
+    if !handled(callBlock(this, Some(world), call))
+    {
+        (parent(this).playBlock)(this, world, x, y, z, kind, data);
+    }
+}
+
 fn entityCollided(this: &Rc<Block>, world: &Rc<World>, x: i32, y: i32, z: i32, entity: &Rc<Entity>)
 {
     let call: BlockCall = BlockCall::EntityCollided { ctx: ctx(this, world, x, y, z), entity: entity.m_entityId.get() };
@@ -388,6 +397,7 @@ pub fn patchBlock(class: &mut BlockClass, behavior: &Behavior<BlockMethod>)
             BlockMethod::NeighborChanged => class.onNeighborBlockChange = neighborChanged,
             BlockMethod::UpdateTick => class.updateTick = updateTick,
             BlockMethod::RandomDisplayTick => class.randomDisplayTick = randomDisplayTick,
+            BlockMethod::BlockEvent => class.playBlock = blockEvent,
             BlockMethod::EntityCollided => class.onEntityCollidedWithBlock = entityCollided,
             BlockMethod::EntityWalking => class.onEntityWalking = entityWalking,
             BlockMethod::DestroyedByPlayer => class.onBlockDestroyedByPlayer = destroyedByPlayer,
