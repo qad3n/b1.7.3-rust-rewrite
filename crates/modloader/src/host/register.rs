@@ -9,6 +9,7 @@ use mod_protocol::identifier::MINECRAFT;
 use std::rc::Rc;
 
 const VANILLA_NAME: &str = "Minecraft";
+const AIR: &str = "air";
 
 fn registering() -> Result<(), String>
 {
@@ -33,6 +34,7 @@ fn resolve(kind: RegistryKind, id: &Identifier) -> Option<i32>
 {
     registry::with(|registries| match kind
     {
+        RegistryKind::Block if crate::states::isAir(id) => Some(crate::states::AIR_BLOCK),
         RegistryKind::Block => registries.blockId(id),
         RegistryKind::Item => registries.itemId(id),
         RegistryKind::Entity => registries.m_entities.numeric(id),
@@ -49,6 +51,7 @@ fn nameOf(kind: RegistryKind, numeric: i32) -> Option<Identifier>
 {
     registry::with(|registries| match kind
     {
+        RegistryKind::Block if numeric == crate::states::AIR_BLOCK => Some(Identifier::minecraft(AIR)),
         // a hidden state page id answers with the block it extends
         RegistryKind::Block => registries
             .m_blocks
@@ -363,14 +366,8 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
     Ok(reply)
 }
 
-// air has no registry row so a handle naming it clears a spot
 fn resolveState(state: &StateData) -> Result<(i32, i32), String>
 {
-    if state.block == Identifier::minecraft("air")
-    {
-        return Ok((0, 0));
-    }
-
     crate::states::resolve(state).ok_or_else(|| format!("{} is not a registered block", state.block))
 }
 

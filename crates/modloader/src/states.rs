@@ -332,8 +332,18 @@ pub fn describe(numeric: i32, meta: i32) -> Option<StateData>
     Some(StateData { block, properties: BTreeMap::from([(META_PROPERTY.to_owned(), meta.to_string())]) })
 }
 
+// air has no registry row, block 0 by name in both directions
+pub const AIR_BLOCK: i32 = 0;
+
+pub fn isAir(id: &Identifier) -> bool { id.isVanilla() && id.path() == "air" }
+
 pub fn resolve(state: &StateData) -> Option<(i32, i32)>
 {
+    if isAir(&state.block)
+    {
+        return Some((AIR_BLOCK, 0));
+    }
+
     if let Some(table) = table(&state.block)
         && !state.properties.contains_key(META_PROPERTY)
     {
