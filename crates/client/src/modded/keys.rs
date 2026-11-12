@@ -178,8 +178,7 @@ const CLASS: GuiScreenClass = GuiScreenClass
             {
                 LABEL
             };
-            let label: String =
-                modloader::content::lang::translate(&bind.m_name).unwrap_or_else(|| bind.m_name.clone());
+            let label: String = label(&bind.m_name);
             this.m_gui.drawString(
                 &font,
                 &label,
@@ -193,6 +192,15 @@ const CLASS: GuiScreenClass = GuiScreenClass
     },
     ..GUI_SCREEN
 };
+
+// later versions name a key key.<namespace>.<path> in lang files, a key the mod wrote as its own path also counts
+fn label(name: &str) -> String
+{
+    let (namespace, path): (&str, &str) = name.split_once(':').unwrap_or(("", name));
+    modloader::content::lang::translate(&format!("key.{namespace}.{path}"))
+        .or_else(|| modloader::content::lang::translate(path))
+        .unwrap_or_else(|| name.to_owned())
+}
 
 pub fn screen(parent: &Rc<GuiScreen>) -> Rc<GuiScreen>
 {
