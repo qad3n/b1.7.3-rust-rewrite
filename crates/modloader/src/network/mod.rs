@@ -211,6 +211,18 @@ pub fn sendNear(channel: &Identifier, world: &game::world::World, pos: [f64; 3],
     }
 }
 
+// every player of every world, for data a whole save shares
+pub fn broadcast(channel: &Identifier, data: &[u8])
+{
+    for world in crate::host::context::worlds()
+    {
+        for player in world.m_playerEntities.toVec()
+        {
+            sendToPlayer(channel, &player, data.to_vec());
+        }
+    }
+}
+
 pub fn localPlayer() -> Option<Rc<Entity>> { ROUTER.with(|router| router.borrow().m_localPlayer.clone()) }
 
 pub fn channelInfo(id: &Identifier) -> Option<(String, ChannelDirection)>
@@ -221,6 +233,8 @@ pub fn channelInfo(id: &Identifier) -> Option<(String, ChannelDirection)>
     })
 }
 
+pub mod attachments;
 pub mod blocks;
 pub mod loader;
+pub mod stacks;
 pub mod sync;

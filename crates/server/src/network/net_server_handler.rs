@@ -150,7 +150,11 @@ impl NetServerHandler
         // 12-bit block ids reach modded clients through a loader extension after the vanilla packet
         let (packet, extension) = modloader::network::blocks::outgoing(&self.player(), packet);
         let chunkData: bool = packet.base().m_isChunkDataPacket;
+        let stacks: Option<modloader::network::stacks::StackBatch> =
+            modloader::network::stacks::outgoing(&self.player(), &*packet);
 
+        let area: Option<modloader::network::attachments::ChunkArea> =
+            modloader::network::attachments::chunkArea(&*packet);
         self.m_netManager.addToSendQueue(packet);
 
         if let Some(extension) = extension
@@ -166,6 +170,18 @@ impl NetServerHandler
                 Packet250ModPayload::new(channel, body)
             };
             self.m_netManager.addToSendQueue(Box::new(payload));
+        }
+
+        // synced item components follow the vanilla packet that rebuilt the stacks on the client
+        if let Some(stacks) = stacks
+        {
+            modloader::network::stacks::send(&self.player(), &stacks);
+        }
+
+        // attachments and synced mod tile data of chunks the player starts seeing
+        if let Some(area) = area
+        {
+            modloader::network::attachments::chunkSent(&self.player(), &area);
         }
 
         self.m_lastKeepAliveTime.set(self.m_ticks.get());

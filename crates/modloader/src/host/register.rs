@@ -301,6 +301,13 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
 
         HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
+        HostCall::RegisterComponent { name, synced } => unit(
+            registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::network::stacks::register(id, synced)),
+        ),
+        HostCall::SyncAttachments { holder } =>
+        {
+            unit(registering().map(|()| crate::network::attachments::enable(holder, &owner)))
+        }
         HostCall::RegistryList { registry } => HostReply::Ids(registry::with(|registries| registries.list(registry))),
         HostCall::CreateRegistry { name, synced } => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::custom::create(id, synced)),

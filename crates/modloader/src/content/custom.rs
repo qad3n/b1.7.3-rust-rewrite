@@ -39,7 +39,13 @@ thread_local!
     // each map's values resolved through tags, rebuilt after any tag change
     static RESOLVED: RefCell<BTreeMap<Identifier, BTreeMap<Identifier, String>>> = const { RefCell::new(BTreeMap::new()) };
     static STALE: Cell<bool> = const { Cell::new(true) };
+    // a modded server's synced registries and maps, read before the client's own until it disconnects
+    static SERVED_ENTRIES: RefCell<BTreeMap<Identifier, BTreeMap<Identifier, String>>> = const { RefCell::new(BTreeMap::new()) };
+    static SERVED_MAPS: RefCell<BTreeMap<Identifier, BTreeMap<Identifier, String>>> = const { RefCell::new(BTreeMap::new()) };
 }
+
+const REGISTRY_ROW: &str = "registry";
+const MAP_ROW: &str = "map";
 
 // furnace burn ticks by item, any mod or data file may set or remove them, as later versions' data map
 const FURNACE_FUELS: &str = "furnace_fuels";
@@ -176,6 +182,12 @@ pub fn invalidate() { STALE.with(|stale| stale.set(true)); }
 
 pub fn contains(registry: &Identifier, id: &Identifier) -> bool
 {
+    if let Some(served) =
+        SERVED_ENTRIES.with(|served| served.borrow().get(registry).map(|entries| entries.contains_key(id)))
+    {
+        return served;
+    }
+
     REGISTRIES.with(|registries| registries.borrow().get(registry).is_some_and(|row| row.m_entries.contains_key(id)))
 }
 
@@ -186,6 +198,11 @@ pub fn exists(registry: &Identifier) -> bool
 
 pub fn entries(registry: &Identifier) -> Vec<(Identifier, String)>
 {
+    if let Some(served) = SERVED_ENTRIES.with(|served| served.borrow().get(registry).cloned())
+    {
+        return served.into_iter().collect();
+    }
+
     REGISTRIES.with(|registries|
     {
         registries
@@ -198,12 +215,22 @@ pub fn entries(registry: &Identifier) -> Vec<(Identifier, String)>
 
 pub fn value(map: &Identifier, id: &Identifier) -> Option<String>
 {
+    if let Some(served) = SERVED_MAPS.with(|served| served.borrow().get(map).map(|values| values.get(id).cloned()))
+    {
+        return served;
+    }
+
     resolve();
     RESOLVED.with(|resolved| resolved.borrow().get(map).and_then(|values| values.get(id).cloned()))
 }
 
 pub fn mapEntries(map: &Identifier) -> Vec<(Identifier, String)>
 {
+    if let Some(served) = SERVED_MAPS.with(|served| served.borrow().get(map).cloned())
+    {
+        return served.into_iter().collect();
+    }
+
     resolve();
     RESOLVED.with(|resolved|
     {
@@ -288,7 +315,9 @@ pub fn synced() -> Vec<(String, Identifier, String)>
             .filter(|(_, row)| row.m_synced)
             .flat_map(|(registry, row)|
             {
-                row.m_entries.iter().map(move |(id, value)| (format!("registry {registry}"), id.clone(), value.clone()))
+                row.m_entries
+                    .iter()
+                    .map(move |(id, value)| (format!("{REGISTRY_ROW} {registry}"), id.clone(), value.clone()))
             })
             .collect()
     });
@@ -297,8 +326,51 @@ pub fn synced() -> Vec<(String, Identifier, String)>
         MAPS.with(|maps| maps.borrow().iter().filter(|(_, map)| map.m_synced).map(|(id, _)| id.clone()).collect());
     for map in maps
     {
-        rows.extend(mapEntries(&map).into_iter().map(|(id, value)| (format!("map {map}"), id, value)));
+        rows.extend(mapEntries(&map).into_iter().map(|(id, value)| (format!("{MAP_ROW} {map}"), id, value)));
     }
 
     rows
+}
+
+// the entry names of every registry, for the join check against a server
+pub fn names() -> BTreeMap<Identifier, Vec<Identifier>>
+{
+    REGISTRIES.with(|registries|
+    {
+        registries.borrow().iter().map(|(id, row)| (id.clone(), row.m_entries.keys().cloned().collect())).collect()
+    })
+}
+
+// the server's synced rows stand in for the client's own
+pub fn replaceSynced(rows: Vec<(String, Identifier, String)>)
+{
+    let mut entries: BTreeMap<Identifier, BTreeMap<Identifier, String>> = BTreeMap::new();
+    let mut maps: BTreeMap<Identifier, BTreeMap<Identifier, String>> = BTreeMap::new();
+
+    for (holder, id, value) in rows
+    {
+        let target = match holder.split_once(' ')
+        {
+            Some((REGISTRY_ROW, name)) => Identifier::parse(name).ok().map(|name| entries.entry(name).or_default()),
+            Some((MAP_ROW, name)) => Identifier::parse(name).ok().map(|name| maps.entry(name).or_default()),
+            _ => None,
+        };
+        match target
+        {
+            Some(values) =>
+            {
+                values.insert(id, value);
+            }
+            None => crate::log::warn(crate::log::LOADER, &format!("server registry row {holder} is not understood")),
+        }
+    }
+
+    SERVED_ENTRIES.with(|served| *served.borrow_mut() = entries);
+    SERVED_MAPS.with(|served| *served.borrow_mut() = maps);
+}
+
+pub fn restoreSynced()
+{
+    SERVED_ENTRIES.with(|served| served.borrow_mut().clear());
+    SERVED_MAPS.with(|served| served.borrow_mut().clear());
 }

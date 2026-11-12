@@ -699,6 +699,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 
         HostCall::SetTileAttachment { world: dimension, pos, data } => unit(anyTile(dimension, pos).map(|tile|
         {
+            crate::network::attachments::tileChanged(&tile, runtime.id(), &data);
             setAttachment(&tile.m_attachments, runtime.id(), data);
 
             if let Some(world) = tile.m_worldObj.get()
@@ -717,6 +718,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(world(dimension).map(|world|
             {
                 let chunk: Rc<game::world::Chunk> = world.getChunkFromChunkCoords(chunk_x, chunk_z);
+                crate::network::attachments::chunkChanged(&world, chunk_x, chunk_z, runtime.id(), &data);
                 setAttachment(&chunk.m_attachments, runtime.id(), data);
                 chunk.setChunkModified();
             }))
@@ -1211,10 +1213,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         call @ (HostCall::ExplosionResistance { .. }
         | HostCall::BlastBlock { .. }
         | HostCall::BlockDensity { .. }
-        | HostCall::ExplodeWith { .. }) =>
-        {
-            crate::blast::handle(call)
-        }
+        | HostCall::ExplodeWith { .. }) => crate::blast::handle(call),
 
         other => crate::tech::handle(runtime, other),
     }

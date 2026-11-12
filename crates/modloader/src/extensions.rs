@@ -305,10 +305,22 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
 
-        HostCall::WorldData { key } => HostReply::Bytes(persist::worldData(runtime.id(), &key)),
+        // a multiplayer client has no save, it reads the copy of synced world data the server sent
+        HostCall::WorldData { key } =>
+        {
+            let remote: bool = crate::network::localPlayer()
+                .and_then(|player| player.m_worldObj.get())
+                .is_some_and(|world| !crate::side::isAuthority(&world));
+            HostReply::Bytes(match remote
+            {
+                true => crate::network::attachments::remoteWorld(runtime.id(), &key).unwrap_or_default(),
+                false => persist::worldData(runtime.id(), &key),
+            })
+        }
 
         HostCall::SetWorldData { key, data } =>
         {
+            crate::network::attachments::worldChanged(runtime.id(), &key, &data);
             persist::setWorldData(runtime.id(), &key, data);
             HostReply::Unit
         }

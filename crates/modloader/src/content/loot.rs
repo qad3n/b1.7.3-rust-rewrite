@@ -62,6 +62,48 @@ thread_local!
     // chest tables only mods roll, so they stay as specs and resolve on each roll
     static CHESTS: RefCell<BTreeMap<Identifier, Merged>> = const { RefCell::new(BTreeMap::new()) };
     static RULES: RefCell<Vec<Rule>> = RefCell::new(builtins());
+    static OWN: crate::stash::Stash<(LootMap, ChestMap)> = const { crate::stash::Stash::new() };
+}
+
+type LootMap = BTreeMap<(RegistryKind, Identifier), Merged>;
+type ChestMap = BTreeMap<Identifier, Merged>;
+type WireTable = (bool, Vec<LootEntrySpec>, Vec<ConditionalPoolSpec>);
+
+// every merged table, what a server sends a client so recipe viewers show the server's drops
+pub type LootWire = (Vec<((RegistryKind, Identifier), WireTable)>, Vec<(Identifier, WireTable)>);
+
+fn toWire(merged: &Merged) -> WireTable { (merged.m_keepBeta, merged.m_entries.clone(), merged.m_pools.clone()) }
+
+fn fromWire((keepBeta, entries, pools): WireTable) -> Merged
+{
+    Merged { m_keepBeta: keepBeta, m_entries: entries, m_pools: pools }
+}
+
+pub fn snapshot() -> LootWire
+{
+    let tables = LOOT.with(|loot| loot.borrow().iter().map(|(key, merged)| (key.clone(), toWire(merged))).collect());
+    let chests =
+        CHESTS.with(|chests| chests.borrow().iter().map(|(key, merged)| (key.clone(), toWire(merged))).collect());
+    (tables, chests)
+}
+
+pub fn replace((tables, chests): LootWire)
+{
+    let tables: LootMap = tables.into_iter().map(|(key, table)| (key, fromWire(table))).collect();
+    let chests: ChestMap = chests.into_iter().map(|(key, table)| (key, fromWire(table))).collect();
+    let own: (LootMap, ChestMap) = (LOOT.with(|loot| loot.replace(tables)), CHESTS.with(|slot| slot.replace(chests)));
+    OWN.with(|stash| stash.keep(own));
+    push(false);
+}
+
+pub fn restore()
+{
+    if let Some((tables, chests)) = OWN.with(crate::stash::Stash::take)
+    {
+        LOOT.with(|loot| loot.replace(tables));
+        CHESTS.with(|slot| slot.replace(chests));
+        push(false);
+    }
 }
 
 pub fn registerRule(

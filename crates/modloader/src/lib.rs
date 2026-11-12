@@ -42,6 +42,7 @@ pub mod screens;
 pub mod services;
 pub mod side;
 pub mod sounds;
+pub mod stash;
 pub mod state;
 pub mod states;
 pub mod structures;

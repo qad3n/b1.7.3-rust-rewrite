@@ -67,6 +67,26 @@ pub fn addContainer(spec: FluidContainerSpec) -> Result<(), String>
 
 pub fn containers() -> Vec<FluidContainerSpec> { CONTAINERS.with(|containers| containers.borrow().clone()) }
 
+thread_local!
+{
+    static OWN_CONTAINERS: crate::stash::Stash<Vec<FluidContainerSpec>> = const { crate::stash::Stash::new() };
+}
+
+// a modded server's containers stand in for the client's own until it disconnects
+pub fn replaceContainers(containers: Vec<FluidContainerSpec>)
+{
+    let own: Vec<FluidContainerSpec> = CONTAINERS.with(|slot| slot.replace(containers));
+    OWN_CONTAINERS.with(|stash| stash.keep(own));
+}
+
+pub fn restoreContainers()
+{
+    if let Some(own) = OWN_CONTAINERS.with(crate::stash::Stash::take)
+    {
+        CONTAINERS.with(|slot| slot.replace(own));
+    }
+}
+
 fn itemName(numeric: i32) -> Option<Identifier>
 {
     crate::registry::with(|registries| registries.m_items.byNumeric(numeric).map(|row| row.m_id.clone()))

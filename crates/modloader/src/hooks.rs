@@ -158,6 +158,8 @@ impl LoaderHooks for Hooks
         crate::palette::resolve(name, properties, block, meta)
     }
 
+    fn ruleChanged(&self, name: &str, value: &str) { crate::gamerules::changed(name, value); }
+
     fn rename(&self, name: &str) -> Option<String>
     {
         let id: mod_protocol::Identifier = mod_protocol::Identifier::parse(name).ok()?;

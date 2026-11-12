@@ -92,3 +92,18 @@ pub fn setWorldData(modId: &str, name: &str, bytes: Vec<u8>)
 }
 
 pub fn playerKey(modId: &str, name: &str) -> String { key(modId, name) }
+
+// owner, key and bytes of every world data entry
+pub fn worldEntries() -> Vec<(String, String, Vec<u8>)>
+{
+    WORLD_DATA.with(|data|
+    {
+        data.borrow()
+            .iter()
+            .filter_map(|(stored, bytes)|
+            {
+                stored.split_once(':').map(|(owner, key)| (owner.to_owned(), key.to_owned(), bytes.clone()))
+            })
+            .collect()
+    })
+}

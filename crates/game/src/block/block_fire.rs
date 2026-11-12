@@ -20,6 +20,16 @@ fn setBurnRate(this: &Block, block: i32, flammability: i32, burnChance: i32)
     ext(this).m_abilityToCatchFire.borrow_mut()[block as usize] = burnChance;
 }
 
+// how readily a block spreads fire and catches it
+pub fn burnRates(block: i32) -> (i32, i32)
+{
+    let fire: Rc<Block> = Block::fire();
+    let rates: &FireExt = ext(&fire);
+    let encourage: i32 = rates.m_chanceToEncourageFire.borrow()[block as usize];
+    let catches: i32 = rates.m_abilityToCatchFire.borrow()[block as usize];
+    (encourage, catches)
+}
+
 // mods register flammable blocks after the fire block exists
 pub fn setFlammable(block: i32, flammability: i32, burnChance: i32)
 {

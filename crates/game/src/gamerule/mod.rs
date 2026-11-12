@@ -313,6 +313,8 @@ impl GameRules
         }
 
         values[rule.0] = (value != rule.default()).then_some(value);
+        drop(values);
+        crate::hooks::ruleChanged(&rule.name(), &value.to_string());
         Ok(())
     }
 

@@ -253,6 +253,9 @@ pub trait LoaderHooks
 
     // the current name of a saved registry name a mod has since renamed
     fn rename(&self, _name: &str) -> Option<String> { None }
+
+    // a game rule took a new value, a server passes it on to modded clients
+    fn ruleChanged(&self, _name: &str, _value: &str) {}
 }
 
 thread_local!
@@ -362,6 +365,14 @@ pub fn blockName(block: i32, meta: i32) -> Option<(String, Vec<(String, String)>
 pub fn blockByName(name: &str, properties: &[(String, String)], block: i32, meta: i32) -> Option<(i32, i32)>
 {
     active()?.blockByName(name, properties, block, meta)
+}
+
+pub fn ruleChanged(name: &str, value: &str)
+{
+    if let Some(hooks) = active()
+    {
+        hooks.ruleChanged(name, value);
+    }
 }
 
 // every saved registry name passes here before lookup so renamed content keeps loading

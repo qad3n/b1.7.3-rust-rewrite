@@ -26,6 +26,23 @@ const FIELDS: [FieldRow; 7] = [
     FieldRow { m_name: "tool", m_present: |spec| spec.tool.is_some() },
 ];
 
+// a block's or item's values before any change, so a server's changes can be taken back on leaving it
+#[derive(Clone, Copy)]
+enum Original
+{
+    Block
+    {
+        hardness: f32, resistance: f32, light: i32, opacity: i32, slipperiness: f32, fire: (i32, i32)
+    },
+    Item
+    {
+        stack: i32, damage: i32
+    },
+}
+
+// both modify lists, what a server sends a client in place of the client's own
+pub type ModifyWire = (Vec<(String, BlockModifySpec)>, Vec<(String, ItemModifySpec)>);
+
 #[derive(Default)]
 struct State
 {
@@ -35,6 +52,8 @@ struct State
     m_items: Vec<(String, ItemModifySpec)>,
     m_tools: HashMap<i32, ToolSpec>,
     m_conflicts: Vec<String>,
+    m_originals: BTreeMap<(bool, i32), Original>,
+    m_local: Option<ModifyWire>,
 }
 
 thread_local!
@@ -193,6 +212,96 @@ pub fn applySpawnsTo(biome: &BiomeGenBase, id: &Identifier)
     });
 }
 
+fn remember(
+    originals: &mut BTreeMap<(bool, i32), Original>,
+    block: bool,
+    numeric: i32,
+    original: impl FnOnce() -> Original,
+)
+{
+    originals.entry((block, numeric)).or_insert_with(original);
+}
+
+fn blockOriginal(block: &Block) -> Original
+{
+    let numeric: i32 = block.m_blockID;
+    Original::Block
+    {
+        hardness: block.m_blockHardness.get(),
+        resistance: block.m_blockResistance.get(),
+        light: Block::lightValue(numeric),
+        opacity: Block::lightOpacity(numeric),
+        slipperiness: block.m_slipperiness.get(),
+        fire: game::block::block_fire::burnRates(numeric),
+    }
+}
+
+// every changed block and item gets its first recorded values back
+fn revert(originals: &mut BTreeMap<(bool, i32), Original>)
+{
+    for ((_, numeric), original) in std::mem::take(originals)
+    {
+        match original
+        {
+            Original::Block { hardness, resistance, light, opacity, slipperiness, fire } =>
+            {
+                if let Some(block) = Block::byId(numeric)
+                {
+                    block.m_blockHardness.set(hardness);
+                    block.m_blockResistance.set(resistance);
+                    block.m_slipperiness.set(slipperiness);
+                    Block::setLightEntries(numeric, light, opacity);
+                    game::block::block_fire::setFlammable(numeric, fire.0, fire.1);
+                }
+            }
+
+            Original::Item { stack, damage } =>
+            {
+                if let Some(item) = Item::byId(numeric)
+                {
+                    item.m_maxStackSize.set(stack);
+                    item.setMaxDamage(damage);
+                }
+            }
+        }
+    }
+}
+
+pub fn snapshot() -> ModifyWire
+{
+    STATE.with(|state| (state.borrow().m_blocks.clone(), state.borrow().m_items.clone()))
+}
+
+// a modded server's changes stand in for the client's own until it disconnects
+pub fn replace(wire: ModifyWire)
+{
+    STATE.with(|state|
+    {
+        let mut state = state.borrow_mut();
+        let own: ModifyWire =
+            (std::mem::replace(&mut state.m_blocks, wire.0), std::mem::replace(&mut state.m_items, wire.1));
+        state.m_local.get_or_insert(own);
+    });
+    apply();
+}
+
+pub fn restore()
+{
+    let Some((blocks, items)) = STATE.with(|state| state.borrow_mut().m_local.take())
+    else
+    {
+        return;
+    };
+
+    STATE.with(|state|
+    {
+        let mut state = state.borrow_mut();
+        state.m_blocks = blocks;
+        state.m_items = items;
+    });
+    apply();
+}
+
 fn applyItem(item: Rc<Item>, spec: &ItemModifySpec)
 {
     let mut item: Rc<Item> = item;
@@ -258,6 +367,7 @@ pub fn apply()
         let state: &mut State = &mut state;
         state.m_tools.clear();
         state.m_conflicts.clear();
+        revert(&mut state.m_originals);
 
         let mut writers: BTreeMap<(Identifier, &str), String> = BTreeMap::new();
 
@@ -278,6 +388,12 @@ pub fn apply()
                 {
                     state.m_conflicts.push(format!("{} {field}: {previous} then {owner}, {owner} wins", spec.target));
                 }
+            }
+
+            // mod blocks are built afresh on every content build, only vanilla ones keep a changed value
+            if spec.target.isVanilla()
+            {
+                remember(&mut state.m_originals, true, block.m_blockID, || blockOriginal(&block));
             }
 
             applyBlock(block, spec, &mut state.m_tools);
@@ -301,6 +417,13 @@ pub fn apply()
                 {
                     state.m_conflicts.push(format!("{} {field}: {previous} then {owner}, {owner} wins", spec.target));
                 }
+            }
+
+            if spec.target.isVanilla()
+            {
+                let original: Original =
+                    Original::Item { stack: item.m_maxStackSize.get(), damage: item.getMaxDamage() };
+                remember(&mut state.m_originals, false, item.m_shiftedIndex, || original);
             }
 
             applyItem(item, spec);

@@ -48,6 +48,51 @@ thread_local!
 {
     // in registration order, which recipe viewers keep for their tabs
     static MACHINES: RefCell<Vec<Machine>> = const { RefCell::new(Vec::new()) };
+    static OWN: crate::stash::Stash<Vec<Machine>> = const { crate::stash::Stash::new() };
+}
+
+type WireJob = (MachineJobSpec, Vec<JobInputRule>);
+
+// every machine as specs, what a server sends a client so viewers and screens see the server's machines
+pub type MachineWire = Vec<(Identifier, MachineSpec, Vec<MachineRecipeSpec>, Vec<WireJob>, Vec<MachineFuelSpec>)>;
+
+pub fn snapshot() -> MachineWire
+{
+    MACHINES.with(|machines|
+    {
+        machines
+            .borrow()
+            .iter()
+            .map(|machine|
+            {
+                let jobs: Vec<WireJob> =
+                    machine.m_jobs.iter().map(|job| (job.m_spec.clone(), job.m_rules.clone())).collect();
+                (machine.m_id.clone(), machine.m_spec.clone(), machine.m_recipes.clone(), jobs, machine.m_fuels.clone())
+            })
+            .collect()
+    })
+}
+
+pub fn replace(wire: MachineWire)
+{
+    let machines: Vec<Machine> = wire
+        .into_iter()
+        .map(|(id, spec, recipes, jobs, fuels)|
+        {
+            let jobs: Vec<Job> = jobs.into_iter().map(|(spec, rules)| Job { m_spec: spec, m_rules: rules }).collect();
+            Machine { m_id: id, m_spec: spec, m_recipes: recipes, m_jobs: jobs, m_fuels: fuels }
+        })
+        .collect();
+    let own: Vec<Machine> = MACHINES.with(|slot| slot.replace(machines));
+    OWN.with(|stash| stash.keep(own));
+}
+
+pub fn restore()
+{
+    if let Some(own) = OWN.with(crate::stash::Stash::take)
+    {
+        MACHINES.with(|slot| slot.replace(own));
+    }
 }
 
 pub fn vanillaNames() -> Vec<String> { VANILLA.iter().map(|name| Identifier::minecraft(name).to_string()).collect() }

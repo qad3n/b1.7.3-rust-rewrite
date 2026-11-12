@@ -272,6 +272,13 @@ impl Block
         LIGHT_VALUE.with(|table| table.borrow()[index(id)])
     }
 
+    // the raw light table entries, for the loader to put a block's lighting back exactly
+    pub fn setLightEntries(id: i32, light: i32, opacity: i32)
+    {
+        setLightValueEntry(id, light);
+        setLightOpacityValue(id, opacity);
+    }
+
     pub fn updateClients(id: i32) -> bool
     {
         ensureInit();

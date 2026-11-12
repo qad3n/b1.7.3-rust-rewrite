@@ -345,6 +345,13 @@ impl ServerSession
 
             (ServerStep::Registry, Control::Ack(ack)) if ack == acks::REGISTRY =>
             {
+                let content: Identifier = crate::network::loader::id(crate::content::served::CONTENT);
+                if self.m_peer.as_ref().is_some_and(|peer| peer.channels.iter().any(|entry| entry.id == content))
+                {
+                    let served: Vec<u8> = wire::encode(&crate::content::served::build());
+                    send(sender, &Control::Task(crate::content::served::CONTENT.to_owned(), served));
+                }
+
                 send(sender, &Control::Config(configSync()));
                 send(sender, &Control::Data(DataSync::Hash(dataHash())));
                 self.m_step = ServerStep::Data;
@@ -498,6 +505,8 @@ pub fn clientDisconnected()
     }
 
     crate::content::tags::restoreLocal();
+    crate::network::attachments::clearRemote();
+    crate::content::served::restore();
 
     if let Some(local) = local
     {
@@ -655,6 +664,24 @@ fn clientReceive(channel: u32, body: &[u8], sender: &dyn Fn(u32, Vec<u8>)) -> Op
             }
 
             send(sender, &Control::Ack(acks::DATA.to_owned()));
+        }
+
+        Control::Task(name, bytes) if name == crate::content::served::CONTENT =>
+        {
+            let served: crate::content::served::Served = match wire::decode(&bytes)
+            {
+                Ok(served) => served,
+                Err(error) => return Some(format!("bad server content: {error}")),
+            };
+
+            let problems: Vec<String> = crate::content::served::mismatches(&served);
+            if !problems.is_empty()
+            {
+                send(sender, &Control::Refused(problems));
+                return None;
+            }
+
+            crate::content::served::apply(served);
         }
 
         Control::Done =>

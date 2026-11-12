@@ -14,6 +14,7 @@ pub mod machines;
 pub mod particles;
 pub mod progress;
 pub mod recipes;
+pub mod served;
 pub mod tags;
 pub mod templates;
 mod vanilla_tags;

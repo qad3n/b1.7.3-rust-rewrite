@@ -225,6 +225,8 @@ pub fn resync(player: &Rc<Entity>)
     crate::attributes::syncOwn(player);
     crate::content::effects::syncOwn(player);
     crate::content::progress::syncOwn(player);
+    crate::network::attachments::syncWorld(player);
+    crate::gamerules::syncAll(player);
 }
 
 pub fn dimensionChanged(player: &Rc<Entity>, from: i32, to: i32)
