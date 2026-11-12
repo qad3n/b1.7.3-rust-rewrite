@@ -15,6 +15,9 @@ use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use std::rc::Rc;
 
+// rewrite: vanilla dropped particles past 16 blocks while they were still visible
+const PARTICLE_RANGE: f64 = 64.0;
+
 impl RenderGlobal
 {
     fn obtainSkin(&self, url: Option<JString>)
@@ -189,8 +192,7 @@ impl IWorldAccess for RenderGlobal
         let d: f64 = view.posX() - x;
         let d2: f64 = view.posY() - y;
         let d3: f64 = view.posZ() - z;
-        let d4: f64 = 16.0;
-        if d * d + d2 * d2 + d3 * d3 > d4 * d4
+        if d * d + d2 * d2 + d3 * d3 > PARTICLE_RANGE * PARTICLE_RANGE
         {
             return;
         }
