@@ -1,4 +1,5 @@
 pub mod entity_bubble_fx;
+pub mod entity_crit_fx;
 pub mod entity_digging_fx;
 pub mod entity_explode_fx;
 pub mod entity_flame_fx;

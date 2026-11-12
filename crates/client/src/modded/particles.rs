@@ -1,5 +1,5 @@
 use crate::render::particle::entity_fx::{self, FXFields};
-use crate::render::particle::{entity_digging_fx, entity_portal_fx, entity_slime_fx};
+use crate::render::particle::{entity_crit_fx, entity_digging_fx, entity_portal_fx, entity_slime_fx};
 use crate::render::{RenderGlobal, vanillaParticle};
 use game::block::Block;
 use game::entity::Entity;
@@ -11,6 +11,7 @@ use std::rc::Rc;
 const ICON_CRACK: &str = "iconcrack_";
 const BLOCK_CRACK: &str = "blockcrack_";
 const TINTED_PORTAL: &str = "tintportal_";
+const CRIT: &str = "crit";
 const HEX: u32 = 16;
 // the effect renderer layer that draws from particles.png
 const PARTICLE_SHEET: i32 = 0;
@@ -26,6 +27,7 @@ pub fn spawn(
 {
     let [x, y, z] = pos;
     registered(global, name, world, pos, motion)
+        .or_else(|| later(name, world, pos, motion))
         .or_else(|| iconCrack(name, world, x, y, z))
         .or_else(|| blockCrack(name, world, pos, motion))
         .or_else(|| tintedPortal(name, world, pos, motion))
@@ -78,6 +80,18 @@ fn registered(
     }
 
     Some(particle)
+}
+
+// particles later versions add by a plain name
+fn later(name: &str, world: &Rc<World>, pos: [f64; 3], motion: [f64; 3]) -> Option<Rc<Entity>>
+{
+    let [x, y, z] = pos;
+    let [velocityX, velocityY, velocityZ] = motion;
+    match name
+    {
+        CRIT => Some(entity_crit_fx::new(world, x, y, z, velocityX, velocityY, velocityZ)),
+        _ => None,
+    }
 }
 
 // tintportal_RRGGBB: a portal particle in one color, EntityPortalFX recolored
