@@ -2,6 +2,7 @@ use crate::gui::{FontRenderer, GUI_SCREEN, GuiButton, GuiScreen, GuiScreenClass}
 use game::entity::{Entity, entity_player};
 use game::item::ItemStack;
 use game::stats::named::{self, ModStat};
+use lwjgl::input::Mouse;
 use std::cell::{Cell, Ref, RefCell};
 use std::ops::Range;
 use std::rc::Rc;
@@ -156,6 +157,22 @@ const CLASS: GuiScreenClass = GuiScreenClass
             _ =>
             {}
         }
+    },
+
+    // the wheel turns pages without wrapping
+    mouseMovedOrUp: |this, mouseX, mouseY, button|
+    {
+        let ext: &PageExt = fields(this);
+        let last: usize = pages(this) - 1;
+        match Mouse::getEventDWheel().signum()
+        {
+            1 => ext.m_page.set(ext.m_page.get().saturating_sub(1)),
+            -1 => ext.m_page.set((ext.m_page.get() + 1).min(last)),
+            _ =>
+            {}
+        }
+
+        (GUI_SCREEN.mouseMovedOrUp)(this, mouseX, mouseY, button);
     },
 
     drawScreen: |this, mouseX, mouseY, tickDelta|

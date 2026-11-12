@@ -194,20 +194,32 @@ impl GuiSlot
             return;
         }
 
-        let step: f32 = (self.m_posZ * 2 / 3) as f32;
-
         if button.m_id.get() == self.m_scrollUpButtonID.get()
         {
-            self.m_amountScrolled.set(self.m_amountScrolled.get() - step);
-            self.m_initialClickY.set(-2.0);
-            self.bindAmountScrolled();
+            self.scroll(-self.step());
         }
         else if button.m_id.get() == self.m_scrollDownButtonID.get()
         {
-            self.m_amountScrolled.set(self.m_amountScrolled.get() + step);
-            self.m_initialClickY.set(-2.0);
-            self.bindAmountScrolled();
+            self.scroll(self.step());
         }
+    }
+
+    // rewrite: a wheel notch scrolls as far as a scroll button press
+    pub fn scrollWheel(self: &Rc<Self>, wheel: i32)
+    {
+        if wheel != 0
+        {
+            self.scroll(-self.step() * wheel.signum() as f32);
+        }
+    }
+
+    fn step(&self) -> f32 { (self.m_posZ * 2 / 3) as f32 }
+
+    fn scroll(self: &Rc<Self>, amount: f32)
+    {
+        self.m_amountScrolled.set(self.m_amountScrolled.get() + amount);
+        self.m_initialClickY.set(-2.0);
+        self.bindAmountScrolled();
     }
 
     fn handleMouse(self: &Rc<Self>, mouseX: i32, mouseY: i32, n7: i32, n8: i32, n9: i32)

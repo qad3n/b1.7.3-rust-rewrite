@@ -577,6 +577,13 @@ const CLASS: GuiScreenClass = GuiScreenClass
         }
     },
 
+    // rewrite: the wheel arrives as a release event and scrolls the shown list
+    mouseMovedOrUp: |this, mouseX, mouseY, button|
+    {
+        selectedList(this).scrollWheel(Mouse::getEventDWheel());
+        (GUI_SCREEN.mouseMovedOrUp)(this, mouseX, mouseY, button);
+    },
+
     drawScreen: |this, mouseX, mouseY, tickDelta|
     {
         selectedList(this).drawScreen(mouseX, mouseY, tickDelta);

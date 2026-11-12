@@ -1,4 +1,4 @@
-use super::menu::{fit, rowWidth, scrollWheel, text, wrapLines};
+use super::menu::{fit, rowWidth, text, wrapLines};
 use crate::client::Minecraft;
 use crate::gui::
 {
@@ -550,7 +550,7 @@ const MOD_CONFIG: GuiScreenClass = GuiScreenClass
 
     mouseMovedOrUp: |this, mouseX, mouseY, button|
     {
-        scrollWheel(&menu(this).m_slot.get().orNpe(), Mouse::getEventDWheel(), layout::SCROLL_UP, layout::SCROLL_DOWN);
+        menu(this).m_slot.get().orNpe().scrollWheel(Mouse::getEventDWheel());
         (GUI_SCREEN.mouseMovedOrUp)(this, mouseX, mouseY, button);
     },
 

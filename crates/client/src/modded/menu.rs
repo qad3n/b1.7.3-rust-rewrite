@@ -347,16 +347,6 @@ fn summary(entries: &[Entry]) -> String
     parts.join(", ")
 }
 
-// the wheel arrives as a release event and scrolls like the vanilla scroll buttons
-pub(crate) fn scrollWheel(slot: &Rc<GuiSlot>, wheel: i32, up: i32, down: i32)
-{
-    if wheel != 0
-    {
-        let id: i32 = if wheel > 0 { up } else { down };
-        slot.actionPerformed(&GuiButton::new(id, 0, 0, ""));
-    }
-}
-
 fn configurable(entry: &Entry) -> Option<Rc<ModRuntime>>
 {
     entry.m_runtime.as_ref().filter(|runtime| !runtime.m_config.borrow().options().is_empty()).cloned()
@@ -543,7 +533,7 @@ const MOD_LIST: GuiScreenClass = GuiScreenClass
     mouseMovedOrUp: |this, mouseX, mouseY, button|
     {
         let slot: Rc<GuiSlot> = list(this).m_slot.get().orNpe();
-        scrollWheel(&slot, Mouse::getEventDWheel(), listing::SCROLL_UP, listing::SCROLL_DOWN);
+        slot.scrollWheel(Mouse::getEventDWheel());
         (GUI_SCREEN.mouseMovedOrUp)(this, mouseX, mouseY, button);
     },
 
