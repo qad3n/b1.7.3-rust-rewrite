@@ -321,6 +321,7 @@ fn applyRecipes()
     }
 
     content::recipes::finish();
+    content::custom::applyBuiltins();
 }
 
 fn applyWorldgen()
@@ -588,7 +589,7 @@ fn start(paths: &LoaderPaths)
         runtime.register();
     }
 
-    for (owner, reason) in crate::states::registerPages()
+    for (owner, reason) in crate::states::registerPages().into_iter().chain(content::custom::settle())
     {
         state::problem(&owner, "", &reason);
     }

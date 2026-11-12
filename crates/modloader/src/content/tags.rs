@@ -6,7 +6,51 @@ use mod_protocol::spec::{TagEntry, TagRef};
 use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, BTreeSet};
 
-type Key = (RegistryKind, Identifier);
+// a built in registry kind or a registry a mod created
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum Scope
+{
+    Kind(RegistryKind),
+    Custom(Identifier),
+}
+
+impl From<RegistryKind> for Scope
+{
+    fn from(kind: RegistryKind) -> Scope { Scope::Kind(kind) }
+}
+
+impl Scope
+{
+    // the word naming the registry in synced tag lines, a mod registry is @<owner>:<name>
+    fn word(&self) -> String
+    {
+        match self
+        {
+            Scope::Kind(kind) => kind.singular().to_owned(),
+            Scope::Custom(id) => format!("@{id}"),
+        }
+    }
+
+    fn parse(word: &str) -> Option<Scope>
+    {
+        match word.strip_prefix('@')
+        {
+            Some(id) => Identifier::parse(id).ok().map(Scope::Custom),
+            None => registryKind(word).map(Scope::Kind),
+        }
+    }
+
+    fn known(&self, member: &Identifier) -> bool
+    {
+        match self
+        {
+            Scope::Kind(kind) => crate::registry::with(|registries| registries.contains(*kind, member)),
+            Scope::Custom(registry) => super::custom::contains(registry, member),
+        }
+    }
+}
+
+type Key = (Scope, Identifier);
 type Entries = BTreeMap<Key, BTreeSet<TagEntry>>;
 
 // shared lists such as c:ores/ruby that mods fill and read without depending on each other
@@ -19,18 +63,20 @@ thread_local!
 
 pub fn registryKind(folder: &str) -> Option<RegistryKind> { crate::registry::byFolder(folder) }
 
-pub fn add(registry: RegistryKind, tag: Identifier, values: Vec<Identifier>, replace: bool)
+pub fn add(registry: impl Into<Scope>, tag: Identifier, values: Vec<Identifier>, replace: bool)
 {
     let entries: Vec<TagEntry> =
         values.into_iter().map(|id| TagEntry { target: TagRef::Id(id), required: true }).collect();
     addEntries(registry, tag, entries, replace);
 }
 
-pub fn addEntries(registry: RegistryKind, tag: Identifier, entries: Vec<TagEntry>, replace: bool)
+pub fn addEntries(registry: impl Into<Scope>, tag: Identifier, entries: Vec<TagEntry>, replace: bool)
 {
+    let registry: Scope = registry.into();
+
     TAGS.with(|tags|
     {
-        let mut tags: RefMut<BTreeMap<(RegistryKind, Identifier), BTreeSet<TagEntry>>> = tags.borrow_mut();
+        let mut tags: RefMut<Entries> = tags.borrow_mut();
         let members: &mut BTreeSet<TagEntry> = tags.entry((registry, tag)).or_default();
 
         if replace
@@ -48,30 +94,32 @@ pub fn flag(registry: RegistryKind, tag: &str, id: &Identifier)
     add(registry, Identifier::minecraft(tag), vec![id.clone()], false);
 }
 
-pub fn values(registry: RegistryKind, tag: &Identifier) -> Vec<Identifier>
+pub fn values(registry: impl Into<Scope>, tag: &Identifier) -> Vec<Identifier>
 {
-    resolved(registry, tag, &mut Vec::new()).into_keys().collect()
+    resolved(&registry.into(), tag, &mut Vec::new()).into_keys().collect()
 }
 
-pub fn contains(registry: RegistryKind, tag: &Identifier, value: &Identifier) -> bool
+pub fn contains(registry: impl Into<Scope>, tag: &Identifier, value: &Identifier) -> bool
 {
-    resolved(registry, tag, &mut Vec::new()).contains_key(value)
+    resolved(&registry.into(), tag, &mut Vec::new()).contains_key(value)
 }
 
 // every tag of the registry that resolves to hold the value
-pub fn of(registry: RegistryKind, value: &Identifier) -> Vec<Identifier>
+pub fn of(registry: impl Into<Scope>, value: &Identifier) -> Vec<Identifier>
 {
+    let registry: Scope = registry.into();
     let keys: Vec<Key> = TAGS.with(|tags| tags.borrow().keys().cloned().collect());
     keys.into_iter()
-        .filter(|(kind, tag)| *kind == registry && contains(registry, tag, value))
+        .filter(|(scope, tag)| *scope == registry && resolved(scope, tag, &mut Vec::new()).contains_key(value))
         .map(|(_, tag)| tag)
         .collect()
 }
 
 // every tag a registry holds, in name order
-pub fn names(registry: RegistryKind) -> Vec<Identifier>
+pub fn names(registry: impl Into<Scope>) -> Vec<Identifier>
 {
-    TAGS.with(|tags| tags.borrow().keys().filter(|(kind, _)| *kind == registry).map(|(_, tag)| tag.clone()).collect())
+    let registry: Scope = registry.into();
+    TAGS.with(|tags| tags.borrow().keys().filter(|(scope, _)| *scope == registry).map(|(_, tag)| tag.clone()).collect())
 }
 
 pub fn hash() -> String
@@ -108,10 +156,12 @@ fn vanillaId(name: &str) -> Identifier { Identifier::parse(name).expect("vanilla
 // engine tags read numbers, so every change and every new id map resolves them again
 pub fn push()
 {
+    super::custom::invalidate();
+
     for row in &game::tags::ROWS
     {
         let members: BTreeMap<Identifier, bool> =
-            resolved(kind(row.m_registry), &Identifier::minecraft(row.m_name), &mut Vec::new());
+            resolved(&Scope::Kind(kind(row.m_registry)), &Identifier::minecraft(row.m_name), &mut Vec::new());
 
         let ids: Vec<i32> = match row.m_registry
         {
@@ -128,7 +178,7 @@ pub fn push()
     for row in &game::tags::BIOME_ROWS
     {
         let members: BTreeMap<Identifier, bool> =
-            resolved(RegistryKind::Biome, &Identifier::minecraft(row.m_name), &mut Vec::new());
+            resolved(&Scope::Kind(RegistryKind::Biome), &Identifier::minecraft(row.m_name), &mut Vec::new());
         let names: BTreeSet<String> = members.keys().filter_map(biomeName).collect();
         game::tags::setBiomes(row.m_tag, names);
     }
@@ -137,7 +187,7 @@ pub fn push()
 // a block tag's numeric ids for code that checks many blocks
 pub fn blockIds(tag: &Identifier) -> BTreeSet<i32>
 {
-    numericBlocks(&resolved(RegistryKind::Block, tag, &mut Vec::new()))
+    numericBlocks(&resolved(&Scope::Kind(RegistryKind::Block), tag, &mut Vec::new()))
 }
 
 fn numericBlocks(members: &BTreeMap<Identifier, bool>) -> BTreeSet<i32>
@@ -179,16 +229,12 @@ pub fn report()
     let keys: Vec<Key> = TAGS.with(|tags| tags.borrow().keys().cloned().collect());
     for (registry, tag) in keys
     {
-        let members: BTreeMap<Identifier, bool> = resolved(registry, &tag, &mut problems);
-
-        let missing: Vec<Identifier> = crate::registry::with(|registries|
-        {
-            members
-                .iter()
-                .filter(|(member, required)| **required && !registries.contains(registry, member))
-                .map(|(member, _)| member.clone())
-                .collect()
-        });
+        let members: BTreeMap<Identifier, bool> = resolved(&registry, &tag, &mut problems);
+        let missing: Vec<Identifier> = members
+            .iter()
+            .filter(|(member, required)| **required && !registry.known(member))
+            .map(|(member, _)| member.clone())
+            .collect();
         problems.extend(missing.iter().map(|member| format!("tag #{tag} lists {member}, which is not registered")));
     }
 
@@ -207,9 +253,9 @@ pub fn table() -> String
 
     for (registry, tag) in keys
     {
-        let registryName: &str = crate::registry::singular(registry);
-        let members: Vec<String> = values(registry, &tag).iter().map(Identifier::to_string).collect();
-        text.push_str(&format!("{registryName} {tag} {}\n", members.join(" ")));
+        let members: Vec<String> =
+            resolved(&registry, &tag, &mut Vec::new()).keys().map(Identifier::to_string).collect();
+        text.push_str(&format!("{} {tag} {}\n", registry.word(), members.join(" ")));
     }
 
     text
@@ -229,8 +275,8 @@ pub fn applySynced(text: &str) -> Result<(), String>
             return Err(format!("bad tag line '{line}'"));
         };
 
-        let registry: RegistryKind =
-            registryKind(registryName).ok_or_else(|| format!("unknown tag registry {registryName}"))?;
+        let registry: Scope =
+            Scope::parse(registryName).ok_or_else(|| format!("unknown tag registry {registryName}"))?;
         let tag: Identifier = Identifier::parse(tag).map_err(|error| error.to_string())?;
         let mut members: BTreeSet<TagEntry> = BTreeSet::new();
 
@@ -264,7 +310,7 @@ pub fn restoreLocal()
 }
 
 // members of one tag with nested tags expanded, each marked required when any path to it is
-fn resolved(registry: RegistryKind, tag: &Identifier, problems: &mut Vec<String>) -> BTreeMap<Identifier, bool>
+fn resolved(registry: &Scope, tag: &Identifier, problems: &mut Vec<String>) -> BTreeMap<Identifier, bool>
 {
     TAGS.with(|tags|
     {
@@ -276,14 +322,14 @@ fn resolved(registry: RegistryKind, tag: &Identifier, problems: &mut Vec<String>
 
 fn expand(
     tags: &Entries,
-    registry: RegistryKind,
+    registry: &Scope,
     tag: &Identifier,
     trail: &mut Vec<Identifier>,
     members: &mut BTreeMap<Identifier, bool>,
     problems: &mut Vec<String>,
 )
 {
-    let Some(entries) = tags.get(&(registry, tag.clone()))
+    let Some(entries) = tags.get(&(registry.clone(), tag.clone()))
     else
     {
         return;
@@ -302,7 +348,7 @@ fn expand(
                 problems.push(format!("tag #{tag} includes #{nested}, which already includes it"));
             }
 
-            TagRef::Tag(nested) if !tags.contains_key(&(registry, nested.clone())) =>
+            TagRef::Tag(nested) if !tags.contains_key(&(registry.clone(), nested.clone())) =>
             {
                 if entry.required
                 {

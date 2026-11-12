@@ -65,6 +65,19 @@ fn apply(modId: &str, file: DataFile) -> Result<(), String>
             super::tags::addEntries(registry, tag, entries, replace);
             Ok(())
         }
+
+        DataFile::RegistryTag { registry, tag, entries, replace } =>
+        {
+            super::tags::addEntries(super::tags::Scope::Custom(registry), tag, entries, replace);
+            Ok(())
+        }
+
+        DataFile::RegistryEntry { registry, id, value } => super::custom::add(registry, id, value),
+        DataFile::DataMap { map, target, values, remove, replace } =>
+        {
+            super::custom::setValues(map, Some(target), values, remove, replace);
+            Ok(())
+        }
     }
 }
 

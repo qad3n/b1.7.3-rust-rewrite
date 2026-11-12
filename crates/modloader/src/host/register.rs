@@ -305,6 +305,36 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
 
         HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
         HostCall::RegistryList { registry } => HostReply::Ids(registry::with(|registries| registries.list(registry))),
+        HostCall::CreateRegistry { name, synced } => unit(
+            registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::custom::create(id, synced)),
+        ),
+        HostCall::AddRegistryEntry { registry, name, value } => unit(
+            loading().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::custom::add(registry, id, value)),
+        ),
+        HostCall::RegistryEntries { registry } => HostReply::Entries(crate::content::custom::entries(&registry)),
+        HostCall::AddRegistryTag { registry, tag, entries, replace } => unit(loading().map(|()|
+        {
+            tags::addEntries(tags::Scope::Custom(registry), tag, entries, replace);
+            tags::push();
+        })),
+        HostCall::RegistryTagValues { registry, tag } =>
+        {
+            HostReply::Ids(tags::values(tags::Scope::Custom(registry), &tag))
+        }
+        HostCall::CreateDataMap { name, target, synced } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::content::custom::createMap(id, target, synced)),
+        ),
+        HostCall::SetDataMapValues { map, values, remove, replace } => unit(loading().map(|()|
+        {
+            crate::content::custom::setValues(map, None, values, remove, replace);
+        })),
+        HostCall::DataMapValue { map, id } =>
+        {
+            HostReply::Entries(crate::content::custom::value(&map, &id).map(|value| (id, value)).into_iter().collect())
+        }
+        HostCall::DataMapEntries { map } => HostReply::Entries(crate::content::custom::mapEntries(&map)),
         HostCall::RegisterDamageType { name, spec } =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::damage::register(id, spec)))

@@ -1,5 +1,6 @@
 pub mod accessories;
 pub mod blocks;
+pub mod custom;
 pub mod data;
 pub mod effects;
 pub mod features;
