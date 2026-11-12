@@ -15,7 +15,7 @@ use mod_protocol::Identifier;
 use mod_protocol::abi::{EventData, EventKind, GuestCall, Handle, Lifecycle};
 use mod_protocol::spec::{WorldgenKind, WorldgenSpec};
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Instant;
@@ -37,6 +37,8 @@ pub mod ids
 thread_local!
 {
     static RECIPE_REMOVALS: RefCell<Vec<Identifier>> = const { RefCell::new(Vec::new()) };
+    // mod recipes a data file removed, every rebuild leaves them out again
+    static REMOVED_RECIPES: RefCell<BTreeSet<Identifier>> = const { RefCell::new(BTreeSet::new()) };
     // kept by name because a remap moves block ids, every rebuild binds them again
     static LOOKUPS: RefCell<Vec<(usize, Identifier, Identifier, Handle)>> = const { RefCell::new(Vec::new()) };
     static BLOCK_LIMIT: std::cell::Cell<i32> = const { std::cell::Cell::new(ids::BLOCK_LIMIT) };
@@ -281,24 +283,38 @@ fn legacyRecipe(id: &Identifier) -> Option<i32>
     id.path().strip_prefix("crafting/")?.parse().ok().filter(|_| id.isVanilla())
 }
 
-fn removeVanillaRecipes()
+fn removeRecipes()
 {
-    let mut removals: Vec<i32> = RECIPE_REMOVALS
-        .with(|list| list.borrow_mut().drain(..).collect::<Vec<Identifier>>())
-        .iter()
-        .filter_map(|id|
+    let queued: Vec<Identifier> = RECIPE_REMOVALS.with(|list| list.borrow_mut().drain(..).collect());
+    let mut vanilla: Vec<i32> = Vec::new();
+
+    for id in queued
+    {
+        let found: Option<(bool, i32)> = registry::with(|registries|
         {
-            registry::with(|registries|
+            let crafting: Option<&Row<RecipeEntry>> = registries
+                .m_recipes
+                .get(&id)
+                .or_else(|| legacyRecipe(&id).and_then(|n| registries.m_recipes.byNumeric(n)));
+            crafting.map(|row| (row.m_id.isVanilla(), row.m_numeric)).or_else(||
             {
-                let row: Option<&Row<RecipeEntry>> = registries
-                    .m_recipes
-                    .get(id)
-                    .or_else(|| legacyRecipe(id).and_then(|n| registries.m_recipes.byNumeric(n)));
-                row.filter(|row| row.m_id.isVanilla()).map(|row| row.m_numeric)
+                registries.m_smelting.get(&id).filter(|row| !row.m_id.isVanilla()).map(|row| (false, row.m_numeric))
             })
-        })
-        .collect();
-    content::recipes::removeVanilla(&mut removals);
+        });
+
+        match found
+        {
+            Some((true, numeric)) => vanilla.push(numeric),
+            Some((false, _)) =>
+            {
+                REMOVED_RECIPES.with(|removed| removed.borrow_mut().insert(id));
+            }
+
+            None => log::warn(log::LOADER, &format!("recipe removal names no recipe {id}")),
+        }
+    }
+
+    content::recipes::removeVanilla(&mut vanilla);
 }
 
 fn applyRecipes()
@@ -312,7 +328,9 @@ fn applyRecipes()
             .filter_map(|row| row.m_value.m_spec.clone().map(|spec| (row.m_owner.clone(), row.m_id.clone(), spec)))
             .collect()
     });
-    for (owner, id, spec) in recipes
+    let removed: BTreeSet<Identifier> = REMOVED_RECIPES.with(|removed| removed.borrow().clone());
+
+    for (owner, id, spec) in recipes.into_iter().filter(|(_, id, _)| !removed.contains(id))
     {
         if let Err(reason) = content::recipes::apply(&id, &crate::unify::recipe(spec))
         {
@@ -629,7 +647,7 @@ fn start(paths: &LoaderPaths)
     buildContent();
     // lookups a mod made while registering ran before numeric ids were assigned
     notifyRemapped();
-    removeVanillaRecipes();
+    removeRecipes();
     applyRecipes();
     applyLate();
     loadSprites();
