@@ -2,18 +2,9 @@ use crate::registry::{BlockEntry, ItemEntry, RecipeEntry, Registry};
 use game::resources::Source;
 use mod_protocol::Identifier;
 use mod_protocol::abi::RegistryKind;
-use mod_protocol::spec::
-{
-    AchievementSpec, AttributeSpec, BlockModifySpec, BlockSpec, BlockStatesSpec, EffectSpec, FeatureModifySpec,
-    FeatureSpec, FluidSpec, GameRuleSpec, ItemSpec, LootSpec, ParticleSpec, RecipeSpec, SpawnModifySpec, TagEntry,
-    TagSpec, TagValue, WorldgenSpec,
-};
-use serde::de::DeserializeOwned;
+use mod_protocol::data::{self, DATA, DataFile};
+use mod_protocol::spec::{BlockSpec, ItemSpec, RecipeSpec, WorldgenSpec};
 use std::cell::RefCell;
-
-const DATA: &str = "data/";
-const TOML: &str = ".toml";
-const FEATURES: &str = "features/";
 
 thread_local!
 {
@@ -21,20 +12,60 @@ thread_local!
     static PENDING_WORLDGEN: RefCell<Vec<(String, Identifier, WorldgenSpec)>> = const { RefCell::new(Vec::new()) };
 }
 
-fn parse<T: DeserializeOwned>(source: &mut Source, name: &str) -> Result<T, String>
+fn read(source: &mut Source, name: &str) -> Result<String, String>
 {
     let bytes: Vec<u8> = source.read(name).ok_or_else(|| format!("{name} could not be read"))?;
-    let text: &str = std::str::from_utf8(&bytes).map_err(|_| format!("{name} is not UTF-8"))?;
-    toml::from_str(text).map_err(|error| format!("{name}: {error}"))
+    String::from_utf8(bytes).map_err(|_| format!("{name} is not UTF-8"))
 }
 
-// data/<namespace>/<kind>/<path>.toml gives namespace:path, only tags may use a namespace other than the mod id
-fn split(name: &str) -> Option<(&str, &str, &str)>
+// one parsed data file goes to the registry it names
+fn apply(modId: &str, file: DataFile) -> Result<(), String>
 {
-    let rest: &str = name.strip_prefix(DATA)?.strip_suffix(TOML)?;
-    let (namespace, rest) = rest.split_once('/')?;
-    let (kind, path) = rest.split_once('/')?;
-    Some((namespace, kind, path))
+    match file
+    {
+        DataFile::Block(id, spec) => registerBlock(id, modId, *spec),
+        DataFile::Item(id, spec) => registerItem(id, modId, *spec),
+        DataFile::Recipe(id, spec) => registerRecipe(id, modId, spec),
+        DataFile::States(id, spec) => crate::states::register(id, &spec),
+        DataFile::Achievement(id, spec) => super::progress::register(id, spec),
+        DataFile::Particle(id, spec) => super::particles::register(id, spec),
+        DataFile::Effect(id, spec) => super::effects::register(id, spec),
+        DataFile::Attribute(id, spec) => crate::attributes::register(id, spec),
+        DataFile::GameRule(id, spec) => crate::gamerules::register(id, spec),
+        DataFile::Fluid(id, spec) => super::fluids::register(id, spec),
+        DataFile::DamageType(id, spec) => crate::damage::register(id, spec),
+        DataFile::Loot { registry, target, spec } => super::loot::add(registry, target, spec),
+        DataFile::Feature(id, spec) => super::features::register(modId, None, id, *spec, None),
+        DataFile::Worldgen(id, spec) =>
+        {
+            registerWorldgen(modId, id, spec);
+            Ok(())
+        }
+
+        DataFile::ModifyBlock(spec) =>
+        {
+            crate::modify::queueBlock(modId, *spec);
+            Ok(())
+        }
+
+        DataFile::ModifySpawn(spec) =>
+        {
+            crate::modify::queueSpawn(modId, spec);
+            Ok(())
+        }
+
+        DataFile::ModifyFeature(spec) =>
+        {
+            super::features::disable(spec);
+            Ok(())
+        }
+
+        DataFile::Tag { registry, tag, entries, replace } =>
+        {
+            super::tags::addEntries(registry, tag, entries, replace);
+            Ok(())
+        }
+    }
 }
 
 pub fn registerBlock(id: Identifier, owner: &str, spec: BlockSpec) -> Result<(), String>
@@ -116,101 +147,10 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
 {
     let mut problems: Vec<String> = Vec::new();
 
-    for name in source.list(DATA).into_iter().filter(|name| name.ends_with(TOML))
+    for name in source.list(DATA).into_iter().filter(|name| data::isData(name))
     {
-        let Some((namespace, kind, path)) = split(&name)
-        else
-        {
-            problems.push(format!("{name} is not data/<namespace>/<kind>/<path>.toml"));
-            continue;
-        };
-        if kind != "tags" && namespace != modId
-        {
-            problems.push(format!("{name} registers into namespace {namespace}, a mod only owns {modId}"));
-            continue;
-        }
-
-        let id: Result<Identifier, String> = Identifier::new(namespace, path).map_err(|error| error.to_string());
-        let result: Result<(), String> = id.and_then(|id| match kind
-        {
-            "blocks" => parse::<BlockSpec>(source, &name).and_then(|spec| registerBlock(id, modId, spec)),
-            "items" => parse::<ItemSpec>(source, &name).and_then(|spec| registerItem(id, modId, spec)),
-            "recipes" => parse::<RecipeSpec>(source, &name).and_then(|spec| registerRecipe(id, modId, spec)),
-            "states" => parse::<BlockStatesSpec>(source, &name).and_then(|spec| crate::states::register(id, &spec)),
-            "achievements" =>
-            {
-                parse::<AchievementSpec>(source, &name).and_then(|spec| super::progress::register(id, spec))
-            }
-            "particles" => parse::<ParticleSpec>(source, &name).and_then(|spec| super::particles::register(id, spec)),
-            "effects" => parse::<EffectSpec>(source, &name).and_then(|spec| super::effects::register(id, spec)),
-            "attributes" =>
-            {
-                parse::<AttributeSpec>(source, &name).and_then(|spec| crate::attributes::register(id, spec))
-            }
-            "gamerules" => parse::<GameRuleSpec>(source, &name).and_then(|spec| crate::gamerules::register(id, spec)),
-            "fluids" => parse::<FluidSpec>(source, &name).and_then(|spec| super::fluids::register(id, spec)),
-            "damage_types" => parse::<mod_protocol::spec::DamageTypeSpec>(source, &name)
-                .and_then(|spec| crate::damage::register(id, spec)),
-
-            "loot" =>
-            {
-                let (registry, target) = lootTarget(path)
-                    .ok_or_else(|| format!("{name} needs loot/<blocks|entities>/<namespace>/<path>.toml"))?;
-                parse::<LootSpec>(source, &name).and_then(|spec| super::loot::add(registry, target, spec))
-            }
-
-            "worldgen" => match path.strip_prefix(FEATURES)
-            {
-                Some(feature) =>
-                {
-                    let id: Identifier = Identifier::new(namespace, feature).map_err(|error| error.to_string())?;
-                    parse::<FeatureSpec>(source, &name)
-                        .and_then(|spec| super::features::register(modId, None, id, spec, None))
-                }
-
-                None => parse::<WorldgenSpec>(source, &name).map(|spec| registerWorldgen(modId, id, spec)),
-            },
-            "modify" => match path.split_once('/')
-            {
-                Some(("blocks", _)) =>
-                {
-                    parse::<BlockModifySpec>(source, &name).map(|spec| crate::modify::queueBlock(modId, spec))
-                }
-
-                Some(("spawns", _)) =>
-                {
-                    parse::<SpawnModifySpec>(source, &name).map(|spec| crate::modify::queueSpawn(modId, spec))
-                }
-
-                Some(("features", _)) => parse::<FeatureModifySpec>(source, &name).map(super::features::disable),
-
-                _ => Err(format!("{name} needs modify/<blocks|spawns|features>/<name>.toml")),
-            },
-
-            "tags" =>
-            {
-                let (folder, tagPath) =
-                    path.split_once('/').ok_or_else(|| format!("{name} needs tags/<registry>/<tag>.toml"))?;
-                let registry: RegistryKind = super::tags::registryKind(folder)
-                    .ok_or_else(|| format!("{name}: unknown tag registry {folder}"))?;
-                let tag: Identifier = Identifier::new(namespace, tagPath).map_err(|error| error.to_string())?;
-
-                parse::<TagSpec>(source, &name).and_then(|spec|
-                {
-                    let entries: Vec<TagEntry> = spec
-                        .values
-                        .iter()
-                        .map(TagValue::entry)
-                        .collect::<Result<_, _>>()
-                        .map_err(|error| format!("{name}: {error}"))?;
-                    super::tags::addEntries(registry, tag, entries, spec.replace);
-                    Ok(())
-                })
-            }
-
-            other => Err(format!("{name}: unknown data kind {other}")),
-        });
-        if let Err(reason) = result
+        let parsed: Result<DataFile, String> = read(source, &name).and_then(|text| data::parse(modId, &name, &text));
+        if let Err(reason) = parsed.and_then(|file| apply(modId, file).map_err(|reason| format!("{name}: {reason}")))
         {
             problems.push(reason);
         }
@@ -226,19 +166,4 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
     }
 
     problems
-}
-
-// loot/blocks/minecraft/gravel names the block minecraft:gravel
-fn lootTarget(path: &str) -> Option<(RegistryKind, Identifier)>
-{
-    let (folder, rest) = path.split_once('/')?;
-    let registry: RegistryKind = match folder
-    {
-        "blocks" => RegistryKind::Block,
-        "entities" => RegistryKind::Entity,
-        _ => return None,
-    };
-
-    let (namespace, targetPath) = rest.split_once('/')?;
-    Some((registry, Identifier::new(namespace, targetPath).ok()?))
 }

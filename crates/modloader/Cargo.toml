@@ -9,7 +9,7 @@ common = { path = "../common" }
 game = { path = "../game" }
 jvm = { path = "../jvm" }
 mod_assets = { path = "../../vendor/b1.7.3-modding-sdk/mod_assets" }
-mod_protocol = { path = "../../vendor/b1.7.3-modding-sdk/mod_protocol" }
+mod_protocol = { path = "../../vendor/b1.7.3-modding-sdk/mod_protocol", features = ["data"] }
 png = "0.17"
 semver = "1"
 serde = { version = "1", features = ["derive"] }

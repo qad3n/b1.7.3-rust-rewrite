@@ -4,39 +4,6 @@ use mod_protocol::abi::RegistryKind;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
-// one registry kind, the data and tag folder name and the singular form that paths and logs also accept
-pub struct KindRow
-{
-    pub m_kind: RegistryKind,
-    pub m_plural: &'static str,
-    pub m_singular: &'static str,
-}
-
-pub const KINDS: [KindRow; 22] = [
-    KindRow { m_kind: RegistryKind::Block, m_plural: "blocks", m_singular: "block" },
-    KindRow { m_kind: RegistryKind::Item, m_plural: "items", m_singular: "item" },
-    KindRow { m_kind: RegistryKind::Entity, m_plural: "entities", m_singular: "entity" },
-    KindRow { m_kind: RegistryKind::TileEntity, m_plural: "tile_entities", m_singular: "tile_entity" },
-    KindRow { m_kind: RegistryKind::Recipe, m_plural: "recipes", m_singular: "recipe" },
-    KindRow { m_kind: RegistryKind::Biome, m_plural: "biomes", m_singular: "biome" },
-    KindRow { m_kind: RegistryKind::Dimension, m_plural: "dimensions", m_singular: "dimension" },
-    KindRow { m_kind: RegistryKind::Fluid, m_plural: "fluids", m_singular: "fluid" },
-    KindRow { m_kind: RegistryKind::Effect, m_plural: "effects", m_singular: "effect" },
-    KindRow { m_kind: RegistryKind::Attribute, m_plural: "attributes", m_singular: "attribute" },
-    KindRow { m_kind: RegistryKind::Particle, m_plural: "particles", m_singular: "particle" },
-    KindRow { m_kind: RegistryKind::Sound, m_plural: "sounds", m_singular: "sound" },
-    KindRow { m_kind: RegistryKind::GameRule, m_plural: "gamerules", m_singular: "gamerule" },
-    KindRow { m_kind: RegistryKind::Energy, m_plural: "energy", m_singular: "energy" },
-    KindRow { m_kind: RegistryKind::Machine, m_plural: "machines", m_singular: "machine" },
-    KindRow { m_kind: RegistryKind::AccessorySlot, m_plural: "accessory_slots", m_singular: "accessory_slot" },
-    KindRow { m_kind: RegistryKind::Feature, m_plural: "features", m_singular: "feature" },
-    KindRow { m_kind: RegistryKind::Structure, m_plural: "structures", m_singular: "structure" },
-    KindRow { m_kind: RegistryKind::LootCondition, m_plural: "loot_conditions", m_singular: "loot_condition" },
-    KindRow { m_kind: RegistryKind::DamageType, m_plural: "damage_types", m_singular: "damage_type" },
-    KindRow { m_kind: RegistryKind::Achievement, m_plural: "achievements", m_singular: "achievement" },
-    KindRow { m_kind: RegistryKind::Component, m_plural: "components", m_singular: "component" },
-];
-
 thread_local!
 {
     // sounds and vanilla particles exist only where the client loaded them, kept apart so a game without mods
@@ -51,34 +18,18 @@ pub fn addClientName(kind: RegistryKind, id: Identifier)
 
 fn clientOnly(kind: RegistryKind) -> bool { matches!(kind, RegistryKind::Particle | RegistryKind::Sound) }
 
-pub fn byFolder(folder: &str) -> Option<RegistryKind>
-{
-    KINDS.iter().find(|row| row.m_plural == folder || row.m_singular == folder).map(|row| row.m_kind)
-}
+pub fn byFolder(folder: &str) -> Option<RegistryKind> { RegistryKind::byFolder(folder) }
 
-pub fn singular(kind: RegistryKind) -> &'static str
-{
-    KINDS.iter().find(|row| row.m_kind == kind).map_or("unknown", |row| row.m_singular)
-}
+pub fn singular(kind: RegistryKind) -> &'static str { kind.singular() }
 
 // kinds whose rows have no numeric ids, every name a mod or the game adds is still claimed here once
 pub fn named() -> BTreeMap<RegistryKind, Registry<()>>
 {
-    KINDS.iter().filter(|row| !numbered(row.m_kind)).map(|row| (row.m_kind, Registry::new(row.m_singular))).collect()
-}
-
-fn numbered(kind: RegistryKind) -> bool
-{
-    matches!(
-        kind,
-        RegistryKind::Block
-            | RegistryKind::Item
-            | RegistryKind::Entity
-            | RegistryKind::TileEntity
-            | RegistryKind::Recipe
-            | RegistryKind::Biome
-            | RegistryKind::Dimension
-    )
+    RegistryKind::ROWS
+        .iter()
+        .filter(|row| !row.kind.numbered())
+        .map(|row| (row.kind, Registry::new(row.singular)))
+        .collect()
 }
 
 impl Registries

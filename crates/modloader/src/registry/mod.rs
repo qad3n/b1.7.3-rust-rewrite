@@ -3,7 +3,7 @@ mod report;
 mod tables;
 mod vanilla;
 
-pub use kinds::{KINDS, KindRow, addClientName, byFolder, singular};
+pub use kinds::{addClientName, byFolder, singular};
 use mod_protocol::Identifier;
 pub use report::report;
 use std::cell::RefCell;

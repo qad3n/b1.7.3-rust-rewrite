@@ -1295,6 +1295,7 @@ dependencies = [
  "flate2",
  "postcard",
  "serde",
+ "toml",
 ]
 
 [[package]]
