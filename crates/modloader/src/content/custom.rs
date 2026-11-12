@@ -307,26 +307,27 @@ fn resolve()
 // synced registries and maps for the server's data table, one line per entry
 pub fn synced() -> Vec<(String, Identifier, String)>
 {
-    let mut rows: Vec<(String, Identifier, String)> = REGISTRIES.with(|registries|
+    let mut rows: Vec<(String, Identifier, String)> = Vec::new();
+    let registries: Vec<Identifier> = REGISTRIES.with(|registries|
     {
-        registries
-            .borrow()
-            .iter()
-            .filter(|(_, row)| row.m_synced)
-            .flat_map(|(registry, row)|
-            {
-                row.m_entries
-                    .iter()
-                    .map(move |(id, value)| (format!("{REGISTRY_ROW} {registry}"), id.clone(), value.clone()))
-            })
-            .collect()
+        registries.borrow().iter().filter(|(_, row)| row.m_synced).map(|(id, _)| id.clone()).collect()
     });
-
     let maps: Vec<Identifier> =
         MAPS.with(|maps| maps.borrow().iter().filter(|(_, map)| map.m_synced).map(|(id, _)| id.clone()).collect());
+
+    // a row with an empty value only names the registry or map, so one with no entries still replaces the client's
+    for registry in registries
+    {
+        let holder: String = format!("{REGISTRY_ROW} {registry}");
+        rows.push((holder.clone(), registry.clone(), String::new()));
+        rows.extend(entries(&registry).into_iter().map(|(id, value)| (holder.clone(), id, value)));
+    }
+
     for map in maps
     {
-        rows.extend(mapEntries(&map).into_iter().map(|(id, value)| (format!("{MAP_ROW} {map}"), id, value)));
+        let holder: String = format!("{MAP_ROW} {map}");
+        rows.push((holder.clone(), map.clone(), String::new()));
+        rows.extend(mapEntries(&map).into_iter().map(|(id, value)| (holder.clone(), id, value)));
     }
 
     rows
@@ -359,7 +360,10 @@ pub fn replaceSynced(rows: Vec<(String, Identifier, String)>)
         {
             Some(values) =>
             {
-                values.insert(id, value);
+                if !value.is_empty()
+                {
+                    values.insert(id, value);
+                }
             }
             None => crate::log::warn(crate::log::LOADER, &format!("server registry row {holder} is not understood")),
         }
