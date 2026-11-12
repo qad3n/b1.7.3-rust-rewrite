@@ -152,6 +152,13 @@ fn applyCommon(mut item: Rc<Item>, spec: &ItemSpec, id: &Identifier) -> Result<R
         item = item.setMaxDamage(damage);
     }
 
+    // the spec's protection replaces the per slot value the armor template set
+    if let Some(armor) = &spec.armor
+        && item.instanceOf("ItemArmor")
+    {
+        game::item::item_armor::fields(&item).m_damageReduceAmount.set(armor.protection);
+    }
+
     if spec.full3d == Some(true)
     {
         item = item.setFull3D();

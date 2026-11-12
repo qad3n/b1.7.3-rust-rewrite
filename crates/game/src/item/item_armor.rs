@@ -1,4 +1,5 @@
 use crate::item::{ITEM, Item, ItemClass};
+use std::cell::Cell;
 use std::rc::Rc;
 
 const DAMAGE_REDUCE_AMOUNT_ARRAY: [i32; 4] = [3, 8, 6, 3];
@@ -8,7 +9,7 @@ pub struct ArmorExt
 {
     pub m_armorLevel: i32,
     pub m_armorType: i32,
-    pub m_damageReduceAmount: i32,
+    pub m_damageReduceAmount: Cell<i32>,
     pub m_renderIndex: i32,
 }
 
@@ -22,7 +23,7 @@ pub fn create(id: i32, durability: i32, materialId: i32, slot: i32) -> Rc<Item>
     {
         m_armorLevel: durability,
         m_armorType: slot,
-        m_damageReduceAmount: DAMAGE_REDUCE_AMOUNT_ARRAY[slot as usize],
+        m_damageReduceAmount: Cell::new(DAMAGE_REDUCE_AMOUNT_ARRAY[slot as usize]),
         m_renderIndex: materialId,
     };
     let item: Rc<Item> =

@@ -367,7 +367,7 @@ impl InventoryPlayer
                 let maxDamage: i32 = stack.getMaxDamage();
                 n2 += maxDamage - stack.getItemDamageForDisplay();
                 n3 += maxDamage;
-                n += item_armor::fields(&stack.getItem()).m_damageReduceAmount;
+                n += item_armor::fields(&stack.getItem()).m_damageReduceAmount.get();
             }
         }
 
