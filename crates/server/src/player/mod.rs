@@ -1,3 +1,4 @@
+mod death;
 pub mod entity_player_mp;
 mod entity_tracker;
 mod entity_tracker_entry;

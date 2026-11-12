@@ -7,10 +7,11 @@ use game::container::
 {
     Container, ICrafting, container_chest, container_dispenser, container_furnace, container_workbench,
 };
-use game::damage::DamageSource;
+use game::damage::{DamageKind, DamageSource};
 use game::entity::entity_living::LivingFields;
 use game::entity::entity_player::{EnumStatus, PlayerFields};
 use game::entity::{Entity, EntityClass, EntityExt, entity_living, entity_player};
+use game::gamerule::GameRule;
 use game::inventory::{IInventory, InventoryPlayer};
 use game::item::{Item, ItemStack};
 use game::locale::StringTranslate;
@@ -27,6 +28,7 @@ use game::world::{ChunkCoordinates, World};
 use jvm::array_list::JArrayList;
 use jvm::field::Field;
 use jvm::hash_map::JHashSet;
+use jvm::info;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
 use std::any::Any;
@@ -49,6 +51,8 @@ pub struct PlayerMPExt
     m_playerInventory: RefCell<Vec<Option<Rc<ItemStack>>>>,
     m_currentWindowId: Cell<i32>,
     pub m_isChangingQuantityOnly: Cell<bool>,
+    // the kind of the hit being applied so a death knows its cause
+    m_damage: Cell<Option<DamageKind>>,
 }
 
 impl EntityExt for PlayerMPExt
@@ -125,6 +129,7 @@ pub fn new(
         m_playerInventory: RefCell::new(vec![None, None, None, None, None]),
         m_currentWindowId: Cell::new(0),
         m_isChangingQuantityOnly: Cell::new(false),
+        m_damage: Cell::new(None),
     };
     let this: Rc<Entity> = Entity::alloc(&CLASS, Box::new(ext));
     entity_player::init(&this, Rc::clone(world));
@@ -226,7 +231,28 @@ fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount: i32) -> bo
         }
     }
 
-    (entity_player::CLASS.attackEntityFrom)(this, damage, amount)
+    let player: &PlayerMPExt = fields(this);
+    player.m_damage.set(Some(damage.m_kind));
+    let hit: bool = (entity_player::CLASS.attackEntityFrom)(this, damage, amount);
+
+    player.m_damage.set(None);
+    hit
+}
+
+fn onDeath(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
+{
+    entity_player::inventory(this).dropAllItems();
+
+    if !this.world().rule(GameRule::SHOW_DEATH_MESSAGES)
+    {
+        return;
+    }
+
+    let kind: DamageKind = fields(this).m_damage.get().unwrap_or(DamageKind::Generic);
+    let message: String = crate::player::death::message(this, kind, killer);
+    mcServer(this).configManager().sendPacketToAllPlayers(Box::new(Packet3Chat::new(JString::from(message.as_str()))));
+
+    info!("{message}");
 }
 
 pub fn onUpdateEntity(this: &Rc<Entity>, syncChunks: bool)
@@ -693,7 +719,7 @@ pub const CLASS: EntityClass = EntityClass
     resetHeight: |this| this.m_yOffset.set(0.0),
     getEyeHeight: |_| 1.62,
     onUpdate,
-    onDeath: |this, _| entity_player::inventory(this).dropAllItems(),
+    onDeath,
     attackEntityFrom,
     pvpEnabled: |this| mcServer(this).m_pvpOn.get(),
     heal: |this, amount| (entity_player::CLASS.heal)(this, amount),

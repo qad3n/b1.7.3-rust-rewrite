@@ -107,7 +107,7 @@ const fn number(name: &'static str, category: Category, default: i32, min: i32) 
 }
 
 // order matches the GameRule consts, names follow the modern rules
-const VANILLA: [VanillaRow; 21] = [
+const VANILLA: [VanillaRow; 22] = [
     flag("minecraft:advance_time", Category::Updates, true),
     flag("minecraft:advance_weather", Category::Updates, true),
     // beta ticks 80 random blocks per chunk where later versions tick 3 per section
@@ -131,6 +131,7 @@ const VANILLA: [VanillaRow; 21] = [
     flag("minecraft:allow_entering_nether_using_portals", Category::Misc, true),
     flag("minecraft:tnt_explodes", Category::Misc, true),
     flag("minecraft:log_admin_commands", Category::Chat, true),
+    flag("minecraft:show_death_messages", Category::Chat, true),
 ];
 
 thread_local!
@@ -173,6 +174,7 @@ impl GameRule
     pub const NETHER_PORTALS: Self = Self(18);
     pub const TNT_EXPLODES: Self = Self(19);
     pub const LOG_ADMIN_COMMANDS: Self = Self(20);
+    pub const SHOW_DEATH_MESSAGES: Self = Self(21);
 
     pub fn kind(self) -> RuleType { TYPES.with(|types| types.borrow()[self.0].clone()) }
 
