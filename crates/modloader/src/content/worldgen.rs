@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 pub struct Feature
 {
+    m_id: Identifier,
     m_key: i64,
     m_kind: WorldgenKind,
     m_block: i32,
@@ -77,6 +78,7 @@ pub fn add(id: &Identifier, spec: &WorldgenSpec) -> Result<(), String>
             at,
             Feature
             {
+                m_id: id.clone(),
                 m_key: key,
                 m_kind: spec.kind,
                 m_block: block,
@@ -107,43 +109,72 @@ pub fn populate(world: &Rc<World>, chunkX: i32, chunkZ: i32)
     {
         for feature in features.borrow().iter().filter(|feature| feature.m_dimension == dimension)
         {
-            let seed: i64 = world.getRandomSeed()
-                ^ (chunkX as i64).wrapping_mul(341873128712)
-                ^ (chunkZ as i64).wrapping_mul(132897987541)
-                ^ feature.m_key;
-            let random: Random = Random::withSeed(seed);
-
-            for _ in 0..feature.m_perChunk
-            {
-                let x: i32 = chunkX * 16 + random.nextIntBounded(16) + 8;
-                let y: i32 = feature.m_minY + random.nextIntBounded(feature.m_maxY - feature.m_minY);
-                let z: i32 = chunkZ * 16 + random.nextIntBounded(16) + 8;
-                let outside: bool = !feature.m_biomes.is_empty()
-                    && crate::biomes::biomeAt(world, x, z).is_none_or(|biome| !feature.m_biomes.contains(&biome));
-                if outside
-                {
-                    continue;
-                }
-
-                match (feature.m_kind, &feature.m_replaces)
-                {
-                    (WorldgenKind::Ore, None) =>
-                    {
-                        WorldGenMinable::new(feature.m_block, feature.m_veinSize).generate(world, &random, x, y, z);
-                    }
-
-                    (WorldgenKind::Ore, Some(replaces)) =>
-                    {
-                        let state: (i32, i32) = (feature.m_block, 0);
-                        super::features::ore(world, &random, state, feature.m_veinSize, [x, y, z], replaces);
-                    }
-
-                    (WorldgenKind::Plant, _) =>
-                    {
-                        WorldGenFlowers::new(feature.m_block).generate(world, &random, x, y, z);
-                    }
-                }
-            }
+            place(world, feature, chunkX, chunkZ);
         }
     });
+}
+
+pub fn keys(dimension: i32) -> Vec<(Identifier, i64)>
+{
+    FEATURES.with(|features|
+    {
+        features
+            .borrow()
+            .iter()
+            .filter(|feature| feature.m_dimension == dimension)
+            .map(|feature| (feature.m_id.clone(), feature.m_key))
+            .collect()
+    })
+}
+
+pub fn populateOne(world: &Rc<World>, chunkX: i32, chunkZ: i32, key: i64)
+{
+    FEATURES.with(|features|
+    {
+        if let Some(feature) = features.borrow().iter().find(|feature| feature.m_key == key)
+        {
+            place(world, feature, chunkX, chunkZ);
+        }
+    });
+}
+
+fn place(world: &Rc<World>, feature: &Feature, chunkX: i32, chunkZ: i32)
+{
+    let seed: i64 = world.getRandomSeed()
+        ^ (chunkX as i64).wrapping_mul(341873128712)
+        ^ (chunkZ as i64).wrapping_mul(132897987541)
+        ^ feature.m_key;
+    let random: Random = Random::withSeed(seed);
+
+    for _ in 0..feature.m_perChunk
+    {
+        let x: i32 = chunkX * 16 + random.nextIntBounded(16) + 8;
+        let y: i32 = feature.m_minY + random.nextIntBounded(feature.m_maxY - feature.m_minY);
+        let z: i32 = chunkZ * 16 + random.nextIntBounded(16) + 8;
+        let outside: bool = !feature.m_biomes.is_empty()
+            && crate::biomes::biomeAt(world, x, z).is_none_or(|biome| !feature.m_biomes.contains(&biome));
+        if outside
+        {
+            continue;
+        }
+
+        match (feature.m_kind, &feature.m_replaces)
+        {
+            (WorldgenKind::Ore, None) =>
+            {
+                WorldGenMinable::new(feature.m_block, feature.m_veinSize).generate(world, &random, x, y, z);
+            }
+
+            (WorldgenKind::Ore, Some(replaces)) =>
+            {
+                let state: (i32, i32) = (feature.m_block, 0);
+                super::features::ore(world, &random, state, feature.m_veinSize, [x, y, z], replaces);
+            }
+
+            (WorldgenKind::Plant, _) =>
+            {
+                WorldGenFlowers::new(feature.m_block).generate(world, &random, x, y, z);
+            }
+        }
+    }
 }

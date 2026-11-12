@@ -60,6 +60,7 @@ impl LoaderHooks for Hooks
     {
         content::worldgen::populate(world, chunkX, chunkZ);
         content::features::populate(world, chunkX, chunkZ);
+        content::retrogen::record(world, chunkX, chunkZ);
         crate::dimensions::populate(world, chunkX, chunkZ);
 
         if events::hasListeners(EventKind::ChunkPopulate)

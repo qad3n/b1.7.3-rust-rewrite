@@ -111,7 +111,7 @@ impl World
         true
     }
 
-    pub(crate) fn chunkExists(&self, chunkX: i32, chunkZ: i32) -> bool
+    pub fn chunkExists(&self, chunkX: i32, chunkZ: i32) -> bool
     {
         self.m_chunkProvider.with(|provider| provider.as_ref().orNpe().chunkExists(chunkX, chunkZ))
     }

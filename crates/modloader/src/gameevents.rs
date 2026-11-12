@@ -91,6 +91,11 @@ pub fn fire(event: GameEvent<'_>) -> bool
     }
 
     let line: Option<String> = gamelog::describe(&event);
+    if let GameEvent::ChunkLoad { world, x, z } = &event
+    {
+        crate::content::retrogen::backfill(world, *x, *z);
+    }
+
     let removing: Option<Rc<Entity>> = match &event
     {
         GameEvent::EntityRemove { entity, .. } => Some(Rc::clone(entity)),

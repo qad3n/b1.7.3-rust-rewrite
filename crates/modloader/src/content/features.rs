@@ -82,7 +82,78 @@ struct Table
 #[serde(default)]
 struct LoaderConfig
 {
+    #[serde(default)]
     worldgen: FeatureModifySpec,
+    // config/loader.toml [retrogen] features = ["<mod>:<feature>"], run once in chunks generated without them
+    #[serde(default)]
+    retrogen: Retrogen,
+}
+
+#[derive(Deserialize, Default)]
+struct Retrogen
+{
+    #[serde(default)]
+    features: Vec<Identifier>,
+}
+
+fn config() -> LoaderConfig
+{
+    let text: Option<String> =
+        crate::paths().and_then(|paths| std::fs::read_to_string(paths.m_config.join(CONFIG_FILE)).ok());
+    match text.map(|text| toml::from_str::<LoaderConfig>(&text))
+    {
+        Some(Ok(config)) => config,
+        Some(Err(error)) =>
+        {
+            crate::log::warn(crate::log::LOADER, &format!("{CONFIG_FILE}: {error}"));
+            LoaderConfig::default()
+        }
+        None => LoaderConfig::default(),
+    }
+}
+
+// the stable keys of every feature that runs in a dimension, legacy rows included
+pub fn keys(dimension: i32) -> Vec<(Identifier, i64)>
+{
+    let mut keys: Vec<(Identifier, i64)> = TABLE.with(|table|
+    {
+        table
+            .borrow()
+            .m_rows
+            .iter()
+            .filter(|row| row.m_enabled && !row.m_spec.placed && row.m_dimension == Some(dimension))
+            .map(|row| (row.m_id.clone(), row.m_key))
+            .collect()
+    });
+    keys.extend(super::worldgen::keys(dimension));
+    keys
+}
+
+pub fn retrogen() -> Vec<Identifier> { config().retrogen.features }
+
+// one feature in one chunk as populate would have run it
+pub fn populateOne(world: &Rc<World>, chunkX: i32, chunkZ: i32, key: i64)
+{
+    let dimension: i32 = crate::host::context::dimension(world);
+    let found: Option<(Option<Identifier>, Rc<Placer>)> = TABLE.with(|table|
+    {
+        let table = table.borrow();
+        let row: &Row = table.m_rows.iter().find(|row| row.m_key == key && row.m_enabled)?;
+        Some((row.m_spec.biomes.clone(), row.m_placer.clone()?))
+    });
+    let Some((biomes, placer)) = found
+    else
+    {
+        super::worldgen::populateOne(world, chunkX, chunkZ, key);
+        return;
+    };
+
+    let (x, z): (i32, i32) = (chunkX * chunk::SIZE, chunkZ * chunk::SIZE);
+    if biomeFits(world, biomes.as_ref(), x + chunk::SIZE, z + chunk::SIZE)
+    {
+        let random: Random = Random::withSeed(seed(world, chunkX, chunkZ, key));
+        run(world, &placer, &random, BlockPos { x, y: 0, z }, true, dimension);
+    }
 }
 
 thread_local!
@@ -175,14 +246,7 @@ pub fn oreRows() -> Vec<OreRow>
 }
 
 // config/loader.toml [worldgen] disable = ["<mod>:<feature>"]
-fn configDisabled() -> Vec<Identifier>
-{
-    crate::paths()
-        .and_then(|paths| std::fs::read_to_string(paths.m_config.join(CONFIG_FILE)).ok())
-        .and_then(|text| toml::from_str::<LoaderConfig>(&text).ok())
-        .map(|config| config.worldgen.disable)
-        .unwrap_or_default()
-}
+fn configDisabled() -> Vec<Identifier> { config().worldgen.disable }
 
 // numeric ids change with every id map, so each content build resolves the features again
 pub fn resolve(decisions: &BTreeMap<Identifier, Unified>) -> Vec<(String, String)>
