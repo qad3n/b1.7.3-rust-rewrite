@@ -92,7 +92,17 @@ pub const NEUTRAL_MONSTER: EntityClass = EntityClass
     ..game::entity::entity_mob::CLASS
 };
 
-pub const ENTITY_TEMPLATES: [EntityTemplate; 18] = [
+// EntityMob that never fights even when hurt, as a later mob running only tasks without a target
+pub const PASSIVE_MONSTER: EntityClass = EntityClass
+{
+    m_name: "EntityModPassiveMob",
+    m_parent: Some(&game::entity::entity_mob::CLASS),
+    findPlayerToAttack: |_| None,
+    attackEntityFrom: game::entity::entity_creature::CLASS.attackEntityFrom,
+    ..game::entity::entity_mob::CLASS
+};
+
+pub const ENTITY_TEMPLATES: [EntityTemplate; 19] = [
     EntityTemplate { m_name: "projectile", m_class: &PROJECTILE, m_create: game::entity::entity_snowball::new },
     // EntityArrow itself: flies, sticks in blocks, drawn by RenderArrow and picked up when a player shot it
     EntityTemplate
@@ -110,6 +120,7 @@ pub const ENTITY_TEMPLATES: [EntityTemplate; 18] = [
         m_create: game::entity::entity_mob::new,
     },
     EntityTemplate { m_name: "neutral_monster", m_class: &NEUTRAL_MONSTER, m_create: game::entity::entity_mob::new },
+    EntityTemplate { m_name: "passive_monster", m_class: &PASSIVE_MONSTER, m_create: game::entity::entity_mob::new },
     EntityTemplate
     {
         m_name: "pig",
