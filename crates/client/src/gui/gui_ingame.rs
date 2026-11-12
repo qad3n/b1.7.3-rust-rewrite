@@ -42,6 +42,9 @@ pub struct GuiIngame
     m_prevVignetteBrightness: Cell<f32>,
 }
 
+// the hud lists effects from just below the top edge
+const EFFECT_TOP: i32 = 2;
+
 impl GuiIngame
 {
     pub fn new(minecraft: Rc<Minecraft>) -> Self
@@ -124,7 +127,7 @@ impl GuiIngame
         self.m_gui.drawTexturedModalRect(i / 2 - 7, j / 2 - 7, 0, 0, 16, 16);
         GL11::glDisable(3042);
         self.renderStatusBars(&player, i, j);
-        self.renderEffects(&player, &fontrenderer, i);
+        self.drawEffects(&player, &fontrenderer, i, EFFECT_TOP);
         GL11::glDisable(3042);
         GL11::glEnable(32826);
         GL11::glPushMatrix();
@@ -395,7 +398,8 @@ impl GuiIngame
     }
 
     // beta has no status effects, so this draws only when a mod effect is on the player, down the right edge
-    fn renderEffects(&self, player: &Rc<Entity>, fontrenderer: &FontRenderer, width: i32)
+    // active effects as icons with time left, the icons' right edge at right, from top downwards
+    pub(crate) fn drawEffects(&self, player: &Rc<Entity>, fontrenderer: &FontRenderer, right: i32, top: i32)
     {
         const ICON: i32 = 16;
         const ROW: i32 = 20;
@@ -415,11 +419,11 @@ impl GuiIngame
             return;
         }
 
-        let x: i32 = width - ICON - MARGIN;
+        let x: i32 = right - ICON - MARGIN;
 
         for (row, (kind, level, ticks)) in living.m_effects.list().into_iter().enumerate()
         {
-            let y: i32 = MARGIN + row as i32 * ROW;
+            let y: i32 = top + row as i32 * ROW;
             self.m_gui.drawRect(x - 1, y - 1, x + ICON + 1, y + ICON + 1, BACKDROP);
 
             if kind.m_icon.is_empty()

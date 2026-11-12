@@ -659,6 +659,13 @@ pub const GUI_INVENTORY: GuiScreenClass = GuiScreenClass
     {
         (GUI_CONTAINER.drawScreen)(this, mouseX, mouseY, tickDelta);
 
+        // active effects list down the inventory's left side, as later versions show them
+        if let Some(hud) = this.mc().m_ingameGUI.get()
+        {
+            let (left, top): (i32, i32) = origin(this);
+            hud.drawEffects(&player(this), &this.fontRenderer(), left, top);
+        }
+
         if let ContainerScreen::Inventory { m_xSize_lo: xSizeLo, m_ySize_lo: ySizeLo } = &fields(this).m_screen
         {
             xSizeLo.set(mouseX as f32);
