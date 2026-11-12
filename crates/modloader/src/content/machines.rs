@@ -50,21 +50,15 @@ thread_local!
     static MACHINES: RefCell<Vec<Machine>> = const { RefCell::new(Vec::new()) };
 }
 
+pub fn vanillaNames() -> Vec<String> { VANILLA.iter().map(|name| Identifier::minecraft(name).to_string()).collect() }
+
 fn vanilla(id: &Identifier) -> bool { id.isVanilla() && VANILLA.contains(&id.path()) }
 
 pub fn register(id: Identifier, spec: MachineSpec) -> Result<(), String>
 {
-    MACHINES.with(|machines|
-    {
-        let mut machines = machines.borrow_mut();
-        if vanilla(&id) || machines.iter().any(|machine| machine.m_id == id)
-        {
-            return Err(format!("machine {id} is already registered"));
-        }
-
-        machines.push(Machine::new(id, spec));
-        Ok(())
-    })
+    crate::registry::claim(RegistryKind::Machine, &id)?;
+    MACHINES.with(|machines| machines.borrow_mut().push(Machine::new(id, spec)));
+    Ok(())
 }
 
 // a vanilla category gets its row the first time a mod adds a workstation to it

@@ -13,8 +13,10 @@ thread_local!
     static ICONS: RefCell<BTreeMap<String, Identifier>> = const { RefCell::new(BTreeMap::new()) };
 }
 
-pub fn register(id: Identifier, spec: AchievementSpec)
+pub fn register(id: Identifier, spec: AchievementSpec) -> Result<(), String>
 {
+    crate::registry::claim(mod_protocol::abi::RegistryKind::Achievement, &id)?;
+
     let name: String = id.to_string();
     let text = |key: &str| super::lang::translate(key).unwrap_or_else(|| key.to_owned());
 
@@ -28,6 +30,7 @@ pub fn register(id: Identifier, spec: AchievementSpec)
     });
 
     ICONS.with(|icons| icons.borrow_mut().insert(name, spec.icon));
+    Ok(())
 }
 
 pub fn push()

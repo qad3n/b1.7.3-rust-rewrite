@@ -138,10 +138,7 @@ pub fn drain(stack: &StackData) -> Option<ContainerSwap>
 // the fluid row exists from registration on, so blocks that name it as their material find it when they are built
 pub fn register(id: Identifier, spec: FluidSpec) -> Result<(), String>
 {
-    if fluid::byName(&id.to_string()).is_some()
-    {
-        return Err(format!("fluid {id} is already registered"));
-    }
+    crate::registry::claim(mod_protocol::abi::RegistryKind::Fluid, &id)?;
 
     let style: FluidStyle = match spec.style
     {

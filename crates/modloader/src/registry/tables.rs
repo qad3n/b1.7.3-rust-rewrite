@@ -7,8 +7,9 @@ use game::item::{Item, ItemStack};
 use game::tileentity::TileEntityKind;
 use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
+use mod_protocol::abi::RegistryKind;
 use mod_protocol::spec::{BlockSpec, EntitySpec, ItemSpec, RecipeSpec, TileEntitySpec};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 pub struct BlockEntry
@@ -85,6 +86,7 @@ pub struct Registries
     pub m_packets: Registry<PacketEntry>,
     pub m_dimensions: Registry<DimensionEntry>,
     pub m_biomes: Registry<BiomeEntry>,
+    pub m_named: BTreeMap<RegistryKind, Registry<()>>,
 }
 
 impl Registries
@@ -103,11 +105,13 @@ impl Registries
             m_packets: Registry::new("packet"),
             m_dimensions: Registry::new("dimension"),
             m_biomes: Registry::new("biome"),
+            m_named: super::kinds::named(),
         };
         registries.seedBlocksAndItems();
         registries.seedEntities();
         registries.seedRecipes();
         registries.seedPackets();
+        registries.seedNamed();
 
         for (numeric, name) in DIMENSIONS
         {
@@ -225,6 +229,32 @@ impl Registries
         {
             0 => path,
             _ => format!("{path}_{damage}"),
+        }
+    }
+
+    // game and loader rows of the named registries, client-only rows such as particles come from the client
+    fn seedNamed(&mut self)
+    {
+        let rows: [(RegistryKind, Vec<String>); 7] = [
+            (RegistryKind::Attribute, game::attribute::names()),
+            (RegistryKind::GameRule, game::gamerule::GameRule::all().into_iter().map(|row| row.name()).collect()),
+            (RegistryKind::Fluid, game::fluid::names()),
+            (RegistryKind::DamageType, game::damage::names()),
+            (RegistryKind::Machine, crate::content::machines::vanillaNames()),
+            (RegistryKind::Structure, crate::structures::vanillaNames()),
+            (RegistryKind::LootCondition, crate::content::loot::vanillaNames()),
+        ];
+
+        for (kind, names) in rows
+        {
+            for name in names
+            {
+                match Identifier::parse(&name)
+                {
+                    Ok(id) => self.seedName(kind, id),
+                    Err(error) => crate::log::warn(crate::log::LOADER, &format!("vanilla row {name}: {error}")),
+                }
+            }
         }
     }
 

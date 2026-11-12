@@ -9,15 +9,6 @@ use std::collections::{BTreeMap, BTreeSet};
 type Key = (RegistryKind, Identifier);
 type Entries = BTreeMap<Key, BTreeSet<TagEntry>>;
 
-// registry, its tag folder name and the singular form both accepted in data paths and used on the wire
-const REGISTRIES: [(RegistryKind, &str, &str); 5] = [
-    (RegistryKind::Block, "blocks", "block"),
-    (RegistryKind::Item, "items", "item"),
-    (RegistryKind::Entity, "entities", "entity"),
-    (RegistryKind::Biome, "biomes", "biome"),
-    (RegistryKind::Fluid, "fluids", "fluid"),
-];
-
 // shared lists such as c:ores/ruby that mods fill and read without depending on each other
 thread_local!
 {
@@ -26,15 +17,7 @@ thread_local!
     static LOCAL: RefCell<Option<Entries>> = const { RefCell::new(None) };
 }
 
-pub fn registryKind(folder: &str) -> Option<RegistryKind>
-{
-    REGISTRIES.iter().find(|(_, plural, singular)| *plural == folder || *singular == folder).map(|(kind, _, _)| *kind)
-}
-
-fn registryName(registry: RegistryKind) -> Option<&'static str>
-{
-    REGISTRIES.iter().find(|(kind, _, _)| *kind == registry).map(|(_, _, singular)| *singular)
-}
+pub fn registryKind(folder: &str) -> Option<RegistryKind> { crate::registry::byFolder(folder) }
 
 pub fn add(registry: RegistryKind, tag: Identifier, values: Vec<Identifier>, replace: bool)
 {
@@ -196,19 +179,13 @@ pub fn report()
     let keys: Vec<Key> = TAGS.with(|tags| tags.borrow().keys().cloned().collect());
     for (registry, tag) in keys
     {
-        let Some(engine) = engineRegistry(registry)
-        else
-        {
-            continue;
-        };
-
         let members: BTreeMap<Identifier, bool> = resolved(registry, &tag, &mut problems);
 
         let missing: Vec<Identifier> = crate::registry::with(|registries|
         {
             members
                 .iter()
-                .filter(|(member, required)| **required && numeric(registries, engine, member).is_none())
+                .filter(|(member, required)| **required && !registries.contains(registry, member))
                 .map(|(member, _)| member.clone())
                 .collect()
         });
@@ -230,12 +207,7 @@ pub fn table() -> String
 
     for (registry, tag) in keys
     {
-        let Some(registryName) = registryName(registry)
-        else
-        {
-            continue;
-        };
-
+        let registryName: &str = crate::registry::singular(registry);
         let members: Vec<String> = values(registry, &tag).iter().map(Identifier::to_string).collect();
         text.push_str(&format!("{registryName} {tag} {}\n", members.join(" ")));
     }
@@ -351,16 +323,6 @@ fn kind(registry: Registry) -> RegistryKind
     {
         Registry::Block => RegistryKind::Block,
         Registry::Item => RegistryKind::Item,
-    }
-}
-
-fn engineRegistry(registry: RegistryKind) -> Option<Registry>
-{
-    match registry
-    {
-        RegistryKind::Block => Some(Registry::Block),
-        RegistryKind::Item => Some(Registry::Item),
-        _ => None,
     }
 }
 

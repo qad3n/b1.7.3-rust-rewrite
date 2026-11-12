@@ -59,6 +59,8 @@ thread_local!
     );
 }
 
+pub fn names() -> Vec<String> { TYPES.with(|types| types.borrow().iter().map(|kind| kind.m_name.clone()).collect()) }
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Operation
 {

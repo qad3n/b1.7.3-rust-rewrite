@@ -26,6 +26,7 @@ pub fn register(owner: &str, id: Identifier, spec: EnergySpec) -> Result<(), Str
         );
     }
 
+    crate::registry::claim(mod_protocol::abi::RegistryKind::Energy, &id)?;
     KINDS.with(|kinds| kinds.borrow_mut().insert(id, spec.worth));
     Ok(())
 }

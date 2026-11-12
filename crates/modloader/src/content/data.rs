@@ -137,8 +137,11 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             "items" => parse::<ItemSpec>(source, &name).and_then(|spec| registerItem(id, modId, spec)),
             "recipes" => parse::<RecipeSpec>(source, &name).and_then(|spec| registerRecipe(id, modId, spec)),
             "states" => parse::<BlockStatesSpec>(source, &name).and_then(|spec| crate::states::register(id, &spec)),
-            "achievements" => parse::<AchievementSpec>(source, &name).map(|spec| super::progress::register(id, spec)),
-            "particles" => parse::<ParticleSpec>(source, &name).map(|spec| super::particles::register(id, spec)),
+            "achievements" =>
+            {
+                parse::<AchievementSpec>(source, &name).and_then(|spec| super::progress::register(id, spec))
+            }
+            "particles" => parse::<ParticleSpec>(source, &name).and_then(|spec| super::particles::register(id, spec)),
             "effects" => parse::<EffectSpec>(source, &name).and_then(|spec| super::effects::register(id, spec)),
             "attributes" =>
             {
@@ -146,6 +149,8 @@ pub fn load(modId: &str, source: &mut Source) -> Vec<String>
             }
             "gamerules" => parse::<GameRuleSpec>(source, &name).and_then(|spec| crate::gamerules::register(id, spec)),
             "fluids" => parse::<FluidSpec>(source, &name).and_then(|spec| super::fluids::register(id, spec)),
+            "damage_types" => parse::<mod_protocol::spec::DamageTypeSpec>(source, &name)
+                .and_then(|spec| crate::damage::register(id, spec)),
 
             "loot" =>
             {

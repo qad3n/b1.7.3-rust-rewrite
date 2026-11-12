@@ -14,6 +14,7 @@ pub fn register(id: Identifier, spec: AttributeSpec) -> Result<(), String>
         return Err(format!("{id} needs min <= default <= max"));
     }
 
+    crate::registry::claim(mod_protocol::abi::RegistryKind::Attribute, &id)?;
     attribute::register(AttributeType
     {
         m_name: id.to_string(),

@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 pub fn register(id: Identifier, spec: GameRuleSpec) -> Result<(), String>
 {
+    crate::registry::claim(mod_protocol::abi::RegistryKind::GameRule, &id)?;
     gamerule::register(RuleType
     {
         m_name: id.to_string(),

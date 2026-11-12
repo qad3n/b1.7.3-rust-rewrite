@@ -168,6 +168,7 @@ fn freezeRegistries() -> Result<(), RegistryError>
         registries.m_smelting.freeze(allocate(ids::RECIPE_FIRST, i32::MAX, &|_| false))?;
         registries.m_dimensions.freeze(allocate(ids::DIMENSION_FIRST, i8::MAX as i32, &|_| false))?;
         registries.m_biomes.freeze(allocate(ids::BIOME_FIRST, i32::MAX, &|_| false))?;
+        registries.freezeNamed();
         registries.m_fuel.freeze(|_, _| None)
     })
 }

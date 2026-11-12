@@ -130,6 +130,16 @@ const PARTICLES: [ParticleRow; 15] = [
     },
 ];
 
+// the beta particle names join the particle registry beside mod particles
+pub(crate) fn nameParticles()
+{
+    for row in &PARTICLES
+    {
+        let id: modloader::Identifier = modloader::Identifier::minecraft(row.m_name);
+        modloader::registry::addClientName(modloader::mod_protocol::abi::RegistryKind::Particle, id);
+    }
+}
+
 pub(crate) fn vanillaParticle(
     global: &RenderGlobal,
     name: &str,

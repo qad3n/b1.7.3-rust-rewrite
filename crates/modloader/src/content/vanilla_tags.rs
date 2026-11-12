@@ -22,6 +22,11 @@ const fn fluid(name: &'static str, members: &'static [&'static str]) -> VanillaT
     VanillaTag { m_registry: RegistryKind::Fluid, m_name: name, m_members: members }
 }
 
+const fn damage(name: &'static str, members: &'static [&'static str]) -> VanillaTag
+{
+    VanillaTag { m_registry: RegistryKind::DamageType, m_name: name, m_members: members }
+}
+
 const fn item(name: &'static str, members: &'static [&'static str]) -> VanillaTag
 {
     VanillaTag { m_registry: RegistryKind::Item, m_name: name, m_members: members }
@@ -70,6 +75,13 @@ const SWORDS: &[&str] = &[
 
 // modern minecraft and c tags over beta content so mods name groups instead of listing vanilla blocks
 pub(crate) const TAGS: &[VanillaTag] = &[
+    // damage types grouped as later versions group them, beta armor still reduces every one
+    damage("minecraft:is_fire", &["minecraft:in_fire", "minecraft:on_fire", "minecraft:lava", "minecraft:fireball"]),
+    damage("minecraft:is_explosion", &["minecraft:explosion"]),
+    damage("minecraft:is_projectile", &["minecraft:arrow", "minecraft:thrown", "minecraft:fireball"]),
+    damage("minecraft:is_fall", &["minecraft:fall"]),
+    damage("minecraft:is_drowning", &["minecraft:drown"]),
+    damage("minecraft:bypasses_armor", &[]),
     // fluid tags name fluids, so mods' oils and fuels join shared groups machines take
     fluid("minecraft:water", &["minecraft:water"]),
     fluid("minecraft:lava", &["minecraft:lava"]),

@@ -175,6 +175,7 @@ impl SoundManager
     pub fn install(&self, pool: Pool, path: &str, file: &Path, origin: Origin)
     {
         self.pool(pool).addSound(path, file);
+        nameSound(pool, origin, &self.pool(pool).key(path));
 
         let install: Install =
             Install { m_pool: pool, m_path: path.to_owned(), m_file: file.to_path_buf(), m_origin: origin };
@@ -443,4 +444,24 @@ impl SoundManager
 impl Default for SoundManager
 {
     fn default() -> Self { Self::new() }
+}
+
+// sound events join the sound registry as minecraft:<key> or <modid>:<rest of key>, music stays out
+fn nameSound(pool: Pool, origin: Origin, key: &str)
+{
+    if matches!(pool, Pool::Music)
+    {
+        return;
+    }
+
+    let name: String = match (origin, key.split_once('.'))
+    {
+        (Origin::Mod, Some((modid, rest))) => format!("{modid}:{rest}"),
+        _ => format!("minecraft:{key}"),
+    };
+    match modloader::Identifier::parse(&name)
+    {
+        Ok(id) => modloader::registry::addClientName(modloader::mod_protocol::abi::RegistryKind::Sound, id),
+        Err(error) => debug!("sound {name} has no registry name: {error}"),
+    }
 }

@@ -18,14 +18,13 @@ pub fn with<R>(kind: DamageKind, body: impl FnOnce() -> R) -> R
     result
 }
 
-pub fn current() -> Option<Identifier> { CURRENT.with(Cell::get).map(|kind| Identifier::minecraft(kind.name())) }
+pub fn current() -> Option<Identifier> { CURRENT.with(Cell::get).and_then(|kind| Identifier::parse(&kind.name()).ok()) }
 
-pub fn kind(id: &Identifier) -> Option<DamageKind>
+pub fn kind(id: &Identifier) -> Option<DamageKind> { DamageKind::byName(&id.to_string()) }
+
+pub fn register(id: Identifier, _spec: mod_protocol::spec::DamageTypeSpec) -> Result<(), String>
 {
-    if !id.isVanilla()
-    {
-        return None;
-    }
-
-    DamageKind::byName(id.path())
+    crate::registry::claim(mod_protocol::abi::RegistryKind::DamageType, &id)?;
+    game::damage::register(&id.to_string());
+    Ok(())
 }

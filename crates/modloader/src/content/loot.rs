@@ -53,6 +53,8 @@ fn builtins() -> Vec<Rule>
     }]
 }
 
+pub fn vanillaNames() -> Vec<String> { builtins().into_iter().map(|rule| rule.m_id.to_string()).collect() }
+
 thread_local!
 {
     // every mod's loot for one block or entity merged in load order, a replace drops what came before
@@ -70,17 +72,18 @@ pub fn registerRule(
     handler: Handle,
 ) -> Result<(), String>
 {
+    crate::registry::claim(RegistryKind::LootCondition, &id)?;
     RULES.with(|rules|
     {
-        let mut rules: RefMut<Vec<Rule>> = rules.borrow_mut();
-        if rules.iter().any(|rule| rule.m_id == id)
+        rules.borrow_mut().push(Rule
         {
-            return Err(format!("loot rule {id} is already registered"));
-        }
-
-        rules.push(Rule { m_id: id, m_label: label, m_kind: kind, m_answer: Answer::Guest(modIndex, handler) });
-        Ok(())
-    })
+            m_id: id,
+            m_label: label,
+            m_kind: kind,
+            m_answer: Answer::Guest(modIndex, handler),
+        });
+    });
+    Ok(())
 }
 
 fn ruleNumber(id: &Identifier, kind: RuleKind, problems: &mut Vec<String>) -> u32

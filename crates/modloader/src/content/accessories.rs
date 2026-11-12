@@ -35,17 +35,9 @@ thread_local!
 
 pub fn register(id: Identifier, spec: AccessorySlotSpec) -> Result<(), String>
 {
-    SLOTS.with(|slots|
-    {
-        let mut slots = slots.borrow_mut();
-        if slots.iter().any(|slot| slot.m_id == id)
-        {
-            return Err(format!("accessory slot {id} is already registered"));
-        }
-
-        slots.push(Slot { m_id: id, m_spec: spec });
-        Ok(())
-    })
+    crate::registry::claim(RegistryKind::AccessorySlot, &id)?;
+    SLOTS.with(|slots| slots.borrow_mut().push(Slot { m_id: id, m_spec: spec }));
+    Ok(())
 }
 
 fn load(entity: &Entity) -> Vec<Saved>

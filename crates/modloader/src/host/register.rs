@@ -40,8 +40,8 @@ fn resolve(kind: RegistryKind, id: &Identifier) -> Option<i32>
         RegistryKind::Recipe => registries.m_recipes.numeric(id),
         RegistryKind::Biome => registries.m_biomes.numeric(id),
         RegistryKind::Dimension => registries.m_dimensions.numeric(id),
-        // fluids go by name and have no numeric ids
-        RegistryKind::Fluid => None,
+        // the named registries have no numeric ids
+        _ => None,
     })
 }
 
@@ -60,7 +60,7 @@ fn nameOf(kind: RegistryKind, numeric: i32) -> Option<Identifier>
         RegistryKind::Recipe => registries.m_recipes.byNumeric(numeric).map(|row| row.m_id.clone()),
         RegistryKind::Biome => registries.m_biomes.byNumeric(numeric).map(|row| row.m_id.clone()),
         RegistryKind::Dimension => registries.m_dimensions.byNumeric(numeric).map(|row| row.m_id.clone()),
-        RegistryKind::Fluid => None,
+        _ => None,
     })
 }
 
@@ -144,13 +144,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             tags::push();
         })),
 
-        HostCall::RegisterAchievement { name, spec } =>
-        {
-            unit(registering().and_then(|()| runtime.own(&name)).map(|id| crate::content::progress::register(id, spec)))
-        }
+        HostCall::RegisterAchievement { name, spec } => unit(
+            registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::progress::register(id, spec)),
+        ),
 
         HostCall::RegisterParticle { name, spec } => unit(
-            registering().and_then(|()| runtime.own(&name)).map(|id| crate::content::particles::register(id, spec)),
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::content::particles::register(id, spec)),
         ),
         HostCall::RegisterEffect { name, spec } => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::effects::register(id, spec)),
@@ -303,6 +304,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
         }
 
         HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
+        HostCall::RegistryList { registry } => HostReply::Ids(registry::with(|registries| registries.list(registry))),
+        HostCall::RegisterDamageType { name, spec } =>
+        {
+            unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::damage::register(id, spec)))
+        }
         HostCall::ResolveState { state } => ok(resolveState(&state), |(block, meta)| HostReply::Size(block, meta)),
         HostCall::DescribeState { block, meta } => HostReply::State(crate::states::describe(block, meta)),
         HostCall::IsClient => HostReply::Bool(crate::side::isClient()),

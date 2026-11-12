@@ -1,5 +1,8 @@
 use crate::entity::Entity;
+use std::cell::RefCell;
 use std::rc::Rc;
+
+const NAMESPACE: &str = "minecraft:";
 
 // why an entity is hurt, beta passed only the attacker so these are labels and change no vanilla rule
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -22,6 +25,8 @@ pub enum DamageKind
     Void,
     Kill,
     Magic,
+    // a mod damage type, the index of its name in the registered list
+    Mod(u16),
 }
 
 pub struct DamageRow
@@ -50,12 +55,60 @@ pub const ROWS: [DamageRow; 17] = [
     DamageRow { m_kind: DamageKind::Magic, m_name: "magic" },
 ];
 
+thread_local!
+{
+    static MODDED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+}
+
 impl DamageKind
 {
-    pub fn name(self) -> &'static str { ROWS.iter().find(|row| row.m_kind == self).map_or("generic", |row| row.m_name) }
+    // the full registry name, minecraft:<row> for beta kinds
+    pub fn name(self) -> String
+    {
+        match self
+        {
+            Self::Mod(index) =>
+            {
+                MODDED.with(|names| names.borrow().get(usize::from(index)).cloned()).unwrap_or_default()
+            }
+            kind =>
+            {
+                format!("{NAMESPACE}{}", ROWS.iter().find(|row| row.m_kind == kind).map_or("generic", |row| row.m_name))
+            }
+        }
+    }
 
-    pub fn byName(name: &str) -> Option<Self> { ROWS.iter().find(|row| row.m_name == name).map(|row| row.m_kind) }
+    pub fn byName(name: &str) -> Option<Self>
+    {
+        if let Some(path) = name.strip_prefix(NAMESPACE)
+        {
+            return ROWS.iter().find(|row| row.m_name == path).map(|row| row.m_kind);
+        }
+
+        MODDED
+            .with(|names| names.borrow().iter().position(|known| known == name))
+            .and_then(|index| u16::try_from(index).ok())
+            .map(Self::Mod)
+    }
 }
+
+// a mod damage type keeps its index for the session, registering a name again returns the same kind
+pub fn register(name: &str) -> DamageKind
+{
+    if let Some(kind) = DamageKind::byName(name)
+    {
+        return kind;
+    }
+
+    MODDED.with(|names|
+    {
+        let mut names = names.borrow_mut();
+        names.push(name.to_owned());
+        DamageKind::Mod(u16::try_from(names.len() - 1).expect("fewer than 65536 mod damage types"))
+    })
+}
+
+pub fn names() -> Vec<String> { ROWS.iter().map(|row| format!("{NAMESPACE}{}", row.m_name)).collect() }
 
 // the attacker is who beta passed as the source, the direct entity is the arrow or ball that hit
 #[derive(Clone, Copy)]

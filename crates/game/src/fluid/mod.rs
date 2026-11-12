@@ -139,4 +139,9 @@ pub fn eachModded(style: FluidStyle, mut body: impl FnMut(&Fluid))
     });
 }
 
+pub fn names() -> Vec<String>
+{
+    FLUIDS.with(|fluids| fluids.borrow().iter().map(|fluid| fluid.m_name.clone()).collect())
+}
+
 pub fn removeModded() { FLUIDS.with(|fluids| fluids.borrow_mut().retain(|fluid| fluid.vanilla())); }

@@ -79,6 +79,8 @@ impl RenderGlobal
 {
     pub fn new(minecraft: &Rc<Minecraft>, textureManager: &Rc<RenderEngine>) -> Rc<Self>
     {
+        world_access::nameParticles();
+
         let occlusionResult: IntBuffer = GLAllocation::createDirectIntBuffer(64);
         let glDummyList: i32 = GLAllocation::generateDisplayLists(1);
         let n3: i32 = 64;

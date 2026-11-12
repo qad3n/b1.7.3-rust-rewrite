@@ -20,8 +20,10 @@ thread_local!
     static KINDS: RefCell<BTreeMap<String, ParticleKind>> = const { RefCell::new(BTreeMap::new()) };
 }
 
-pub fn register(id: Identifier, spec: ParticleSpec)
+pub fn register(id: Identifier, spec: ParticleSpec) -> Result<(), String>
 {
+    crate::registry::claim(mod_protocol::abi::RegistryKind::Particle, &id)?;
+
     let kind: ParticleKind = ParticleKind
     {
         m_base: spec.base,
@@ -31,6 +33,7 @@ pub fn register(id: Identifier, spec: ParticleSpec)
         m_gravity: spec.gravity,
     };
     KINDS.with(|kinds| kinds.borrow_mut().insert(id.to_string(), kind));
+    Ok(())
 }
 
 pub fn kind(name: &str) -> Option<ParticleKind> { KINDS.with(|kinds| kinds.borrow().get(name).cloned()) }

@@ -111,11 +111,8 @@ pub fn register(
 
     TABLE.with(|table|
     {
+        crate::registry::claim(RegistryKind::Feature, &id)?;
         let mut table = table.borrow_mut();
-        if table.m_rows.iter().any(|row| row.m_id == id)
-        {
-            return Err(format!("feature {id} is already registered"));
-        }
 
         let key: i64 = super::worldgen::stableKey(&id);
         let at: usize = table.m_rows.partition_point(|row| (row.m_spec.step, row.m_key) < (spec.step, key));

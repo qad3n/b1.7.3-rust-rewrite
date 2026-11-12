@@ -70,6 +70,11 @@ thread_local!
     static BUILT: RefCell<Built> = RefCell::new(Built::default());
 }
 
+pub fn vanillaNames() -> Vec<String>
+{
+    VANILLA.iter().map(|row| Identifier::minecraft(row.m_key).to_string()).collect()
+}
+
 fn vanillaKind(row: &VanillaRow) -> Kind
 {
     Kind
@@ -83,17 +88,12 @@ fn vanillaKind(row: &VanillaRow) -> Kind
 
 pub fn register(modIndex: usize, id: Identifier, spec: StructureSpec, finder: Option<Handle>) -> Result<(), String>
 {
+    crate::registry::claim(mod_protocol::abi::RegistryKind::Structure, &id)?;
     KINDS.with(|kinds|
     {
-        let mut kinds: RefMut<Vec<Kind>> = kinds.borrow_mut();
-        if kinds.iter().any(|kind| kind.m_id == id)
-        {
-            return Err(format!("structure {id} is already registered"));
-        }
-
-        kinds.push(Kind { m_id: id, m_spec: spec, m_owner: Some(modIndex), m_finder: finder });
-        Ok(())
-    })
+        kinds.borrow_mut().push(Kind { m_id: id, m_spec: spec, m_owner: Some(modIndex), m_finder: finder })
+    });
+    Ok(())
 }
 
 fn dimensionId(numeric: i32) -> Option<Identifier>

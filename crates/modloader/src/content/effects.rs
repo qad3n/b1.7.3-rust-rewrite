@@ -99,6 +99,7 @@ fn build(id: Identifier, spec: EffectSpec, hooks: Option<Rc<dyn EffectHooks>>) -
         modifiers.push((attribute, modifier.amount, operation(modifier.operation)));
     }
 
+    crate::registry::claim(mod_protocol::abi::RegistryKind::Effect, &id)?;
     effect::register(EffectType
     {
         m_name: id.to_string(),

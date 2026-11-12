@@ -1,7 +1,9 @@
+mod kinds;
 mod report;
 mod tables;
 mod vanilla;
 
+pub use kinds::{KINDS, KindRow, addClientName, byFolder, singular};
 use mod_protocol::Identifier;
 pub use report::report;
 use std::cell::RefCell;
@@ -166,6 +168,9 @@ impl<T> Registry<T>
         Ok(())
     }
 
+    // rows without numbers only need the registry closed
+    pub fn close(&mut self) { self.m_frozen = true; }
+
     pub fn snapshot(&self) -> BTreeMap<Identifier, i32>
     {
         self.m_rows
@@ -257,6 +262,12 @@ impl<T> SyncedRegistry for Registry<T>
 thread_local!
 {
     static REGISTRIES: RefCell<Option<Registries>> = const { RefCell::new(None) };
+}
+
+// claims a mod entry of a named registry, the one duplicate and freeze check every such registry shares
+pub fn claim(kind: mod_protocol::abi::RegistryKind, id: &Identifier) -> Result<(), String>
+{
+    with(|registries| registries.claim(kind, id))
 }
 
 // vanilla rows are seeded on first use so a game without mods touches nothing early

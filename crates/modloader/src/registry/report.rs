@@ -15,6 +15,11 @@ pub fn report(registries: &Registries, owner: &str)
     section(&registries.m_fuel, owner, fuel);
     section(&registries.m_dimensions, owner, |_| String::new());
     section(&registries.m_biomes, owner, |_| String::new());
+
+    for registry in registries.m_named.values()
+    {
+        section(registry, owner, |()| String::new());
+    }
 }
 
 fn section<T>(registry: &Registry<T>, owner: &str, describe: fn(&T) -> String)
@@ -41,8 +46,18 @@ fn section<T>(registry: &Registry<T>, owner: &str, describe: fn(&T) -> String)
         };
         log::debug(
             owner,
-            &format!("  {} {} #{}{replaced}{}", registry.name(), row.m_id, row.m_numeric, describe(&row.m_value)),
+            &format!("  {} {}{}{replaced}{}", registry.name(), row.m_id, number(row.m_numeric), describe(&row.m_value)),
         );
+    }
+}
+
+// named registries have no numbers to show
+fn number(numeric: i32) -> String
+{
+    match numeric
+    {
+        super::UNASSIGNED => String::new(),
+        _ => format!(" #{numeric}"),
     }
 }
 
