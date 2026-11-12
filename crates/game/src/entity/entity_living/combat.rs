@@ -94,7 +94,8 @@ pub(crate) fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount:
             return false;
         }
 
-        this.damageEntity(amount - living.m_prevDamageTaken.get());
+        let taken: i32 = amount - living.m_prevDamageTaken.get();
+        crate::damage::applying(damage.m_kind, || this.damageEntity(taken));
         living.m_prevDamageTaken.set(amount);
         flag = false;
     }
@@ -103,7 +104,7 @@ pub(crate) fn attackEntityFrom(this: &Rc<Entity>, damage: &DamageSource, amount:
         living.m_prevDamageTaken.set(amount);
         living.m_prevHealth.set(living.m_health.get());
         this.m_heartsLife.set(living.m_heartsHalvesLife.get());
-        this.damageEntity(amount);
+        crate::damage::applying(damage.m_kind, || this.damageEntity(amount));
         living.m_maxHurtTime.set(10);
         living.m_hurtTime.set(10);
     }

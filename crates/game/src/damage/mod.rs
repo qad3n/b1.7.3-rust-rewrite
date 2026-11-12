@@ -1,5 +1,5 @@
 use crate::entity::Entity;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 const NAMESPACE: &str = "minecraft:";
@@ -58,6 +58,26 @@ pub const ROWS: [DamageRow; 17] = [
 thread_local!
 {
     static MODDED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    // the kind of the hit whose damage is being applied, so armor can ask whether the kind passes it
+    static APPLYING: Cell<Option<DamageKind>> = const { Cell::new(None) };
+}
+
+const BYPASSES_ARMOR: &str = "minecraft:bypasses_armor";
+
+// runs the damage step of a hit with its kind known, a hit inside a hit restores the outer kind
+pub fn applying<R>(kind: DamageKind, body: impl FnOnce() -> R) -> R
+{
+    let outer: Option<DamageKind> = APPLYING.with(|current| current.replace(Some(kind)));
+    let result: R = body();
+
+    APPLYING.with(|current| current.set(outer));
+    result
+}
+
+// beta armor reduces every hit, a damage type in the bypasses_armor tag goes straight through
+pub fn bypassesArmor() -> bool
+{
+    APPLYING.with(Cell::get).is_some_and(|kind| crate::hooks::damageTagged(&kind.name(), BYPASSES_ARMOR))
 }
 
 impl DamageKind

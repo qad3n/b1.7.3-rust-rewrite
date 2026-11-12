@@ -160,6 +160,17 @@ impl LoaderHooks for Hooks
 
     fn ruleChanged(&self, name: &str, value: &str) { crate::gamerules::changed(name, value); }
 
+    fn damageTagged(&self, kind: &str, tag: &str) -> bool
+    {
+        let (Ok(kind), Ok(tag)) = (mod_protocol::Identifier::parse(kind), mod_protocol::Identifier::parse(tag))
+        else
+        {
+            return false;
+        };
+
+        crate::content::tags::contains(mod_protocol::abi::RegistryKind::DamageType, &tag, &kind)
+    }
+
     fn rename(&self, name: &str) -> Option<String>
     {
         let id: mod_protocol::Identifier = mod_protocol::Identifier::parse(name).ok()?;

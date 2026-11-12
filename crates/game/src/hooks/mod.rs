@@ -261,6 +261,9 @@ pub trait LoaderHooks
 
     // a game rule took a new value, a server passes it on to modded clients
     fn ruleChanged(&self, _name: &str, _value: &str) {}
+
+    // whether a damage type is in a damage type tag
+    fn damageTagged(&self, _kind: &str, _tag: &str) -> bool { false }
 }
 
 thread_local!
@@ -371,6 +374,8 @@ pub fn blockByName(name: &str, properties: &[(String, String)], block: i32, meta
 {
     active()?.blockByName(name, properties, block, meta)
 }
+
+pub fn damageTagged(kind: &str, tag: &str) -> bool { active().is_some_and(|hooks| hooks.damageTagged(kind, tag)) }
 
 pub fn ruleChanged(name: &str, value: &str)
 {

@@ -163,6 +163,12 @@ pub fn alertWolves(this: &Rc<Entity>, target: &Rc<Entity>, wasAttackedByTarget: 
 
 pub(crate) fn damageEntity(this: &Rc<Entity>, mut amount: i32)
 {
+    if crate::damage::bypassesArmor()
+    {
+        (entity_living::CLASS.damageEntity)(this, amount);
+        return;
+    }
+
     let player: &PlayerFields = fields(this);
     let i: i32 = 25 - attribute::whole(this, Attribute::ARMOR, inventory(this).getTotalArmorValue());
     let j: i32 = amount * i + player.m_damageRemainder.get();
