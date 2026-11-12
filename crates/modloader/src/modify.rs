@@ -1,9 +1,10 @@
 use crate::log;
 use game::block::Block;
+use game::item::Item;
 use game::worldgen::{BiomeGenBase, SpawnListEntry};
 use jvm::array_list::JArrayList;
 use mod_protocol::Identifier;
-use mod_protocol::spec::{BlockModifySpec, SpawnModifySpec, ToolSpec};
+use mod_protocol::spec::{BlockModifySpec, ItemModifySpec, SpawnModifySpec, ToolSpec};
 use std::cell::{RefCell, RefMut};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -31,6 +32,7 @@ struct State
     // owner and change in the order mods registered them, which is load order
     m_blocks: Vec<(String, BlockModifySpec)>,
     m_spawns: Vec<(String, SpawnModifySpec)>,
+    m_items: Vec<(String, ItemModifySpec)>,
     m_tools: HashMap<i32, ToolSpec>,
     m_conflicts: Vec<String>,
 }
@@ -43,6 +45,11 @@ thread_local!
 pub fn queueBlock(owner: &str, spec: BlockModifySpec)
 {
     STATE.with(|state| state.borrow_mut().m_blocks.push((owner.to_owned(), spec)));
+}
+
+pub fn queueItem(owner: &str, spec: ItemModifySpec)
+{
+    STATE.with(|state| state.borrow_mut().m_items.push((owner.to_owned(), spec)));
 }
 
 pub fn queueSpawn(owner: &str, spec: SpawnModifySpec)
@@ -186,6 +193,21 @@ pub fn applySpawnsTo(biome: &BiomeGenBase, id: &Identifier)
     });
 }
 
+fn applyItem(item: Rc<Item>, spec: &ItemModifySpec)
+{
+    let mut item: Rc<Item> = item;
+
+    if let Some(size) = spec.max_stack
+    {
+        item = item.setMaxStackSize(size);
+    }
+
+    if let Some(damage) = spec.max_damage
+    {
+        item.setMaxDamage(damage);
+    }
+}
+
 fn applyBlock(block: Rc<Block>, spec: &BlockModifySpec, tools: &mut HashMap<i32, ToolSpec>)
 {
     let numeric: i32 = block.m_blockID;
@@ -259,6 +281,29 @@ pub fn apply()
             }
 
             applyBlock(block, spec, &mut state.m_tools);
+        }
+
+        for (owner, spec) in &state.m_items
+        {
+            let Some(item) = crate::registry::with(|registries| registries.itemId(&spec.target)).and_then(Item::byId)
+            else
+            {
+                log::warn(owner, &format!("modify names unknown item {}", spec.target));
+                continue;
+            };
+
+            let fields: [(&str, bool); 2] =
+                [("max_stack", spec.max_stack.is_some()), ("max_damage", spec.max_damage.is_some())];
+            for (field, _) in fields.iter().filter(|(_, present)| *present)
+            {
+                if let Some(previous) = writers.insert((spec.target.clone(), field), owner.clone())
+                    && previous != *owner
+                {
+                    state.m_conflicts.push(format!("{} {field}: {previous} then {owner}, {owner} wins", spec.target));
+                }
+            }
+
+            applyItem(item, spec);
         }
 
         for conflict in &state.m_conflicts

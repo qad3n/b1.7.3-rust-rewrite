@@ -106,6 +106,18 @@ pub fn addJob(id: &Identifier, job: MachineJobSpec, rules: Vec<JobInputRule>) ->
     with(id, |machine| machine.m_jobs.push(Job { m_spec: job, m_rules: rules }))
 }
 
+// a modify file drops every job of the machine that makes one of the items
+pub fn removeOutputs(id: &Identifier, outputs: &[Identifier]) -> Result<(), String>
+{
+    with(id, |machine|
+    {
+        machine.m_jobs.retain(|job|
+        {
+            !job.m_spec.outputs.iter().any(|output| output.item.as_ref().is_some_and(|item| outputs.contains(item)))
+        });
+    })
+}
+
 pub fn addFuel(id: &Identifier, fuel: MachineFuelSpec) -> Result<(), String>
 {
     if vanilla(id)

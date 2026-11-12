@@ -49,6 +49,19 @@ thread_local!
     static MODELS: RefCell<HashMap<Identifier, Rc<mod_protocol::spec::EntityModelSpec>>> = RefCell::new(HashMap::new());
 }
 
+// the tile type and its registry row, from code or a data file
+pub fn register(id: Identifier, owner: &str, modIndex: usize, spec: TileEntitySpec) -> Result<(), String>
+{
+    define(id.clone(), modIndex, spec);
+
+    crate::registry::with(|registries|
+    {
+        let entry: crate::registry::TileEntityEntry =
+            crate::registry::TileEntityEntry { m_saveId: id.to_string(), m_spec: None };
+        registries.m_tileEntities.register(id, owner, entry).map_err(|error| error.to_string())
+    })
+}
+
 pub fn define(id: Identifier, owner: usize, spec: TileEntitySpec)
 {
     let tileType: Rc<TileType> = Rc::new(TileType

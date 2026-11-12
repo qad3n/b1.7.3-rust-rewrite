@@ -1,7 +1,7 @@
 use super::{ok, unit};
 use crate::content::loot::RuleKind;
 use crate::content::{data, tags};
-use crate::registry::{self, RegistryError, TileEntityEntry};
+use crate::registry::{self, RegistryError};
 use crate::state::{self, ModRuntime, Phase};
 use mod_protocol::Identifier;
 use mod_protocol::abi::{HostCall, HostReply, RegistryKind, StateData};
@@ -93,19 +93,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             unit(registering().and_then(|()| crate::tiles::registerModel(runtime.m_index, tile, model)))
         }
 
-        HostCall::RegisterTileEntity { name, spec } =>
-        {
-            unit(registering().and_then(|()| runtime.own(&name)).and_then(|id|
-            {
-                crate::tiles::define(id.clone(), runtime.m_index, spec);
-
-                registry::with(|registries|
-                {
-                    let entry: TileEntityEntry = registry::TileEntityEntry { m_saveId: id.to_string(), m_spec: None };
-                    registries.m_tileEntities.register(id, &owner, entry).map_err(registryError)
-                })
-            }))
-        }
+        HostCall::RegisterTileEntity { name, spec } => unit(
+            registering()
+                .and_then(|()| runtime.own(&name))
+                .and_then(|id| crate::tiles::register(id, &owner, runtime.m_index, spec)),
+        ),
 
         HostCall::RegisterEntity { name, spec } => unit(
             registering()
@@ -126,6 +118,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             })
         })),
         HostCall::ModifyBlock { spec } => unit(registering().map(|()| crate::modify::queueBlock(&owner, spec))),
+        HostCall::ModifyItem { spec } => unit(registering().map(|()| crate::modify::queueItem(&owner, spec))),
+        HostCall::ModifyMachine { spec } =>
+        {
+            unit(loading().and_then(|()| crate::content::machines::removeOutputs(&spec.machine, &spec.remove_outputs)))
+        }
         HostCall::RegisterBlockStates { block, spec } => unit(
             registering()
                 .and_then(|()| runtime.own(&block.to_string()))

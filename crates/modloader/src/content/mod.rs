@@ -2,6 +2,7 @@ pub mod accessories;
 pub mod blocks;
 pub mod custom;
 pub mod data;
+pub mod deferred;
 pub mod effects;
 pub mod features;
 pub mod fluids;

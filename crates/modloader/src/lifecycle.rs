@@ -563,7 +563,8 @@ fn start(paths: &LoaderPaths)
             Ok(())
         };
 
-        let mut problems: Vec<String> = data::load(&id, &mut runtime.m_source.borrow_mut());
+        let owner: data::Owner = data::Owner { m_id: id.clone(), m_index: Some(runtime.m_index) };
+        let mut problems: Vec<String> = data::load(&owner, &mut runtime.m_source.borrow_mut());
         problems.extend(supplied.err());
         for problem in problems
         {
@@ -589,7 +590,11 @@ fn start(paths: &LoaderPaths)
         runtime.register();
     }
 
-    for (owner, reason) in crate::states::registerPages().into_iter().chain(content::custom::settle())
+    let overrides: Vec<(String, String)> = content::deferred::loadOverrides(&paths.m_config);
+    let settled: Vec<(String, String)> = content::deferred::settle();
+
+    for (owner, reason) in
+        overrides.into_iter().chain(settled).chain(crate::states::registerPages()).chain(content::custom::settle())
     {
         state::problem(&owner, "", &reason);
     }
