@@ -465,7 +465,11 @@ impl ConsoleCommandHandler
     // an op name has no account until its owner registers with an invite
     fn warnUnregisteredOp(&self, source: &Rc<dyn ICommandListener>, target: &str)
     {
-        let service: Rc<ServerAuth> = self.m_minecraftServer.auth();
+        let Some(service) = self.m_minecraftServer.auth()
+        else
+        {
+            return;
+        };
         if auth::canonical(target).is_some_and(|name| service.vault().account(&name).is_none())
         {
             source.log(&format!(
@@ -476,7 +480,12 @@ impl ConsoleCommandHandler
 
     fn authCommand(&self, source: &Rc<dyn ICommandListener>, text: &str)
     {
-        let service: Rc<ServerAuth> = self.m_minecraftServer.auth();
+        let Some(service) = self.m_minecraftServer.auth()
+        else
+        {
+            source.log("Password auth is off, set password-auth=true in server.properties to use accounts");
+            return;
+        };
         let words: Vec<&str> = text.split_whitespace().collect();
         let (Some(action), Some(target)) = (words.get(1), words.get(2))
         else

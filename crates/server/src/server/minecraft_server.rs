@@ -127,7 +127,8 @@ impl MinecraftServer
 
     pub fn configManager(&self) -> Rc<ServerConfigurationManager> { self.m_configManager.get().orNpe() }
 
-    pub fn auth(&self) -> Rc<ServerAuth> { self.m_auth.get().orNpe() }
+    // None when server.properties turns password auth off
+    pub fn auth(&self) -> Option<Rc<ServerAuth>> { self.m_auth.get() }
 
     pub fn worldMngr(&self) -> Vec<Rc<World>> { self.m_worldMngr.get().orNpe().into_iter().map(OrNpe::orNpe).collect() }
 
@@ -166,15 +167,23 @@ impl MinecraftServer
         self.m_pvpOn.set(self.propertyManager().getBooleanProperty("pvp", true));
         self.m_allowFlight.set(self.propertyManager().getBooleanProperty("allow-flight", false));
 
-        match ServerAuth::load(&self.propertyManager())
+        // password-auth=false lets any name join without an account, for test and trusted private servers
+        if self.propertyManager().getBooleanProperty("password-auth", true)
         {
-            Ok(auth) => self.m_auth.set(Some(auth)),
-
-            Err(error) =>
+            match ServerAuth::load(&self.propertyManager())
             {
-                severe!("**** CANNOT START PASSWORD AUTH: {error}");
-                return Ok(false);
+                Ok(auth) => self.m_auth.set(Some(auth)),
+
+                Err(error) =>
+                {
+                    severe!("**** CANNOT START PASSWORD AUTH: {error}");
+                    return Ok(false);
+                }
             }
+        }
+        else
+        {
+            warning!("Password auth is off (password-auth=false), any name can join as anyone");
         }
 
         let mut inetaddress: Option<IpAddr> = None;
@@ -200,8 +209,10 @@ impl MinecraftServer
             }
         }
 
-        let auth: Rc<ServerAuth> = self.auth();
-        info!("Password auth has {} accounts, registration is {:?}", auth.vault().count(), auth.policy());
+        if let Some(auth) = self.auth()
+        {
+            info!("Password auth has {} accounts, registration is {:?}", auth.vault().count(), auth.policy());
+        }
         let storage: SaveConverterMcRegion = SaveConverterMcRegion::new(Path::new("."));
         let levelName: String = self.propertyManager().getStringProperty("level-name", "world");
         // rewrite: conversion backs the world up first, before the loader reads or writes anything in it

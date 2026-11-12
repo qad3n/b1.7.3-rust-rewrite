@@ -256,7 +256,14 @@ impl NetLoginHandler
 
     fn startAuth(&self, packet: &Packet1Login)
     {
-        let service: Rc<ServerAuth> = self.m_mcServer.auth();
+        // with password auth off the login goes straight on, as a vanilla server's does
+        let Some(service) = self.m_mcServer.auth()
+        else
+        {
+            self.m_authed.set(true);
+            self.doLogin(packet);
+            return;
+        };
 
         if packet.m_dimension & auth::LOGIN_FLAG == 0
         {
@@ -356,7 +363,12 @@ impl NetLoginHandler
             return;
         };
 
-        let service: Rc<ServerAuth> = self.m_mcServer.auth();
+        let Some(service) = self.m_mcServer.auth()
+        else
+        {
+            self.kickUser(PROTOCOL_ERROR);
+            return;
+        };
         let mut current: std::cell::RefMut<'_, Option<auth::Handshake>> = self.m_auth.borrow_mut();
         let Some(handshake) = current.as_mut()
         else

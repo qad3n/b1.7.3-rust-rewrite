@@ -265,7 +265,11 @@ impl NetServerHandler
 
     fn authPayload(&self, data: &[u8])
     {
-        let service: Rc<ServerAuth> = self.m_mcServer.auth();
+        let Some(service) = self.m_mcServer.auth()
+        else
+        {
+            return;
+        };
 
         let Ok(message) = auth::Message::decode(data)
         else
