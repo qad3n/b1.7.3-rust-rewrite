@@ -10,6 +10,7 @@ pub enum Atlas
 {
     Terrain,
     Items,
+    Particles,
 }
 
 // slots the vanilla sheets fill with the purple placeholder or leave transparent, taken from the b1.7.3 pngs
@@ -31,6 +32,9 @@ const ITEMS_FREE: [i32; 120] = [
 
 pub const TERRAIN_PATH: &str = "/terrain.png";
 pub const ITEMS_PATH: &str = "/gui/items.png";
+pub const PARTICLES_PATH: &str = "/particles.png";
+// beta's particle sheet only draws in its top half, mod particle sprites take the rows below
+const PARTICLES_FIRST_FREE: i32 = 128;
 const SHEET_TILES: i32 = 16;
 pub(crate) const VANILLA_TILES: i32 = 256;
 
@@ -155,6 +159,7 @@ pub fn assign()
             TERRAIN_FREE.iter().copied().chain(VANILLA_TILES..);
         let mut items: std::iter::Chain<Copied<std::slice::Iter<i32>>, std::ops::RangeFrom<i32>> =
             ITEMS_FREE.iter().copied().chain(VANILLA_TILES..);
+        let mut particles: std::ops::RangeFrom<i32> = PARTICLES_FIRST_FREE..;
 
         for key in requested
         {
@@ -162,6 +167,7 @@ pub fn assign()
             {
                 Atlas::Terrain => terrain.next(),
                 Atlas::Items => items.next(),
+                Atlas::Particles => particles.next(),
             };
             if let Some(slot) = slot
             {
@@ -194,6 +200,7 @@ fn atlasOf(path: &str) -> Option<Atlas>
     {
         TERRAIN_PATH => Some(Atlas::Terrain),
         ITEMS_PATH => Some(Atlas::Items),
+        PARTICLES_PATH => Some(Atlas::Particles),
         _ => None,
     }
 }
@@ -478,9 +485,8 @@ pub fn pixels(id: &Identifier) -> Option<(u32, Vec<u32>)>
     STATE.with(|state|
     {
         let state: std::cell::Ref<crate::atlas::State> = state.borrow();
-        let sprite: &Sprite = [Atlas::Terrain, Atlas::Items]
-            .into_iter()
-            .find_map(|sheet| state.m_sprites.get(&(sheet, id.clone())))?;
+        let sprite: &Sprite =
+            [Atlas::Terrain, Atlas::Items].into_iter().find_map(|sheet| state.m_sprites.get(&(sheet, id.clone())))?;
         Some((sprite.m_size, sprite.m_argb.iter().map(|pixel| *pixel as u32).collect()))
     })
 }

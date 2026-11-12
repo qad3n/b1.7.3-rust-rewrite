@@ -109,7 +109,12 @@ pub fn register(engine: &Rc<RenderEngine>)
 // mod sprites drawn as frame strips step through their frames once a tick like the vanilla texture effects
 fn animate(engine: &RenderEngine)
 {
-    for (sheet, path) in [(Atlas::Terrain, atlas::TERRAIN_PATH), (Atlas::Items, atlas::ITEMS_PATH)]
+    let sheets: [(Atlas, &str); 3] = [
+        (Atlas::Terrain, atlas::TERRAIN_PATH),
+        (Atlas::Items, atlas::ITEMS_PATH),
+        (Atlas::Particles, atlas::PARTICLES_PATH),
+    ];
+    for (sheet, path) in sheets
     {
         let due: Vec<AnimatedTile> = atlas::animate(sheet);
         if due.is_empty()

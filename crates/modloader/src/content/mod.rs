@@ -151,6 +151,7 @@ pub(crate) fn checkTexture(texture: &str, atlas: Atlas) -> Result<(), String>
     {
         Atlas::Terrain => ("terrain", "block"),
         Atlas::Items => ("items", "item"),
+        Atlas::Particles => ("particles", "particle"),
     };
     Err(format!("unknown vanilla texture {texture}, use minecraft:{number}/<slot> or minecraft:{named}/<sprite name>"))
 }

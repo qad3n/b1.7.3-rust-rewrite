@@ -12,7 +12,8 @@ const ICON_CRACK: &str = "iconcrack_";
 const BLOCK_CRACK: &str = "blockcrack_";
 const TINTED_PORTAL: &str = "tintportal_";
 const HEX: u32 = 16;
-const CHANNEL: f32 = 255.0;
+// the effect renderer layer that draws from particles.png
+const PARTICLE_SHEET: i32 = 0;
 
 // particles mods name that vanilla RenderGlobal.spawnParticle does not know
 pub fn spawn(
@@ -45,10 +46,20 @@ fn registered(
 
     if let Some(color) = spec.m_color
     {
-        let channel = |shift: u32| ((color >> shift) & 0xFF) as f32 / CHANNEL;
-        fields.m_particleRed.set(channel(16));
-        fields.m_particleGreen.set(channel(8));
-        fields.m_particleBlue.set(channel(0));
+        let [red, green, blue]: [f32; 3] = game::math::math_helper::rgb(color);
+        fields.m_particleRed.set(red);
+        fields.m_particleGreen.set(green);
+        fields.m_particleBlue.set(blue);
+    }
+
+    // a mod sprite on the particle sheet, only for bases that draw from that sheet
+    let sprite: Option<i32> = spec
+        .m_texture
+        .as_ref()
+        .and_then(|texture| modloader::atlas::slotOf(modloader::atlas::Atlas::Particles, texture));
+    if let Some(sprite) = sprite.filter(|_| particle.getFXLayer() == PARTICLE_SHEET)
+    {
+        fields.m_particleTextureIndex.set(sprite);
     }
 
     if let Some(scale) = spec.m_scale
@@ -77,10 +88,10 @@ fn tintedPortal(name: &str, world: &Rc<World>, pos: [f64; 3], motion: [f64; 3]) 
     let [velocityX, velocityY, velocityZ] = motion;
     let particle: Rc<Entity> = entity_portal_fx::new(world, x, y, z, velocityX, velocityY, velocityZ);
     let fields: &FXFields = entity_fx::fx(&particle);
-    let channel = |shift: u32| ((color >> shift) & 0xFF) as f32 / CHANNEL;
-    fields.m_particleRed.set(channel(16));
-    fields.m_particleGreen.set(channel(8));
-    fields.m_particleBlue.set(channel(0));
+    let [red, green, blue]: [f32; 3] = game::math::math_helper::rgb(color);
+    fields.m_particleRed.set(red);
+    fields.m_particleGreen.set(green);
+    fields.m_particleBlue.set(blue);
     Some(particle)
 }
 

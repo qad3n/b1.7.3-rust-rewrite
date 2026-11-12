@@ -599,6 +599,11 @@ fn start(paths: &LoaderPaths)
         state::problem(&owner, "", &reason);
     }
 
+    if side::isClient()
+    {
+        content::particles::requestTextures();
+    }
+
     atlas::assign();
     log::debug(log::LOADER, &format!("register phase took {}", took(stage)));
 

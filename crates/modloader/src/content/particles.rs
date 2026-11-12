@@ -12,6 +12,8 @@ pub struct ParticleKind
     pub m_scale: Option<f32>,
     pub m_lifetime: Option<i32>,
     pub m_gravity: Option<f32>,
+    // a sprite on the particle sheet when the mod ships textures/particle/<name>.png
+    pub m_texture: Option<Identifier>,
 }
 
 thread_local!
@@ -31,9 +33,39 @@ pub fn register(id: Identifier, spec: ParticleSpec) -> Result<(), String>
         m_scale: spec.scale,
         m_lifetime: spec.lifetime,
         m_gravity: spec.gravity,
+        m_texture: None,
     };
     KINDS.with(|kinds| kinds.borrow_mut().insert(id.to_string(), kind));
     Ok(())
+}
+
+// a mod particle with textures/particle/<name>.png in its mod or a pack draws that sprite, client only
+pub fn requestTextures()
+{
+    KINDS.with(|kinds|
+    {
+        for (name, kind) in kinds.borrow_mut().iter_mut()
+        {
+            let Ok(id) = Identifier::parse(name)
+            else
+            {
+                continue;
+            };
+
+            let Ok(texture) = Identifier::new(id.namespace(), &format!("particle/{}", id.path()))
+            else
+            {
+                continue;
+            };
+            let location: game::resources::Location =
+                game::resources::Location::new(texture.namespace(), &format!("textures/{}.png", texture.path()));
+            if game::resources::read(&location).is_some()
+            {
+                crate::atlas::request(crate::atlas::Atlas::Particles, &texture.to_string());
+                kind.m_texture = Some(texture);
+            }
+        }
+    });
 }
 
 pub fn kind(name: &str) -> Option<ParticleKind> { KINDS.with(|kinds| kinds.borrow().get(name).cloned()) }
