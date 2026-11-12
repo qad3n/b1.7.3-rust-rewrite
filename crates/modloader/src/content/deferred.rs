@@ -19,7 +19,11 @@ struct Waiting
 thread_local!
 {
     static WAITING: RefCell<Vec<Waiting>> = const { RefCell::new(Vec::new()) };
+    // the override folder's data files, shown in the mods menu
+    static OVERRIDES: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
+
+pub fn overrides() -> Vec<String> { OVERRIDES.with(|files| files.borrow().clone()) }
 
 pub fn push(owner: &Owner, name: String, parsed: Parsed)
 {
@@ -62,6 +66,7 @@ pub fn loadOverrides(config: &Path) -> Vec<(String, String)>
     }
 
     crate::log::info(crate::log::LOADER, &format!("{} data override files in {}", names.len(), root.display()));
+    OVERRIDES.with(|files| *files.borrow_mut() = names);
     problems
 }
 

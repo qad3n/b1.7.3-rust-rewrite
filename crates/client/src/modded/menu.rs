@@ -53,6 +53,7 @@ const DARK_GREY: i32 = 0x808080;
 const ELLIPSIS: &str = "...";
 const LOADER_TITLE: &str = "Mod Loader";
 const KEY_CONFLICT_TITLE: &str = "Key conflicts";
+const OVERRIDES_TITLE: &str = "Data overrides";
 const MODIFY_CONFLICT_TITLE: &str = "Block changes";
 const SELECT_HINT: &str = "Select a mod to see its details";
 
@@ -312,6 +313,14 @@ fn entries() -> Vec<Entry>
         let details: Vec<Line> =
             conflicts.into_iter().map(|(first, second)| (format!("{first} and {second}"), RED)).collect();
         entries.push(entry(KEY_CONFLICT_TITLE, Status::Warning, details));
+    }
+
+    // data files the player or server owner put in config/data, applied after every mod
+    let overrides: Vec<String> = modloader::content::deferred::overrides();
+    if !overrides.is_empty()
+    {
+        let details: Vec<Line> = overrides.into_iter().map(|file| (format!("config/{file}"), GREY)).collect();
+        entries.push(entry(OVERRIDES_TITLE, Status::Loaded, details));
     }
 
     let changes: Vec<String> = modloader::modify::conflicts();
