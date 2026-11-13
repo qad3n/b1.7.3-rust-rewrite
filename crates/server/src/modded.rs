@@ -1,6 +1,7 @@
 use crate::network::NetServerHandler;
 use crate::player::entity_player_mp;
 use crate::server::{MinecraftServer, PropertyManager};
+use crate::world::{ChunkProviderServer, world_server};
 use game::container::Container;
 use game::entity::{Entity, entity_player};
 use game::inventory::IInventory;
@@ -87,7 +88,24 @@ pub fn teleport(player: &Rc<Entity>, dimension: i32, pos: [f64; 3]) -> Result<()
 
     player.setLocationAndAngles(pos[0], pos[1], pos[2], player.m_rotationYaw.get(), player.m_rotationPitch.get());
     handler.teleportTo(pos[0], pos[1], pos[2], player.m_rotationYaw.get(), player.m_rotationPitch.get());
+
+    if current != dimension
+    {
+        arrived(player, current, dimension);
+    }
+
     Ok(())
+}
+
+// listeners run after the final move so their own teleport sticks, with chunks loading on demand as Teleporter has
+fn arrived(player: &Rc<Entity>, from: i32, to: i32)
+{
+    let world: Rc<game::world::World> = entity_player_mp::mcServer(player).getWorldManager(to);
+    let chunks: Rc<ChunkProviderServer> = world_server::chunkProviderServer(&world);
+
+    chunks.m_chunkLoadOverride.set(true);
+    modloader::play::dimensionChanged(player, from, to);
+    chunks.m_chunkLoadOverride.set(false);
 }
 
 // sendPlayerToOtherDimension for any pair of dimensions and an exact target point
@@ -113,6 +131,5 @@ fn travel(player: &Rc<Entity>, from: i32, to: i32, pos: [f64; 3]) -> Result<(), 
     target.updateEntityWithOptionalForce(player, false);
     server.configManager().onChangedDimension(player);
     player.setWorld(Some(Rc::clone(&target)));
-    modloader::play::dimensionChanged(player, from, to);
     Ok(())
 }
