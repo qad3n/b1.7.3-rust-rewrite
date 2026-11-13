@@ -273,6 +273,7 @@ pub(crate) const TAGS: &[VanillaTag] = &[
     item("c:storage_blocks/diamond", &["minecraft:diamond_block"]),
     item("c:storage_blocks/lapis", &["minecraft:lapis_block"]),
     item("c:gravels", &["minecraft:gravel"]),
+    item("c:music_discs", &["minecraft:record_13", "minecraft:record_cat"]),
     item("minecraft:ice", &["minecraft:ice"]),
     item("c:ingots", &["minecraft:iron_ingot", "minecraft:gold_ingot"]),
     item("c:ingots/iron", &["minecraft:iron_ingot"]),
