@@ -406,6 +406,15 @@ result = false
 fires_in = "World::releaseEntitySkin"
 
 [[hook]]
+name = "lightning_strike"
+version = 1
+kind = "event"
+side = "both"
+cancellable = true
+result = false
+fires_in = "EntityLightningBolt::onUpdate"
+
+[[hook]]
 name = "living_attack"
 version = 1
 kind = "event"

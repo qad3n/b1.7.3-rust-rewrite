@@ -204,7 +204,7 @@ fn numericBlocks(members: &BTreeMap<Identifier, bool>) -> BTreeSet<i32>
 // beta biomes go by their display name, a vanilla identifier maps through the shared biome table
 fn vanillaBiome(name: &str) -> Option<Identifier>
 {
-    crate::registry::BIOMES
+    game::worldgen::BiomeGenBase::NAMED
         .iter()
         .find(|(_, biome)| biome().m_biomeName.get() == name)
         .map(|(path, _)| Identifier::minecraft(path))
@@ -214,7 +214,7 @@ fn biomeName(id: &Identifier) -> Option<String>
 {
     if id.isVanilla()
     {
-        return crate::registry::BIOMES
+        return game::worldgen::BiomeGenBase::NAMED
             .iter()
             .find(|(path, _)| *path == id.path())
             .map(|(_, biome)| biome().m_biomeName.get().to_owned());

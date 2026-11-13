@@ -41,7 +41,7 @@ mod world_gen_tall_grass;
 mod world_gen_trees;
 mod world_generator;
 
-pub use biome_gen_base::{BIOME_GEN_BASE, BiomeGenBase, BiomeGenBaseClass};
+pub use biome_gen_base::{BIOME_GEN_BASE, BiomeGenBase, BiomeGenBaseClass, NamedBiome};
 pub use biome_gen_desert::BIOME_GEN_DESERT;
 pub use biome_gen_forest::BIOME_GEN_FOREST;
 pub use biome_gen_hell::BIOME_GEN_HELL;

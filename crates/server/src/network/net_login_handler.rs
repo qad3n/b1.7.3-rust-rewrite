@@ -222,6 +222,30 @@ impl NetLoginHandler
                 )
                 .as_str(),
             ))));
+            // a configured modded client gets its mod channels before the login event so what mods and the loader send
+            // from that event reaches it
+            if let Some(session) = self.m_session.borrow().as_ref()
+            {
+                let handler: Weak<NetServerHandler> = Rc::downgrade(&netServerHandler);
+
+                let raw: Rc<dyn Fn(u32, Vec<u8>)> = Rc::new(move |channel: u32, body: Vec<u8>|
+                {
+                    if let Some(handler) = handler.upgrade()
+                    {
+                        let payload: Packet250ModPayload = if modloader::network::queuedBehindChunks()
+                        {
+                            Packet250ModPayload::withChunkData(channel, body)
+                        }
+                        else
+                        {
+                            Packet250ModPayload::new(channel, body)
+                        };
+                        handler.sendPacket(Box::new(payload));
+                    }
+                });
+                modloader::netsync::serverPlayerJoined(entityPlayerMP.m_entityId.get(), session, raw);
+            }
+
             self.m_mcServer.configManager().playerLoggedIn(&entityPlayerMP);
             netServerHandler.teleportTo(
                 entityPlayerMP.m_posX.get(),
@@ -231,21 +255,6 @@ impl NetLoginHandler
                 entityPlayerMP.m_rotationPitch.get(),
             );
             self.m_mcServer.networkServer().addPlayer(&netServerHandler);
-
-            // a configured modded client gets its mod channels for play
-            if let Some(session) = self.m_session.borrow().as_ref()
-            {
-                let handler: Weak<NetServerHandler> = Rc::downgrade(&netServerHandler);
-
-                let raw: Rc<dyn Fn(u32, Vec<u8>)> = Rc::new(move |channel: u32, body: Vec<u8>|
-                {
-                    if let Some(handler) = handler.upgrade()
-                    {
-                        handler.sendPacket(Box::new(Packet250ModPayload::new(channel, body)));
-                    }
-                });
-                modloader::netsync::serverPlayerJoined(entityPlayerMP.m_entityId.get(), session, raw);
-            }
 
             netServerHandler.sendPacket(Box::new(Packet4UpdateTime::new(worldServer.getDayTime())));
             entity_player_mp::initMenu(&entityPlayerMP);

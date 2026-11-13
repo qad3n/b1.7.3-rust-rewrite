@@ -1,4 +1,3 @@
-use super::vanilla::{self, BIOMES, BLOCK_NAMES, DIMENSIONS, ITEM_NAMES, RECORD_NAMES};
 use super::{Registry, SyncedRegistry};
 use game::block::Block;
 use game::crafting::{CraftingManager, FurnaceRecipes, IRecipe};
@@ -113,12 +112,12 @@ impl Registries
         registries.seedPackets();
         registries.seedNamed();
 
-        for (numeric, name) in DIMENSIONS
+        for (numeric, name) in game::world::WorldProvider::NAMES
         {
             registries.m_dimensions.seed(Identifier::minecraft(name), numeric, DimensionEntry);
         }
 
-        for (numeric, (name, _)) in BIOMES.iter().enumerate()
+        for (numeric, (name, _)) in game::worldgen::BiomeGenBase::NAMED.iter().enumerate()
         {
             registries.m_biomes.seed(Identifier::minecraft(name), numeric as i32, BiomeEntry);
         }
@@ -128,32 +127,21 @@ impl Registries
 
     fn seedBlocksAndItems(&mut self)
     {
-        for (id, name) in BLOCK_NAMES.iter().enumerate().skip(1)
+        // the game names its own blocks and items, a row whose object the game did not build is left out
+        for (id, name) in Block::NAMES.iter().copied().filter(|(id, _)| Block::byId(*id).is_some())
         {
-            if Block::byId(id as i32).is_some()
-            {
-                self.m_blocks.seed(Identifier::minecraft(name), id as i32, BlockEntry { m_spec: None, m_page: None });
-            }
+            self.m_blocks.seed(Identifier::minecraft(name), id, BlockEntry { m_spec: None, m_page: None });
         }
 
-        for (index, name) in ITEM_NAMES.iter().enumerate()
-        {
-            let numeric: i32 = 256 + index as i32;
-            if Item::byId(numeric).is_some()
-            {
-                self.m_items.seed(Identifier::minecraft(name), numeric, ItemEntry { m_spec: None, m_block: None });
-            }
-        }
-
-        for (numeric, name) in RECORD_NAMES
+        for (numeric, name) in Item::NAMES.iter().copied().filter(|(numeric, _)| Item::byId(*numeric).is_some())
         {
             self.m_items.seed(Identifier::minecraft(name), numeric, ItemEntry { m_spec: None, m_block: None });
         }
 
         // a block item whose name a real item already uses, such as the bed block, takes a _block suffix
-        for (id, name) in BLOCK_NAMES.iter().enumerate().skip(1)
+        for (id, name) in Block::NAMES.iter().copied()
         {
-            if Item::byId(id as i32).is_none()
+            if Item::byId(id).is_none()
             {
                 continue;
             }
@@ -167,7 +155,7 @@ impl Registries
             {
                 plain.clone()
             };
-            self.m_items.seed(itemId, id as i32, ItemEntry { m_spec: None, m_block: Some(plain) });
+            self.m_items.seed(itemId, id, ItemEntry { m_spec: None, m_block: Some(plain) });
         }
     }
 
@@ -175,13 +163,13 @@ impl Registries
     {
         for (key, numeric) in EntityList::vanillaRows()
         {
-            let id: Identifier = Identifier::minecraft(&vanilla::snakeCase(key));
+            let id: Identifier = Identifier::minecraft(&snakeCase(key));
             self.m_entities.seed(id, numeric, EntityEntry { m_saveKey: key.to_owned(), m_spec: None });
         }
 
         for (index, saveId) in TileEntityKind::vanillaIds().enumerate()
         {
-            let id: Identifier = Identifier::minecraft(&vanilla::snakeCase(saveId));
+            let id: Identifier = Identifier::minecraft(&snakeCase(saveId));
             self.m_tileEntities.seed(id, index as i32, TileEntityEntry { m_saveId: saveId.to_owned(), m_spec: None });
         }
     }
@@ -287,4 +275,29 @@ impl Registries
     pub fn blockId(&self, id: &Identifier) -> Option<i32> { self.m_blocks.numeric(id) }
 
     pub fn itemId(&self, id: &Identifier) -> Option<i32> { self.m_items.numeric(id) }
+}
+
+// java class keys such as PigZombie become pig_zombie
+fn snakeCase(key: &str) -> String
+{
+    let mut out: String = String::with_capacity(key.len() + 4);
+
+    for (index, character) in key.chars().enumerate()
+    {
+        if character.is_ascii_uppercase()
+        {
+            if index > 0
+            {
+                out.push('_');
+            }
+
+            out.push(character.to_ascii_lowercase());
+        }
+        else
+        {
+            out.push(character);
+        }
+    }
+
+    out
 }

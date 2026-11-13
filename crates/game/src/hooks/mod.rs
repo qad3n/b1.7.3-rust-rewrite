@@ -119,6 +119,11 @@ pub enum GameEvent<'a>
         world: &'a Rc<World>, entity: &'a Rc<Entity>
     },
 
+    LightningStrike
+    {
+        entity: &'a Rc<Entity>
+    },
+
     LivingAttack
     {
         entity: &'a Rc<Entity>, damage: &'a DamageSource<'a>, amount: &'a mut i32

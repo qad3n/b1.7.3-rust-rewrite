@@ -409,8 +409,7 @@ pub fn locate(world: &Rc<World>, structure: &Identifier, from: BlockPos, radius:
 
 pub fn load(world: &World)
 {
-    let saved: Vec<Saved> =
-        crate::persist::read(world, FILE).and_then(|bytes| crate::persist::decode(FILE, &bytes)).unwrap_or_default();
+    let saved: Vec<Saved> = crate::persist::load(world, FILE).unwrap_or_default();
     let mut built: Built = Built::default();
 
     for mut entry in saved
@@ -451,7 +450,7 @@ pub fn save(world: &World)
         return;
     }
 
-    if let Err(error) = crate::persist::write(world, FILE, &mod_protocol::wire::encode(&saved))
+    if let Err(error) = crate::persist::save(world, FILE, &saved)
     {
         crate::log::error(crate::log::LOADER, &format!("could not save structure starts: {error}"));
     }

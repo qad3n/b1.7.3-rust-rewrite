@@ -11,7 +11,7 @@ use game::world::World;
 use jvm::string::JString;
 use mod_protocol::Identifier;
 use mod_protocol::abi::{BlockPos, EntityCall, GuestCall, GuestReply};
-use mod_protocol::spec::{EntityMethod, EntitySpec};
+use mod_protocol::spec::{AttachmentSpec, EntityMethod, EntitySpec};
 use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
@@ -164,7 +164,14 @@ pub fn fuse(entity: &Entity) -> i32
     }
 
     let primed: bool = entity.instanceOf(PRIMED_BLOCK.m_name);
-    primed.then(|| game::entity::entity_falling_sand::fields(entity).m_fallTime.get()).unwrap_or(0)
+    if primed
+    {
+        game::entity::entity_falling_sand::fields(entity).m_fallTime.get()
+    }
+    else
+    {
+        0
+    }
 }
 
 pub fn setFuse(entity: &Entity, value: i32)
@@ -309,15 +316,18 @@ pub struct EntityType
     m_texture: Option<JString>,
 }
 
+// what mods keep on entities, by entity id then by key
+type EntityValues = HashMap<i32, BTreeMap<String, Vec<u8>>>;
+
 thread_local!
 {
     // synced bytes that reached a client before the entity they belong to
     static STASHED: RefCell<HashMap<i32, Vec<OwnedBytes>>> = RefCell::new(HashMap::new());
     static TYPES: RefCell<HashMap<Identifier, Rc<EntityType>>> = RefCell::new(HashMap::new());
     // per entity mod bytes by entity id, saved under ModData for every entity that has them
-    static DATA: RefCell<HashMap<i32, BTreeMap<String, Vec<u8>>>> = RefCell::new(HashMap::new());
+    static DATA: RefCell<EntityValues> = RefCell::new(HashMap::new());
     // per entity mod values that live only while the entity is in a world
-    static TRANSIENT: RefCell<HashMap<i32, BTreeMap<String, Vec<u8>>>> = RefCell::new(HashMap::new());
+    static TRANSIENT: RefCell<EntityValues> = RefCell::new(HashMap::new());
 }
 
 // saved entity values go in ModData, a player's kept ones survive death as well
@@ -364,11 +374,6 @@ pub fn modTexturePath(texture: &str) -> Option<String>
 
 pub fn register(id: Identifier, owner: usize, spec: EntitySpec) -> Result<(), String>
 {
-    if spec.steering.is_some()
-    {
-        return Err(format!("{id} sets steering, removed in api 1.28, move it with EntityBehavior::onTravel instead"));
-    }
-
     let template: &'static EntityTemplate = template(&spec)?;
     let texture: Option<JString> =
         spec.texture.as_deref().and_then(modTexturePath).map(|path| JString::from(path.as_str()));
@@ -884,6 +889,76 @@ pub fn setValue(entity: &Entity, owner: &str, key: &str, saved: bool, kept: bool
     });
 }
 
+fn attachKey(name: &str, spec: AttachmentSpec) -> String
+{
+    let prefix: &str = if spec.kept { STATE_KEPT } else { STATE_SAVED };
+    format!("{prefix}{name}")
+}
+
+// an attachment on an entity: saved ones travel in its save, the rest end when it leaves its world
+pub fn attached(entity: &Entity, name: &str, spec: AttachmentSpec) -> Option<Vec<u8>>
+{
+    let id: i32 = entity.m_entityId.get();
+    if !spec.saved
+    {
+        return TRANSIENT.with(|values| values.borrow().get(&id).and_then(|map| map.get(name).cloned()));
+    }
+
+    DATA.with(|data| data.borrow().get(&id).and_then(|map| map.get(&attachKey(name, spec)).cloned()))
+}
+
+pub fn attach(entity: &Entity, name: &str, spec: AttachmentSpec, bytes: Option<Vec<u8>>)
+{
+    let key: String = if spec.saved
+    {
+        attachKey(name, spec)
+    }
+    else
+    {
+        name.to_owned()
+    };
+    let table: &'static std::thread::LocalKey<RefCell<EntityValues>> = if spec.saved { &DATA } else { &TRANSIENT };
+
+    table.with(|values|
+    {
+        let mut values = values.borrow_mut();
+        let map: &mut BTreeMap<String, Vec<u8>> = values.entry(entity.m_entityId.get()).or_default();
+        match bytes
+        {
+            Some(bytes) => map.insert(key, bytes),
+            None => map.remove(&key),
+        };
+    });
+}
+
+// every attachment on an entity by name, saved or not
+pub fn attachedAll(entity: &Entity) -> Vec<(String, Vec<u8>)>
+{
+    let id: i32 = entity.m_entityId.get();
+    let saved: Vec<(String, Vec<u8>)> = DATA.with(|data|
+    {
+        data.borrow().get(&id).map_or_else(Vec::new, |map|
+        {
+            map.iter()
+                .filter_map(|(key, bytes)|
+                {
+                    let name: &str = key.strip_prefix(STATE_KEPT).or_else(|| key.strip_prefix(STATE_SAVED))?;
+                    Some((name.to_owned(), bytes.clone()))
+                })
+                .collect()
+        })
+    });
+    let unsaved: Vec<(String, Vec<u8>)> = TRANSIENT.with(|values|
+    {
+        values
+            .borrow()
+            .get(&id)
+            .map_or_else(Vec::new, |map| map.iter().map(|(name, bytes)| (name.clone(), bytes.clone())).collect())
+    });
+
+    saved.into_iter().chain(unsaved).collect()
+}
+
 // an entity left its world; a player who travels keeps everything, one who died keeps only kept values
 pub fn removed(entity: &Entity)
 {
@@ -977,7 +1052,8 @@ pub fn numericOf(entity: &Entity) -> Option<i32>
 
 pub(crate) fn biomesFor(spawn: &mod_protocol::spec::SpawnSpec) -> Vec<Rc<game::worldgen::BiomeGenBase>>
 {
-    let all: &[crate::registry::BiomeRow] = &crate::registry::BIOMES[..crate::registry::OVERWORLD_BIOMES];
+    let all: &[game::worldgen::NamedBiome] =
+        &game::worldgen::BiomeGenBase::NAMED[..game::worldgen::BiomeGenBase::OVERWORLD];
     all.iter()
         .filter(|(name, _)|
         {
@@ -1159,6 +1235,8 @@ pub fn syncMovingBlock(entity: &Entity)
 // the synced bytes of any entity, players included, for a player who just started seeing it
 pub fn sendSynced(entity: &Rc<Entity>, player: &Rc<Entity>)
 {
+    crate::attach::entitySight(entity, player);
+
     let channel: Identifier = crate::network::loader::id(crate::network::loader::ENTITY_SYNCED);
 
     for (owner, data) in allSynced(entity).into_iter().filter(|(_, bytes)| !bytes.is_empty())

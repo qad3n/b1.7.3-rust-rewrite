@@ -86,6 +86,13 @@ pub fn tick(pre: bool) -> bool
         },
         EventData::Empty,
     );
+
+    // after the tick's listeners so each synced value goes out once, as the tick left it
+    if !pre
+    {
+        crate::attach::flush();
+    }
+
     !pre && crate::profiler::tick()
 }
 
@@ -225,7 +232,7 @@ pub fn resync(player: &Rc<Entity>)
     crate::attributes::syncOwn(player);
     crate::content::effects::syncOwn(player);
     crate::content::progress::syncOwn(player);
-    crate::network::attachments::syncWorld(player);
+    crate::attach::playerSight(player);
     crate::gamerules::syncAll(player);
 }
 

@@ -62,12 +62,18 @@ thread_local!
     static BIOMES: Biomes = Biomes::init();
 }
 
+// a biome's registry name and the accessor of its shared object
+pub type NamedBiome = (&'static str, fn() -> Rc<BiomeGenBase>);
+
 macro_rules! named_biomes
 {
-    ($($name:ident => $field:ident,)*) =>
+    ($($name:ident => $field:ident $key:literal,)*) =>
     {
         impl BiomeGenBase
         {
+            // every biome in declaration order with its registry name, the overworld ones first
+            pub const NAMED: &'static [NamedBiome] = &[$(($key, BiomeGenBase::$name),)*];
+
             $(pub fn $name() -> Rc<BiomeGenBase> { BIOMES.with(|biomes| Rc::clone(&biomes.$field)) })*
         }
     };
@@ -75,19 +81,25 @@ macro_rules! named_biomes
 
 named_biomes!
 {
-    rainforest => m_rainforest,
-    swampland => m_swampland,
-    seasonalForest => m_seasonalForest,
-    forest => m_forest,
-    savanna => m_savanna,
-    shrubland => m_shrubland,
-    taiga => m_taiga,
-    desert => m_desert,
-    plains => m_plains,
-    iceDesert => m_iceDesert,
-    tundra => m_tundra,
-    hell => m_hell,
-    sky => m_sky,
+    rainforest => m_rainforest "rainforest",
+    swampland => m_swampland "swampland",
+    seasonalForest => m_seasonalForest "seasonal_forest",
+    forest => m_forest "forest",
+    savanna => m_savanna "savanna",
+    shrubland => m_shrubland "shrubland",
+    taiga => m_taiga "taiga",
+    desert => m_desert "desert",
+    plains => m_plains "plains",
+    iceDesert => m_iceDesert "ice_desert",
+    tundra => m_tundra "tundra",
+    hell => m_hell "hell",
+    sky => m_sky "sky",
+}
+
+impl BiomeGenBase
+{
+    // hell and sky close the named list and never take overworld spawns
+    pub const OVERWORLD: usize = 11;
 }
 
 impl Biomes

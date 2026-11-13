@@ -506,6 +506,9 @@ pub fn keep()
 
 fn start(paths: &LoaderPaths)
 {
+    crate::energy::declareStore();
+    crate::tank::declareStore();
+
     let started: Instant = Instant::now();
 
     log::info(log::LOADER, &format!("loading mods from {}", paths.m_mods.display()));

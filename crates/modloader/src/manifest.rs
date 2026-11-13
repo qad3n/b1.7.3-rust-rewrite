@@ -41,12 +41,10 @@ pub enum ModKind
 #[serde(deny_unknown_fields)]
 pub struct NetworkSpec
 {
-    #[serde(default = "firstVersion")]
-    pub version: String,
+    // only for a mod whose versions stay compatible on the wire: without it the mod version itself must match
+    pub version: Option<String>,
     pub required: Option<bool>,
 }
-
-fn firstVersion() -> String { "1".to_owned() }
 
 #[derive(Deserialize, Clone, Debug, Default)]
 #[serde(default, deny_unknown_fields)]
@@ -94,6 +92,9 @@ pub struct Manifest
 
 impl Manifest
 {
+    // both sides run the same build of a mod unless its author says which versions talk to each other
+    pub fn networkVersion(&self) -> &str { self.network.version.as_deref().unwrap_or(&self.version) }
+
     pub fn parse(text: &str) -> Result<Self, String> { toml::from_str(text).map_err(|error| error.to_string()) }
 
     pub fn displayName(&self) -> &str

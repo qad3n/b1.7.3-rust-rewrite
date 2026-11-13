@@ -1,3 +1,4 @@
+pub mod achievements;
 mod config_menu;
 mod draw;
 pub mod entity_model;

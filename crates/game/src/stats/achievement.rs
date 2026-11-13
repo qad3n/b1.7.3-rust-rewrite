@@ -47,11 +47,23 @@ impl Achievement
     // a stat that only carries a mod achievement's title and icon to beta's toast, never registered or saved
     pub fn display(title: String, description: String, icon: Rc<ItemStack>) -> Rc<StatBase>
     {
+        Self::placed(title, description, icon, [0, 0], None)
+    }
+
+    // a mod achievement on the map, never registered so beta's list and display bounds never see it
+    pub fn placed(
+        title: String,
+        description: String,
+        icon: Rc<ItemStack>,
+        [column, row]: [i32; 2],
+        parent: Option<Rc<StatBase>>,
+    ) -> Rc<StatBase>
+    {
         let achievement: Self = Self
         {
-            m_displayColumn: 0,
-            m_displayRow: 0,
-            m_parentAchievement: None,
+            m_displayColumn: column,
+            m_displayRow: row,
+            m_parentAchievement: parent,
             m_achievementDescription: description,
             m_statStringFormatter: Field::new(None),
             m_theItemStack: icon,

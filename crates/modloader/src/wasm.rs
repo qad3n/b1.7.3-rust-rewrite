@@ -4,21 +4,77 @@ use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
 use std::path::Path;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use wasmtime::{AsContextMut, Caller, Config, Engine, Extern, Linker, Memory, Module, Store, TypedFunc};
+use wasmtime::
+{
+    AsContextMut, Caller, Config, Engine, Extern, Linker, Memory, Module, Store, StoreHookState, StoreLimits,
+    StoreLimitsBuilder, TypedFunc, UpdateDeadline,
+};
 
 mod budget
 {
     use std::time::Duration;
 
     pub const EPOCH_PERIOD: Duration = Duration::from_millis(10);
-    // a single guest call may run this many epochs before it traps
+    // epochs of its own code a mod may run in one outermost call, time the host spends serving it is not counted
     pub const CALL_EPOCHS: u64 = 50;
+    // linear memory one mod may grow to
+    pub const MEMORY_LIMIT: usize = 256 << 20;
 }
+
+// epochs since the engine started, read on every switch between mod and host so it has to be cheaper than a clock
+static EPOCH: AtomicU64 = AtomicU64::new(0);
 
 pub struct HostState
 {
     pub m_mod: usize,
+    m_limits: StoreLimits,
+    // epochs of the mod's own running time in the current outermost call
+    m_used: u64,
+    // the epoch the mod's code started running at, cleared while the host works for it
+    m_since: Option<u64>,
+}
+
+impl HostState
+{
+    fn new(modIndex: usize) -> Self
+    {
+        Self
+        {
+            m_mod: modIndex,
+            m_limits: StoreLimitsBuilder::new().memory_size(budget::MEMORY_LIMIT).build(),
+            m_used: 0,
+            m_since: None,
+        }
+    }
+
+    fn resume(&mut self) { self.m_since = Some(EPOCH.load(Ordering::Relaxed)); }
+
+    fn pause(&mut self)
+    {
+        if let Some(since) = self.m_since.take()
+        {
+            self.m_used += EPOCH.load(Ordering::Relaxed) - since;
+        }
+    }
+
+    fn used(&self) -> u64 { self.m_used + self.m_since.map_or(0, |since| EPOCH.load(Ordering::Relaxed) - since) }
+}
+
+// runs when the epoch deadline passes: a mod still inside its own time budget gets the rest of it
+fn deadline(state: StoreHookState<'_, HostState>) -> wasmtime::Result<UpdateDeadline>
+{
+    let used: u64 = state.data().used();
+    if used >= budget::CALL_EPOCHS
+    {
+        return Err(wasmtime::Error::msg(format!(
+            "the mod ran for more than {} ms of its own time in one call",
+            budget::CALL_EPOCHS * budget::EPOCH_PERIOD.as_millis() as u64
+        )));
+    }
+
+    Ok(UpdateDeadline::Continue(budget::CALL_EPOCHS - used))
 }
 
 static ENGINE: OnceLock<Engine> = OnceLock::new();
@@ -40,6 +96,7 @@ pub fn engine() -> &'static Engine
                 loop
                 {
                     std::thread::sleep(budget::EPOCH_PERIOD);
+                    EPOCH.fetch_add(1, Ordering::Relaxed);
                     ticker.increment_epoch();
                 }
             });
@@ -124,6 +181,13 @@ pub struct ModInstance
 
 fn readGuest(memory: &Memory, context: impl wasmtime::AsContext, pointer: u32, length: u32) -> Result<Vec<u8>, String>
 {
+    // the length comes from the mod, so it is checked against its memory before the host allocates for it
+    let size: usize = memory.data_size(&context);
+    if pointer as usize + length as usize > size
+    {
+        return Err(format!("guest buffer out of bounds: {length} bytes at {pointer} in a memory of {size}"));
+    }
+
     let mut bytes: Vec<u8> = vec![0; length as usize];
     memory
         .read(context, pointer as usize, &mut bytes)
@@ -194,13 +258,14 @@ fn hostCall(mut caller: Caller<'_, HostState>, pointer: u32, length: u32) -> was
         .ok_or_else(|| wasmtime::Error::msg("guest exports no memory"))?;
     let bytes: Vec<u8> = readGuest(&memory, &caller, pointer, length).map_err(wasmtime::Error::msg)?;
     let modIndex: usize = caller.data().m_mod;
+    caller.data_mut().pause();
 
     let reply: HostReply = match wire::decode::<HostCall>(&bytes)
     {
         Ok(call) =>
         {
+            // the frame pops the pointer before this function touches caller again so it never outlives the borrow
             let pointer: *mut Caller<'_, HostState> = &mut caller;
-            // SAFETY: the frame pops the pointer before this function touches caller again, so it never outlives the borrow
             REENTRY.with(|stack| stack.borrow_mut().push((modIndex, pointer.cast())));
 
             let _frame: HostFrame<'_> = HostFrame { m_mod: modIndex, m_call: &bytes };
@@ -211,6 +276,8 @@ fn hostCall(mut caller: Caller<'_, HostState>, pointer: u32, length: u32) -> was
         Err(error) => HostReply::Error(format!("bad host call: {error}")),
     };
     let out: Vec<u8> = wire::encode(&reply);
+    caller.data_mut().resume();
+
     let alloc: TypedFunc<u32, u32> = caller
         .get_export(exports::ALLOC)
         .and_then(Extern::into_func)
@@ -255,7 +322,22 @@ pub fn logLevel(level: LogLevel) -> u32
     }
 }
 
+// the mod's clock runs for the length of the exchange, a nested call resumes it inside a paused host call
 fn invoke(
+    context: &mut impl AsContextMut<Data = HostState>,
+    exports: &Exports,
+    request: &[u8],
+) -> wasmtime::Result<Vec<u8>>
+{
+    context.as_context_mut().data_mut().resume();
+
+    let reply: wasmtime::Result<Vec<u8>> = exchange(context, exports, request);
+
+    context.as_context_mut().data_mut().pause();
+    reply
+}
+
+fn exchange(
     context: &mut impl AsContextMut<Data = HostState>,
     exports: &Exports,
     request: &[u8],
@@ -290,7 +372,9 @@ impl ModInstance
         linker.func_wrap(abi::IMPORT_MODULE, imports::CALL, hostCall).map_err(|error| error.to_string())?;
         linker.func_wrap(abi::IMPORT_MODULE, imports::LOG, hostLog).map_err(|error| error.to_string())?;
 
-        let mut store: Store<HostState> = Store::new(engine, HostState { m_mod: modIndex });
+        let mut store: Store<HostState> = Store::new(engine, HostState::new(modIndex));
+        store.limiter(|state| &mut state.m_limits);
+        store.epoch_deadline_callback(deadline);
         store.set_epoch_deadline(budget::CALL_EPOCHS);
         // only b173 imports exist, so a mod has no file system, clock or socket access
         let instance: wasmtime::Instance =
@@ -348,6 +432,7 @@ impl ModInstance
         {
             Ok(mut store) =>
             {
+                store.data_mut().m_used = 0;
                 store.set_epoch_deadline(budget::CALL_EPOCHS);
                 invoke(&mut *store, &self.m_exports, &request)
             }

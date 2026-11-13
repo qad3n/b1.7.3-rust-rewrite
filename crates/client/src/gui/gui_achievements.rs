@@ -1,12 +1,13 @@
 use crate::client::Minecraft;
 use crate::gui::gui_screen::{GUI_SCREEN, GuiScreenClass};
 use crate::gui::{FontRenderer, GuiButton, GuiScreen};
+use crate::modded::achievements::{self, Tab};
 use crate::render::{RenderEngine, RenderHelper, RenderItem};
 use crate::stats::StatFileWriter;
 use game::block::Block;
 use game::locale::StatCollector;
 use game::math::math_helper;
-use game::stats::{Achievement, AchievementList, StatBase};
+use game::stats::{Achievement, StatBase};
 use jvm::random::Random;
 use jvm::throwable::OrNpe;
 use lwjgl::input::Mouse;
@@ -14,13 +15,23 @@ use lwjgl::opengl::GL11;
 use std::cell::Cell;
 use std::rc::Rc;
 
-fn minColumn() -> i32 { AchievementList::minDisplayColumn() * 24 - 112 }
+// beta's map scroll limits and opening offset in pixels
+mod map
+{
+    pub const CELL: i32 = 24;
+    pub const MIN_MARGIN: i32 = 112;
+    pub const MAX_MARGIN: i32 = 77;
+    pub const START_SPAN: i32 = 141;
+    pub const START_SHIFT: i32 = 12;
+}
 
-fn minRow() -> i32 { AchievementList::minDisplayRow() * 24 - 112 }
+fn minColumn(this: &GuiScreen) -> i32 { tab(this).m_bounds[0] * map::CELL - map::MIN_MARGIN }
 
-fn maxColumn() -> i32 { AchievementList::maxDisplayColumn() * 24 - 77 }
+fn minRow(this: &GuiScreen) -> i32 { tab(this).m_bounds[1] * map::CELL - map::MIN_MARGIN }
 
-fn maxRow() -> i32 { AchievementList::maxDisplayRow() * 24 - 77 }
+fn maxColumn(this: &GuiScreen) -> i32 { tab(this).m_bounds[2] * map::CELL - map::MAX_MARGIN }
+
+fn maxRow(this: &GuiScreen) -> i32 { tab(this).m_bounds[3] * map::CELL - map::MAX_MARGIN }
 
 struct AchievementsExt
 {
@@ -36,9 +47,42 @@ struct AchievementsExt
     m_scrollY: Cell<f64>,
     m_scroll: Cell<i32>,
     m_stats: Rc<StatFileWriter>,
+    m_tabs: Vec<Tab>,
+    m_tab: Cell<usize>,
 }
 
 fn fields(this: &GuiScreen) -> &AchievementsExt { this.ext::<AchievementsExt>() }
+
+fn tab(this: &GuiScreen) -> &Tab
+{
+    let ext: &AchievementsExt = fields(this);
+    &ext.m_tabs[ext.m_tab.get()]
+}
+
+// as beta opens on taking inventory a tab opens with its start achievement in view
+fn startScroll(tab: &Tab) -> [f64; 2]
+{
+    let details: &Achievement = Achievement::of(&tab.m_start);
+    let x: i32 = details.m_displayColumn * map::CELL - map::START_SPAN / 2 - map::START_SHIFT;
+    let y: i32 = details.m_displayRow * map::CELL - map::START_SPAN / 2;
+    [x as f64, y as f64]
+}
+
+fn scrollTo(ext: &AchievementsExt, [x, y]: [f64; 2])
+{
+    ext.m_mouseX.set(x);
+    ext.m_scaledMouseDx.set(x);
+    ext.m_scrollX.set(x);
+    ext.m_mouseY.set(y);
+    ext.m_scaledMouseDy.set(y);
+    ext.m_scrollY.set(y);
+}
+
+fn frame(this: &GuiScreen) -> [i32; 2]
+{
+    let ext: &AchievementsExt = fields(this);
+    [(this.m_width.get() - ext.m_iconWidth) / 2, (this.m_height.get() - ext.m_iconHeight) / 2]
+}
 
 fn closeToGame(mc: &Minecraft)
 {
@@ -104,14 +148,14 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
     let delta: f64 = tickdelta as f64;
     let i: i32 = clampScroll(
         math_helper::floor_double(ext.m_mouseX.get() + (ext.m_scaledMouseDx.get() - ext.m_mouseX.get()) * delta),
-        minColumn(),
-        maxColumn(),
+        minColumn(this),
+        maxColumn(this),
     );
 
     let j: i32 = clampScroll(
         math_helper::floor_double(ext.m_mouseY.get() + (ext.m_scaledMouseDy.get() - ext.m_mouseY.get()) * delta),
-        minRow(),
-        maxRow(),
+        minRow(this),
+        maxRow(this),
     );
 
     let k: i32 = renderEngine.getTexture("/terrain.png");
@@ -161,10 +205,10 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
     GL11::glDepthFunc(515);
     GL11::glDisable(3553);
 
-    let achievements: Vec<Rc<StatBase>> = AchievementList::achievementList().toVec();
+    let tab: &Tab = tab(this);
     let stats: &StatFileWriter = &ext.m_stats;
 
-    for achievement1 in &achievements
+    for achievement1 in &tab.m_achievements
     {
         let details: &Achievement = Achievement::of(achievement1);
         if let Some(parent) = &details.m_parentAchievement
@@ -174,8 +218,8 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
             let l2: i32 = details.m_displayRow * 24 - j + 11 + l1;
             let i3: i32 = parentDetails.m_displayColumn * 24 - i + 11 + k1;
             let j3: i32 = parentDetails.m_displayRow * 24 - j + 11 + l1;
-            let flag: bool = stats.hasAchievementUnlocked(achievement1);
-            let flag1: bool = stats.hasParentAchievement(achievement1);
+            let flag: bool = tab.earned(&mc, stats, achievement1);
+            let flag1: bool = tab.open(&mc, stats, achievement1);
             let k7: i32 = if blinkPhase() > 0.6 { 255 } else { 130 };
 
             let k3: i32 = if flag
@@ -209,7 +253,7 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
 
     let fontRenderer: Rc<FontRenderer> = mc.m_fontRenderer.get().orNpe();
 
-    for achievement3 in &achievements
+    for achievement3 in &tab.m_achievements
     {
         let details: &Achievement = Achievement::of(achievement3);
         let j5: i32 = details.m_displayColumn * 24 - i;
@@ -219,11 +263,11 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
             continue;
         }
 
-        let color: f32 = if stats.hasAchievementUnlocked(achievement3)
+        let color: f32 = if tab.earned(&mc, stats, achievement3)
         {
             1.0
         }
-        else if stats.hasParentAchievement(achievement3)
+        else if tab.open(&mc, stats, achievement3)
         {
             if blinkPhase() < 0.6 { 0.6 } else { 0.8 }
         }
@@ -247,7 +291,7 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
         };
         this.m_gui.drawTexturedModalRect(i6 - 2, k6 - 2, u, 202, 26, 26);
 
-        if !stats.hasParentAchievement(achievement3)
+        if !tab.open(&mc, stats, achievement3)
         {
             let f4: f32 = 0.1;
             GL11::glColor4f(f4, f4, f4, 1.0);
@@ -259,7 +303,7 @@ fn renderIcons(this: &Rc<GuiScreen>, mouseX: i32, mouseY: i32, tickdelta: f32)
         renderitem.renderItemIntoGUI(&fontRenderer, &renderEngine, Some(&details.m_theItemStack), i6 + 3, k6 + 3);
         GL11::glDisable(2896);
 
-        if !stats.hasParentAchievement(achievement3)
+        if !tab.open(&mc, stats, achievement3)
         {
             customColor.set(true);
         }
@@ -312,18 +356,20 @@ fn setTitle(this: &GuiScreen)
 fn drawTooltip(this: &GuiScreen, achievement2: &Rc<StatBase>, mouseX: i32, mouseY: i32)
 {
     let stats: &StatFileWriter = &fields(this).m_stats;
+    let tab: &Tab = tab(this);
+    let mc: Rc<Minecraft> = this.mc();
     let font: Rc<FontRenderer> = this.fontRenderer();
     let s: &str = &achievement2.m_statName;
     let s1: String = Achievement::getDescription(achievement2);
     let l5: i32 = mouseX + 12;
     let j6: i32 = mouseY - 4;
-    let unlocked: bool = stats.hasParentAchievement(achievement2);
+    let unlocked: bool = tab.open(&mc, stats, achievement2);
     if unlocked
     {
         let l6: i32 = font.getStringWidth(s).max(120);
         let mut j7: i32 = font.splitAndGetHeight(&s1, l6);
 
-        if stats.hasAchievementUnlocked(achievement2)
+        if tab.earned(&mc, stats, achievement2)
         {
             j7 += 12;
         }
@@ -331,7 +377,7 @@ fn drawTooltip(this: &GuiScreen, achievement2: &Rc<StatBase>, mouseX: i32, mouse
         this.m_gui.drawGradientRect(l5 - 3, j6 - 3, l5 + l6 + 3, j6 + j7 + 3 + 12, -1073741824, -1073741824);
         font.splitAndDraw(&s1, l5, j6 + 12, l6, -6250336);
 
-        if stats.hasAchievementUnlocked(achievement2)
+        if tab.earned(&mc, stats, achievement2)
         {
             font.drawStringWithShadow(&StatCollector::translateToLocal("achievement.taken"), l5, j6 + j7 + 4, -7302913);
         }
@@ -392,24 +438,24 @@ fn dragMap(this: &GuiScreen, mouseX: i32, mouseY: i32)
         ext.m_prevMouseY.set(mouseY);
     }
 
-    if ext.m_scrollX.get() < minColumn() as f64
+    if ext.m_scrollX.get() < minColumn(this) as f64
     {
-        ext.m_scrollX.set(minColumn() as f64);
+        ext.m_scrollX.set(minColumn(this) as f64);
     }
 
-    if ext.m_scrollY.get() < minRow() as f64
+    if ext.m_scrollY.get() < minRow(this) as f64
     {
-        ext.m_scrollY.set(minRow() as f64);
+        ext.m_scrollY.set(minRow(this) as f64);
     }
 
-    if ext.m_scrollX.get() >= maxColumn() as f64
+    if ext.m_scrollX.get() >= maxColumn(this) as f64
     {
-        ext.m_scrollX.set((maxColumn() - 1) as f64);
+        ext.m_scrollX.set((maxColumn(this) - 1) as f64);
     }
 
-    if ext.m_scrollY.get() >= maxRow() as f64
+    if ext.m_scrollY.get() >= maxRow(this) as f64
     {
-        ext.m_scrollY.set((maxRow() - 1) as f64);
+        ext.m_scrollY.set((maxRow(this) - 1) as f64);
     }
 }
 
@@ -430,15 +476,9 @@ const CLASS: GuiScreenClass = GuiScreenClass
             &StatCollector::translateToLocal("gui.done"),
         ));
 
-        // mod achievements are a page of their own beside beta's tree
-        if crate::modded::progress::hasAchievements()
-        {
-            this.m_controlList.add(crate::modded::progress::button(
-                this.m_width.get() / 2 - 60,
-                this.m_height.get() / 2 + 74,
-                80,
-            ));
-        }
+        // mod achievements each get a tab of their own beside beta's tree
+        let ext: &AchievementsExt = fields(this);
+        achievements::addTabs(this, &ext.m_tabs, ext.m_tab.get(), frame(this), ext.m_iconWidth);
     },
 
     actionPerformed: |this, button|
@@ -448,10 +488,12 @@ const CLASS: GuiScreenClass = GuiScreenClass
             closeToGame(&this.mc());
         }
 
-        if button.m_id.get() == crate::modded::progress::OPEN_BUTTON
-            && let Some(player) = this.mc().m_thePlayer.get()
+        let ext: &AchievementsExt = fields(this);
+        if let Some(index) = achievements::tabOf(button.m_id.get(), ext.m_tabs.len())
         {
-            this.mc().displayGuiScreen(Some(crate::modded::progress::achievements(&this.rc(), &player)));
+            ext.m_tab.set(index);
+            scrollTo(ext, startScroll(tab(this)));
+            (CLASS.initGui)(this);
         }
 
         (GUI_SCREEN.actionPerformed)(this, button);
@@ -478,6 +520,9 @@ const CLASS: GuiScreenClass = GuiScreenClass
         GL11::glDisable(2896);
         GL11::glDisable(2929);
         setTitle(this);
+
+        let ext: &AchievementsExt = fields(this);
+        achievements::drawTabs(this, &ext.m_tabs, frame(this), ext.m_iconWidth, [mouseX, mouseY]);
         GL11::glEnable(2896);
         GL11::glEnable(2929);
     },
@@ -511,12 +556,8 @@ impl GuiAchievements
 {
     pub fn new(stats: Rc<StatFileWriter>) -> Rc<GuiScreen>
     {
-        let openInventory: Rc<StatBase> = AchievementList::openInventory().orNpe();
-        let details: &Achievement = Achievement::of(&openInventory);
-        let short1: i32 = 141;
-        let short2: i32 = 141;
-        let x: f64 = (details.m_displayColumn * 24 - short1 / 2 - 12) as f64;
-        let y: f64 = (details.m_displayRow * 24 - short2 / 2) as f64;
+        let tabs: Vec<Tab> = achievements::tabs();
+        let [x, y]: [f64; 2] = startScroll(&tabs[0]);
 
         let ext: AchievementsExt = AchievementsExt
         {
@@ -532,6 +573,8 @@ impl GuiAchievements
             m_scrollY: Cell::new(y),
             m_scroll: Cell::new(0),
             m_stats: stats,
+            m_tabs: tabs,
+            m_tab: Cell::new(0),
         };
         GuiScreen::construct(&CLASS, Box::new(ext))
     }

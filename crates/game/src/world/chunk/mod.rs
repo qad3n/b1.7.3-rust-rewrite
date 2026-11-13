@@ -49,6 +49,8 @@ pub struct Chunk
     pub m_lastSaveTime: Cell<i64>,
     // rewrite: per mod chunk data, saved under loader:attachments
     pub m_attachments: std::cell::RefCell<common::nbt::attachments::Attachments>,
+    // rewrite: mod values that last as long as this object and are never saved
+    pub m_unsaved: std::cell::RefCell<common::nbt::attachments::Attachments>,
     // rewrite: blocks per column, the world height when the chunk was made
     pub m_height: i32,
 }
@@ -79,6 +81,7 @@ impl Chunk
             m_hasEntities: Cell::new(false),
             m_lastSaveTime: Cell::new(0),
             m_attachments: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
+            m_unsaved: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
             m_height: world.height(),
         }
     }

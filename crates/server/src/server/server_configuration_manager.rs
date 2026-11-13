@@ -167,7 +167,6 @@ impl ServerConfigurationManager
 
     pub fn playerLoggedIn(&self, player: &Rc<Entity>)
     {
-        modloader::play::player(modloader::EventKind::PlayerLogin, player);
         self.m_playerEntities.add(Rc::clone(player));
 
         let dimension: i32 = entity_player::fields(player).m_dimension.get();
@@ -190,6 +189,9 @@ impl ServerConfigurationManager
             player.m_posZ.get(),
             self.m_playerEntities.size()
         );
+
+        // fired once the player is in its world and its list so a mod can look it up and send to it
+        modloader::play::player(modloader::EventKind::PlayerLogin, player);
     }
 
     pub fn r#move(&self, player: &Rc<Entity>)

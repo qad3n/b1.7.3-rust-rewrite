@@ -4,7 +4,11 @@ use crate::content::{data, tags};
 use crate::registry::{self, RegistryError};
 use crate::state::{self, ModRuntime, Phase};
 use mod_protocol::Identifier;
-use mod_protocol::abi::{HostCall, HostReply, RegistryKind, StateData};
+use mod_protocol::abi::
+{
+    ContentRequest, HostCall, HostReply, InventoryRequest, MetaRequest, NetRequest, RegistryKind, RegistryRequest,
+    StateData, StoredRequest, WorldRequest, WorldgenRequest,
+};
 use mod_protocol::identifier::MINECRAFT;
 use std::rc::Rc;
 
@@ -76,39 +80,42 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
 
     let reply: HostReply = match call
     {
-        HostCall::RegisterBlock { name, spec } =>
+        HostCall::Content(ContentRequest::RegisterBlock { name, spec }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| data::registerBlock(id, &owner, spec)))
         }
 
-        HostCall::RegisterItem { name, spec } =>
+        HostCall::Content(ContentRequest::RegisterItem { name, spec }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| data::registerItem(id, &owner, spec)))
         }
 
-        HostCall::RegisterRecipe { name, spec } =>
+        HostCall::Content(ContentRequest::RegisterRecipe { name, spec }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| data::registerRecipe(id, &owner, spec)))
         }
 
-        HostCall::TileModel { tile, model } =>
+        HostCall::Content(ContentRequest::TileModel { tile, model }) =>
         {
             unit(registering().and_then(|()| crate::tiles::registerModel(runtime.m_index, tile, model)))
         }
 
-        HostCall::RegisterTileEntity { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterTileEntity { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::tiles::register(id, &owner, runtime.m_index, spec)),
         ),
 
-        HostCall::RegisterEntity { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterEntity { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::entities::register(id, runtime.m_index, spec)),
         ),
-        HostCall::RemoveRecipe { id } => unit(registering().and_then(|()| crate::lifecycle::queueRecipeRemoval(&id))),
-        HostCall::ReplaceBlock { id, spec } => unit(registering().and_then(|()|
+        HostCall::Content(ContentRequest::RemoveRecipe { id }) =>
+        {
+            unit(registering().and_then(|()| crate::lifecycle::queueRecipeRemoval(&id)))
+        }
+        HostCall::Content(ContentRequest::ReplaceBlock { id, spec }) => unit(registering().and_then(|()|
         {
             crate::content::blocks::validate(&spec)?;
 
@@ -120,73 +127,80 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
                     .map_err(registryError)
             })
         })),
-        HostCall::ModifyBlock { spec } => unit(registering().map(|()| crate::modify::queueBlock(&owner, spec))),
-        HostCall::ModifyItem { spec } => unit(registering().map(|()| crate::modify::queueItem(&owner, spec))),
-        HostCall::ModifyMachine { spec } =>
+        HostCall::Content(ContentRequest::ModifyBlock { spec }) =>
+        {
+            unit(registering().map(|()| crate::modify::queueBlock(&owner, spec)))
+        }
+        HostCall::Content(ContentRequest::ModifyItem { spec }) =>
+        {
+            unit(registering().map(|()| crate::modify::queueItem(&owner, spec)))
+        }
+        HostCall::Content(ContentRequest::ModifyMachine { spec }) =>
         {
             unit(loading().and_then(|()| crate::content::machines::removeOutputs(&spec.machine, &spec.remove_outputs)))
         }
-        HostCall::RegisterBlockStates { block, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterBlockStates { block, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&block.to_string()))
                 .and_then(|block| crate::states::register(block, &spec)),
         ),
-        HostCall::ModifySpawns { spec } => unit(registering().map(|()| crate::modify::queueSpawn(&owner, spec))),
-
-        HostCall::AddTag { registry, tag, values } => unit(loading().map(|()|
+        HostCall::Content(ContentRequest::ModifySpawns { spec }) =>
         {
-            tags::add(registry, tag, values, false);
-            tags::push();
-        })),
-        HostCall::AddTagEntries { registry, tag, entries, replace } => unit(loading().map(|()|
-        {
-            tags::addEntries(registry, tag, entries, replace);
-            tags::push();
-        })),
+            unit(registering().map(|()| crate::modify::queueSpawn(&owner, spec)))
+        }
 
-        HostCall::RegisterAchievement { name, spec } => unit(
+        HostCall::Registry(RegistryRequest::AddTagEntries { registry, tag, entries, replace }) =>
+        {
+            unit(loading().map(|()|
+            {
+                tags::addEntries(registry, tag, entries, replace);
+                tags::push();
+            }))
+        }
+
+        HostCall::Content(ContentRequest::RegisterAchievement { name, spec }) => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::progress::register(id, spec)),
         ),
 
-        HostCall::RegisterStat { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterStat { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::content::progress::registerStat(id, spec)),
         ),
 
-        HostCall::RegisterParticle { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterParticle { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::content::particles::register(id, spec)),
         ),
-        HostCall::RegisterEffect { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterEffect { name, spec }) => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::effects::register(id, spec)),
         ),
-        HostCall::RegisterEffectBehavior { name, spec, behavior } => unit(
+        HostCall::Content(ContentRequest::RegisterEffectBehavior { name, spec, behavior }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::content::effects::registerWith(id, spec, runtime.m_index, behavior)),
         ),
-        HostCall::RegisterAttribute { name, spec } =>
+        HostCall::Content(ContentRequest::RegisterAttribute { name, spec }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::attributes::register(id, spec)))
         }
-        HostCall::RegisterGameRule { name, spec } =>
+        HostCall::Content(ContentRequest::RegisterGameRule { name, spec }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::gamerules::register(id, spec)))
         }
-        HostCall::RegisterEnergy { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterEnergy { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::energy::register(runtime.id(), id, spec)),
         ),
-        HostCall::GameRule { rule } => ok(crate::gamerules::value(&rule), |reply| reply),
-        HostCall::SetGameRule { rule, value } => unit(crate::gamerules::set(&rule, value)),
-        HostCall::RegisterFluid { name, spec } => unit(
+        HostCall::World(WorldRequest::GameRule { rule }) => ok(crate::gamerules::value(&rule), |reply| reply),
+        HostCall::World(WorldRequest::SetGameRule { rule, value }) => unit(crate::gamerules::set(&rule, value)),
+        HostCall::Content(ContentRequest::RegisterFluid { name, spec }) => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::fluids::register(id, spec)),
         ),
 
-        HostCall::SetLoot { registry, target, spec } =>
+        HostCall::Content(ContentRequest::SetLoot { registry, target, spec }) =>
         {
             let added: Result<(), String> = loading().and_then(|()| crate::content::loot::add(registry, target, spec));
 
@@ -194,21 +208,12 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             unit(added)
         }
 
-        HostCall::SetChestLoot { table, spec } =>
+        HostCall::Content(ContentRequest::SetChestLoot { table, spec }) =>
         {
             unit(loading().and_then(|()| crate::content::loot::addChest(table, spec)))
         }
 
-        HostCall::AddLootPool { target, id, pool } =>
-        {
-            let added: Result<(), String> =
-                loading().and_then(|()| crate::content::loot::addPool(target, id, pool.into()));
-
-            crate::content::loot::push(false);
-            unit(added)
-        }
-
-        HostCall::AddConditionalPool { target, id, pool } =>
+        HostCall::Content(ContentRequest::AddConditionalPool { target, id, pool }) =>
         {
             let added: Result<(), String> = loading().and_then(|()| crate::content::loot::addPool(target, id, pool));
 
@@ -216,14 +221,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             unit(added)
         }
 
-        HostCall::RegisterLootCondition { name, label, handler } =>
+        HostCall::Content(ContentRequest::RegisterLootCondition { name, label, handler }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id|
             {
                 crate::content::loot::registerRule(runtime.m_index, id, label, RuleKind::Condition, handler)
             }))
         }
-        HostCall::RegisterLootCount { name, label, handler } =>
+        HostCall::Content(ContentRequest::RegisterLootCount { name, label, handler }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id|
             {
@@ -231,66 +236,80 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             }))
         }
 
-        HostCall::RegisterMachine { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterMachine { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name.to_string()))
                 .and_then(|id| crate::content::machines::register(id, spec)),
         ),
-        HostCall::AddMachineRecipe { machine, recipe } =>
+        HostCall::Content(ContentRequest::AddMachineRecipe { machine, recipe }) =>
         {
             unit(loading().and_then(|()| crate::content::machines::addRecipe(&machine, recipe)))
         }
-        HostCall::AddWorkstation { machine, item } =>
+        HostCall::Content(ContentRequest::AddWorkstation { machine, item }) =>
         {
             unit(loading().and_then(|()| crate::content::machines::addWorkstation(&machine, item)))
         }
-        HostCall::RegisterAccessorySlot { name, spec } => unit(
+        HostCall::Content(ContentRequest::RegisterAccessorySlot { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name.to_string()))
                 .and_then(|id| crate::content::accessories::register(id, spec)),
         ),
-        HostCall::RegisterFeature { name, spec, handler } =>
+        HostCall::Worldgen(WorldgenRequest::RegisterFeature { name, spec, handler }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id|
             {
                 crate::content::features::register(runtime.id(), Some(runtime.m_index), id, spec, handler)
             }))
         }
-        HostCall::Features => HostReply::Features(crate::content::features::list()),
-        HostCall::BiomeSpawns { biome, kind } => ok(crate::biomes::spawns(&biome, kind), HostReply::SpawnEntries),
-        HostCall::AddMachineJob { machine, job } =>
+        HostCall::Worldgen(WorldgenRequest::Features) => HostReply::Features(crate::content::features::list()),
+        HostCall::Worldgen(WorldgenRequest::BiomeSpawns { biome, kind }) =>
         {
-            unit(loading().and_then(|()| crate::content::machines::addJob(&machine, job, Vec::new())))
+            ok(crate::biomes::spawns(&biome, kind), HostReply::SpawnEntries)
         }
-        HostCall::AddMachineJobRules { machine, job, rules } =>
+        HostCall::Content(ContentRequest::AddMachineJobRules { machine, job, rules }) =>
         {
             unit(loading().and_then(|()| crate::content::machines::addJob(&machine, job, rules)))
         }
-        HostCall::RegisterFluidContainer { spec } =>
+        HostCall::Content(ContentRequest::RegisterFluidContainer { spec }) =>
         {
             unit(registering().and_then(|()| crate::content::fluids::addContainer(spec)))
         }
-        HostCall::ContainedFluid { stack } => HostReply::Fluid(crate::content::fluids::contained(&stack)),
-        HostCall::FillContainer { stack, fluid } => HostReply::Swap(crate::content::fluids::fill(&stack, &fluid)),
-        HostCall::DrainContainer { stack } => HostReply::Swap(crate::content::fluids::drain(&stack)),
-        HostCall::FluidContainers => HostReply::FluidContainers(crate::content::fluids::containers()),
-        HostCall::AddMachineFuel { machine, fuel } =>
+        HostCall::Inventory(InventoryRequest::ContainedFluid { stack }) =>
+        {
+            HostReply::Fluid(crate::content::fluids::contained(&stack))
+        }
+        HostCall::Inventory(InventoryRequest::FillContainer { stack, fluid }) =>
+        {
+            HostReply::Swap(crate::content::fluids::fill(&stack, &fluid))
+        }
+        HostCall::Inventory(InventoryRequest::DrainContainer { stack }) =>
+        {
+            HostReply::Swap(crate::content::fluids::drain(&stack))
+        }
+        HostCall::Inventory(InventoryRequest::FluidContainers) =>
+        {
+            HostReply::FluidContainers(crate::content::fluids::containers())
+        }
+        HostCall::Content(ContentRequest::AddMachineFuel { machine, fuel }) =>
         {
             unit(loading().and_then(|()| crate::content::machines::addFuel(&machine, fuel)))
         }
-        HostCall::MatchMachineJob { machine, inputs, fluids } =>
+        HostCall::Inventory(InventoryRequest::MatchMachineJob { machine, inputs, fluids }) =>
         {
             HostReply::Job(crate::content::machines::matchJob(&machine, &inputs, &fluids))
         }
-        HostCall::MachineFuel { machine, stack, furnace } =>
+        HostCall::Inventory(InventoryRequest::MachineFuel { machine, stack, furnace }) =>
         {
             HostReply::Int(crate::content::machines::fuel(&machine, &stack, furnace))
         }
 
-        HostCall::TagValues { registry, tag } => HostReply::Ids(tags::values(registry, &tag)),
-        HostCall::TagsOf { registry, id } => HostReply::Ids(tags::of(registry, &id)),
+        HostCall::Registry(RegistryRequest::TagValues { registry, tag }) =>
+        {
+            HostReply::Ids(tags::values(registry, &tag))
+        }
+        HostCall::Registry(RegistryRequest::TagsOf { registry, id }) => HostReply::Ids(tags::of(registry, &id)),
 
-        HostCall::RegisterWorldgen { name, spec } =>
+        HostCall::Worldgen(WorldgenRequest::RegisterWorldgen { name, spec }) =>
         {
             // abi 2 never checked the name, one outside the namespace still registers under the block's path
             let fallback: Result<Identifier, String> =
@@ -298,75 +317,109 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> Result<HostRep
             unit(registering().and(runtime.own(&name).or(fallback)).map(|id| data::registerWorldgen(&owner, id, spec)))
         }
 
-        HostCall::DefineConfig { entries } => unit(runtime.m_config.borrow_mut().define(entries)),
-        HostCall::DefineConfigOptions { options } => unit(runtime.m_config.borrow_mut().defineOptions(options)),
-        HostCall::SetConfigValue { key, value } => unit(runtime.m_config.borrow_mut().set(&key, &value).map(|_| ())),
-        HostCall::ConfigValue { key } => HostReply::Text(runtime.m_config.borrow().value(&key).unwrap_or_default()),
-        HostCall::Translate { key } => HostReply::Text(game::locale::StatCollector::translateToLocal(&key)),
+        HostCall::Meta(MetaRequest::DefineConfigOptions { options }) =>
+        {
+            unit(runtime.m_config.borrow_mut().defineOptions(options))
+        }
+        HostCall::Meta(MetaRequest::SetConfigValue { key, value }) =>
+        {
+            unit(runtime.m_config.borrow_mut().set(&key, &value).map(|_| ()))
+        }
+        HostCall::Meta(MetaRequest::ConfigValue { key }) =>
+        {
+            HostReply::Text(runtime.m_config.borrow().value(&key).unwrap_or_default())
+        }
+        HostCall::Meta(MetaRequest::Translate { key }) =>
+        {
+            HostReply::Text(game::locale::StatCollector::translateToLocal(&key))
+        }
 
-        HostCall::Resolve { registry, id } =>
+        HostCall::Registry(RegistryRequest::Resolve { registry, id }) =>
         {
             ok(resolve(registry, &id).ok_or_else(|| format!("{id} is not registered")), HostReply::Int)
         }
 
-        HostCall::NameOf { registry, numeric } => HostReply::Id(nameOf(registry, numeric)),
-        HostCall::RegisterTemplate { name, spec } => unit(
+        HostCall::Registry(RegistryRequest::NameOf { registry, numeric }) => HostReply::Id(nameOf(registry, numeric)),
+        HostCall::Worldgen(WorldgenRequest::RegisterTemplate { name, spec }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::content::structure_templates::register(id, spec)),
         ),
-        HostCall::RegisterConfigTask { name, handler } => unit(
+        HostCall::Net(NetRequest::RegisterConfigTask { name, handler }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::configtasks::register(runtime.m_index, id, handler)),
         ),
-        HostCall::RegisterComponent { name, synced } => unit(
+        HostCall::Content(ContentRequest::RegisterComponent { name, synced }) => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::network::stacks::register(id, synced)),
         ),
-        HostCall::SyncAttachments { holder } =>
+        HostCall::Stored(StoredRequest::Declare { name, spec }) => unit(
+            registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::attach::declare(&owner, id, spec)),
+        ),
+        HostCall::Registry(RegistryRequest::RegistryList { registry }) =>
         {
-            unit(registering().map(|()| crate::network::attachments::enable(holder, &owner)))
+            HostReply::Ids(registry::with(|registries| registries.list(registry)))
         }
-        HostCall::RegistryList { registry } => HostReply::Ids(registry::with(|registries| registries.list(registry))),
-        HostCall::CreateRegistry { name, synced } => unit(
+        HostCall::Registry(RegistryRequest::CreateRegistry { name, synced }) => unit(
             registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::custom::create(id, synced)),
         ),
-        HostCall::AddRegistryEntry { registry, name, value } => unit(
+        HostCall::Registry(RegistryRequest::AddRegistryEntry { registry, name, value }) => unit(
             loading().and_then(|()| runtime.own(&name)).and_then(|id| crate::content::custom::add(registry, id, value)),
         ),
-        HostCall::RegistryEntries { registry } => HostReply::Entries(crate::content::custom::entries(&registry)),
-        HostCall::AddRegistryTag { registry, tag, entries, replace } => unit(loading().map(|()|
+        HostCall::Registry(RegistryRequest::RegistryEntries { registry }) =>
         {
-            tags::addEntries(tags::Scope::Custom(registry), tag, entries, replace);
-            tags::push();
-        })),
-        HostCall::RegistryTagValues { registry, tag } =>
+            HostReply::Entries(crate::content::custom::entries(&registry))
+        }
+        HostCall::Registry(RegistryRequest::AddRegistryTag { registry, tag, entries, replace }) =>
+        {
+            unit(loading().map(|()|
+            {
+                tags::addEntries(tags::Scope::Custom(registry), tag, entries, replace);
+                tags::push();
+            }))
+        }
+        HostCall::Registry(RegistryRequest::RegistryTagValues { registry, tag }) =>
         {
             HostReply::Ids(tags::values(tags::Scope::Custom(registry), &tag))
         }
-        HostCall::CreateDataMap { name, target, synced } => unit(
+        HostCall::Registry(RegistryRequest::CreateDataMap { name, target, synced }) => unit(
             registering()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| crate::content::custom::createMap(id, target, synced)),
         ),
-        HostCall::SetDataMapValues { map, values, remove, replace } => unit(loading().map(|()|
+        HostCall::Registry(RegistryRequest::SetDataMapValues { map, values, remove, replace }) =>
         {
-            crate::content::custom::setValues(map, None, values, remove, replace);
-        })),
-        HostCall::DataMapValue { map, id } =>
+            unit(loading().map(|()|
+            {
+                crate::content::custom::setValues(map, None, values, remove, replace);
+            }))
+        }
+        HostCall::Registry(RegistryRequest::DataMapValue { map, id }) =>
         {
             HostReply::Entries(crate::content::custom::value(&map, &id).map(|value| (id, value)).into_iter().collect())
         }
-        HostCall::DataMapEntries { map } => HostReply::Entries(crate::content::custom::mapEntries(&map)),
-        HostCall::RegisterDamageType { name, spec } =>
+        HostCall::Registry(RegistryRequest::DataMapEntries { map }) =>
+        {
+            HostReply::Entries(crate::content::custom::mapEntries(&map))
+        }
+        HostCall::Content(ContentRequest::RegisterDamageType { name, spec }) =>
         {
             unit(registering().and_then(|()| runtime.own(&name)).and_then(|id| crate::damage::register(id, spec)))
         }
-        HostCall::ResolveState { state } => ok(resolveState(&state), |(block, meta)| HostReply::Size(block, meta)),
-        HostCall::DescribeState { block, meta } => HostReply::State(crate::states::describe(block, meta)),
-        HostCall::IsClient => HostReply::Bool(crate::side::isClient()),
-        HostCall::IsLoaded { modid } => HostReply::Bool(state::byId(&modid).is_some_and(|other| other.isActive())),
-        HostCall::ModName { modid } => HostReply::Text(modName(&modid)),
+        HostCall::Registry(RegistryRequest::ResolveState { state }) =>
+        {
+            ok(resolveState(&state), |(block, meta)| HostReply::Size(block, meta))
+        }
+        HostCall::Registry(RegistryRequest::DescribeState { block, meta }) =>
+        {
+            HostReply::State(crate::states::describe(block, meta))
+        }
+        HostCall::Meta(MetaRequest::IsClient) => HostReply::Bool(crate::side::isClient()),
+        HostCall::Meta(MetaRequest::IsLoaded { modid }) =>
+        {
+            HostReply::Bool(state::byId(&modid).is_some_and(|other| other.isActive()))
+        }
+        HostCall::Meta(MetaRequest::ModName { modid }) => HostReply::Text(modName(&modid)),
         other => return Err(Box::new(other)),
     };
     Ok(reply)

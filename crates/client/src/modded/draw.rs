@@ -63,7 +63,7 @@ fn drawImage(engine: &Rc<RenderEngine>, texture: &str, rect: [i32; 4], color: u3
 }
 
 // lit and depth tested as GuiContainer slots, then back to the flat state later ops expect
-fn drawItem(font: &Rc<FontRenderer>, engine: &Rc<RenderEngine>, stack: &Rc<ItemStack>, x: i32, y: i32)
+pub(crate) fn drawItem(font: &Rc<FontRenderer>, engine: &Rc<RenderEngine>, stack: &Rc<ItemStack>, x: i32, y: i32)
 {
     let depth: bool = GL11::glIsEnabled(GL11::GL_DEPTH_TEST);
 

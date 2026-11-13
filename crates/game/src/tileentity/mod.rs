@@ -102,6 +102,8 @@ pub struct TileEntity
     pub m_removed: Cell<bool>,
     // rewrite: mod data on any tile entity, vanilla ones included, saved under loader:attachments
     pub m_attachments: std::cell::RefCell<common::nbt::attachments::Attachments>,
+    // rewrite: mod values that last as long as this object and are never saved
+    pub m_unsaved: std::cell::RefCell<common::nbt::attachments::Attachments>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -226,6 +228,7 @@ impl TileEntity
             m_zCoord: Cell::new(0),
             m_removed: Cell::new(false),
             m_attachments: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
+            m_unsaved: std::cell::RefCell::new(common::nbt::attachments::Attachments::new()),
         })
     }
 

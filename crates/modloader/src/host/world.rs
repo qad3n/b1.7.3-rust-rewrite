@@ -5,7 +5,7 @@ use crate::network::loader::{Particle, Sound};
 use crate::state::ModRuntime;
 use crate::tiles::{self, ModTileExt};
 use game::container::Container;
-use game::damage::{DamageKind, DamageSource};
+use game::damage::DamageSource;
 use game::entity::{Entity, entity_living, entity_player};
 use game::inventory::{IInventory, InventoryPlayer};
 use game::item::ItemStack;
@@ -14,7 +14,11 @@ use game::math::{AxisAlignedBB, MovingObjectPosition};
 use game::tileentity::TileEntity;
 use game::world::{World, WorldInfo};
 use mod_protocol::Identifier;
-use mod_protocol::abi::{BlockInfo, BlockPos, EntityField, HostCall, HostReply, StackRef};
+use mod_protocol::abi::
+{
+    BlockInfo, BlockPos, EntityField, EntityRequest, HostCall, HostReply, InventoryRequest, PlayerRequest,
+    RegistryRequest, ScreenRequest, StackRef, StoredRequest, WorldRequest, WorldgenRequest,
+};
 use std::cell::RefMut;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -52,18 +56,6 @@ fn spawnerKey(entity: String) -> String
     key.unwrap_or(entity)
 }
 
-fn authoritative(world: &World) -> Result<(), String>
-{
-    if crate::side::isAuthority(world)
-    {
-        Ok(())
-    }
-    else
-    {
-        Err("only the side that owns the world may change it".to_owned())
-    }
-}
-
 fn modTile(dimension: i32, pos: BlockPos) -> Result<Rc<TileEntity>, String>
 {
     let tile: Rc<TileEntity> = world(dimension)?
@@ -76,16 +68,6 @@ fn modTile(dimension: i32, pos: BlockPos) -> Result<Rc<TileEntity>, String>
     }
 
     Ok(tile)
-}
-
-fn anyTile(dimension: i32, pos: BlockPos) -> Result<Rc<TileEntity>, String>
-{
-    world(dimension)?.getBlockTileEntity(pos.x, pos.y, pos.z).ok_or_else(|| format!("no tile entity at {pos:?}"))
-}
-
-fn attachment(slots: &std::cell::RefCell<common::nbt::attachments::Attachments>, owner: &str) -> HostReply
-{
-    HostReply::Bytes(slots.borrow().get(owner).cloned().unwrap_or_default())
 }
 
 // an empty value removes the slot, so a cleared attachment leaves no trace in the save
@@ -268,10 +250,6 @@ fn entityField(entity: &Rc<Entity>, field: EntityField) -> HostReply
         EntityField::Jumping => HostReply::Bool(living(entity).is_some_and(|fields| fields.m_isJumping.get())),
         EntityField::Yaw => HostReply::Float(entity.m_rotationYaw.get()),
         EntityField::Pitch => HostReply::Float(entity.m_rotationPitch.get()),
-        EntityField::AirJumps | EntityField::MountSpeed =>
-        {
-            HostReply::Error("air jumps and mount speed were removed in api 1.28 with steering".to_owned())
-        }
 
         EntityField::InLava => HostReply::Bool(entity.handleLavaMovement()),
         EntityField::Slipperiness => HostReply::Float(entity_living::groundSlipperiness(entity, &entity.world())),
@@ -371,7 +349,7 @@ fn setEntityField(entity: &Rc<Entity>, field: EntityField, value: f64)
         EntityField::Jumping => living(entity).into_iter().for_each(|fields| fields.m_isJumping.set(value > 0.0)),
         EntityField::Yaw => entity.m_rotationYaw.set(value as f32),
         EntityField::Pitch => entity.m_rotationPitch.set(value as f32),
-        EntityField::AirJumps | EntityField::MountSpeed | EntityField::InLava | EntityField::Slipperiness =>
+        EntityField::InLava | EntityField::Slipperiness =>
         {}
 
         EntityField::TargetId =>
@@ -438,140 +416,134 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 {
     match call
     {
-        HostCall::IsAuthority { world: dimension } =>
+        HostCall::World(WorldRequest::IsAuthority { world: dimension }) =>
         {
             ok(world(dimension), |world| HostReply::Bool(crate::side::isAuthority(&world)))
         }
 
-        HostCall::GetBlock { world: dimension, pos } =>
+        HostCall::World(WorldRequest::GetBlock { world: dimension, pos }) =>
         {
             ok(world(dimension), |world| HostReply::Int(world.getBlockId(pos.x, pos.y, pos.z)))
         }
 
-        HostCall::Height { world: dimension, x, z } =>
+        HostCall::World(WorldRequest::Height { world: dimension, x, z }) =>
         {
             ok(world(dimension), |world| HostReply::Int(world.getHeightValue(x, z)))
         }
 
-        HostCall::SyncedData { world: dimension, id } =>
+        HostCall::Stored(StoredRequest::SyncedData { world: dimension, id }) =>
         {
             ok(entity(dimension, id), |entity| HostReply::Bytes(crate::entities::synced(&entity, runtime.id())))
         }
         // only the dedicated server broadcasts, single player and a client keep the bytes local
-        HostCall::SetSyncedData { world: dimension, id, data } =>
+        HostCall::Stored(StoredRequest::SetSyncedData { world: dimension, id, data }) =>
         {
             unit(entity(dimension, id).map(|entity| crate::entities::publishSynced(&entity, runtime.id(), data)))
         }
 
-        HostCall::PlaceFeature { feature, world: dimension, pos, seed } => ok(
-            world(dimension).and_then(|world|
-            {
-                authoritative(&world)?;
-                crate::content::features::place(&world, &feature, pos, seed)
-            }),
+        HostCall::Worldgen(WorldgenRequest::PlaceFeature { feature, world: dimension, pos, seed }) => ok(
+            world(dimension).and_then(|world| crate::content::features::place(&world, &feature, pos, seed)),
             HostReply::Bool,
         ),
 
-        HostCall::Accessories { world: dimension, entity: id } =>
+        HostCall::Entity(EntityRequest::Accessories { world: dimension, entity: id }) =>
         {
             ok(entity(dimension, id), |entity| HostReply::Accessories(crate::content::accessories::worn(&entity)))
         }
 
-        HostCall::SetAccessory { world: dimension, entity: id, slot, stack } =>
-        {
-            unit(entity(dimension, id).and_then(|entity|
-            {
-                let world: Rc<World> = entity.m_worldObj.get().ok_or("the entity is in no world")?;
-                authoritative(&world)?;
-                crate::content::accessories::set(&entity, &slot, stack.as_ref())
-            }))
-        }
-
-        HostCall::SwapAccessory { player: id, slot } => ok(
-            player(id).and_then(|player|
-            {
-                let world: Rc<World> = player.m_worldObj.get().ok_or("the player is in no world")?;
-                authoritative(&world)?;
-                crate::content::accessories::swap(&player, &slot)
-            }),
-            HostReply::Bool,
+        HostCall::Entity(EntityRequest::SetAccessory { world: dimension, entity: id, slot, stack }) => unit(
+            entity(dimension, id).and_then(|entity| crate::content::accessories::set(&entity, &slot, stack.as_ref())),
         ),
 
-        HostCall::EntityField { world: dimension, id, field } =>
+        HostCall::Player(PlayerRequest::SwapAccessory { player: id, slot }) =>
+        {
+            ok(player(id).and_then(|player| crate::content::accessories::swap(&player, &slot)), HostReply::Bool)
+        }
+
+        HostCall::Entity(EntityRequest::EntityField { world: dimension, id, field }) =>
         {
             ok(entity(dimension, id), |entity| entityField(&entity, field))
         }
 
-        HostCall::SetEntityField { world: dimension, id, field, value } =>
+        HostCall::Entity(EntityRequest::SetEntityField { world: dimension, id, field, value }) =>
         {
             unit(entity(dimension, id).map(|entity| setEntityField(&entity, field, value)))
         }
 
-        HostCall::RayTrace { world: dimension, from, to, liquids } => ok(world(dimension), |world|
+        HostCall::World(WorldRequest::RayTrace { world: dimension, from, to, liquids }) =>
         {
-            let start: Rc<Vec3D> = game::math::Vec3D::createVector(from[0], from[1], from[2]);
-            let end: Rc<Vec3D> = game::math::Vec3D::createVector(to[0], to[1], to[2]);
-            HostReply::Hit(world.rayTraceBlocks_do(&start, &end, liquids).map(|hit| mod_protocol::abi::RayHit
+            ok(world(dimension), |world|
             {
-                pos: BlockPos::new(hit.m_blockX, hit.m_blockY, hit.m_blockZ),
-                face: hit.m_sideHit,
-                point: [hit.m_hitVec.x(), hit.m_hitVec.y(), hit.m_hitVec.z()],
-            }))
-        }),
-
-        HostCall::EntitiesAlong { world: dimension, from, to, radius, exclude } => ok(world(dimension), |world|
-        {
-            let start: Rc<Vec3D> = game::math::Vec3D::createVector(from[0], from[1], from[2]);
-            let end: Rc<Vec3D> = game::math::Vec3D::createVector(to[0], to[1], to[2]);
-            let sweep: Rc<AxisAlignedBB> = AxisAlignedBB::getBoundingBoxFromPool(
-                from[0].min(to[0]),
-                from[1].min(to[1]),
-                from[2].min(to[2]),
-                from[0].max(to[0]),
-                from[1].max(to[1]),
-                from[2].max(to[2]),
-            )
-            .expand(radius + 1.0, radius + 1.0, radius + 1.0);
-
-            let mut hits: Vec<(f64, Rc<Entity>)> = world
-                .getEntitiesWithinAABB("Entity", &sweep)
-                .into_iter()
-                .filter(|entity| Some(entity.m_entityId.get()) != exclude && entity.canBeCollidedWith())
-                .filter_map(|entity|
+                let start: Rc<Vec3D> = game::math::Vec3D::createVector(from[0], from[1], from[2]);
+                let end: Rc<Vec3D> = game::math::Vec3D::createVector(to[0], to[1], to[2]);
+                HostReply::Hit(world.rayTraceBlocks_do(&start, &end, liquids).map(|hit| mod_protocol::abi::RayHit
                 {
-                    let hit: MovingObjectPosition =
-                        entity.m_boundingBox.expand(radius, radius, radius).clip(&start, &end)?;
-                    Some((start.distanceTo(&hit.m_hitVec), entity))
-                })
-                .collect();
-            hits.sort_by(|a, b| a.0.total_cmp(&b.0));
-            HostReply::Entities(hits.iter().map(|(_, entity)| entityInfo(entity)).collect())
-        }),
+                    pos: BlockPos::new(hit.m_blockX, hit.m_blockY, hit.m_blockZ),
+                    face: hit.m_sideHit,
+                    point: [hit.m_hitVec.x(), hit.m_hitVec.y(), hit.m_hitVec.z()],
+                }))
+            })
+        }
 
-        HostCall::Mount { world: dimension, id, vehicle } => unit(entity(dimension, id).and_then(|rider|
+        HostCall::Entity(EntityRequest::EntitiesAlong { world: dimension, from, to, radius, exclude }) =>
         {
-            let vehicle: Option<Rc<Entity>> = match vehicle
+            ok(world(dimension), |world|
             {
-                Some(vehicle) => Some(entity(dimension, vehicle).or_else(|_| player(vehicle))?),
-                None => None,
-            };
-            rider.mountEntity(vehicle.as_ref());
-            Ok(())
-        })),
+                let start: Rc<Vec3D> = game::math::Vec3D::createVector(from[0], from[1], from[2]);
+                let end: Rc<Vec3D> = game::math::Vec3D::createVector(to[0], to[1], to[2]);
+                let sweep: Rc<AxisAlignedBB> = AxisAlignedBB::getBoundingBoxFromPool(
+                    from[0].min(to[0]),
+                    from[1].min(to[1]),
+                    from[2].min(to[2]),
+                    from[0].max(to[0]),
+                    from[1].max(to[1]),
+                    from[2].max(to[2]),
+                )
+                .expand(radius + 1.0, radius + 1.0, radius + 1.0);
 
-        HostCall::BlockInfo { block } =>
+                let mut hits: Vec<(f64, Rc<Entity>)> = world
+                    .getEntitiesWithinAABB("Entity", &sweep)
+                    .into_iter()
+                    .filter(|entity| Some(entity.m_entityId.get()) != exclude && entity.canBeCollidedWith())
+                    .filter_map(|entity|
+                    {
+                        let hit: MovingObjectPosition =
+                            entity.m_boundingBox.expand(radius, radius, radius).clip(&start, &end)?;
+                        Some((start.distanceTo(&hit.m_hitVec), entity))
+                    })
+                    .collect();
+                hits.sort_by(|a, b| a.0.total_cmp(&b.0));
+                HostReply::Entities(hits.iter().map(|(_, entity)| entityInfo(entity)).collect())
+            })
+        }
+
+        HostCall::Entity(EntityRequest::Mount { world: dimension, id, vehicle }) =>
+        {
+            unit(entity(dimension, id).and_then(|rider|
+            {
+                let vehicle: Option<Rc<Entity>> = match vehicle
+                {
+                    Some(vehicle) => Some(entity(dimension, vehicle).or_else(|_| player(vehicle))?),
+                    None => None,
+                };
+                rider.mountEntity(vehicle.as_ref());
+                Ok(())
+            }))
+        }
+
+        HostCall::Registry(RegistryRequest::BlockInfo { block }) =>
         {
             HostReply::BlockInfo(game::block::Block::byId(block).map(|block| blockInfo(&block)))
         }
 
-        HostCall::GetMeta { world: dimension, pos } =>
+        HostCall::World(WorldRequest::GetMeta { world: dimension, pos }) =>
         {
             ok(world(dimension), |world| HostReply::Int(world.getBlockMetadata(pos.x, pos.y, pos.z)))
         }
 
-        HostCall::SetBlock { world: dimension, pos, block, meta, notify } =>
+        HostCall::World(WorldRequest::SetBlock { world: dimension, pos, block, meta, notify }) =>
         {
-            ok(world(dimension).and_then(|world| authoritative(&world).map(|()| world)), |world|
+            ok(world(dimension), |world|
             {
                 let changed: bool = if notify
                 {
@@ -585,15 +557,18 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
 
-        HostCall::SetItemInUse { player: id, ticks } => unit(player(id).and_then(|player|
+        HostCall::Player(PlayerRequest::SetItemInUse { player: id, ticks }) => unit(player(id).and_then(|player|
         {
             let held: Rc<game::item::ItemStack> =
                 entity_player::inventory(&player).getCurrentItem().ok_or("the player holds nothing to use")?;
             entity_player::setItemInUse(&player, &held, ticks);
             Ok(())
         })),
-        HostCall::StopUsingItem { player: id } => unit(player(id).map(|player| entity_player::stopUsingItem(&player))),
-        HostCall::DigSpeed { player: id, block } => ok(
+        HostCall::Player(PlayerRequest::StopUsingItem { player: id }) =>
+        {
+            unit(player(id).map(|player| entity_player::stopUsingItem(&player)))
+        }
+        HostCall::Player(PlayerRequest::DigSpeed { player: id, block }) => ok(
             player(id).and_then(|player|
             {
                 game::block::Block::byId(block).map(|block| (player, block)).ok_or(format!("no block {block}"))
@@ -603,15 +578,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 HostReply::Float(game::entity::entity_player::getCurrentPlayerStrVsBlock(&player, &block))
             },
         ),
-        HostCall::SetBiome { world: dimension, x, z, biome } => unit(
-            world(dimension)
-                .and_then(|world| authoritative(&world).map(|()| world))
-                .and_then(|world| crate::biomes::setBiome(&world, x, z, biome)),
-        ),
-
-        HostCall::Weather { world: dimension, raining, thundering, ticks } =>
+        HostCall::Worldgen(WorldgenRequest::SetBiome { world: dimension, x, z, biome }) =>
         {
-            ok(world(dimension).and_then(|world| authoritative(&world).map(|()| world)), |world|
+            unit(world(dimension).and_then(|world| crate::biomes::setBiome(&world, x, z, biome)))
+        }
+
+        HostCall::World(WorldRequest::Weather { world: dimension, raining, thundering, ticks }) =>
+        {
+            ok(world(dimension), |world|
             {
                 let info: Rc<WorldInfo> = world.worldInfo();
                 info.setRaining(raining);
@@ -622,136 +596,129 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
 
-        HostCall::SwapBlock { world: dimension, pos, block, meta } => ok(
-            world(dimension)
-                .and_then(|world| authoritative(&world).map(|()| world))
-                .and_then(|world| tiles::swap(&world, pos, block, meta)),
-            HostReply::Bool,
-        ),
-        HostCall::BlockState { world: dimension, pos } => ok(world(dimension), |world|
+        HostCall::World(WorldRequest::SwapBlock { world: dimension, pos, block, meta }) =>
+        {
+            ok(world(dimension).and_then(|world| tiles::swap(&world, pos, block, meta)), HostReply::Bool)
+        }
+        HostCall::World(WorldRequest::BlockState { world: dimension, pos }) => ok(world(dimension), |world|
         {
             let block: i32 = world.getBlockId(pos.x, pos.y, pos.z);
             HostReply::State(crate::states::describe(block, world.getBlockMetadata(pos.x, pos.y, pos.z)))
         }),
 
-        HostCall::SetBlockState { world: dimension, pos, state, notify } =>
+        HostCall::World(WorldRequest::SetBlockState { world: dimension, pos, state, notify }) =>
         {
             let target: Result<(i32, i32), String> =
                 crate::states::resolve(&state).ok_or_else(|| format!("{} is not a registered block", state.block));
-            ok(
-                world(dimension)
-                    .and_then(|world| authoritative(&world).map(|()| world))
-                    .and_then(|world| target.map(|target| (world, target))),
-                |(world, (block, meta))| HostReply::Bool(writeState(&world, pos, block, meta, notify)),
-            )
+            ok(world(dimension).and_then(|world| target.map(|target| (world, target))), |(world, (block, meta))|
+            {
+                HostReply::Bool(writeState(&world, pos, block, meta, notify))
+            })
         }
 
-        HostCall::BlockEffect { world: dimension, pos, block, meta } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::BlockEffect { world: dimension, pos, block, meta }) =>
         {
-            authoritative(&world)?;
-            world.doEvent(game::block::BREAK_EVENT, pos.x, pos.y, pos.z, game::block::packBreak(block, meta));
-            Ok(())
-        })),
+            unit(world(dimension).map(|world|
+            {
+                world.doEvent(game::block::BREAK_EVENT, pos.x, pos.y, pos.z, game::block::packBreak(block, meta));
+            }))
+        }
 
-        HostCall::DropBlockItems { world: dimension, pos, block, meta } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::DropBlockItems { world: dimension, pos, block, meta }) =>
         {
-            authoritative(&world)?;
+            unit(world(dimension).and_then(|world|
+            {
+                let block: Rc<game::block::Block> =
+                    game::block::Block::byId(block).ok_or_else(|| format!("no block {block}"))?;
+                block.dropBlockAsItem(&world, pos.x, pos.y, pos.z, meta);
+                Ok(())
+            }))
+        }
 
-            let block: Rc<game::block::Block> =
-                game::block::Block::byId(block).ok_or_else(|| format!("no block {block}"))?;
-            block.dropBlockAsItem(&world, pos.x, pos.y, pos.z, meta);
-            Ok(())
-        })),
-
-        HostCall::SetMeta { world: dimension, pos, meta } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::SetMeta { world: dimension, pos, meta }) => unit(world(dimension).map(|world|
         {
-            authoritative(&world)?;
             world.setBlockMetadataWithNotify(pos.x, pos.y, pos.z, meta);
-            Ok(())
         })),
 
-        HostCall::NotifyNeighbors { world: dimension, pos, block } => unit(world(dimension).map(|world|
+        HostCall::World(WorldRequest::NotifyNeighbors { world: dimension, pos, block }) =>
         {
-            world.notifyBlocksOfNeighborChange(pos.x, pos.y, pos.z, block);
-        })),
+            unit(world(dimension).map(|world|
+            {
+                world.notifyBlocksOfNeighborChange(pos.x, pos.y, pos.z, block);
+            }))
+        }
 
-        HostCall::ScheduleTick { world: dimension, pos, block, delay } => unit(world(dimension).map(|world|
+        HostCall::World(WorldRequest::ScheduleTick { world: dimension, pos, block, delay }) =>
         {
-            world.scheduleBlockUpdate(pos.x, pos.y, pos.z, block, delay);
-        })),
+            unit(world(dimension).map(|world|
+            {
+                world.scheduleBlockUpdate(pos.x, pos.y, pos.z, block, delay);
+            }))
+        }
 
-        HostCall::MarkForRender { world: dimension, pos } => unit(world(dimension).map(|world|
+        HostCall::World(WorldRequest::MarkForRender { world: dimension, pos }) => unit(world(dimension).map(|world|
         {
             world.markBlockNeedsUpdate(pos.x, pos.y, pos.z);
         })),
 
-        HostCall::Light { world: dimension, pos } =>
+        HostCall::World(WorldRequest::Light { world: dimension, pos }) =>
         {
             ok(world(dimension), |world| HostReply::Int(world.getBlockLightValue(pos.x, pos.y, pos.z)))
         }
 
-        HostCall::IsPowered { world: dimension, pos } =>
+        HostCall::World(WorldRequest::IsPowered { world: dimension, pos }) =>
         {
             ok(world(dimension), |world| HostReply::Bool(world.isBlockIndirectlyGettingPowered(pos.x, pos.y, pos.z)))
         }
 
-        HostCall::WorldTime { world: dimension } => ok(world(dimension), |world| HostReply::Long(world.getWorldTime())),
+        HostCall::World(WorldRequest::WorldTime { world: dimension }) =>
+        {
+            ok(world(dimension), |world| HostReply::Long(world.getWorldTime()))
+        }
 
-        HostCall::WorldRandom { world: dimension, bound } =>
+        HostCall::World(WorldRequest::WorldRandom { world: dimension, bound }) =>
         {
             ok(world(dimension), |world| HostReply::Int(world.m_rand.nextIntBounded(bound.max(1))))
         }
 
-        HostCall::TileData { world: dimension, pos } =>
+        HostCall::Stored(StoredRequest::TileData { world: dimension, pos }) =>
         {
             ok(modTile(dimension, pos), |tile| HostReply::Bytes(tiles::ext(&tile).m_data.borrow().clone()))
         }
 
-        HostCall::SetTileData { world: dimension, pos, data } => unit(modTile(dimension, pos).map(|tile|
+        HostCall::Stored(StoredRequest::SetTileData { world: dimension, pos, data }) =>
         {
-            *tiles::ext(&tile).m_data.borrow_mut() = data;
-            tile.onInventoryChanged();
-            crate::network::sync::tileChanged(&tile);
-        })),
-
-        HostCall::TileAttachment { world: dimension, pos } =>
-        {
-            ok(anyTile(dimension, pos), |tile| attachment(&tile.m_attachments, runtime.id()))
-        }
-
-        HostCall::SetTileAttachment { world: dimension, pos, data } => unit(anyTile(dimension, pos).map(|tile|
-        {
-            crate::network::attachments::tileChanged(&tile, runtime.id(), &data);
-            setAttachment(&tile.m_attachments, runtime.id(), data);
-
-            if let Some(world) = tile.m_worldObj.get()
+            unit(modTile(dimension, pos).map(|tile|
             {
-                world.getChunkFromBlockCoords(pos.x, pos.z).setChunkModified();
-            }
-        })),
-
-        HostCall::ChunkAttachment { world: dimension, chunk_x, chunk_z } => ok(world(dimension), |world|
-        {
-            attachment(&world.getChunkFromChunkCoords(chunk_x, chunk_z).m_attachments, runtime.id())
-        }),
-
-        HostCall::SetChunkAttachment { world: dimension, chunk_x, chunk_z, data } =>
-        {
-            unit(world(dimension).map(|world|
-            {
-                let chunk: Rc<game::world::Chunk> = world.getChunkFromChunkCoords(chunk_x, chunk_z);
-                crate::network::attachments::chunkChanged(&world, chunk_x, chunk_z, runtime.id(), &data);
-                setAttachment(&chunk.m_attachments, runtime.id(), data);
-                chunk.setChunkModified();
+                // a machine that stores the same state every tick costs no save and no packet
+                let changed: bool = *tiles::ext(&tile).m_data.borrow() != data;
+                if changed
+                {
+                    *tiles::ext(&tile).m_data.borrow_mut() = data;
+                    tile.onInventoryChanged();
+                    crate::attach::tileDataChanged(dimension, pos);
+                }
             }))
         }
 
-        HostCall::TileSlot { world: dimension, pos, slot } => ok(inventoryTile(dimension, pos), |tile|
+        HostCall::Stored(StoredRequest::Fetch { holder, name }) =>
         {
-            HostReply::Stack(tile.getStackInSlot(slot).map(|stack| stackData(&stack)))
-        }),
+            ok(crate::attach::fetch(holder, &name), HostReply::Stored)
+        }
+        HostCall::Stored(StoredRequest::Store { holder, name, data }) =>
+        {
+            unit(crate::attach::store(runtime.id(), holder, &name, data))
+        }
 
-        HostCall::SetTileSlot { world: dimension, pos, slot, stack } =>
+        HostCall::Inventory(InventoryRequest::TileSlot { world: dimension, pos, slot }) =>
+        {
+            ok(inventoryTile(dimension, pos), |tile|
+            {
+                HostReply::Stack(tile.getStackInSlot(slot).map(|stack| stackData(&stack)))
+            })
+        }
+
+        HostCall::Inventory(InventoryRequest::SetTileSlot { world: dimension, pos, slot, stack }) =>
         {
             unit(inventoryTile(dimension, pos).map(|tile|
             {
@@ -759,97 +726,109 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             }))
         }
 
-        HostCall::SpawnItem { world: dimension, pos, stack } => unit(world(dimension).and_then(|world|
+        HostCall::Entity(EntityRequest::SpawnItem { world: dimension, pos, stack }) =>
         {
-            authoritative(&world)?;
-
-            let stack: Rc<ItemStack> = stackFrom(&stack).ok_or("cannot spawn an empty or unknown stack")?;
-            let item: Rc<Entity> = game::entity::entity_item::create(&world, pos[0], pos[1], pos[2], stack);
-            game::entity::entity_item::fields(&item).m_delayBeforeCanPickup.set(10);
-            world.entityJoinedWorld(&item);
-            Ok(())
-        })),
-        HostCall::SpawnEntity { world: dimension, kind, pos, data } => ok(
-            world(dimension).and_then(|world|
+            unit(world(dimension).and_then(|world|
             {
-                authoritative(&world)?;
-                crate::entities::spawn(&world, &kind, pos, data)
-            }),
-            HostReply::Int,
-        ),
+                let stack: Rc<ItemStack> = stackFrom(&stack).ok_or("cannot spawn an empty or unknown stack")?;
+                let item: Rc<Entity> = game::entity::entity_item::create(&world, pos[0], pos[1], pos[2], stack);
+                game::entity::entity_item::fields(&item).m_delayBeforeCanPickup.set(10);
+                world.entityJoinedWorld(&item);
+                Ok(())
+            }))
+        }
+        HostCall::Entity(EntityRequest::SpawnEntity { world: dimension, kind, pos, data }) =>
+        {
+            ok(world(dimension).and_then(|world| crate::entities::spawn(&world, &kind, pos, data)), HostReply::Int)
+        }
 
-        HostCall::Entity { world: dimension, id } =>
+        HostCall::Entity(EntityRequest::Entity { world: dimension, id }) =>
         {
             HostReply::Entity(context::entityIn(dimension, id).map(|entity| entityInfo(&entity)))
         }
 
-        HostCall::EntitiesNear { world: dimension, pos, radius } => ok(world(dimension), |world|
+        HostCall::Entity(EntityRequest::EntitiesNear { world: dimension, pos, radius }) =>
         {
-            let bounds: Rc<AxisAlignedBB> = AxisAlignedBB::getBoundingBoxFromPool(
-                pos[0] - radius,
-                pos[1] - radius,
-                pos[2] - radius,
-                pos[0] + radius,
-                pos[1] + radius,
-                pos[2] + radius,
-            );
+            ok(world(dimension), |world|
+            {
+                let bounds: Rc<AxisAlignedBB> = AxisAlignedBB::getBoundingBoxFromPool(
+                    pos[0] - radius,
+                    pos[1] - radius,
+                    pos[2] - radius,
+                    pos[0] + radius,
+                    pos[1] + radius,
+                    pos[2] + radius,
+                );
 
-            let found: Vec<Rc<Entity>> = world.getEntitiesWithinAABB("Entity", &bounds);
-            HostReply::Entities(found.iter().map(entityInfo).collect())
-        }),
+                let found: Vec<Rc<Entity>> = world.getEntitiesWithinAABB("Entity", &bounds);
+                HostReply::Entities(found.iter().map(entityInfo).collect())
+            })
+        }
 
-        HostCall::EntityData { world: dimension, id } =>
+        HostCall::Stored(StoredRequest::EntityData { world: dimension, id }) =>
         {
             ok(entity(dimension, id), |entity| HostReply::Bytes(crate::entities::data(&entity, runtime.id())))
         }
 
-        HostCall::SetEntityData { world: dimension, id, data } =>
+        HostCall::Stored(StoredRequest::SetEntityData { world: dimension, id, data }) =>
         {
             unit(entity(dimension, id).map(|entity| crate::entities::setData(&entity, runtime.id(), data)))
         }
 
-        HostCall::PlaceTemplate { world: dimension, template, origin, rotation, seed } => ok(
-            world(dimension).and_then(|world|
-            {
-                crate::content::structure_templates::place(&world, &template, origin, rotation, seed)
-            }),
-            HostReply::Bool,
-        ),
+        HostCall::Worldgen(WorldgenRequest::PlaceTemplate { world: dimension, template, origin, rotation, seed }) =>
+        {
+            ok(
+                world(dimension).and_then(|world|
+                {
+                    crate::content::structure_templates::place(&world, &template, origin, rotation, seed)
+                }),
+                HostReply::Bool,
+            )
+        }
 
         // the vanilla note block path runs the event here and sends it to every client near the block
-        HostCall::BlockEvent { world: dimension, pos, kind, data } => unit(world(dimension).map(|world|
+        HostCall::World(WorldRequest::BlockEvent { world: dimension, pos, kind, data }) =>
         {
-            world.playNoteAt(pos.x, pos.y, pos.z, kind, data);
-        })),
+            unit(world(dimension).map(|world|
+            {
+                world.playNoteAt(pos.x, pos.y, pos.z, kind, data);
+            }))
+        }
 
-        HostCall::EntityValue { world: dimension, id, key, saved } => ok(entity(dimension, id), |entity|
+        HostCall::Stored(StoredRequest::EntityValue { world: dimension, id, key, saved }) =>
         {
-            HostReply::Bytes(crate::entities::value(&entity, runtime.id(), &key, saved))
-        }),
+            ok(entity(dimension, id), |entity|
+            {
+                HostReply::Bytes(crate::entities::value(&entity, runtime.id(), &key, saved))
+            })
+        }
 
-        HostCall::SetEntityValue { world: dimension, id, key, saved, kept, data } => unit(
+        HostCall::Stored(StoredRequest::SetEntityValue { world: dimension, id, key, saved, kept, data }) => unit(
             entity(dimension, id)
                 .map(|entity| crate::entities::setValue(&entity, runtime.id(), &key, saved, kept, data)),
         ),
 
-        HostCall::Accelerate { world: dimension, id, strafe, forward, factor } =>
+        HostCall::Entity(EntityRequest::Accelerate { world: dimension, id, strafe, forward, factor }) =>
         {
             unit(entity(dimension, id).map(|entity| entity.moveFlying(strafe, forward, factor)))
         }
 
-        HostCall::Step { world: dimension, id, motion: [x, y, z] } =>
+        HostCall::Entity(EntityRequest::Step { world: dimension, id, motion: [x, y, z] }) =>
         {
             unit(entity(dimension, id).map(|entity| entity.moveEntity(x, y, z)))
         }
 
-        HostCall::AnimateWalk { world: dimension, id } => unit(entity(dimension, id).and_then(|entity|
+        HostCall::Entity(EntityRequest::AnimateWalk { world: dimension, id }) =>
         {
-            living(&entity).ok_or("only living entities walk")?;
-            entity_living::animateWalk(&entity);
-            Ok(())
-        })),
+            unit(entity(dimension, id).and_then(|entity|
+            {
+                living(&entity).ok_or("only living entities walk")?;
+                entity_living::animateWalk(&entity);
+                Ok(())
+            }))
+        }
 
-        HostCall::MoveEntity { world: dimension, id, pos, motion, rotation } =>
+        HostCall::Entity(EntityRequest::MoveEntity { world: dimension, id, pos, motion, rotation }) =>
         {
             unit(entity(dimension, id).map(|entity|
             {
@@ -878,15 +857,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             }))
         }
 
-        HostCall::DamageEntity { world: dimension, id, source, amount } => ok(entity(dimension, id), |target|
-        {
-            let attacker: Option<Rc<Entity>> = source.and_then(|source| context::entityIn(dimension, source));
-            HostReply::Bool(
-                target.attackEntityFrom(&DamageSource::withAttacker(DamageKind::Generic, attacker.as_ref()), amount),
-            )
-        }),
-
-        HostCall::DamageEntityAs { world: dimension, id, source, amount, kind } =>
+        HostCall::Entity(EntityRequest::DamageEntityAs { world: dimension, id, source, amount, kind }) =>
         {
             let Some(kind) = crate::damage::kind(&kind)
             else
@@ -901,9 +872,9 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
 
-        HostCall::DamageType => HostReply::Id(crate::damage::current()),
+        HostCall::Entity(EntityRequest::DamageType) => HostReply::Id(crate::damage::current()),
 
-        HostCall::InsertItem { world: dimension, pos, face, stack, simulate } =>
+        HostCall::Inventory(InventoryRequest::InsertItem { world: dimension, pos, face, stack, simulate }) =>
         {
             ok(world(dimension), |world| match stackFrom(&stack)
             {
@@ -913,83 +884,101 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
 
-        HostCall::ExtractItem { world: dimension, pos, face, max, simulate } => ok(world(dimension), |world|
-        {
-            let taken: Option<Rc<ItemStack>> = crate::tech::extract(&world, pos, face, max, simulate);
-            HostReply::Stack(taken.map(|stack| stackData(&stack)))
-        }),
-
-        HostCall::ExtractMatching { world: dimension, pos, face, filter, max, simulate } =>
+        HostCall::Inventory(InventoryRequest::ExtractItem { world: dimension, pos, face, max, simulate }) =>
         {
             ok(world(dimension), |world|
             {
-                let taken: Option<Rc<ItemStack>> =
-                    crate::tech::extractMatching(&world, pos, face, &filter, max, simulate);
+                let taken: Option<Rc<ItemStack>> = crate::tech::extract(&world, pos, face, max, simulate);
                 HostReply::Stack(taken.map(|stack| stackData(&stack)))
             })
         }
 
-        HostCall::UnlockAchievement { player: id, achievement } =>
+        HostCall::Inventory(InventoryRequest::ExtractMatching
+        {
+            world: dimension,
+            pos,
+            face,
+            filter,
+            max,
+            simulate,
+        }) => ok(world(dimension), |world|
+        {
+            let taken: Option<Rc<ItemStack>> = crate::tech::extractMatching(&world, pos, face, &filter, max, simulate);
+            HostReply::Stack(taken.map(|stack| stackData(&stack)))
+        }),
+
+        HostCall::Player(PlayerRequest::UnlockAchievement { player: id, achievement }) =>
         {
             ok(player(id), |target| HostReply::Bool(crate::content::progress::unlock(&target, &achievement)))
         }
 
-        HostCall::HasAchievement { player: id, achievement } =>
+        HostCall::Player(PlayerRequest::HasAchievement { player: id, achievement }) =>
         {
             ok(player(id), |target| HostReply::Bool(game::stats::named::unlocked(&target, &achievement.to_string())))
         }
 
-        HostCall::AddStat { player: id, stat, amount } =>
+        HostCall::Player(PlayerRequest::AddStat { player: id, stat, amount }) =>
         {
             unit(player(id).map(|target| crate::content::progress::addStat(&target, &stat, amount)))
         }
 
-        HostCall::StatValue { player: id, stat } =>
+        HostCall::Player(PlayerRequest::StatValue { player: id, stat }) =>
         {
             ok(player(id), |target| HostReply::Int(game::stats::named::value(&target, &stat)))
         }
 
-        HostCall::AddEffect { world: dimension, id, effect, level, ticks } =>
+        HostCall::Entity(EntityRequest::AddEffect { world: dimension, id, effect, level, ticks }) =>
         {
             unit(entity(dimension, id).and_then(|target| crate::content::effects::add(&target, &effect, level, ticks)))
         }
 
-        HostCall::RemoveEffect { world: dimension, id, effect } =>
+        HostCall::Entity(EntityRequest::RemoveEffect { world: dimension, id, effect }) =>
         {
             unit(entity(dimension, id).map(|target| crate::content::effects::remove(&target, &effect)))
         }
 
-        HostCall::EffectLevel { world: dimension, id, effect } =>
+        HostCall::Entity(EntityRequest::EffectLevel { world: dimension, id, effect }) =>
         {
             ok(entity(dimension, id), |target| HostReply::Int(crate::content::effects::level(&target, &effect)))
         }
 
-        HostCall::SetModifier { world: dimension, id, attribute, modifier, amount, operation } => unit(
+        HostCall::Entity(EntityRequest::SetModifier
+        {
+            world: dimension,
+            id,
+            attribute,
+            modifier,
+            amount,
+            operation,
+        }) => unit(
             entity(dimension, id)
                 .and_then(|target| crate::attributes::set(&target, &attribute, &modifier, amount, operation)),
         ),
 
-        HostCall::AttributeValue { world: dimension, id, attribute } => ok(
+        HostCall::Entity(EntityRequest::AttributeValue { world: dimension, id, attribute }) => ok(
             entity(dimension, id).and_then(|target| crate::attributes::value(&target, &attribute)),
             HostReply::Double,
         ),
 
-        HostCall::RemoveModifier { world: dimension, id, attribute, modifier } =>
+        HostCall::Entity(EntityRequest::RemoveModifier { world: dimension, id, attribute, modifier }) =>
         {
             unit(entity(dimension, id).and_then(|target| crate::attributes::remove(&target, &attribute, &modifier)))
         }
 
-        HostCall::KillEntity { world: dimension, id } =>
+        HostCall::Entity(EntityRequest::KillEntity { world: dimension, id }) =>
         {
             unit(entity(dimension, id).map(|entity| entity.setEntityDead()))
         }
 
-        HostCall::MoveTowards { world: dimension, id, pos, speed } => unit(entity(dimension, id).map(|entity|
+        HostCall::Entity(EntityRequest::MoveTowards { world: dimension, id, pos, speed }) =>
         {
-            crate::entities::moveTowards(&entity, pos, speed);
-        })),
+            unit(entity(dimension, id).map(|entity|
+            {
+                crate::entities::moveTowards(&entity, pos, speed);
+            }))
+        }
 
-        HostCall::Players { world: dimension } =>
+        HostCall::Player(PlayerRequest::Players { world: dimension }) =>
         {
             let worlds: Vec<Rc<World>> = match dimension
             {
@@ -1005,7 +994,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             )
         }
 
-        HostCall::Chat { player: target, message } => unit(match target
+        HostCall::Player(PlayerRequest::Chat { player: target, message }) => unit(match target
         {
             Some(id) => player(id).map(|player| player.addChatMessage(&message)),
 
@@ -1023,7 +1012,7 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             }
         }),
 
-        HostCall::Give { player: id, stack } => unit(player(id).and_then(|player|
+        HostCall::Player(PlayerRequest::Give { player: id, stack }) => unit(player(id).and_then(|player|
         {
             let stack: Rc<ItemStack> = stackFrom(&stack).ok_or("cannot give an empty or unknown stack")?;
             entity_player::inventory(&player).addItemStackToInventory(&stack);
@@ -1037,12 +1026,12 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             Ok(())
         })),
 
-        HostCall::StackComponent { at, component } => ok(stackAt(at), |stack|
+        HostCall::Stored(StoredRequest::StackComponent { at, component }) => ok(stackAt(at), |stack|
         {
             HostReply::Bytes(stack.m_components.borrow().get(&component.to_string()).cloned().unwrap_or_default())
         }),
 
-        HostCall::SetStackComponent { at, component, data } =>
+        HostCall::Stored(StoredRequest::SetStackComponent { at, component, data }) =>
         {
             let owned: Result<(), String> = if component.namespace() == runtime.id()
             {
@@ -1059,41 +1048,45 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             )
         }
 
-        HostCall::ItemEntityStack { world: dimension, id } => ok(entity(dimension, id), |entity|
+        HostCall::Entity(EntityRequest::ItemEntityStack { world: dimension, id }) =>
         {
-            let fields: Option<&game::entity::entity_item::ItemFields> = entity.m_ext.asAny().downcast_ref();
-            HostReply::Stack(fields.and_then(|fields| fields.m_item.get()).map(|stack| stackData(&stack)))
-        }),
+            ok(entity(dimension, id), |entity|
+            {
+                let fields: Option<&game::entity::entity_item::ItemFields> = entity.m_ext.asAny().downcast_ref();
+                HostReply::Stack(fields.and_then(|fields| fields.m_item.get()).map(|stack| stackData(&stack)))
+            })
+        }
 
-        HostCall::HeldStack { player: id } =>
+        HostCall::Player(PlayerRequest::HeldStack { player: id }) =>
         {
             ok(player(id), |player| HostReply::Stack(heldStack(&player).map(|stack| stackData(&stack))))
         }
 
-        HostCall::SetHeldStack { player: id, stack } => unit(player(id).map(|player|
+        HostCall::Player(PlayerRequest::SetHeldStack { player: id, stack }) => unit(player(id).map(|player|
         {
             let inventory: Rc<InventoryPlayer> = entity_player::inventory(&player);
             inventory.setInventorySlotContents(inventory.m_currentItem.get(), stack.as_ref().and_then(stackFrom));
         })),
 
-        HostCall::SetSpawner { world: dimension, pos, entity } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::SetSpawner { world: dimension, pos, entity }) =>
         {
-            authoritative(&world)?;
-            world.setBlockWithNotify(pos.x, pos.y, pos.z, game::block::Block::MOB_SPAWNER);
+            unit(world(dimension).and_then(|world|
+            {
+                world.setBlockWithNotify(pos.x, pos.y, pos.z, game::block::Block::MOB_SPAWNER);
 
-            let tile: Rc<TileEntity> =
-                world.getBlockTileEntity(pos.x, pos.y, pos.z).ok_or_else(|| format!("no spawner tile at {pos:?}"))?;
-            game::tileentity::tile_entity_mob_spawner::setMobID(
-                &tile,
-                Some(jvm::string::JString::from(spawnerKey(entity).as_str())),
-            );
-            Ok(())
-        })),
+                let tile: Rc<TileEntity> = world
+                    .getBlockTileEntity(pos.x, pos.y, pos.z)
+                    .ok_or_else(|| format!("no spawner tile at {pos:?}"))?;
+                game::tileentity::tile_entity_mob_spawner::setMobID(
+                    &tile,
+                    Some(jvm::string::JString::from(spawnerKey(entity).as_str())),
+                );
+                Ok(())
+            }))
+        }
 
-        HostCall::RandomTick { world: dimension, pos } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::RandomTick { world: dimension, pos }) => unit(world(dimension).map(|world|
         {
-            authoritative(&world)?;
-
             let id: i32 = world.getBlockId(pos.x, pos.y, pos.z);
             if id != 0
                 && game::block::Block::tickOnLoad(id)
@@ -1101,16 +1094,14 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             {
                 block.updateTick(&world, pos.x, pos.y, pos.z, &world.m_rand);
             }
-
-            Ok(())
         })),
 
-        HostCall::MaxDamage { item } =>
+        HostCall::Registry(RegistryRequest::MaxDamage { item }) =>
         {
             HostReply::Int(game::item::Item::byId(item).map_or(0, |item| item.getMaxDamage()))
         }
 
-        HostCall::SetDynamicTexture { name, width, height, pixels } =>
+        HostCall::Screen(ScreenRequest::SetDynamicTexture { name, width, height, pixels }) =>
         {
             let fits: bool = pixels.len() == (width as usize) * (height as usize);
             if !fits
@@ -1122,12 +1113,11 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             HostReply::Unit
         }
 
-        HostCall::BlockMapColor { block } => HostReply::Int(
+        HostCall::Registry(RegistryRequest::BlockMapColor { block }) => HostReply::Int(
             game::block::Block::byId(block).map_or(0, |block| block.m_blockMaterial.m_materialMapColor.m_colorValue),
         ),
-        HostCall::Fertilize { world: dimension, pos } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::Fertilize { world: dimension, pos }) => unit(world(dimension).map(|world|
         {
-            authoritative(&world)?;
             // vanilla bone meal used on the block, with a throwaway item entity as the holder it never reads
             let stack: Rc<ItemStack> = ItemStack::withItemDamage(&game::item::Item::dyePowder(), 1, BONE_MEAL);
             let holder: Rc<Entity> = game::entity::entity_item::create(
@@ -1138,10 +1128,9 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
                 Rc::clone(&stack),
             );
             stack.getItem().onItemUse(&stack, &holder, &world, pos.x, pos.y, pos.z, 1);
-            Ok(())
         })),
 
-        HostCall::DamageHeld { player: id, amount } => unit(player(id).map(|player|
+        HostCall::Player(PlayerRequest::DamageHeld { player: id, amount }) => unit(player(id).map(|player|
         {
             let Some(stack) = heldStack(&player)
             else
@@ -1157,86 +1146,92 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             }
         })),
 
-        HostCall::PlaySound { world: dimension, pos, sound, volume, pitch } => unit(world(dimension).map(|world|
+        HostCall::World(WorldRequest::PlaySound { world: dimension, pos, sound, volume, pitch }) =>
         {
-            world.playSoundEffect(pos[0], pos[1], pos[2], &sound, volume, pitch);
-
-            let message: Sound = loader::Sound { world: dimension, pos, sound, volume, pitch };
-            loader::broadcastNear(loader::SOUND, &world, pos, &message);
-        })),
-
-        HostCall::Particle { world: dimension, name, pos, motion } => unit(world(dimension).map(|world|
-        {
-            world.spawnParticle(&name, pos[0], pos[1], pos[2], motion[0], motion[1], motion[2]);
-
-            let message: Particle = loader::Particle { world: dimension, name, pos, motion };
-            loader::broadcastNear(loader::PARTICLE, &world, pos, &message);
-        })),
-
-        HostCall::CheckLeafDecay { world: dimension, pos } => ok(
-            world(dimension).and_then(|world|
+            unit(world(dimension).map(|world|
             {
-                authoritative(&world)?;
-                Ok(game::block::block_leaves::beginDecay(&world, pos.x, pos.y, pos.z))
-            }),
+                world.playSoundEffect(pos[0], pos[1], pos[2], &sound, volume, pitch);
+
+                let message: Sound = loader::Sound { world: dimension, pos, sound, volume, pitch };
+                loader::broadcastNear(loader::SOUND, &world, pos, &message);
+            }))
+        }
+
+        HostCall::World(WorldRequest::Particle { world: dimension, name, pos, motion }) =>
+        {
+            unit(world(dimension).map(|world|
+            {
+                world.spawnParticle(&name, pos[0], pos[1], pos[2], motion[0], motion[1], motion[2]);
+
+                let message: Particle = loader::Particle { world: dimension, name, pos, motion };
+                loader::broadcastNear(loader::PARTICLE, &world, pos, &message);
+            }))
+        }
+
+        HostCall::World(WorldRequest::CheckLeafDecay { world: dimension, pos }) => ok(
+            world(dimension).map(|world| game::block::block_leaves::beginDecay(&world, pos.x, pos.y, pos.z)),
             HostReply::Bool,
         ),
 
-        HostCall::Lightning { world: dimension, pos } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::Lightning { world: dimension, pos }) => unit(world(dimension).map(|world|
         {
-            authoritative(&world)?;
             world.addWeatherEffect(game::entity::entity_lightning_bolt::create(&world, pos[0], pos[1], pos[2]));
-            Ok(())
         })),
 
-        HostCall::InventorySlot { player: id, slot } => ok(player(id), |player|
+        HostCall::Inventory(InventoryRequest::InventorySlot { player: id, slot }) => ok(player(id), |player|
         {
             HostReply::Stack(entity_player::inventory(&player).getStackInSlot(slot).map(|stack| stackData(&stack)))
         }),
 
-        HostCall::SetInventorySlot { player: id, slot, stack } => unit(player(id).map(|player|
+        HostCall::Inventory(InventoryRequest::SetInventorySlot { player: id, slot, stack }) =>
         {
-            let inventory: Rc<InventoryPlayer> = entity_player::inventory(&player);
-
-            // a new stack object makes the held item replay its equip animation so the same item is changed in place
-            if let (Some(current), Some(data)) = (inventory.getStackInSlot(slot), stack.as_ref())
-                && data.id == current.m_itemID.get()
-                && data.count > 0
+            unit(player(id).map(|player|
             {
-                current.m_stackSize.set(data.count);
-                current.setItemDamage(data.damage);
-                return;
-            }
+                let inventory: Rc<InventoryPlayer> = entity_player::inventory(&player);
 
-            inventory.setInventorySlotContents(slot, stack.as_ref().and_then(stackFrom));
-        })),
+                // a new stack object makes the held item replay its equip animation so the same item is changed in place
+                if let (Some(current), Some(data)) = (inventory.getStackInSlot(slot), stack.as_ref())
+                    && data.id == current.m_itemID.get()
+                    && data.count > 0
+                {
+                    current.m_stackSize.set(data.count);
+                    current.setItemDamage(data.damage);
+                    return;
+                }
 
-        HostCall::CursorStack { player: id } => ok(player(id), |player|
+                inventory.setInventorySlotContents(slot, stack.as_ref().and_then(stackFrom));
+            }))
+        }
+
+        HostCall::Inventory(InventoryRequest::CursorStack { player: id }) => ok(player(id), |player|
         {
             HostReply::Stack(entity_player::inventory(&player).getItemStack().map(|stack| stackData(&stack)))
         }),
 
-        HostCall::SetCursorStack { player: id, stack } => unit(player(id).map(|player|
+        HostCall::Inventory(InventoryRequest::SetCursorStack { player: id, stack }) => unit(player(id).map(|player|
         {
             entity_player::inventory(&player).setItemStack(stack.as_ref().and_then(stackFrom));
             crate::netplay::syncCursor(&player);
         })),
-        HostCall::TextWidth { text } => HostReply::Int(crate::netplay::textWidth(&text)),
+        HostCall::Screen(ScreenRequest::TextWidth { text }) => HostReply::Int(crate::netplay::textWidth(&text)),
 
-        HostCall::SetWorldTime { time } =>
+        HostCall::World(WorldRequest::SetWorldTime { time }) =>
         {
             context::worlds().iter().for_each(|world| world.setWorldTime(time));
             HostReply::Unit
         }
 
-        HostCall::SetSkyTime { world: dimension, time } =>
+        HostCall::World(WorldRequest::SetSkyTime { world: dimension, time }) =>
         {
             crate::worlds::setSkyTime(dimension, time);
             HostReply::Unit
         }
 
-        HostCall::IsOp { player: id } => ok(player(id), |player| HostReply::Bool(crate::netplay::isOp(&player))),
-        HostCall::OpenSlot { player: id, slot } => ok(player(id), |player|
+        HostCall::Player(PlayerRequest::IsOp { player: id }) =>
+        {
+            ok(player(id), |player| HostReply::Bool(crate::netplay::isOp(&player)))
+        }
+        HostCall::Inventory(InventoryRequest::OpenSlot { player: id, slot }) => ok(player(id), |player|
         {
             let open: Option<Rc<Container>> = entity_player::fields(&player).m_craftingInventory.get();
             let stack: Option<Rc<ItemStack>> = open
@@ -1245,21 +1240,22 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             HostReply::Stack(stack.map(|stack| stackData(&stack)))
         }),
 
-        HostCall::DisplayName { stack } =>
+        HostCall::Registry(RegistryRequest::DisplayName { stack }) =>
         {
             HostReply::Text(stackFrom(&stack).map(|stack| crate::viewer::displayName(&stack)).unwrap_or_default())
         }
 
-        HostCall::Explode { world: dimension, pos, power } => unit(world(dimension).and_then(|world|
+        HostCall::World(WorldRequest::Explode { world: dimension, pos, power }) =>
         {
-            authoritative(&world)?;
-            world.createExplosion(None, pos[0], pos[1], pos[2], power);
-            Ok(())
-        })),
-        call @ (HostCall::ExplosionResistance { .. }
-        | HostCall::BlastBlock { .. }
-        | HostCall::BlockDensity { .. }
-        | HostCall::ExplodeWith { .. }) => crate::blast::handle(call),
+            unit(world(dimension).map(|world|
+            {
+                world.createExplosion(None, pos[0], pos[1], pos[2], power);
+            }))
+        }
+        call @ (HostCall::Registry(RegistryRequest::ExplosionResistance { .. })
+        | HostCall::World(WorldRequest::BlastBlock { .. })
+        | HostCall::World(WorldRequest::BlockDensity { .. })
+        | HostCall::World(WorldRequest::ExplodeWith { .. })) => crate::blast::handle(call),
 
         other => crate::tech::handle(runtime, other),
     }

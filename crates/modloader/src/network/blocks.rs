@@ -3,7 +3,7 @@ use crate::host::context::{self, dimension};
 use game::entity::Entity;
 use game::network::packet::Packet;
 use game::network::packets::{Packet51MapChunk, Packet52MultiBlockChange, Packet53BlockChange};
-use game::world::World;
+use game::world::{WORLD, World};
 use mod_protocol::handshake::ChannelDirection;
 use mod_protocol::{Identifier, wire};
 use serde::{Deserialize, Serialize};
@@ -32,9 +32,11 @@ fn apply(message: ChunkExt)
         return;
     };
 
+    // WorldClient.setBlockAndMetadata takes a change for the client's own guess and undoes it 80 ticks later, so
+    // these go in through the base method as the blocks of a server packet do
     for (x, y, z, block, meta) in message.blocks
     {
-        world.setBlockAndMetadata(x, y, z, block, meta);
+        (WORLD.setBlockAndMetadata)(&world, x, y, z, block, meta);
         world.markBlockNeedsUpdate(x, y, z);
     }
 }

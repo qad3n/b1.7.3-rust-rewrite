@@ -21,6 +21,12 @@ pub fn rememberWorld(world: &Rc<World>)
 
 pub fn forgetWorld(world: &World) { WORLDS.with(|worlds| worlds.borrow_mut().remove(&dimension(world))); }
 
+// true on a multiplayer client, whose worlds are copies of a server's
+pub fn mirroring() -> bool
+{
+    WORLDS.with(|worlds| worlds.borrow().values().filter_map(Weak::upgrade).any(|world| world.m_multiplayerWorld.get()))
+}
+
 pub fn worlds() -> Vec<Rc<World>> { WORLDS.with(|worlds| worlds.borrow().values().filter_map(Weak::upgrade).collect()) }
 
 // guest calls name worlds by dimension, the world of the running callback wins over the remembered one

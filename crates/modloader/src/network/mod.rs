@@ -180,6 +180,23 @@ pub fn sendToConnection(player: i32, channel: &Identifier, data: &[u8]) -> bool
     })
 }
 
+thread_local!
+{
+    static BEHIND_CHUNKS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+// chunk data waits in a queue of its own that the other packets overtake, so what belongs to a block or a chunk is
+// sent in that same queue: it then reaches a client after the chunk it is about and in the order it was sent
+pub fn behindChunks<T>(send: impl FnOnce() -> T) -> T
+{
+    let outer: bool = BEHIND_CHUNKS.replace(true);
+    let result: T = send();
+    BEHIND_CHUNKS.set(outer);
+    result
+}
+
+pub fn queuedBehindChunks() -> bool { BEHIND_CHUNKS.get() }
+
 // how far vanilla's sendPacketToPlayersAroundPoint reaches
 const NEAR_RANGE: f64 = 64.0;
 

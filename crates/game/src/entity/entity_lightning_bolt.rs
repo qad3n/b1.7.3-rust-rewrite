@@ -131,7 +131,12 @@ fn onUpdate(this: &Rc<Entity>)
         while l < list.size()
         {
             let entity: Rc<Entity> = list.get(l);
-            entity.onStruckByLightning(this);
+            let spared: bool = crate::hooks::fire(crate::hooks::GameEvent::LightningStrike { entity: &entity });
+            if !spared
+            {
+                entity.onStruckByLightning(this);
+            }
+
             l += 1;
         }
 

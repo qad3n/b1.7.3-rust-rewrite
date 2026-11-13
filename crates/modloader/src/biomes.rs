@@ -297,7 +297,7 @@ pub fn biomeAt(world: &World, x: i32, z: i32) -> Option<Identifier>
         return source.m_ids.get(index).cloned();
     }
 
-    crate::registry::BIOMES
+    BiomeGenBase::NAMED
         .iter()
         .find(|(_, vanilla)| Rc::ptr_eq(&vanilla(), &biome))
         .map(|(name, _)| Identifier::minecraft(name))
@@ -308,7 +308,7 @@ pub fn spawns(biome: &Identifier, kind: mod_protocol::spec::CreatureKind) -> Res
 {
     let object: Rc<BiomeGenBase> = if biome.isVanilla()
     {
-        crate::registry::BIOMES.iter().find(|(name, _)| *name == biome.path()).map(|(_, vanilla)| vanilla())
+        BiomeGenBase::NAMED.iter().find(|(name, _)| *name == biome.path()).map(|(_, vanilla)| vanilla())
     }
     else
     {
@@ -393,9 +393,7 @@ pub fn columns() -> Vec<crate::network::loader::BiomeColumn>
 
 pub fn load(world: &World)
 {
-    let rows: Vec<(String, i32, i32, String)> = crate::persist::read(world, OVERRIDES_FILE)
-        .and_then(|bytes| crate::persist::decode(OVERRIDES_FILE, &bytes))
-        .unwrap_or_default();
+    let rows: Vec<(String, i32, i32, String)> = crate::persist::load(world, OVERRIDES_FILE).unwrap_or_default();
     let loaded: BTreeMap<Column, Identifier> = rows
         .into_iter()
         .filter_map(|(dimension, x, z, biome)|
@@ -416,7 +414,7 @@ pub fn save(world: &World)
             .map(|((dimension, x, z), biome)| (dimension.to_string(), *x, *z, biome.to_string()))
             .collect()
     });
-    if let Err(error) = crate::persist::write(world, OVERRIDES_FILE, &mod_protocol::wire::encode(&rows))
+    if let Err(error) = crate::persist::save(world, OVERRIDES_FILE, &rows)
     {
         crate::log::error(crate::log::LOADER, &format!("could not save turned biome columns: {error}"));
     }

@@ -12,8 +12,9 @@ use game::world::World;
 use mod_protocol::Identifier;
 use mod_protocol::abi::
 {
-    BlockCtx, BlockPos, EnergyDemand, FluidBlock, FluidStack, GuestReply, HostCall, HostReply, ItemInfo, ItemModelSpec,
-    RegistryKind, StackData, TileCall, capability,
+    BlockCtx, BlockPos, ContentRequest, EnergyDemand, EnergyLevel, EntityRequest, FluidBlock, FluidStack, GuestReply,
+    HostCall, HostReply, InventoryRequest, ItemInfo, ItemModelSpec, RegistryKind, RegistryRequest, ScreenRequest,
+    SharedRequest, StackData, StoredRequest, TileCall, WorldRequest, WorldgenRequest, capability,
 };
 use mod_protocol::spec::{ItemFilter, StateModelSpec, TileMethod};
 use std::rc::Rc;
@@ -49,16 +50,6 @@ impl CraftingGrid for Grid
 fn world(dimension: i32) -> Result<Rc<World>, String>
 {
     context::world(dimension).ok_or_else(|| format!("dimension {dimension} is not loaded"))
-}
-
-fn authoritative(world: &World) -> Result<(), String>
-{
-    if crate::side::isAuthority(world)
-    {
-        return Ok(());
-    }
-
-    Err("only the side that owns the world may change it".to_owned())
 }
 
 fn modTile(world: &World, pos: BlockPos) -> Option<Rc<TileEntity>>
@@ -178,12 +169,12 @@ fn capabilities(world: &Rc<World>, pos: BlockPos) -> i32
         bits |= capability::HANDLER;
     }
 
-    if handles(world, pos, TileMethod::Fluid)
+    if handles(world, pos, TileMethod::Fluid) || crate::tank::kept(world, pos)
     {
         bits |= capability::FLUIDS;
     }
 
-    if handles(world, pos, TileMethod::Energy)
+    if handles(world, pos, TileMethod::Energy) || crate::energy::kept(world, pos)
     {
         bits |= capability::ENERGY;
     }
@@ -194,24 +185,35 @@ fn capabilities(world: &Rc<World>, pos: BlockPos) -> i32
 // a block's demand in its own kind, converted into the asker's kind
 fn energyDemand(world: &Rc<World>, pos: BlockPos, face: i32, kind: Identifier) -> Option<EnergyDemand>
 {
-    let native: EnergyDemand = match ask(world, pos, TileMethod::Energy, |ctx| TileCall::EnergyDemand { ctx, face })
-    {
-        Some(GuestReply::Demand(demand)) => demand?,
-        _ => return None,
-    };
+    let native: EnergyDemand = nativeDemand(world, pos, face)?;
 
     let min: i64 = crate::energy::cost(native.min, &kind, &native.kind)?;
     let max: i64 = crate::energy::cost(native.max, &kind, &native.kind)?;
     Some(EnergyDemand { kind, min, max })
 }
 
+// a loader-kept buffer answers for itself, any other tile is asked through its mod
+fn nativeDemand(world: &Rc<World>, pos: BlockPos, face: i32) -> Option<EnergyDemand>
+{
+    if let Some(demand) = crate::energy::demand(world, pos, face)
+    {
+        return Some(demand);
+    }
+
+    match ask(world, pos, TileMethod::Energy, |ctx| TileCall::EnergyDemand { ctx, face })
+    {
+        Some(GuestReply::Demand(demand)) => demand,
+        _ => None,
+    }
+}
+
 // the amount converts into the kind the block takes, and what it took converts back into the sender's cost
 fn sendEnergy(world: &Rc<World>, pos: BlockPos, face: i32, kind: Identifier, amount: i64, simulate: bool) -> i64
 {
-    let native: Identifier = match ask(world, pos, TileMethod::Energy, |ctx| TileCall::EnergyDemand { ctx, face })
+    let Some(native) = nativeDemand(world, pos, face).map(|demand| demand.kind)
+    else
     {
-        Some(GuestReply::Demand(Some(demand))) => demand.kind,
-        _ => return 0,
+        return 0;
     };
     let Some(offered) = crate::energy::convert(amount.max(0), &kind, &native)
     else
@@ -219,17 +221,59 @@ fn sendEnergy(world: &Rc<World>, pos: BlockPos, face: i32, kind: Identifier, amo
         return 0;
     };
 
-    let call = |ctx: BlockCtx| TileCall::ReceiveEnergy { ctx, face, kind: native.clone(), amount: offered, simulate };
-    let taken: i64 = match ask(world, pos, TileMethod::Energy, call)
+    let taken: i64 = if crate::energy::kept(world, pos)
     {
-        Some(GuestReply::Long(taken)) => taken.clamp(0, offered),
-        _ => 0,
+        crate::energy::receive(world, pos, face, offered, simulate)
+    }
+    else
+    {
+        let call =
+            |ctx: BlockCtx| TileCall::ReceiveEnergy { ctx, face, kind: native.clone(), amount: offered, simulate };
+        match ask(world, pos, TileMethod::Energy, call)
+        {
+            Some(GuestReply::Long(taken)) => taken.clamp(0, offered),
+            _ => 0,
+        }
     };
     crate::energy::cost(taken, &kind, &native).unwrap_or(0).min(amount)
 }
 
+// stored and capacity of a loader-kept buffer in the asker's kind, rounded down
+fn energyLevel(world: &World, pos: BlockPos, kind: Identifier) -> Option<EnergyLevel>
+{
+    let (native, stored, capacity): (Identifier, i64, i64) = crate::energy::level(world, pos)?;
+    let stored: i64 = crate::energy::convert(stored, &native, &kind)?;
+    let capacity: i64 = crate::energy::convert(capacity, &native, &kind)?;
+    Some(EnergyLevel { kind, stored, capacity })
+}
+
+// whole units of the asker's kind only, and the buffer loses exactly what they cost, so a draw never makes energy
+fn takeEnergy(world: &World, pos: BlockPos, face: i32, kind: Identifier, amount: i64, simulate: bool) -> i64
+{
+    let Some((native, _, _)) = crate::energy::level(world, pos)
+    else
+    {
+        return 0;
+    };
+
+    let reachable: i64 = crate::energy::take(world, pos, face, i64::MAX, true);
+    let given: i64 = crate::energy::convert(reachable, &native, &kind).unwrap_or(0).min(amount.max(0));
+    let cost: i64 = crate::energy::cost(given, &native, &kind).unwrap_or(0);
+    if given == 0 || crate::energy::take(world, pos, face, cost, simulate) != cost
+    {
+        return 0;
+    }
+
+    given
+}
+
 fn fill(world: &Rc<World>, pos: BlockPos, face: i32, stack: FluidStack, simulate: bool) -> i32
 {
+    if crate::tank::kept(world, pos)
+    {
+        return crate::tank::fill(world, pos, face, &stack, simulate);
+    }
+
     let amount: i32 = stack.amount;
 
     match ask(world, pos, TileMethod::Fluid, |ctx| TileCall::FillFluid { ctx, face, stack, simulate })
@@ -241,6 +285,11 @@ fn fill(world: &Rc<World>, pos: BlockPos, face: i32, stack: FluidStack, simulate
 
 fn drain(world: &Rc<World>, pos: BlockPos, face: i32, max: i32, simulate: bool) -> Option<FluidStack>
 {
+    if crate::tank::kept(world, pos)
+    {
+        return crate::tank::drain(world, pos, face, max, simulate);
+    }
+
     match ask(world, pos, TileMethod::Fluid, |ctx| TileCall::DrainFluid { ctx, face, max, simulate })
     {
         Some(GuestReply::Fluid(drained)) => drained.filter(|stack| stack.amount > 0),
@@ -327,8 +376,6 @@ fn blockDrops(world: &Rc<World>, pos: BlockPos) -> Vec<StackData>
 // ItemBlock.onItemUse with no player: the same checks and hooks, and no onBlockPlacedBy
 fn placeBlock(world: &Rc<World>, pos: BlockPos, face: i32, data: &StackData) -> Result<bool, String>
 {
-    authoritative(world)?;
-
     let stack: Rc<ItemStack> = stackFrom(data).ok_or("cannot place an empty or unknown stack")?;
     let item: Rc<Item> = stack.getItem();
     if item.tryExt::<game::item::item_block::BlockItemExt>().is_none()
@@ -405,8 +452,6 @@ fn itemInfo(data: &StackData) -> Option<ItemInfo>
 
 fn dropItem(world: &Rc<World>, pos: [f64; 3], data: &StackData, motion: [f64; 3], delay: i32) -> Result<i32, String>
 {
-    authoritative(world)?;
-
     let stack: Rc<ItemStack> = stackFrom(data).ok_or("cannot drop an empty or unknown stack")?;
     let item: Rc<Entity> = game::entity::entity_item::create(world, pos[0], pos[1], pos[2], stack);
     item.m_motionX.set(motion[0]);
@@ -434,8 +479,6 @@ fn setItemStack(dimension: i32, id: i32, data: &StackData) -> Result<(), String>
 {
     let entity: Rc<Entity> =
         context::entityIn(dimension, id).ok_or_else(|| format!("no entity {id} in dimension {dimension}"))?;
-    authoritative(&entity.world())?;
-
     let fields: &game::entity::entity_item::ItemFields =
         entity.m_ext.asAny().downcast_ref().ok_or("the entity is not a dropped item")?;
     if data.count <= 0
@@ -521,109 +564,143 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 {
     match call
     {
-        HostCall::Capabilities { world: dimension, pos, .. } =>
+        HostCall::Shared(SharedRequest::Capabilities { world: dimension, pos, .. }) =>
         {
             ok(world(dimension), |world| HostReply::Int(capabilities(&world, pos)))
         }
 
-        HostCall::EnergyDemand { world: dimension, pos, face, kind } =>
+        HostCall::Shared(SharedRequest::EnergyDemand { world: dimension, pos, face, kind }) =>
         {
             ok(world(dimension), |world| HostReply::Demand(energyDemand(&world, pos, face, kind)))
         }
 
-        HostCall::SendEnergy { world: dimension, pos, face, kind, amount, simulate } =>
+        HostCall::Shared(SharedRequest::TankLevel { world: dimension, pos }) =>
+        {
+            ok(world(dimension), |world| HostReply::Tank(crate::tank::level(&world, pos)))
+        }
+
+        HostCall::Shared(SharedRequest::SetTank { world: dimension, pos, stack }) =>
+        {
+            unit(world(dimension).and_then(|world| crate::tank::set(runtime.m_index, &world, pos, stack)))
+        }
+
+        HostCall::Shared(SharedRequest::EnergyLevel { world: dimension, pos, kind, .. }) =>
+        {
+            ok(world(dimension), |world| HostReply::Energy(energyLevel(&world, pos, kind)))
+        }
+
+        HostCall::Shared(SharedRequest::TakeEnergy { world: dimension, pos, face, kind, amount, simulate }) =>
+        {
+            ok(world(dimension), |world| HostReply::Long(takeEnergy(&world, pos, face, kind, amount, simulate)))
+        }
+
+        HostCall::Shared(SharedRequest::SetEnergy { world: dimension, pos, amount }) =>
+        {
+            unit(world(dimension).and_then(|world| crate::energy::set(runtime.m_index, &world, pos, amount)))
+        }
+
+        HostCall::Shared(SharedRequest::SendEnergy { world: dimension, pos, face, kind, amount, simulate }) =>
         {
             ok(world(dimension), |world| HostReply::Long(sendEnergy(&world, pos, face, kind, amount, simulate)))
         }
 
-        HostCall::FillFluid { world: dimension, pos, face, stack, simulate } =>
+        HostCall::Shared(SharedRequest::FillFluid { world: dimension, pos, face, stack, simulate }) =>
         {
             ok(world(dimension), |world| HostReply::Int(fill(&world, pos, face, stack, simulate)))
         }
 
-        HostCall::DrainFluid { world: dimension, pos, face, max, simulate } =>
+        HostCall::Shared(SharedRequest::DrainFluid { world: dimension, pos, face, max, simulate }) =>
         {
             ok(world(dimension), |world| HostReply::Fluid(drain(&world, pos, face, max, simulate)))
         }
 
-        HostCall::FluidAt { world: dimension, pos } =>
+        HostCall::World(WorldRequest::FluidAt { world: dimension, pos }) =>
         {
             ok(world(dimension), |world| HostReply::FluidBlock(fluidAt(&world, pos)))
         }
 
-        HostCall::BlockDrops { world: dimension, pos } =>
+        HostCall::World(WorldRequest::BlockDrops { world: dimension, pos }) =>
         {
             ok(world(dimension), |world| HostReply::Stacks(blockDrops(&world, pos)))
         }
 
-        HostCall::BlockDropStack { world: dimension, pos } =>
+        HostCall::World(WorldRequest::BlockDropStack { world: dimension, pos }) =>
         {
             ok(world(dimension), |world| HostReply::Stack(blockDropStack(&world, pos)))
         }
 
-        HostCall::PlaceBlock { world: dimension, pos, face, stack } =>
+        HostCall::World(WorldRequest::PlaceBlock { world: dimension, pos, face, stack }) =>
         {
             ok(world(dimension).and_then(|world| placeBlock(&world, pos, face, &stack)), HostReply::Bool)
         }
 
-        HostCall::CraftResult { grid } => HostReply::Stack(craftResult(&grid)),
-        HostCall::ContainerItem { stack } => HostReply::Stack(containerItem(&stack)),
+        HostCall::Inventory(InventoryRequest::CraftResult { grid }) => HostReply::Stack(craftResult(&grid)),
+        HostCall::Registry(RegistryRequest::ContainerItem { stack }) => HostReply::Stack(containerItem(&stack)),
 
-        HostCall::FuelTicks { stack } =>
+        HostCall::Registry(RegistryRequest::FuelTicks { stack }) =>
         {
             HostReply::Int(game::tileentity::tile_entity_furnace::getItemBurnTime(stackFrom(&stack)))
         }
 
-        HostCall::SetItemStack { world: dimension, id, stack } => unit(setItemStack(dimension, id, &stack)),
+        HostCall::Entity(EntityRequest::SetItemStack { world: dimension, id, stack }) =>
+        {
+            unit(setItemStack(dimension, id, &stack))
+        }
 
-        HostCall::EntitiesIn { world: dimension, min, max } =>
+        HostCall::Entity(EntityRequest::EntitiesIn { world: dimension, min, max }) =>
         {
             ok(world(dimension), |world| entitiesIn(&world, min, max))
         }
 
-        HostCall::InventorySize { world: dimension, pos } => ok(world(dimension), |world|
+        HostCall::Inventory(InventoryRequest::InventorySize { world: dimension, pos }) =>
         {
-            let tile: Option<Rc<TileEntity>> =
-                world.getBlockTileEntity(pos.x, pos.y, pos.z).filter(|tile| tile.instanceOf("IInventory"));
-            HostReply::Int(tile.map_or(0, |tile| tile.getSizeInventory()))
-        }),
+            ok(world(dimension), |world|
+            {
+                let tile: Option<Rc<TileEntity>> =
+                    world.getBlockTileEntity(pos.x, pos.y, pos.z).filter(|tile| tile.instanceOf("IInventory"));
+                HostReply::Int(tile.map_or(0, |tile| tile.getSizeInventory()))
+            })
+        }
 
-        HostCall::SharedData { key } =>
+        HostCall::Stored(StoredRequest::SharedData { key }) =>
         {
             ok(sharedPath(runtime, &key), |path| HostReply::Bytes(std::fs::read(path).unwrap_or_default()))
         }
-        HostCall::SetSharedData { key, data } =>
+        HostCall::Stored(StoredRequest::SetSharedData { key, data }) =>
         {
             unit(sharedPath(runtime, &key).and_then(|path| writeShared(&path, &data)))
         }
 
-        HostCall::BiomeAt { world: dimension, x, z } =>
+        HostCall::Worldgen(WorldgenRequest::BiomeAt { world: dimension, x, z }) =>
         {
             ok(world(dimension), |world| HostReply::Id(crate::biomes::biomeAt(&world, x, z)))
         }
 
-        HostCall::ItemInfo { stack } => HostReply::ItemInfo(itemInfo(&stack)),
+        HostCall::Registry(RegistryRequest::ItemInfo { stack }) => HostReply::ItemInfo(itemInfo(&stack)),
 
-        HostCall::DropItem { world: dimension, pos, stack, motion, delay } =>
+        HostCall::Entity(EntityRequest::DropItem { world: dimension, pos, stack, motion, delay }) =>
         {
             ok(world(dimension).and_then(|world| dropItem(&world, pos, &stack, motion, delay)), HostReply::Int)
         }
 
-        HostCall::Unified { stack } =>
+        HostCall::Registry(RegistryRequest::Unified { stack }) =>
         {
             HostReply::Stack(Some(StackData { id: crate::unify::numericItem(stack.id), ..stack }))
         }
-        HostCall::EntityInventorySize { world: dimension, id } =>
+        HostCall::Inventory(InventoryRequest::EntityInventorySize { world: dimension, id }) =>
         {
             HostReply::Int(entityInventory(dimension, id).map_or(0, |inventory| inventory.getSizeInventory()))
         }
 
-        HostCall::EntitySlot { world: dimension, id, slot } => ok(entityInventory(dimension, id), |inventory|
+        HostCall::Inventory(InventoryRequest::EntitySlot { world: dimension, id, slot }) =>
         {
-            HostReply::Stack(inventory.getStackInSlot(slot).map(|stack| stackData(&stack)))
-        }),
+            ok(entityInventory(dimension, id), |inventory|
+            {
+                HostReply::Stack(inventory.getStackInSlot(slot).map(|stack| stackData(&stack)))
+            })
+        }
 
-        HostCall::SetEntitySlot { world: dimension, id, slot, stack } =>
+        HostCall::Inventory(InventoryRequest::SetEntitySlot { world: dimension, id, slot, stack }) =>
         {
             unit(entityInventory(dimension, id).and_then(|inventory|
             {
@@ -637,7 +714,7 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             }))
         }
 
-        HostCall::PaintSprite { texture, size, pixels } =>
+        HostCall::Screen(ScreenRequest::PaintSprite { texture, size, pixels }) =>
         {
             if !crate::side::isClient()
             {
@@ -647,21 +724,27 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             unit(crate::atlas::paint(&texture, size, pixels.into_iter().map(|pixel| pixel as i32).collect()))
         }
 
-        HostCall::SpritePixels { texture } =>
+        HostCall::Screen(ScreenRequest::SpritePixels { texture }) =>
         {
             let (size, pixels): (u32, Vec<u32>) = crate::atlas::pixels(&texture).unwrap_or_default();
             HostReply::Pixels { size, pixels }
         }
 
-        HostCall::BlockItemModel { block, model } => unit(itemModel(runtime, block, model)),
-        HostCall::SetStateModel { block, model } => unit(stateModel(runtime, block, model)),
+        HostCall::Content(ContentRequest::BlockItemModel { block, model }) => unit(itemModel(runtime, block, model)),
+        HostCall::Content(ContentRequest::SetStateModel { block, model }) => unit(stateModel(runtime, block, model)),
 
-        HostCall::ScreenCraftSlot { screen, first, x, y } => unit(runtime.own(&screen).map(|id|
+        HostCall::Screen(ScreenRequest::ScreenCraftSlot { screen, first, x, y }) =>
         {
-            crate::containers::setCraftSlot(id, crate::containers::CraftSlot { m_first: first, m_x: x, m_y: y })
-        })),
+            unit(runtime.own(&screen).map(|id|
+            {
+                crate::containers::setCraftSlot(id, crate::containers::CraftSlot { m_first: first, m_x: x, m_y: y })
+            }))
+        }
 
-        HostCall::TileStackLimit { tile, limit } => unit(tiles::setStackLimit(runtime.m_index, &tile, limit)),
+        HostCall::Content(ContentRequest::TileStackLimit { tile, limit }) =>
+        {
+            unit(tiles::setStackLimit(runtime.m_index, &tile, limit))
+        }
         other => crate::extensions::handle(runtime, other),
     }
 }

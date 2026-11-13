@@ -7,7 +7,7 @@ use std::cell::{Cell, Ref, RefCell};
 use std::ops::Range;
 use std::rc::Rc;
 
-// mod achievements and mod stats on pages of their own, opened by a button on the vanilla screens
+// mod stats on a page of their own, opened by a button on the vanilla stats screen
 mod layout
 {
     pub const ROW_HEIGHT: i32 = 12;
@@ -32,13 +32,11 @@ mod ids
 mod color
 {
     pub const TITLE: i32 = 0xFFFFFF;
-    pub const DONE: i32 = 0x55FF55;
-    pub const LOCKED: i32 = 0x808080;
     pub const VALUE: i32 = 0xFFFFFF;
     pub const DETAIL: i32 = 0xA0A0A0;
 }
 
-// the vanilla achievement and stats screens open these pages with this button id
+// the vanilla stats screen opens the page with this button id
 pub const OPEN_BUTTON: i32 = 400;
 
 struct Row
@@ -213,26 +211,6 @@ fn page(parent: &Rc<GuiScreen>, title: &'static str, rows: Vec<Row>) -> Rc<GuiSc
     GuiScreen::construct(&CLASS, Box::new(ext))
 }
 
-// every mod achievement, earned ones in green
-pub fn achievements(parent: &Rc<GuiScreen>, player: &Entity) -> Rc<GuiScreen>
-{
-    let rows: Vec<Row> = named::achievements()
-        .iter()
-        .map(|achievement|
-        {
-            let earned: bool = named::unlocked(player, &achievement.m_name);
-            Row
-            {
-                m_label: achievement.m_title.clone(),
-                m_value: String::new(),
-                m_detail: achievement.m_description.clone(),
-                m_color: if earned { color::DONE } else { color::LOCKED },
-            }
-        })
-        .collect();
-    page(parent, "Mod Achievements", rows)
-}
-
 // every registered mod stat as beta lists its general stats, then the mod content this player counted
 pub fn stats(parent: &Rc<GuiScreen>, player: &Entity) -> Rc<GuiScreen>
 {
@@ -276,8 +254,6 @@ fn itemLabel(name: &str) -> Option<String>
     let numeric: i32 = modloader::registry::with(|registries| registries.itemId(&id))?;
     Some(modloader::viewer::displayName(&ItemStack::withDamage(numeric, 1, 0)))
 }
-
-pub fn hasAchievements() -> bool { !named::achievements().is_empty() }
 
 pub fn hasStats(player: &Entity) -> bool
 {

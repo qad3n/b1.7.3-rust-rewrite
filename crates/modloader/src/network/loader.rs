@@ -407,7 +407,7 @@ pub fn sendTick()
 // channels the loader itself owns, registered before mods so every modded peer has them
 pub fn register()
 {
-    let channels: [(&str, Handler); 18] = [
+    let channels: [(&str, Handler); 19] = [
         (SPAWN_ENTITY, clientHandler(spawnEntity)),
         (super::sync::TILE_DATA, clientHandler(tileData)),
         (OPEN_SCREEN, clientHandler(openScreen)),
@@ -423,7 +423,8 @@ pub fn register()
         (EFFECTS, clientHandler(crate::content::effects::received)),
         (PROGRESS, clientHandler(crate::content::progress::received)),
         (super::stacks::STACK_COMPONENTS, clientHandler(super::stacks::received)),
-        (super::attachments::ATTACHMENTS, clientHandler(super::attachments::received)),
+        (crate::attach::ATTACHED, clientHandler(crate::attach::received)),
+        (crate::blast::BLAST, clientHandler(crate::blast::received)),
         (crate::gamerules::GAMERULES, clientHandler(crate::gamerules::received)),
         // the content message travels in the handshake, the channel only tells the server this client takes it
         (crate::content::served::CONTENT, Rc::new(|_: &Rc<Entity>, _: &[u8]| ())),

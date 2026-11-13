@@ -58,7 +58,7 @@ pub fn localHello(includeServerMods: bool) -> Hello
             id: runtime.id().to_owned(),
             version: runtime.m_manifest.version.clone(),
             side: runtime.m_manifest.side.wire(),
-            network_version: runtime.m_manifest.network.version.clone(),
+            network_version: runtime.m_manifest.networkVersion().to_owned(),
             required: isRequired(runtime),
             sha256: runtime.m_sha256.clone(),
         })
@@ -542,7 +542,7 @@ pub fn clientDisconnected()
     }
 
     crate::content::tags::restoreLocal();
-    crate::network::attachments::clearRemote();
+    crate::attach::reset();
     crate::content::served::restore();
 
     if let Some(local) = local

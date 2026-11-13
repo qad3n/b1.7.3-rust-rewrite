@@ -11,7 +11,7 @@ use std::time::Instant;
 // console and op tools for checking ported content without a client: generate terrain, map it, read columns
 pub const COMMAND: &str = "loader";
 const TEMPLATE_FOLDER: &str = "texturepacks/vanilla_template";
-const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player> | spawns <dim> <monster|creature|water> <x> <y> <z> | structures <dim> | structure <dim> <x> <y> <z> | locate <dim> <structure> <x> <z> [radius] | texturepack export [folder] | features";
+const USAGE: &str = "loader gen <dim> <chunkX> <chunkZ> <radius> | map <dim> <chunkX> <chunkZ> <radius> <file.png> | column <dim> <x> <z> | tp <player> <dim> <x> <y> <z> [yaw pitch] | fill <dim> <x1> <y1> <z1> <x2> <y2> <z2> <block[key=value,...]> | use <player> <item> <x> <y> <z> <face> | entities <dim> | summon <dim> <entity> <x> <y> <z> | slot <dim> <x> <y> <z> <slot> <item|air> [count] [damage] | tile <dim> <x> <y> <z> | slice <dim> <x|z> <at> <from> <to> <file.png> | interact <player> <entity> | close <player> | container <player> <slot> | spawns <dim> <monster|creature|water> <x> <y> <z> | structures <dim> | structure <dim> <x> <y> <z> | locate <dim> <structure> <x> <z> [radius] | texturepack export [folder] | features";
 
 mod map
 {
@@ -366,6 +366,32 @@ fn interact(args: &[String]) -> Result<String, String>
     Ok(format!("{name} interacted with {id}: {handled}"))
 }
 
+// one slot of the screen a player has open, as this side holds it
+fn openSlot(args: &[String]) -> Result<String, String>
+{
+    let name: &String = args.get(1).ok_or(USAGE)?;
+    let index: i32 = number(args, 2)?;
+    let player: Rc<game::entity::Entity> = namedPlayer(name)?;
+    let menu: Rc<game::container::Container> = game::entity::entity_player::fields(&player)
+        .m_craftingInventory
+        .get()
+        .ok_or_else(|| format!("{name} has no container"))?;
+    let slots: Vec<Rc<game::container::Slot>> = menu.m_slots.toVec();
+    let slot: &Rc<game::container::Slot> = usize::try_from(index)
+        .ok()
+        .and_then(|index| slots.get(index))
+        .ok_or_else(|| format!("the open screen has {} slots", slots.len()))?;
+
+    Ok(match slot.getStack()
+    {
+        Some(stack) =>
+        {
+            format!("slot {index} of {}: {} {}", slots.len(), stack.m_stackSize.get(), itemName(stack.m_itemID.get()))
+        }
+        None => format!("slot {index} of {}: empty", slots.len()),
+    })
+}
+
 // sends a player to any loaded dimension through the same queued move mods use
 fn teleport(args: &[String]) -> Result<String, String>
 {
@@ -490,7 +516,8 @@ fn tile(world: &World, args: &[String]) -> Result<String, String>
     let data: Vec<u8> =
         tile.tryExt::<crate::tiles::ModTileExt>().map(|ext| ext.m_data.borrow().clone()).unwrap_or_default();
     let attachments: Vec<String> = tile.m_attachments.borrow().keys().cloned().collect();
-    Ok(format!("slots [{}] data {data:?} attachments {attachments:?}", slots.join(", ")))
+    let unsaved: Vec<String> = tile.m_unsaved.borrow().keys().cloned().collect();
+    Ok(format!("slots [{}] data {data:?} attachments {attachments:?} unsaved {unsaved:?}", slots.join(", ")))
 }
 
 fn entities(world: &World) -> String
@@ -536,6 +563,8 @@ fn run(args: &[String]) -> Result<String, String>
 
         "texturepack" => return texturePack(args),
         "features" => return Ok(crate::content::features::summary()),
+
+        "container" => return openSlot(args),
 
         "close" =>
         {

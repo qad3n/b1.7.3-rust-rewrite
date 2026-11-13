@@ -195,18 +195,6 @@ pub fn clickOverlays(target: &str, x: i32, y: i32, button: i32) -> bool
     })
 }
 
-// the api minor that added an op, older guests cannot decode it
-fn since(op: &OverlayOp) -> u32
-{
-    match op
-    {
-        OverlayOp::Draw { .. } | OverlayOp::Mouse { .. } => 0,
-        OverlayOp::Key { .. } | OverlayOp::Scroll { .. } => 2,
-        OverlayOp::Cover { .. } => 5,
-        OverlayOp::Exclusive => 6,
-    }
-}
-
 fn askOverlay(owner: usize, handler: Handle, op: OverlayOp) -> bool
 {
     let Some(runtime) = state::modAt(owner)
@@ -215,8 +203,7 @@ fn askOverlay(owner: usize, handler: Handle, op: OverlayOp) -> bool
         return false;
     };
 
-    runtime.apiMinor() >= since(&op)
-        && matches!(runtime.call(&GuestCall::Overlay { handler, op }), Some(GuestReply::Bool(true)))
+    matches!(runtime.call(&GuestCall::Overlay { handler, op }), Some(GuestReply::Bool(true)))
 }
 
 // the first overlay to take a key keeps it from the screen under it

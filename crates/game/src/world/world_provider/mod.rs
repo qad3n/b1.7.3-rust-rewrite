@@ -85,6 +85,9 @@ impl WorldProvider
         self.generateLightBrightnessTable();
     }
 
+    // the registry name of each dimension beta saves, beside its numeric id
+    pub const NAMES: [(i32, &'static str); 2] = [(0, "overworld"), (-1, "the_nether")];
+
     pub fn getProviderForDimension(id: i32) -> Rc<Self>
     {
         match id

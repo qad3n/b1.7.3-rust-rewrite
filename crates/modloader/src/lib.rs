@@ -1,4 +1,5 @@
 pub mod atlas;
+pub mod attach;
 pub mod attributes;
 pub mod behavior;
 pub mod biomes;
@@ -48,6 +49,7 @@ pub mod state;
 pub mod states;
 pub mod structures;
 pub mod supplied;
+pub mod tank;
 pub mod tech;
 pub mod textures;
 pub mod tiles;

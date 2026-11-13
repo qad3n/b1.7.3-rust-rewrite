@@ -7,7 +7,7 @@ use game::item::Item;
 use game::tileentity::{TILE_ENTITY, TileEntity, TileEntityClass};
 use game::world::World;
 use mod_protocol::handshake::RegistrySnapshot;
-use mod_protocol::{Identifier, wire};
+use mod_protocol::Identifier;
 use std::any::Any;
 use std::cell::{OnceCell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
@@ -238,9 +238,8 @@ pub fn preload(worldDir: &std::path::Path)
         crate::state::setKeeper(false);
     }
 
-    let path: std::path::PathBuf = worldDir.join(persist::LOADER_DIR).join(REGISTRY_FILE);
-    let Some(saved) =
-        std::fs::read(&path).ok().and_then(|bytes| persist::decode::<RegistrySnapshot>(REGISTRY_FILE, &bytes))
+    let saved: Option<RegistrySnapshot> = persist::loadFrom(&worldDir.join(persist::LOADER_DIR), REGISTRY_FILE);
+    let Some(saved) = saved
     else
     {
         return;
@@ -295,8 +294,7 @@ pub fn onWorldLoad(world: &Rc<World>)
 {
     crate::palette::clear();
 
-    let saved: Option<RegistrySnapshot> =
-        persist::read(world, REGISTRY_FILE).and_then(|bytes| persist::decode(REGISTRY_FILE, &bytes));
+    let saved: Option<RegistrySnapshot> = persist::load(world, REGISTRY_FILE);
     // the same map, as on a nether trip, needs no rebuild
     let preloaded: Option<RegistrySnapshot> = PRELOADED.with(|preloaded| preloaded.borrow_mut().take());
     if let Some(saved) = saved.as_ref().filter(|saved| **saved != snapshot() && Some(*saved) != preloaded.as_ref())
@@ -304,7 +302,7 @@ pub fn onWorldLoad(world: &Rc<World>)
         applySaved(persist::worldDir(world).as_deref(), saved);
     }
 
-    if let Err(error) = persist::write(world, REGISTRY_FILE, &wire::encode(&snapshot()))
+    if let Err(error) = persist::save(world, REGISTRY_FILE, &snapshot())
     {
         crate::log::error(crate::log::LOADER, &format!("could not save the registry snapshot: {error}"));
     }

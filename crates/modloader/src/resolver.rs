@@ -86,6 +86,11 @@ impl Resolver<'_>
         {
             Some((major, minor)) if major == API_MAJOR && API_MINOR.checked_sub(minor).is_some() =>
             {}
+            Some((major, _)) if major < API_MAJOR => reasons.push(format!(
+                "was built for loader API {}, this loader has {API_MAJOR}.{API_MINOR}: rebuild the mod with SDK {API_MAJOR}",
+                manifest.api
+            )),
+
             Some(_) =>
             {
                 reasons.push(format!("needs loader API {} but this loader has {API_MAJOR}.{API_MINOR}", manifest.api))

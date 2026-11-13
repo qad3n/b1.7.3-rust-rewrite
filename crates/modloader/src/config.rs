@@ -1,5 +1,5 @@
 use crate::state::ModRuntime;
-use mod_protocol::abi::{ConfigEntry, ConfigKind, ConfigOption, ConfigScope, GuestCall, Lifecycle};
+use mod_protocol::abi::{ConfigKind, ConfigOption, ConfigScope, GuestCall, Lifecycle};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -86,37 +86,6 @@ pub fn describe(option: &ConfigOption) -> String
 }
 
 // define without types: true and false become toggles, whole numbers and numbers get number controls
-fn legacyKind(default: &str) -> ConfigKind
-{
-    if let Ok(value) = default.parse::<bool>()
-    {
-        return ConfigKind::Bool { default: value };
-    }
-    if let Ok(value) = default.parse::<i64>()
-    {
-        return ConfigKind::Int { default: value, min: i64::MIN, max: i64::MAX };
-    }
-
-    match default.parse::<f64>()
-    {
-        Ok(value) if value.is_finite() => ConfigKind::Float { default: value, min: f64::MIN, max: f64::MAX },
-        _ => ConfigKind::Text { default: default.to_owned() },
-    }
-}
-
-fn legacyOption(entry: ConfigEntry) -> ConfigOption
-{
-    ConfigOption
-    {
-        kind: legacyKind(&entry.default),
-        key: entry.key,
-        label: String::new(),
-        comment: entry.comment,
-        scope: entry.scope,
-        restart: false,
-    }
-}
-
 fn checkOption(option: &ConfigOption) -> Result<(), String>
 {
     if !validKey(&option.key)
@@ -193,11 +162,6 @@ impl ModConfig
     }
 
     pub fn fileName(&self) -> String { format!("{}/{}.toml", crate::paths::CONFIG_DIR, self.m_modId) }
-
-    pub fn define(&mut self, entries: Vec<ConfigEntry>) -> Result<(), String>
-    {
-        self.defineOptions(entries.into_iter().map(legacyOption).collect())
-    }
 
     pub fn defineOptions(&mut self, options: Vec<ConfigOption>) -> Result<(), String>
     {

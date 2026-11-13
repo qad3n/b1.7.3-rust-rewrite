@@ -5,7 +5,11 @@ use crate::state::{self, ModRuntime, Phase};
 use crate::{commands, dimensions, events, keybinds, persist, screens, services, structures};
 use game::entity::Entity;
 use mod_protocol::Identifier;
-use mod_protocol::abi::{GuestCall, HostCall, HostReply, Target};
+use mod_protocol::abi::
+{
+    EntityRequest, GuestCall, HostCall, HostReply, InventoryRequest, MetaRequest, NetRequest, PlayerRequest,
+    ScreenRequest, SharedRequest, StoredRequest, Target, ViewerRequest, WorldgenRequest,
+};
 use mod_protocol::handshake::ChannelDirection;
 use std::rc::Rc;
 
@@ -102,29 +106,29 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
 
     match call
     {
-        HostCall::Subscribe { kind, custom, priority, receive_canceled, handler } =>
+        HostCall::Meta(MetaRequest::Subscribe { kind, custom, priority, receive_canceled, handler }) =>
         {
             unit(events::subscribe(index, kind, custom, priority, receive_canceled, handler))
         }
 
-        HostCall::DefineEvent { id } => unit(runtime.own(&id.to_string()).map(events::define)),
+        HostCall::Meta(MetaRequest::DefineEvent { id }) => unit(runtime.own(&id.to_string()).map(events::define)),
 
-        HostCall::PostEvent { id, data } =>
+        HostCall::Meta(MetaRequest::PostEvent { id, data }) =>
         {
             ok(events::postCustom(id, data), |envelope| HostReply::Bool(envelope.canceled))
         }
 
-        HostCall::RegisterCommand { name, permission, usage, handler } =>
+        HostCall::Meta(MetaRequest::RegisterCommand { name, permission, usage, handler }) =>
         {
             unit(commands::register(index, &name, permission, usage, handler))
         }
 
-        HostCall::RegisterKeybind { name, key, handler } =>
+        HostCall::Screen(ScreenRequest::RegisterKeybind { name, key, handler }) =>
         {
             unit(runtime.own(&name).map(|id| keybinds::register(index, id.to_string(), key, handler)))
         }
 
-        HostCall::RegisterChannel { name, version, direction, handler } =>
+        HostCall::Net(NetRequest::RegisterChannel { name, version, direction, handler }) =>
         {
             unit(beforeRunning().and_then(|()| runtime.own(&name)).map(|id|
             {
@@ -142,66 +146,75 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             }))
         }
 
-        HostCall::Send { channel, target, data } => unit(send(&channel, target, data)),
-        HostCall::CanSend { player, channel } => HostReply::Bool(crate::netplay::canSend(player, &channel)),
+        HostCall::Net(NetRequest::Send { channel, target, data }) => unit(send(&channel, target, data)),
+        HostCall::Net(NetRequest::CanSend { player, channel }) =>
+        {
+            HostReply::Bool(crate::netplay::canSend(player, &channel))
+        }
 
-        HostCall::RegisterScreen { name, spec, handler } =>
+        HostCall::Screen(ScreenRequest::RegisterScreen { name, spec, handler }) =>
         {
             unit(runtime.own(&name).map(|id| screens::register(index, id, spec, handler)))
         }
 
-        HostCall::RegisterPlayerLayer { handler } =>
+        HostCall::Screen(ScreenRequest::RegisterPlayerLayer { handler }) =>
         {
             screens::registerPlayerLayer(index, handler);
             HostReply::Unit
         }
 
-        HostCall::RegisterOverlay { target, handler } =>
+        HostCall::Screen(ScreenRequest::RegisterOverlay { target, handler }) =>
         {
             screens::registerOverlay(index, target, handler);
             HostReply::Unit
         }
 
-        HostCall::RegisterTooltip { handler } =>
+        HostCall::Screen(ScreenRequest::RegisterTooltip { handler }) =>
         {
             screens::registerTooltip(index, handler);
             HostReply::Unit
         }
 
-        HostCall::RegisterWorldRender { handler } =>
+        HostCall::Screen(ScreenRequest::RegisterWorldRender { handler }) =>
         {
             screens::registerWorldRender(index, handler);
             HostReply::Unit
         }
 
-        HostCall::RegisterHud { handler } =>
+        HostCall::Screen(ScreenRequest::RegisterHud { handler }) =>
         {
             screens::registerHud(index, handler);
             HostReply::Unit
         }
 
-        HostCall::OpenScreen { player, screen, pos, data } =>
+        HostCall::Screen(ScreenRequest::OpenScreen { player, screen, pos, data }) =>
         {
             unit(crate::netplay::openScreen(player, &screen, pos, data))
         }
 
-        HostCall::CloseScreen { player } => unit(crate::host::worldPlayer(player).map(|player| player.closeScreen())),
-        HostCall::ProvideService { name, version, handler } => unit(services::provide(index, name, version, handler)),
+        HostCall::Screen(ScreenRequest::CloseScreen { player }) =>
+        {
+            unit(crate::host::worldPlayer(player).map(|player| player.closeScreen()))
+        }
+        HostCall::Shared(SharedRequest::ProvideService { name, version, handler }) =>
+        {
+            unit(services::provide(index, name, version, handler))
+        }
 
-        HostCall::CallService { name, version, method, args } =>
+        HostCall::Shared(SharedRequest::CallService { name, version, method, args }) =>
         {
             ok(services::call(&name, version, method, args), HostReply::Bytes)
         }
 
-        HostCall::HasService { name, version } => HostReply::Bool(services::has(&name, version)),
+        HostCall::Shared(SharedRequest::HasService { name, version }) => HostReply::Bool(services::has(&name, version)),
 
-        HostCall::RegisterLookup { api, block, handler } =>
+        HostCall::Shared(SharedRequest::RegisterLookup { api, block, handler }) =>
         {
             crate::lifecycle::addLookup(index, api, block, handler);
             HostReply::Unit
         }
 
-        HostCall::CallLookup { api, world, pos, side, method, args } =>
+        HostCall::Shared(SharedRequest::CallLookup { api, world, pos, side, method, args }) =>
         {
             ok(services::callLookup(&api, world, pos, side, method, args), |reply| match reply
             {
@@ -210,91 +223,100 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
 
-        HostCall::SendInterMod { to, kind, data } =>
+        HostCall::Shared(SharedRequest::SendInterMod { to, kind, data }) =>
         {
             services::sendInterMod(index, to, kind, data);
             HostReply::Unit
         }
 
-        HostCall::RegisterBiome { name, spec } =>
+        HostCall::Worldgen(WorldgenRequest::RegisterBiome { name, spec }) =>
         {
             unit(runtime.own(&name).and_then(|id| dimensions::registerBiome(index, id, spec)))
         }
 
-        HostCall::RegisterDimension { name, spec } =>
+        HostCall::Worldgen(WorldgenRequest::RegisterDimension { name, spec }) =>
         {
             unit(runtime.own(&name).and_then(|id| dimensions::registerDimension(index, id, spec)))
         }
 
-        HostCall::RegisterGenerator { dimension, handler } =>
+        HostCall::Worldgen(WorldgenRequest::RegisterGenerator { dimension, handler }) =>
         {
             dimensions::registerGenerator(index, dimension, handler);
             HostReply::Unit
         }
 
-        HostCall::RegisterTerrain { dimension, handler } =>
+        HostCall::Worldgen(WorldgenRequest::RegisterTerrain { dimension, handler }) =>
         {
             unit(dimensions::registerTerrain(index, dimension, handler))
         }
 
-        HostCall::DimensionHeight { dimension, height, build_limit } =>
+        HostCall::Worldgen(WorldgenRequest::DimensionHeight { dimension, height, build_limit }) =>
         {
             unit(dimensions::registerHeight(index, dimension, height, build_limit))
         }
 
-        HostCall::RegisterBiomeSource { dimension, biomes, handler } =>
+        HostCall::Worldgen(WorldgenRequest::RegisterBiomeSource { dimension, biomes, handler }) =>
         {
             unit(dimensions::registerBiomeSource(index, dimension, biomes, handler))
         }
 
-        HostCall::RegisterSpawns { dimension, handler } => unit(dimensions::registerSpawns(index, dimension, handler)),
-        HostCall::RegisterStructure { name, spec, finder } => unit(
+        HostCall::Worldgen(WorldgenRequest::RegisterSpawns { dimension, handler }) =>
+        {
+            unit(dimensions::registerSpawns(index, dimension, handler))
+        }
+        HostCall::Worldgen(WorldgenRequest::RegisterStructure { name, spec, finder }) => unit(
             beforeRunning()
                 .and_then(|()| runtime.own(&name))
                 .and_then(|id| structures::register(index, id, spec, finder)),
         ),
-        HostCall::AddStructure { world, start } => unit(
+        HostCall::Worldgen(WorldgenRequest::AddStructure { world, start }) => unit(
             context::world(world)
                 .ok_or_else(|| unloaded(world))
                 .and_then(|world| structures::addModded(index, &world, start)),
         ),
-        HostCall::FindStructures { world, min, max, structure } => match context::world(world)
+        HostCall::Worldgen(WorldgenRequest::FindStructures { world, min, max, structure }) =>
         {
-            Some(world) => HostReply::Starts(structures::find(&world, min, max, structure.as_ref())),
-            None => HostReply::Error(unloaded(world)),
-        },
-        HostCall::LocateStructure { world, structure, from, radius } => ok(
+            match context::world(world)
+            {
+                Some(world) => HostReply::Starts(structures::find(&world, min, max, structure.as_ref())),
+                None => HostReply::Error(unloaded(world)),
+            }
+        }
+        HostCall::Worldgen(WorldgenRequest::LocateStructure { world, structure, from, radius }) => ok(
             context::world(world)
                 .ok_or_else(|| unloaded(world))
                 .and_then(|world| structures::locate(&world, &structure, from, radius)),
             HostReply::Located,
         ),
-        HostCall::DimensionSeed { dimension, seed } => unit(dimensions::registerSeed(index, dimension, seed)),
+        HostCall::Worldgen(WorldgenRequest::DimensionSeed { dimension, seed }) =>
+        {
+            unit(dimensions::registerSeed(index, dimension, seed))
+        }
 
-        HostCall::TerrainTiles { texture, columns, rows } =>
+        HostCall::Screen(ScreenRequest::TerrainTiles { texture, columns, rows }) =>
         {
             unit(crate::atlas::requestTiles(crate::atlas::Atlas::Terrain, &texture, columns, rows))
         }
 
-        HostCall::ItemSlot { texture } =>
+        HostCall::Screen(ScreenRequest::ItemSlot { texture }) =>
         {
             crate::atlas::request(crate::atlas::Atlas::Items, &texture);
             HostReply::Int(crate::content::textureSlot(&texture, crate::atlas::Atlas::Items).unwrap_or(-1))
         }
 
-        HostCall::TerrainSlot { texture } =>
+        HostCall::Screen(ScreenRequest::TerrainSlot { texture }) =>
         {
             crate::atlas::request(crate::atlas::Atlas::Terrain, &texture);
             HostReply::Int(crate::content::textureSlot(&texture, crate::atlas::Atlas::Terrain).unwrap_or(-1))
         }
 
-        HostCall::WorldSeed { world } => match context::world(world)
+        HostCall::Worldgen(WorldgenRequest::WorldSeed { world }) => match context::world(world)
         {
             Some(world) => HostReply::Long(world.getRandomSeed()),
             None => HostReply::Error(unloaded(world)),
         },
 
-        HostCall::Colorizer { foliage, temperature, rainfall } =>
+        HostCall::Worldgen(WorldgenRequest::Colorizer { foliage, temperature, rainfall }) =>
         {
             let (temperature, rainfall): (f64, f64) = (temperature.clamp(0.0, 1.0), rainfall.clamp(0.0, 1.0));
 
@@ -305,49 +327,57 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             })
         }
 
-        // a multiplayer client has no save, it reads the copy of synced world data the server sent
-        HostCall::WorldData { key } =>
+        // a multiplayer client has no save, so it holds none of this
+        HostCall::Stored(StoredRequest::WorldData { key }) =>
         {
-            let remote: bool = crate::network::localPlayer()
-                .and_then(|player| player.m_worldObj.get())
-                .is_some_and(|world| !crate::side::isAuthority(&world));
-            HostReply::Bytes(match remote
+            HostReply::Bytes(match crate::host::context::mirroring()
             {
-                true => crate::network::attachments::remoteWorld(runtime.id(), &key).unwrap_or_default(),
+                true => Vec::new(),
                 false => persist::worldData(runtime.id(), &key),
             })
         }
 
-        HostCall::SetWorldData { key, data } =>
+        HostCall::Stored(StoredRequest::SetWorldData { key, data }) =>
         {
-            crate::network::attachments::worldChanged(runtime.id(), &key, &data);
             persist::setWorldData(runtime.id(), &key, data);
             HostReply::Unit
         }
 
-        HostCall::PlayerData { player, key } => ok(crate::host::worldPlayer(player), |player|
+        HostCall::Stored(StoredRequest::PlayerData { player, key }) => ok(crate::host::worldPlayer(player), |player|
         {
             HostReply::Bytes(crate::entities::data(&player, &persist::playerKey(runtime.id(), &key)))
         }),
 
-        HostCall::SetPlayerData { player, key, data } => unit(crate::host::worldPlayer(player).map(|player|
+        HostCall::Stored(StoredRequest::SetPlayerData { player, key, data }) =>
         {
-            crate::entities::setData(&player, &persist::playerKey(runtime.id(), &key), data);
-        })),
-        HostCall::Teleport { player, dimension, pos } => unit(crate::netplay::teleport(player, dimension, pos)),
-        HostCall::LocalPlayer => HostReply::Entity(network::localPlayer().map(|player| entityInfo(&player))),
-        HostCall::ScreenSize => match crate::netplay::screenSize()
+            unit(crate::host::worldPlayer(player).map(|player|
+            {
+                crate::entities::setData(&player, &persist::playerKey(runtime.id(), &key), data);
+            }))
+        }
+        HostCall::Player(PlayerRequest::Teleport { player, dimension, pos }) =>
+        {
+            unit(crate::netplay::teleport(player, dimension, pos))
+        }
+        HostCall::Player(PlayerRequest::LocalPlayer) =>
+        {
+            HostReply::Entity(network::localPlayer().map(|player| entityInfo(&player)))
+        }
+        HostCall::Screen(ScreenRequest::ScreenSize) => match crate::netplay::screenSize()
         {
             Some((width, height)) => HostReply::Size(width, height),
             None => HostReply::Error("screen size exists only on the client".to_owned()),
         },
-        HostCall::ItemCatalog => HostReply::Stacks(crate::viewer::itemCatalog()),
-        HostCall::MobList => HostReply::Ids(crate::viewer::mobs()),
-        HostCall::RecipeList => HostReply::Recipes(crate::viewer::recipeList()),
-        HostCall::LootList => HostReply::Loot(crate::viewer::loot::list()),
-        HostCall::MachineList => HostReply::Machines(crate::viewer::machines::list()),
-        HostCall::RollLoot { table, seed } => ok(crate::content::loot::rollChest(&table, seed), HostReply::Stacks),
-        HostCall::ContentGeneration => HostReply::Int(crate::content::recipes::generation()),
+        HostCall::Viewer(ViewerRequest::ItemCatalog) => HostReply::Stacks(crate::viewer::itemCatalog()),
+        HostCall::Entity(EntityRequest::MobList) => HostReply::Ids(crate::viewer::mobs()),
+        HostCall::Viewer(ViewerRequest::RecipeList) => HostReply::Recipes(crate::viewer::recipeList()),
+        HostCall::Viewer(ViewerRequest::LootList) => HostReply::Loot(crate::viewer::loot::list()),
+        HostCall::Viewer(ViewerRequest::MachineList) => HostReply::Machines(crate::viewer::machines::list()),
+        HostCall::Inventory(InventoryRequest::RollLoot { table, seed }) =>
+        {
+            ok(crate::content::loot::rollChest(&table, seed), HostReply::Stacks)
+        }
+        HostCall::Viewer(ViewerRequest::ContentGeneration) => HostReply::Int(crate::content::recipes::generation()),
         other => HostReply::Error(format!("{other:?} reached no handler")),
     }
 }

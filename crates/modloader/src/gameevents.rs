@@ -65,6 +65,7 @@ fn kindOf(event: &GameEvent<'_>) -> EventKind
         GameEvent::EntityJoinWorld { .. } => EventKind::EntityJoinWorld,
         GameEvent::EntityTick { .. } => EventKind::EntityTick,
         GameEvent::EntityRemove { .. } => EventKind::EntityRemove,
+        GameEvent::LightningStrike { .. } => EventKind::LightningStrike,
         GameEvent::LivingAttack { .. } => EventKind::LivingAttack,
         GameEvent::LivingDeath { .. } => EventKind::LivingDeath,
         GameEvent::LivingDrops { .. } => EventKind::LivingDrops,
@@ -265,6 +266,11 @@ fn dispatch(event: GameEvent<'_>) -> bool
         GameEvent::EntityRemove { world, entity } =>
         {
             post(Some(world), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
+        }
+
+        GameEvent::LightningStrike { entity } =>
+        {
+            post(entity.m_worldObj.get().as_ref(), kind, EventData::Entity { entity: entityInfo(entity) }).canceled
         }
 
         GameEvent::EntityTick { entity } =>
