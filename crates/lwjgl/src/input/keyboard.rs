@@ -1,5 +1,5 @@
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Mod};
 use std::cell::{RefCell, RefMut};
 use std::collections::VecDeque;
 
@@ -319,6 +319,19 @@ fn controlCharacter(key: i32) -> u16
         .map_or(Keyboard::CHAR_NONE, |(_, character)| *character)
 }
 
+// lwjgl gives control with a letter as that letter's control character so text fields see ctrl v as 22
+fn controlLetter(keycode: Keycode, keymod: Mod) -> u16
+{
+    let control: bool = keymod.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD);
+    let letter: bool = (Keycode::A.into_i32()..=Keycode::Z.into_i32()).contains(&keycode.into_i32());
+    if !control || !letter
+    {
+        return Keyboard::CHAR_NONE;
+    }
+
+    (keycode.into_i32() - Keycode::A.into_i32() + 1) as u16
+}
+
 // typed text arrives after its key press, lwjgl reports both in one event and extra characters as key 0 events
 fn attachText(state: &mut KeyboardState, text: &str, nanos: i64)
 {
@@ -394,7 +407,7 @@ pub(crate) fn handleEvent(event: &Event)
 
         match event
         {
-            Event::KeyDown { keycode: Some(keycode), repeat, .. } =>
+            Event::KeyDown { keycode: Some(keycode), repeat, keymod, .. } =>
             {
                 let key: i32 = lwjglKey(*keycode);
 
@@ -406,7 +419,7 @@ pub(crate) fn handleEvent(event: &Event)
 
                 state.m_keyDown[key as usize] = true;
 
-                let character: u16 = controlCharacter(key);
+                let character: u16 = controlCharacter(key).max(controlLetter(*keycode, *keymod));
 
                 state.m_queue.push_back(KeyEvent
                 {

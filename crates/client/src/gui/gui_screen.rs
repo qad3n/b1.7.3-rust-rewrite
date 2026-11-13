@@ -156,7 +156,7 @@ impl GuiScreen
 
     pub fn fontRenderer(&self) -> Rc<FontRenderer> { self.m_fontRenderer.get().orNpe() }
 
-    pub fn getClipboardString() -> Option<String> { None }
+    pub fn getClipboardString() -> Option<String> { lwjgl::Sys::getClipboard() }
 
     pub fn setWorldAndResolution(self: &Rc<Self>, minecraft: &Rc<Minecraft>, width: i32, height: i32)
     {

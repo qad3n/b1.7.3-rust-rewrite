@@ -1,3 +1,5 @@
+use jvm::warning;
+
 // the LWJGL release Beta 1.7.3 shipped with
 const VERSION: &str = "2.4.2";
 
@@ -26,5 +28,23 @@ impl Sys
             .find(|opener| opener.m_os == std::env::consts::OS)
             .map_or(DEFAULT_OPENER, |opener| opener.m_command);
         std::process::Command::new(command).arg(url).spawn().is_ok()
+    }
+
+    // the clipboard as text or none when it holds no text
+    pub fn getClipboard() -> Option<String>
+    {
+        let read: Result<String, String> =
+            crate::platform::with(|platform| platform.m_video.clipboard().clipboard_text())
+                .map_err(|error| error.to_string())
+                .and_then(|text| text);
+        match read
+        {
+            Ok(text) => Some(text).filter(|text| !text.is_empty()),
+            Err(error) =>
+            {
+                warning!("Clipboard could not be read: {error}");
+                None
+            }
+        }
     }
 }
