@@ -3,6 +3,7 @@ use game::block::Block;
 use game::world::IBlockAccess;
 use lwjgl::opengl::GL11;
 use modloader::atlas::Atlas;
+use modloader::mod_protocol::spec::Cuboid;
 use std::rc::Rc;
 
 const MODEL_UNITS: f32 = 16.0;
@@ -124,8 +125,30 @@ pub fn renderItemModel(renderer: &mut RenderBlocks, block: &Rc<Block>, metadata:
     };
 
     GL11::glTranslatef(-0.5, -0.5, -0.5);
+    drawCuboids(renderer, block, metadata, &model.cuboids);
 
-    for cuboid in &model.cuboids
+    if let Some(tile) = &model.tile
+    {
+        super::entity_model::drawPosed(&tile.to_string(), &model.pose);
+    }
+
+    GL11::glTranslatef(0.5, 0.5, 0.5);
+}
+
+// a model block's item in a slot or a hand: the cuboids its item metadata shows in the world
+pub fn renderModelItem(renderer: &mut RenderBlocks, block: &Rc<Block>, metadata: i32)
+{
+    let cuboids: Vec<Cuboid> = modloader::content::blocks::metaCuboids(block.m_blockID, metadata);
+
+    GL11::glTranslatef(-0.5, -0.5, -0.5);
+    drawCuboids(renderer, block, metadata, &cuboids);
+    GL11::glTranslatef(0.5, 0.5, 0.5);
+}
+
+// each cuboid as a small inventory block, then the block gets its full bounds back
+fn drawCuboids(renderer: &mut RenderBlocks, block: &Rc<Block>, metadata: i32, cuboids: &[Cuboid])
+{
+    for cuboid in cuboids
     {
         let [x0, y0, z0] = cuboid.from.map(|value| value / MODEL_UNITS);
         let [x1, y1, z1] = cuboid.to.map(|value| value / MODEL_UNITS);
@@ -140,11 +163,4 @@ pub fn renderItemModel(renderer: &mut RenderBlocks, block: &Rc<Block>, metadata:
 
     renderer.m_overrideBlockTexture = -1;
     block.setBlockBounds(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
-
-    if let Some(tile) = &model.tile
-    {
-        super::entity_model::drawPosed(&tile.to_string(), &model.pose);
-    }
-
-    GL11::glTranslatef(0.5, 0.5, 0.5);
 }

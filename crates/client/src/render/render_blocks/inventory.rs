@@ -177,6 +177,7 @@ impl RenderBlocks
             }
 
             modloader::content::blocks::ITEM_MODEL_RENDER_TYPE => crate::modded::renderItemModel(self, block, metadata),
+            modloader::content::blocks::MODEL_RENDER_TYPE => crate::modded::renderModelItem(self, block, metadata),
 
             _ =>
             {}

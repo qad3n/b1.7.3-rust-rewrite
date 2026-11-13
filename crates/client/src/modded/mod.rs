@@ -22,7 +22,7 @@ use game::item::ItemStack;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 pub use menu::{MODS_BUTTON, addModsButton, drawModCount, modsScreen, startScreen};
-pub use model::{movingShapes, renderItemModel, renderModel, renderOverlays};
+pub use model::{movingShapes, renderItemModel, renderModel, renderModelItem, renderOverlays};
 use modloader::mod_protocol::abi::{DrawList, StackData};
 use modloader::screens::OpenRequest;
 use std::cell::{RefCell, RefMut};

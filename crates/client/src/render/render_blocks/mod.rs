@@ -224,7 +224,8 @@ impl RenderBlocks
 
     pub fn renderItemIn3d(kind: i32) -> bool
     {
-        kind == modloader::content::blocks::ITEM_MODEL_RENDER_TYPE
+        kind == modloader::content::blocks::MODEL_RENDER_TYPE
+            || kind == modloader::content::blocks::ITEM_MODEL_RENDER_TYPE
             || usize::try_from(kind).ok().and_then(|index| SHAPES.get(index)).is_some_and(|row| row.m_item3d)
     }
 }
