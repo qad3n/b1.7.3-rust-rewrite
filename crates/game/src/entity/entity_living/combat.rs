@@ -219,6 +219,7 @@ fn dropLoot(this: &Rc<Entity>, killer: Option<&Rc<Entity>>)
     if table.as_ref().is_none_or(|table| table.m_keepBeta)
     {
         this.dropFewItems();
+        this.killDrops(killer);
     }
 
     let Some(table) = table

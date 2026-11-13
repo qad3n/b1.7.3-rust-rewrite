@@ -197,6 +197,7 @@ pub const CLASS: EntityClass = EntityClass
     getDeathSound: |_| Some("random.hurt".to_string()),
     onDeath: combat::onDeath,
     dropFewItems: combat::dropFewItems,
+    killDrops: |_, _| {},
     getDropItemId: |_| 0,
     fall: combat::fall,
     moveEntityWithHeading: update::moveEntityWithHeading,

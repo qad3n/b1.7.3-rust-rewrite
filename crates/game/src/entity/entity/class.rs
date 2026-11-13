@@ -85,6 +85,7 @@ crate::vtable!
         fn displayWorkbenchGUI(x: i32, y: i32, z: i32);
         fn dropCurrentItem();
         fn dropFewItems();
+        fn killDrops(killer: Option<&Rc<Entity>>);
         fn findPlayerToAttack() -> Option<Rc<Entity>>;
         fn getBlockPathWeight(x: i32, y: i32, z: i32) -> f32;
         fn getCanSpawnHere() -> bool;
@@ -156,6 +157,7 @@ pub const ENTITY: EntityClass = EntityClass
     displayWorkbenchGUI: |_, _, _, _| abstractMethod("displayWorkbenchGUI"),
     dropCurrentItem: |_| abstractMethod("dropCurrentItem"),
     dropFewItems: |_| abstractMethod("dropFewItems"),
+    killDrops: |_, _| abstractMethod("killDrops"),
     findPlayerToAttack: |_| abstractMethod("findPlayerToAttack"),
     getBlockPathWeight: |_, _, _, _| abstractMethod("getBlockPathWeight"),
     getCanSpawnHere: |_| abstractMethod("getCanSpawnHere"),

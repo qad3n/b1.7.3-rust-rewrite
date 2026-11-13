@@ -172,10 +172,9 @@ pub const CLASS: EntityClass = EntityClass
     onUpdate,
     getHurtSound: |_| Some("mob.creeper".to_string()),
     getDeathSound: |_| Some("mob.creeperdeath".to_string()),
-    onDeath: |this, killer|
+    // beta drops this disc in onDeath right after dropFewItems so a loot table that replaces beta drops removes it too
+    killDrops: |this, killer|
     {
-        (entity_mob::CLASS.onDeath)(this, killer);
-
         if killer.is_some_and(|killer| killer.instanceOf("EntitySkeleton"))
         {
             this.dropItem(Item::record13().m_shiftedIndex + this.m_rand.nextIntBounded(2), 1);
