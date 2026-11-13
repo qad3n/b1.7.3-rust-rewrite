@@ -1,6 +1,7 @@
 use crate::locale::{self, Charset};
 use crate::{character, special_casing};
 use std::fmt;
+#[cfg(unix)]
 use std::os::unix::ffi::OsStringExt;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
