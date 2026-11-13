@@ -120,15 +120,19 @@ pub(crate) fn launchFrom(this: &Rc<Entity>, thrower: &Rc<Entity>, y: f64, speed:
     this.m_motionY.set((-sin(pitch) * speed) as f64);
 }
 
+// how far one unit of spread throws a heading off per axis
+const SPREAD_UNIT: f32 = 0.0075;
+
 pub(crate) fn applyHeading(this: &Entity, mut x: f64, mut y: f64, mut z: f64, speed: f32, spread: f32)
 {
     let f: f32 = sqrt_double(x * x + y * y + z * z);
     x /= f as f64;
     y /= f as f64;
     z /= f as f64;
-    x += this.m_rand.nextGaussian() * (0.0075f32 * spread) as f64;
-    y += this.m_rand.nextGaussian() * (0.0075f32 * spread) as f64;
-    z += this.m_rand.nextGaussian() * (0.0075f32 * spread) as f64;
+    // java multiplies the gaussian by each float in turn as doubles, the two floats are never multiplied together
+    x += this.m_rand.nextGaussian() * SPREAD_UNIT as f64 * spread as f64;
+    y += this.m_rand.nextGaussian() * SPREAD_UNIT as f64 * spread as f64;
+    z += this.m_rand.nextGaussian() * SPREAD_UNIT as f64 * spread as f64;
     x *= speed as f64;
     y *= speed as f64;
     z *= speed as f64;
