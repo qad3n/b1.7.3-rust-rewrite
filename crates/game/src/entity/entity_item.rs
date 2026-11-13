@@ -141,6 +141,12 @@ fn onCollideWithPlayer(this: &Rc<Entity>, player: &Rc<Entity>)
         return;
     }
     let fields: &ItemFields = fields(this);
+
+    if fields.m_delayBeforeCanPickup.get() != 0
+    {
+        return;
+    }
+
     let stack: Rc<ItemStack> = item(this);
     // mods may keep an item from being picked up
     if crate::hooks::fire(crate::hooks::GameEvent::ItemPickup { player, item: this, stack: &stack })
@@ -150,7 +156,7 @@ fn onCollideWithPlayer(this: &Rc<Entity>, player: &Rc<Entity>)
 
     let n: i32 = stack.m_stackSize.get();
 
-    if fields.m_delayBeforeCanPickup.get() == 0 && entity_player::inventory(player).addItemStackToInventory(&stack)
+    if entity_player::inventory(player).addItemStackToInventory(&stack)
     {
         if stack.m_itemID.get() == Block::WOOD
         {
