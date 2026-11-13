@@ -378,6 +378,12 @@ pub fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
             ok(crate::content::loot::rollChest(&table, seed), HostReply::Stacks)
         }
         HostCall::Viewer(ViewerRequest::ContentGeneration) => HostReply::Int(crate::content::recipes::generation()),
+        HostCall::Screen(ScreenRequest::Clipboard) => match crate::netplay::clipboard()
+        {
+            Some(text) => HostReply::Text(text),
+            None => HostReply::Error("the clipboard holds no text".to_owned()),
+        },
+        HostCall::Media(call) => crate::media::handle(call),
         other => HostReply::Error(format!("{other:?} reached no handler")),
     }
 }

@@ -72,6 +72,8 @@ impl modloader::netplay::Platform for ClientPlatform
         Ok(())
     }
 
+    fn clipboard(&self) -> Option<String> { GuiScreen::getClipboardString() }
+
     fn screenSize(&self) -> Option<(i32, i32)>
     {
         let mc: Rc<Minecraft> = self.mc().ok()?;

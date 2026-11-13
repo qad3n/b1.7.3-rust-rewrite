@@ -28,6 +28,7 @@ pub mod keybinds;
 pub mod lifecycle;
 pub mod log;
 pub mod manifest;
+pub mod media;
 pub mod modify;
 pub mod netplay;
 pub mod netsync;

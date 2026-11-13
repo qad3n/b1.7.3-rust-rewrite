@@ -162,7 +162,7 @@ pub struct BlockEvent
 
 pub fn id(name: &str) -> Identifier { Identifier::parse(name).expect("loader channel names are valid") }
 
-fn clientHandler<T: for<'de> Deserialize<'de> + 'static>(apply: fn(T)) -> Handler
+pub(crate) fn clientHandler<T: for<'de> Deserialize<'de> + 'static>(apply: fn(T)) -> Handler
 {
     Rc::new(move |_: &Rc<Entity>, bytes: &[u8]| match wire::decode::<T>(bytes)
     {
@@ -455,6 +455,8 @@ pub fn register()
         m_onServer: Some(Rc::new(|player: &Rc<Entity>, _: &[u8]| game::entity::entity_player::stopUsingItem(player))),
         m_onClient: None,
     });
+
+    crate::media::register();
 }
 
 // sends a loader message to every player near a point of a world, used for sounds and particles from mods

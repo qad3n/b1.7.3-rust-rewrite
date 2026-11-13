@@ -91,6 +91,7 @@ pub fn tick(pre: bool) -> bool
     if !pre
     {
         crate::attach::flush();
+        crate::media::tick();
     }
 
     !pre && crate::profiler::tick()

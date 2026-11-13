@@ -14,6 +14,8 @@ pub trait Platform
 
     fn screenSize(&self) -> Option<(i32, i32)> { None }
 
+    fn clipboard(&self) -> Option<String> { None }
+
     // tells the player's client what it holds on the cursor after a mod changed it
     fn syncCursor(&self, _player: &Rc<Entity>) {}
 
@@ -84,6 +86,8 @@ pub fn flushTeleports()
 }
 
 pub fn screenSize() -> Option<(i32, i32)> { platform().ok()?.screenSize() }
+
+pub fn clipboard() -> Option<String> { platform().ok()?.clipboard() }
 
 pub fn hidesParticle(pos: [f64; 3]) -> bool { platform().is_ok_and(|platform| platform.hidesParticle(pos)) }
 
