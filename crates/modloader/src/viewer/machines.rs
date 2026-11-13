@@ -129,11 +129,18 @@ fn jobNotes(job: &MachineJobSpec) -> Vec<String>
 fn job(ruled: &crate::content::machines::Job, problems: &mut Vec<String>) -> MachineRecipeView
 {
     let job: &MachineJobSpec = &ruled.m_spec;
-    let inputs: Vec<MachineSlotSpec> = job.inputs.iter().map(inputSlot).collect();
+    let ruledInput = |index: usize| ruled.m_rules.iter().any(|rule| rule.input as usize == index);
+    let inputs: Vec<MachineSlotSpec> = job
+        .inputs
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| !ruledInput(*index))
+        .map(|(_, input)| inputSlot(input))
+        .collect();
     let outputs: Vec<MachineSlotSpec> = job.outputs.iter().map(|output| outputSlot(job, output)).collect();
     let mut notes: Vec<String> = jobNotes(job);
 
-    // an input taking any item has no slot to show, so its rule becomes a line
+    // an input taking any item names no item, it shows as a line instead of a slot
     for rule in &ruled.m_rules
     {
         notes.push(match &rule.except
