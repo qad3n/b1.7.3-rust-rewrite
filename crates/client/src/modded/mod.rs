@@ -20,6 +20,7 @@ use game::container::Container;
 use game::entity::{Entity, entity_player};
 use game::inventory::{IInventory, InventoryPlayer};
 use game::item::ItemStack;
+use game::math::AxisAlignedBB;
 use jvm::throwable::OrNpe;
 use lwjgl::opengl::GL11;
 pub use menu::{MODS_BUTTON, addModsButton, drawModCount, modsScreen, startScreen};
@@ -30,6 +31,8 @@ use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
 
 const CLICK_SOUND: &str = "random.click";
+// mod particles this close around the first person player's box are on its body, such as effect swirls
+const BODY_MARGIN: f64 = 0.5;
 
 thread_local!
 {
@@ -80,6 +83,31 @@ impl modloader::netplay::Platform for ClientPlatform
     fn textWidth(&self, text: &str) -> i32
     {
         self.mc().ok().and_then(|mc| mc.m_fontRenderer.get()).map_or(0, |font| font.getStringWidth(text))
+    }
+
+    fn hidesParticle(&self, pos: [f64; 3]) -> bool
+    {
+        let Ok(mc) = self.mc()
+        else
+        {
+            return false;
+        };
+        let (Some(player), Some(view), Some(settings)) =
+            (mc.m_thePlayer.get(), mc.m_renderViewEntity.get(), mc.m_gameSettings.get())
+        else
+        {
+            return false;
+        };
+
+        if settings.m_thirdPersonView.get() || !Rc::ptr_eq(&player, &view)
+        {
+            return false;
+        }
+
+        let body: &AxisAlignedBB = &player.m_boundingBox;
+        let [x, y, z] = pos;
+        let near = |value: f64, min: f64, max: f64| min - BODY_MARGIN <= value && value <= max + BODY_MARGIN;
+        near(x, body.minX(), body.maxX()) && near(y, body.minY(), body.maxY()) && near(z, body.minZ(), body.maxZ())
     }
 
     fn addClientEntity(&self, id: i32, entity: Rc<Entity>) -> Result<(), String>

@@ -20,6 +20,9 @@ pub trait Platform
     // FontRenderer.getStringWidth on a client, nothing to measure on a server
     fn textWidth(&self, _text: &str) -> i32 { 0 }
 
+    // a first person client hides mod particles on its own player's body since they would cover the view
+    fn hidesParticle(&self, _pos: [f64; 3]) -> bool { false }
+
     // ServerConfigurationManager.isOp on a server, a single player world has no operators to check
     fn isOp(&self, _player: &Rc<Entity>) -> bool { true }
 
@@ -81,6 +84,8 @@ pub fn flushTeleports()
 }
 
 pub fn screenSize() -> Option<(i32, i32)> { platform().ok()?.screenSize() }
+
+pub fn hidesParticle(pos: [f64; 3]) -> bool { platform().is_ok_and(|platform| platform.hidesParticle(pos)) }
 
 pub fn isOp(player: &Rc<Entity>) -> bool { platform().is_ok_and(|platform| platform.isOp(player)) }
 

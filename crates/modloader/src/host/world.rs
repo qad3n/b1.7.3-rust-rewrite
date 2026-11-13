@@ -1161,7 +1161,10 @@ pub(crate) fn handle(runtime: &Rc<ModRuntime>, call: HostCall) -> HostReply
         {
             unit(world(dimension).map(|world|
             {
-                world.spawnParticle(&name, pos[0], pos[1], pos[2], motion[0], motion[1], motion[2]);
+                if !crate::netplay::hidesParticle(pos)
+                {
+                    world.spawnParticle(&name, pos[0], pos[1], pos[2], motion[0], motion[1], motion[2]);
+                }
 
                 let message: Particle = loader::Particle { world: dimension, name, pos, motion };
                 loader::broadcastNear(loader::PARTICLE, &world, pos, &message);

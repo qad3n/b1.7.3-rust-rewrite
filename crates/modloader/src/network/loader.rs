@@ -362,6 +362,11 @@ fn sound(message: Sound)
 
 fn particle(message: Particle)
 {
+    if crate::netplay::hidesParticle(message.pos)
+    {
+        return;
+    }
+
     if let Some(world) = context::world(message.world)
     {
         world.spawnParticle(
