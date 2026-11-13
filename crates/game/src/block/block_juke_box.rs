@@ -4,13 +4,16 @@ use crate::item::ItemStack;
 use crate::port::tile_entity;
 use crate::tileentity::{TILE_ENTITY, TileEntity, TileEntityClass};
 use crate::world::World;
-use std::cell::Cell;
+use common::nbt::attachments::{self, Attachments};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 #[derive(Default)]
 pub struct RecordPlayerExt
 {
     pub m_record: Cell<i32>,
+    // rewrite: a mod disc keeps its data components through the jukebox
+    pub m_components: RefCell<Attachments>,
 }
 
 pub const TILE_ENTITY_RECORD_PLAYER: TileEntityClass = TileEntityClass
@@ -21,6 +24,7 @@ pub const TILE_ENTITY_RECORD_PLAYER: TileEntityClass = TileEntityClass
     {
         (TILE_ENTITY.readFromNBT)(this, nbt);
         this.ext::<RecordPlayerExt>().m_record.set(nbt.getInteger("Record"));
+        *this.ext::<RecordPlayerExt>().m_components.borrow_mut() = attachments::readAt(nbt, attachments::COMPONENTS);
     },
 
     writeToNBT: |this, nbt|
@@ -32,6 +36,8 @@ pub const TILE_ENTITY_RECORD_PLAYER: TileEntityClass = TileEntityClass
         {
             nbt.setInteger("Record", record);
         }
+
+        attachments::writeAt(&this.ext::<RecordPlayerExt>().m_components.borrow(), nbt, attachments::COMPONENTS);
     },
     ..TILE_ENTITY
 };
@@ -60,6 +66,21 @@ pub fn ejectRecord(world: &Rc<World>, x: i32, y: i32, z: i32, record: i32)
     world.setBlockMetadataWithNotify(x, y, z, 1);
 }
 
+// rewrite: inserts a whole stack so a mod disc keeps its components until it comes back out
+pub fn insertStack(world: &Rc<World>, x: i32, y: i32, z: i32, stack: &ItemStack)
+{
+    ejectRecord(world, x, y, z, stack.m_itemID.get());
+
+    if !world.m_multiplayerWorld.get()
+    {
+        recordPlayerAt(world, x, y, z)
+            .ext::<RecordPlayerExt>()
+            .m_components
+            .borrow_mut()
+            .clone_from(&stack.m_components.borrow());
+    }
+}
+
 pub fn removeRecord(world: &Rc<World>, x: i32, y: i32, z: i32)
 {
     if world.m_multiplayerWorld.get()
@@ -76,6 +97,7 @@ pub fn removeRecord(world: &Rc<World>, x: i32, y: i32, z: i32)
     world.doEvent(1005, x, y, z, 0);
     world.playRecord(None, x, y, z);
     tileEntityRecordPlayer.ext::<RecordPlayerExt>().m_record.set(0);
+    let components: Attachments = tileEntityRecordPlayer.ext::<RecordPlayerExt>().m_components.take();
     tileEntityRecordPlayer.onInventoryChanged();
     world.setBlockMetadataWithNotify(x, y, z, 0);
 
@@ -84,8 +106,9 @@ pub fn removeRecord(world: &Rc<World>, x: i32, y: i32, z: i32)
     let d: f64 = (world.m_rand.nextFloat() * f) as f64 + (1.0 - f) as f64 * 0.5;
     let d2: f64 = (world.m_rand.nextFloat() * f) as f64 + (1.0 - f) as f64 * 0.2 + 0.6;
     let d3: f64 = (world.m_rand.nextFloat() * f) as f64 + (1.0 - f) as f64 * 0.5;
-    let entityItem: Rc<Entity> =
-        entity_item::create(world, x as f64 + d, y as f64 + d2, z as f64 + d3, ItemStack::withDamage(n2, 1, 0));
+    let stack: Rc<ItemStack> = ItemStack::withDamage(n2, 1, 0);
+    *stack.m_components.borrow_mut() = components;
+    let entityItem: Rc<Entity> = entity_item::create(world, x as f64 + d, y as f64 + d2, z as f64 + d3, stack);
     entity_item::fields(&entityItem).m_delayBeforeCanPickup.set(10);
     world.entityJoinedWorld(&entityItem);
 }
