@@ -1,3 +1,4 @@
+use crate::port::file_url;
 use crate::settings::GameSettings;
 use crate::sound::texture_pack_sounds::{self, Event, Install, Origin, Pool, Sound};
 use crate::sound::{CodecMus, SoundPool, SoundPoolEntry};
@@ -14,6 +15,9 @@ use std::cell::{Cell, RefCell};
 use std::f32::consts::PI;
 use std::path::Path;
 use std::rc::Rc;
+
+// the one source records stream through
+const STREAMING: &str = "streaming";
 
 thread_local!
 {
@@ -309,16 +313,9 @@ impl SoundManager
 
     pub fn playStreaming(&self, name: Option<&str>, x: f32, y: f32, z: f32, volume: f32, _pitch: f32)
     {
-        if !loaded() || self.options().m_soundVolume.get() == 0.0
+        if !self.stopStreaming()
         {
             return;
-        }
-
-        let string: &str = "streaming";
-        let system: Rc<SoundSystem> = sndSystem();
-        if system.playing("streaming")
-        {
-            system.stop("streaming");
         }
 
         let Some(name) = name
@@ -331,27 +328,51 @@ impl SoundManager
         if let Some(soundPoolEntry) = soundPoolEntry
             && volume > 0.0
         {
-            if system.playing("BgMusic")
-            {
-                system.stop("BgMusic");
-            }
-
-            let f: f32 = 16.0;
-            system.newStreamingSource(
-                true,
-                string,
-                &soundPoolEntry.m_soundUrl,
-                &soundPoolEntry.m_soundName,
-                false,
-                x,
-                y,
-                z,
-                2,
-                f * 4.0,
-            );
-            system.setVolume(string, 0.5 * self.options().m_soundVolume.get());
-            system.play(string);
+            self.stream(&soundPoolEntry.m_soundUrl, &soundPoolEntry.m_soundName, [x, y, z], 0.0);
         }
+    }
+
+    // rewrite: a song file a mod streams through the record source starting offset seconds in
+    pub fn playFile(&self, file: &Path, x: f32, y: f32, z: f32, offset: f32)
+    {
+        if !self.stopStreaming()
+        {
+            return;
+        }
+
+        let identifier: String = file.file_name().map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+        self.stream(&file_url::fileUrl(file), &identifier, [x, y, z], offset);
+    }
+
+    // false while sound is off
+    fn stopStreaming(&self) -> bool
+    {
+        if !loaded() || self.options().m_soundVolume.get() == 0.0
+        {
+            return false;
+        }
+
+        let system: Rc<SoundSystem> = sndSystem();
+        if system.playing(STREAMING)
+        {
+            system.stop(STREAMING);
+        }
+
+        true
+    }
+
+    fn stream(&self, url: &str, identifier: &str, pos: [f32; 3], offset: f32)
+    {
+        let system: Rc<SoundSystem> = sndSystem();
+        if system.playing("BgMusic")
+        {
+            system.stop("BgMusic");
+        }
+
+        let f: f32 = 16.0;
+        system.newStreamingSource(true, STREAMING, url, identifier, false, pos[0], pos[1], pos[2], 2, f * 4.0);
+        system.setVolume(STREAMING, 0.5 * self.options().m_soundVolume.get());
+        system.playFrom(STREAMING, offset);
     }
 
     fn nextSourceName(&self) -> String

@@ -5,7 +5,7 @@ use crate::math::math_helper::floor_double;
 use crate::math::{AxisAlignedBB, Vec3D};
 use crate::pathfinding::{PathEntity, Pathfinder};
 use crate::tileentity::TileEntity;
-use crate::world::{Chunk, ChunkCache, Explosion, World};
+use crate::world::{Chunk, ChunkCache, Explosion, Stream, World};
 use jvm::array_list::JArrayList;
 use jvm::{debug, trace};
 use std::rc::Rc;
@@ -157,6 +157,14 @@ impl World
         {
             self.m_worldAccesses.get(i).playSound(sound, x, y, z, volume, pitch);
             i += 1;
+        }
+    }
+
+    pub fn playStream(&self, stream: &Stream, x: i32, y: i32, z: i32)
+    {
+        for i in 0..self.m_worldAccesses.size()
+        {
+            self.m_worldAccesses.get(i).playStream(stream, x, y, z);
         }
     }
 

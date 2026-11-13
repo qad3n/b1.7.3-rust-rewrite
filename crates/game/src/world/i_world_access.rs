@@ -1,7 +1,16 @@
 use crate::entity::Entity;
 use crate::tileentity::TileEntity;
 use jvm::object::JavaObject;
+use std::path::Path;
 use std::rc::Rc;
+
+// rewrite: a song file a mod streams from a jukebox started offset seconds in
+pub struct Stream<'a>
+{
+    pub m_file: &'a Path,
+    pub m_title: &'a str,
+    pub m_offset: f32,
+}
 
 pub trait IWorldAccess
 {
@@ -15,6 +24,7 @@ pub trait IWorldAccess
     fn playRecord(&self, record: Option<&str>, x: i32, y: i32, z: i32);
     fn doNothingWithTileEntity(&self, x: i32, y: i32, z: i32, blockEntity: &Rc<TileEntity>);
     fn doEvent(&self, source: Option<&Rc<Entity>>, kind: i32, x: i32, y: i32, z: i32, data: i32);
+    fn playStream(&self, _stream: &Stream, _x: i32, _y: i32, _z: i32) {}
 }
 
 impl JavaObject for dyn IWorldAccess

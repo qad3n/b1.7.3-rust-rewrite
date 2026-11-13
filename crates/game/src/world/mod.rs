@@ -36,7 +36,7 @@ pub use i_block_access::IBlockAccess;
 pub use i_chunk_loader::IChunkLoader;
 pub use i_chunk_provider::IChunkProvider;
 pub use i_save_handler::ISaveHandler;
-pub use i_world_access::IWorldAccess;
+pub use i_world_access::{IWorldAccess, Stream};
 pub use map_data_base::{MapDataBase, MapDataKind};
 pub use map_storage::MapStorage;
 pub use metadata_chunk_block::MetadataChunkBlock;

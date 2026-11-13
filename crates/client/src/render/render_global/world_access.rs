@@ -9,7 +9,7 @@ use game::block::{Block, StepSound};
 use game::entity::Entity;
 use game::item::{Item, item_record};
 use game::tileentity::TileEntity;
-use game::world::{IWorldAccess, World};
+use game::world::{IWorldAccess, Stream, World};
 use jvm::random::Random;
 use jvm::string::JString;
 use jvm::throwable::OrNpe;
@@ -235,6 +235,12 @@ impl IWorldAccess for RenderGlobal
         }
 
         self.m_mc.m_sndManager.get().orNpe().playStreaming(record, x as f32, y as f32, z as f32, 1.0, 1.0);
+    }
+
+    fn playStream(&self, stream: &Stream, x: i32, y: i32, z: i32)
+    {
+        self.m_mc.m_ingameGUI.get().orNpe().setRecordPlayingMessage(stream.m_title);
+        self.m_mc.m_sndManager.get().orNpe().playFile(stream.m_file, x as f32, y as f32, z as f32, stream.m_offset);
     }
 
     fn doNothingWithTileEntity(&self, _x: i32, _y: i32, _z: i32, _blockEntity: &Rc<TileEntity>) {}
