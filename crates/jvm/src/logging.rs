@@ -46,7 +46,8 @@ impl Level
 #[macro_export]
 macro_rules! function
 {
-    () => {
+    () =>
+    {
     {
         fn here() {}
         ::std::any::type_name_of_val(&here)
