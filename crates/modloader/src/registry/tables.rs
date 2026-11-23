@@ -223,8 +223,9 @@ impl Registries
     // game and loader rows of the named registries, client-only rows such as particles come from the client
     fn seedNamed(&mut self)
     {
-        let rows: [(RegistryKind, Vec<String>); 7] = [
+        let rows: [(RegistryKind, Vec<String>); 8] = [
             (RegistryKind::Attribute, game::attribute::names()),
+            (RegistryKind::Effect, game::effect::names()),
             (RegistryKind::GameRule, game::gamerule::GameRule::all().into_iter().map(|row| row.name()).collect()),
             (RegistryKind::Fluid, game::fluid::names()),
             (RegistryKind::DamageType, game::damage::names()),

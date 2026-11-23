@@ -99,13 +99,11 @@ fn build(id: Identifier, spec: EffectSpec, hooks: Option<Rc<dyn EffectHooks>>) -
         modifiers.push((attribute, modifier.amount, operation(modifier.operation)));
     }
 
-    let icon: String =
-        match spec.icon.as_deref()
-        {
-            Some(icon) => crate::entities::modTexturePath(icon)
-                .ok_or_else(|| format!("effect icon {icon} is not a texture name"))?,
-            None => String::new(),
-        };
+    let (icon, index): (String, Option<i32>) = match spec.icon.as_deref()
+    {
+        Some(icon) => parseIcon(icon)?,
+        None => (String::new(), None),
+    };
 
     crate::registry::claim(mod_protocol::abi::RegistryKind::Effect, &id)?;
     effect::register(EffectType
@@ -114,6 +112,7 @@ fn build(id: Identifier, spec: EffectSpec, hooks: Option<Rc<dyn EffectHooks>>) -
         m_color: spec.color as i32,
         m_beneficial: spec.beneficial,
         m_icon: icon,
+        m_index: index,
         m_modifiers: modifiers,
         m_interval: spec.interval,
         m_amount: spec.amount,
@@ -121,6 +120,26 @@ fn build(id: Identifier, spec: EffectSpec, hooks: Option<Rc<dyn EffectHooks>>) -
     });
 
     Ok(())
+}
+
+// a texture name with an optional status icon index after a hash as Potion.setIconIndex numbers them
+fn parseIcon(icon: &str) -> Result<(String, Option<i32>), String>
+{
+    let (texture, index): (&str, Option<&str>) = match icon.split_once('#')
+    {
+        Some((texture, index)) => (texture, Some(index)),
+        None => (icon, None),
+    };
+
+    let path: String =
+        crate::entities::modTexturePath(texture).ok_or_else(|| format!("effect icon {icon} is not a texture name"))?;
+    let index: Option<i32> = match index
+    {
+        Some(index) => Some(index.parse().map_err(|_| format!("effect icon {icon} has no icon index after #"))?),
+        None => None,
+    };
+
+    Ok((path, index))
 }
 
 pub fn add(entity: &Rc<Entity>, id: &Identifier, level: i32, ticks: i32) -> Result<(), String>

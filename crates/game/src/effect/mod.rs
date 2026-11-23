@@ -16,6 +16,8 @@ pub struct EffectType
     pub m_beneficial: bool,
     // a texture name the hud draws, empty draws only the colour
     pub m_icon: String,
+    // a status icon index on a 256 square sheet laid out like later inventory.png, none draws the whole texture
+    pub m_index: Option<i32>,
     // each level adds the amount once more
     pub m_modifiers: Vec<(Attribute, f64, Operation)>,
     // every interval ticks heals a positive amount or hurts a negative one, 0 for none
@@ -39,10 +41,123 @@ pub struct ActiveEffect
     pub m_ticks: i32,
 }
 
+// the status icon sheet the launcher installs from the 1.0 client jar's inventory.png
+pub const ICONS: &str = "/gui/effects.png";
+
+// pulse of Potion.regeneration at its first level
+mod pulse
+{
+    pub const REGENERATION_TICKS: i32 = 25;
+    pub const REGENERATION_HEAL: i32 = 1;
+}
+
+struct VanillaRow
+{
+    m_name: &'static str,
+    m_color: i32,
+    m_beneficial: bool,
+    m_index: i32,
+    m_modifier: Option<(Attribute, f64, Operation)>,
+    m_interval: i32,
+    m_amount: i32,
+}
+
+// the b1.9 potions whose effect beta gameplay has an attribute or pulse for, with their colours and icon indices
+const VANILLA: [VanillaRow; 7] = [
+    VanillaRow
+    {
+        m_name: "minecraft:speed",
+        m_color: 0x7CAFC6,
+        m_beneficial: true,
+        m_index: 0,
+        m_modifier: Some((Attribute::MOVE_SPEED, 0.2, Operation::MultiplyTotal)),
+        m_interval: 0,
+        m_amount: 0,
+    },
+    VanillaRow
+    {
+        m_name: "minecraft:slowness",
+        m_color: 0x5A6C81,
+        m_beneficial: false,
+        m_index: 1,
+        m_modifier: Some((Attribute::MOVE_SPEED, -0.15, Operation::MultiplyTotal)),
+        m_interval: 0,
+        m_amount: 0,
+    },
+    VanillaRow
+    {
+        m_name: "minecraft:haste",
+        m_color: 0xD9C043,
+        m_beneficial: true,
+        m_index: 2,
+        m_modifier: Some((Attribute::BREAK_SPEED, 0.2, Operation::MultiplyTotal)),
+        m_interval: 0,
+        m_amount: 0,
+    },
+    VanillaRow
+    {
+        m_name: "minecraft:mining_fatigue",
+        m_color: 0x4A4217,
+        m_beneficial: false,
+        m_index: 3,
+        m_modifier: Some((Attribute::BREAK_SPEED, -0.2, Operation::MultiplyTotal)),
+        m_interval: 0,
+        m_amount: 0,
+    },
+    VanillaRow
+    {
+        m_name: "minecraft:strength",
+        m_color: 0x932423,
+        m_beneficial: true,
+        m_index: 4,
+        m_modifier: Some((Attribute::ATTACK_DAMAGE, 3.0, Operation::Add)),
+        m_interval: 0,
+        m_amount: 0,
+    },
+    VanillaRow
+    {
+        m_name: "minecraft:weakness",
+        m_color: 0x484D48,
+        m_beneficial: false,
+        m_index: 5,
+        m_modifier: Some((Attribute::ATTACK_DAMAGE, -2.0, Operation::Add)),
+        m_interval: 0,
+        m_amount: 0,
+    },
+    VanillaRow
+    {
+        m_name: "minecraft:regeneration",
+        m_color: 0xCD5CAB,
+        m_beneficial: true,
+        m_index: 7,
+        m_modifier: None,
+        m_interval: pulse::REGENERATION_TICKS,
+        m_amount: pulse::REGENERATION_HEAL,
+    },
+];
+
 thread_local!
 {
-    static TYPES: RefCell<Vec<Rc<EffectType>>> = const { RefCell::new(Vec::new()) };
+    static TYPES: RefCell<Vec<Rc<EffectType>>> = RefCell::new(VANILLA.iter().map(vanilla).collect());
 }
+
+fn vanilla(row: &VanillaRow) -> Rc<EffectType>
+{
+    Rc::new(EffectType
+    {
+        m_name: row.m_name.to_owned(),
+        m_color: row.m_color,
+        m_beneficial: row.m_beneficial,
+        m_icon: ICONS.to_owned(),
+        m_index: Some(row.m_index),
+        m_modifiers: row.m_modifier.into_iter().collect(),
+        m_interval: row.m_interval,
+        m_amount: row.m_amount,
+        m_hooks: None,
+    })
+}
+
+pub fn names() -> Vec<String> { VANILLA.iter().map(|row| row.m_name.to_owned()).collect() }
 
 pub fn register(effect: EffectType)
 {
@@ -59,9 +174,9 @@ pub fn byName(name: &str) -> Option<Rc<EffectType>>
     TYPES.with(|types| types.borrow().iter().find(|effect| effect.m_name == name).cloned())
 }
 
-pub fn clear() { TYPES.with(|types| types.borrow_mut().clear()); }
+pub fn clear() { TYPES.with(|types| *types.borrow_mut() = VANILLA.iter().map(vanilla).collect()); }
 
-// the effects on one living entity, empty for everything in beta so nothing ticks, saves or draws
+// the effects on one living entity, empty unless a mod applies one so a vanilla game never ticks saves or draws them
 #[derive(Default)]
 pub struct Effects
 {

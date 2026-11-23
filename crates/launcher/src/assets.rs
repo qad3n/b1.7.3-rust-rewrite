@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use jvm::info;
+use jvm::{info, warning};
 use serde_json::Value;
 use std::fs::File;
 use std::io::{Cursor, Write};
@@ -19,6 +19,16 @@ mod url
     pub const MCASSET: &str = "https://mcasset.cloud/b1.7.3/assets";
 }
 
+// beta has no status effect art so the effect boxes and icons come from the first release with the same sheet
+mod effects
+{
+    pub const VERSION_ID: &str = "1.0";
+    pub const LAUNCHER_JAR: &str = "versions/1.0/1.0.jar";
+    pub const SOURCE: &str = "gui/inventory.png";
+    pub const SHEET: &str = "gui/effects.png";
+    pub const STAMP: &str = ".effects-sheet";
+}
+
 const CLIENT_STAMP: &str = ".client-jar.sha1";
 const SOUNDS_STAMP: &str = ".sounds-installed";
 
@@ -34,6 +44,17 @@ pub(crate) fn install(root: &Path, dataDir: &Path, clientJar: Option<PathBuf>) -
     if !stampMatches(&root.join(CLIENT_STAMP), CLIENT_JAR_SHA1)
     {
         fetchClient(root, clientJar.or_else(localJar))?;
+    }
+
+    let effectsStamp: PathBuf = root.join(effects::STAMP);
+    if !stampMatches(&effectsStamp, effects::VERSION_ID)
+    {
+        // the game runs without the sheet so a failure only costs the effect art
+        match fetchEffects(root)
+        {
+            Ok(()) => write(&effectsStamp, effects::VERSION_ID.as_bytes())?,
+            Err(error) => warning!("No status effect sheet, effect boxes and icons will be missing: {error:#}"),
+        }
     }
 
     let soundsStamp: PathBuf = root.join(SOUNDS_STAMP);
@@ -144,11 +165,44 @@ fn fetchClient(root: &Path, jar: Option<PathBuf>) -> Result<()>
     write(&root.join(CLIENT_STAMP), CLIENT_JAR_SHA1.as_bytes())
 }
 
-fn downloadClientJar() -> Result<Vec<u8>> { download(text(&versionJson()?, "/downloads/client/url")?) }
+fn downloadClientJar() -> Result<Vec<u8>> { download(text(&versionJson(VERSION_ID)?, "/downloads/client/url")?) }
+
+fn fetchEffects(root: &Path) -> Result<()>
+{
+    let local: Option<PathBuf> = mojangDir().map(|dir| dir.join(effects::LAUNCHER_JAR)).filter(|jar| jar.is_file());
+    let bytes: Vec<u8> = match local
+    {
+        Some(path) =>
+        {
+            info!("Taking the status effect sheet from {}", path.display());
+            std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?
+        }
+
+        None =>
+        {
+            info!("Downloading the {} client from Mojang for its status effect sheet", effects::VERSION_ID);
+
+            let version: Value = versionJson(effects::VERSION_ID)?;
+            let jar: Vec<u8> = download(text(&version, "/downloads/client/url")?)?;
+            verify("1.0 client jar", &jar, text(&version, "/downloads/client/sha1")?)?;
+            jar
+        }
+    };
+
+    let mut archive: zip::ZipArchive<Cursor<&[u8]>> =
+        zip::ZipArchive::new(Cursor::new(bytes.as_slice())).context("opening the 1.0 client jar")?;
+    let mut entry: zip::read::ZipFile<'_, Cursor<&[u8]>> =
+        archive.by_name(effects::SOURCE).with_context(|| format!("the 1.0 client jar has no {}", effects::SOURCE))?;
+    let path: PathBuf = root.join(effects::SHEET);
+    std::io::copy(&mut entry, &mut create(&path)?).with_context(|| format!("extracting {}", path.display()))?;
+
+    info!("Status effect sheet installed at {}", path.display());
+    Ok(())
+}
 
 fn fetchSounds(resources: &Path) -> Result<()>
 {
-    let version: Value = versionJson()?;
+    let version: Value = versionJson(VERSION_ID)?;
     let indexUrl: &str = text(&version, "/assetIndex/url")?;
     let indexBytes: Vec<u8> = download(indexUrl)?;
     verify(indexUrl, &indexBytes, text(&version, "/assetIndex/sha1")?)?;
@@ -177,17 +231,14 @@ fn fetchSounds(resources: &Path) -> Result<()>
     Ok(())
 }
 
-fn versionJson() -> Result<Value>
+fn versionJson(id: &str) -> Result<Value>
 {
     let manifest: Value = parseJson(url::VERSION_MANIFEST, &download(url::VERSION_MANIFEST)?)?;
     let entry: &Value = manifest
         .get("versions")
         .and_then(Value::as_array)
-        .and_then(|versions|
-        {
-            versions.iter().find(|version| version.get("id").and_then(Value::as_str) == Some(VERSION_ID))
-        })
-        .with_context(|| format!("{} has no {VERSION_ID} entry", url::VERSION_MANIFEST))?;
+        .and_then(|versions| versions.iter().find(|version| version.get("id").and_then(Value::as_str) == Some(id)))
+        .with_context(|| format!("{} has no {id} entry", url::VERSION_MANIFEST))?;
     let url: &str = text(entry, "/url")?;
     let bytes: Vec<u8> = download(url)?;
     verify(url, &bytes, text(entry, "/sha1")?)?;
