@@ -393,6 +393,8 @@ pub fn dropPlayerItemWithRandomChoice(this: &Rc<Entity>, item: Option<Rc<ItemSta
 pub fn getCurrentPlayerStrVsBlock(this: &Rc<Entity>, block: &Rc<Block>) -> f32
 {
     let mut f: f32 = inventory(this).getStrVsBlock(block);
+    f = crate::attribute::value(this, crate::attribute::Attribute::BREAK_SPEED, f as f64) as f32;
+
     // mods may change the mining speed
     crate::hooks::fire(crate::hooks::GameEvent::PlayerBreakSpeed { player: this, block, speed: &mut f });
 

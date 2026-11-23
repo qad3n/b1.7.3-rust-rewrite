@@ -34,7 +34,7 @@ pub const ENTITY_REACH: f64 = 3.0;
 // beta's speed for every living entity moving through the air
 pub const AIR_SPEED: f64 = 0.02;
 
-const VANILLA: [VanillaRow; 9] = [
+const VANILLA: [VanillaRow; 10] = [
     VanillaRow { m_name: "minecraft:max_health", m_default: 20.0 },
     VanillaRow { m_name: "minecraft:movement_speed", m_default: 0.1 },
     VanillaRow { m_name: "minecraft:attack_damage", m_default: 0.0 },
@@ -45,6 +45,8 @@ const VANILLA: [VanillaRow; 9] = [
     VanillaRow { m_name: "minecraft:block_interaction_range", m_default: BLOCK_REACH },
     VanillaRow { m_name: "minecraft:entity_interaction_range", m_default: ENTITY_REACH },
     VanillaRow { m_name: "minecraft:air_speed", m_default: AIR_SPEED },
+    // a multiplier on the player's mining speed
+    VanillaRow { m_name: "minecraft:block_break_speed", m_default: 1.0 },
 ];
 
 thread_local!
@@ -96,6 +98,7 @@ impl Attribute
     pub const BLOCK_REACH: Self = Self(6);
     pub const ENTITY_REACH: Self = Self(7);
     pub const AIR_SPEED: Self = Self(8);
+    pub const BREAK_SPEED: Self = Self(9);
 
     pub fn name(self) -> String { TYPES.with(|types| types.borrow()[self.0].m_name.clone()) }
 
