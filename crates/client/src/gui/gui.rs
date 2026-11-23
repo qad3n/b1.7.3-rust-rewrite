@@ -4,6 +4,14 @@ use lwjgl::opengl::GL11;
 use std::cell::Cell;
 use std::rc::Rc;
 
+mod panel
+{
+    pub const FACE: i32 = 0xFFC6C6C6u32 as i32;
+    pub const LIGHT: i32 = 0xFFFFFFFFu32 as i32;
+    pub const SHADOW: i32 = 0xFF555555u32 as i32;
+    pub const EDGE: i32 = 0xFF000000u32 as i32;
+}
+
 #[derive(Default)]
 pub struct Gui
 {
@@ -71,6 +79,38 @@ impl Gui
         tessellator.draw();
         GL11::glEnable(3553);
         GL11::glDisable(3042);
+    }
+
+    // rewrite: a container background as the gui sheets paint it with rounded corners at any size
+    pub fn drawPanel(&self, x: i32, y: i32, width: i32, height: i32)
+    {
+        let (w, h): (i32, i32) = (width, height);
+        let rects: [([i32; 4], i32); 19] = [
+            ([2, 2, w - 4, h - 4], panel::FACE),
+            ([2, 1, w - 5, 1], panel::LIGHT),
+            ([1, 2, w - 4, 1], panel::LIGHT),
+            ([1, 3, 2, h - 6], panel::LIGHT),
+            ([3, 3, 1, 1], panel::LIGHT),
+            ([w - 3, 3, 2, h - 5], panel::SHADOW),
+            ([3, h - 3, w - 4, 1], panel::SHADOW),
+            ([3, h - 2, w - 5, 1], panel::SHADOW),
+            ([w - 4, h - 4, 1, 1], panel::SHADOW),
+            ([2, 0, w - 5, 1], panel::EDGE),
+            ([0, 2, 1, h - 5], panel::EDGE),
+            ([3, h - 1, w - 5, 1], panel::EDGE),
+            ([w - 1, 3, 1, h - 5], panel::EDGE),
+            ([1, 1, 1, 1], panel::EDGE),
+            ([w - 3, 1, 1, 1], panel::EDGE),
+            ([w - 2, 2, 1, 1], panel::EDGE),
+            ([1, h - 3, 1, 1], panel::EDGE),
+            ([2, h - 2, 1, 1], panel::EDGE),
+            ([w - 2, h - 2, 1, 1], panel::EDGE),
+        ];
+
+        for ([left, top, rectWidth, rectHeight], color) in rects
+        {
+            self.drawRect(x + left, y + top, x + left + rectWidth, y + top + rectHeight, color);
+        }
     }
 
     #[allow(clippy::too_many_arguments)]

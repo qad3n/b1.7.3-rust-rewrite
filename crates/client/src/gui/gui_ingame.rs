@@ -5,6 +5,7 @@ use crate::port::{awt, runtime};
 use crate::render::{RenderEngine, RenderHelper, RenderItem, Tessellator};
 use crate::settings::GameSettings;
 use game::block::{Block, Material};
+use game::effect::EffectType;
 use game::entity::{Entity, entity_living, entity_player};
 use game::inventory::InventoryPlayer;
 use game::item::ItemStack;
@@ -41,9 +42,6 @@ pub struct GuiIngame
     pub m_damageGuiPartialTime: Cell<f32>,
     m_prevVignetteBrightness: Cell<f32>,
 }
-
-// the hud lists effects from just below the top edge
-const EFFECT_TOP: i32 = 2;
 
 impl GuiIngame
 {
@@ -127,7 +125,7 @@ impl GuiIngame
         self.m_gui.drawTexturedModalRect(i / 2 - 7, j / 2 - 7, 0, 0, 16, 16);
         GL11::glDisable(3042);
         self.renderStatusBars(&player, i, j);
-        self.drawEffects(&player, &fontrenderer, i, EFFECT_TOP);
+        self.drawEffects(&player, i);
         GL11::glDisable(3042);
         GL11::glEnable(32826);
         GL11::glPushMatrix();
@@ -397,17 +395,14 @@ impl GuiIngame
         GL11::glDisable(3042);
     }
 
-    // beta has no status effects, so this draws only when a mod effect is on the player, down the right edge
-    // active effects as icons with time left, the icons' right edge at right, from top downwards
-    pub(crate) fn drawEffects(&self, player: &Rc<Entity>, fontrenderer: &FontRenderer, right: i32, top: i32)
+    // beta has no status effects so this draws only mod ones as later versions do at the top right
+    // helpful effects in the first row and harmful ones below
+    pub(crate) fn drawEffects(&self, player: &Rc<Entity>, right: i32)
     {
-        const ICON: i32 = 16;
-        const ROW: i32 = 20;
-        const MARGIN: i32 = 2;
-        const TICKS_PER_SECOND: i32 = 20;
-        const BACKDROP: i32 = 0x80000000u32 as i32;
-        const OPAQUE: i32 = 0xFF000000u32 as i32;
-        const WHITE: i32 = 0xFFFFFF;
+        const BOX: i32 = 24;
+        const STEP: i32 = 25;
+        const TOP: i32 = 1;
+        const INSET: i32 = 3;
 
         let Some(living) = player.m_ext.living()
         else
@@ -419,49 +414,118 @@ impl GuiIngame
             return;
         }
 
-        // container screens leave lighting and depth on, which darkens and hides a flat icon quad
-        let lit: bool = GL11::glIsEnabled(GL11::GL_LIGHTING);
-        let depth: bool = GL11::glIsEnabled(GL11::GL_DEPTH_TEST);
-        GL11::glDisable(GL11::GL_LIGHTING);
-        GL11::glDisable(GL11::GL_DEPTH_TEST);
+        let state: (bool, bool) = Self::flatState();
+        let (mut good, mut bad): (i32, i32) = (0, 0);
 
-        let x: i32 = right - ICON - MARGIN;
-
-        for (row, (kind, level, ticks)) in living.m_effects.list().into_iter().enumerate()
+        for (kind, _, _) in living.m_effects.list()
         {
-            let y: i32 = top + row as i32 * ROW;
-            self.m_gui.drawRect(x - 1, y - 1, x + ICON + 1, y + ICON + 1, BACKDROP);
-
-            if kind.m_icon.is_empty()
+            let (x, y): (i32, i32) = if kind.m_beneficial
             {
-                self.m_gui.drawRect(x, y, x + ICON, y + ICON, OPAQUE | kind.m_color);
+                good += 1;
+                (right - STEP * good, TOP)
             }
             else
             {
-                GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
-                GL11::glEnable(GL11::GL_BLEND);
-                GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
-                GL11::glBindTexture(3553, self.renderEngine().getTexture(&kind.m_icon));
-                GL11::glPushMatrix();
-                GL11::glTranslatef(x as f32, y as f32, 0.0);
-                Self::drawOverlayQuad(ICON, ICON, 0.0, 0.0, 1.0, 1.0);
-                GL11::glPopMatrix();
-                GL11::glDisable(GL11::GL_BLEND);
-            }
-            let seconds: i32 = ticks.max(0) / TICKS_PER_SECOND;
-
-            let label: String = if level > 0
-            {
-                format!("{} {}:{:02}", level + 1, seconds / 60, seconds % 60)
-            }
-            else
-            {
-                format!("{}:{:02}", seconds / 60, seconds % 60)
+                bad += 1;
+                (right - STEP * bad, TOP + STEP)
             };
-            let textX: i32 = x - MARGIN - fontrenderer.getStringWidth(&label);
-            fontrenderer.drawStringWithShadow(&label, textX, y + (ICON - 8) / 2, WHITE);
+
+            self.m_gui.drawPanel(x, y, BOX, BOX);
+            self.drawEffectIcon(&kind, x + INSET, y + INSET);
         }
 
+        Self::restoreState(state);
+    }
+
+    // the inventory's effect boxes down its left side as InventoryEffectRenderer draws them
+    // they all hide while a mod overlay panel covers any part of that column
+    pub(crate) fn drawEffectList(
+        &self,
+        player: &Rc<Entity>,
+        fontrenderer: &FontRenderer,
+        left: i32,
+        top: i32,
+        covered: &dyn Fn(i32, i32) -> bool,
+    )
+    {
+        const OFFSET: i32 = 124;
+        const WIDTH: i32 = 120;
+        const HEIGHT: i32 = 32;
+        // the box art sits on the sheet below the inventory and is drawn as wide as GuiInventory does
+        const ART_WIDTH: i32 = 140;
+        const ART_TOP: i32 = 166;
+        const STEP: i32 = 33;
+        const CROWDED: usize = 5;
+        const SPAN: i32 = 132;
+        const ICON_X: i32 = 6;
+        const ICON_Y: i32 = 7;
+        const TEXT_X: i32 = 28;
+        const TEXT_Y: i32 = 6;
+        const LINE: i32 = 10;
+        const WHITE: i32 = 0xFFFFFF;
+        const GRAY: i32 = 0x7F7F7F;
+
+        let Some(living) = player.m_ext.living()
+        else
+        {
+            return;
+        };
+        let effects: Vec<(Rc<EffectType>, i32, i32)> = living.m_effects.list();
+        if effects.is_empty()
+        {
+            return;
+        }
+
+        let step: i32 = if effects.len() > CROWDED
+        {
+            SPAN / (effects.len() as i32 - 1)
+        }
+        else
+        {
+            STEP
+        };
+        let x: i32 = left - OFFSET;
+        let height: i32 = step * (effects.len() as i32 - 1) + HEIGHT;
+        if columnCovered(covered, x, top, WIDTH, height)
+        {
+            return;
+        }
+
+        let state: (bool, bool) = Self::flatState();
+        let sheet: i32 = self.renderEngine().getTexture(game::effect::ICONS);
+
+        for (row, (kind, level, ticks)) in effects.into_iter().enumerate()
+        {
+            let y: i32 = top + row as i32 * step;
+
+            GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+            GL11::glEnable(GL11::GL_BLEND);
+            GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
+            GL11::glBindTexture(GL11::GL_TEXTURE_2D, sheet);
+            self.m_gui.drawTexturedModalRect(x, y, 0, ART_TOP, ART_WIDTH, HEIGHT);
+            GL11::glDisable(GL11::GL_BLEND);
+
+            self.drawEffectIcon(&kind, x + ICON_X, y + ICON_Y);
+
+            let name: String = format!("{}{}", effectName(&kind), levelSuffix(level));
+            fontrenderer.drawStringWithShadow(&name, x + TEXT_X, y + TEXT_Y, WHITE);
+            fontrenderer.drawStringWithShadow(&duration(ticks), x + TEXT_X, y + TEXT_Y + LINE, GRAY);
+        }
+
+        Self::restoreState(state);
+    }
+
+    // container screens leave lighting and depth on which darkens and hides flat quads
+    fn flatState() -> (bool, bool)
+    {
+        let state: (bool, bool) = (GL11::glIsEnabled(GL11::GL_LIGHTING), GL11::glIsEnabled(GL11::GL_DEPTH_TEST));
+        GL11::glDisable(GL11::GL_LIGHTING);
+        GL11::glDisable(GL11::GL_DEPTH_TEST);
+        state
+    }
+
+    fn restoreState((lit, depth): (bool, bool))
+    {
         GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
 
         if lit
@@ -473,6 +537,46 @@ impl GuiIngame
         {
             GL11::glEnable(GL11::GL_DEPTH_TEST);
         }
+    }
+
+    // an 18 pixel status icon from a sheet index or a whole texture or the effect colour without one
+    fn drawEffectIcon(&self, kind: &EffectType, x: i32, y: i32)
+    {
+        const ICON: i32 = 18;
+        const COLUMNS: i32 = 8;
+        const SHEET_TOP: i32 = 198;
+        const OPAQUE: i32 = 0xFF000000u32 as i32;
+        const INSET: i32 = 2;
+
+        if kind.m_icon.is_empty()
+        {
+            self.m_gui.drawRect(x + INSET, y + INSET, x + ICON - INSET, y + ICON - INSET, OPAQUE | kind.m_color);
+            return;
+        }
+
+        GL11::glColor4f(1.0, 1.0, 1.0, 1.0);
+        GL11::glEnable(GL11::GL_BLEND);
+        GL11::glBlendFunc(GL11::GL_SRC_ALPHA, GL11::GL_ONE_MINUS_SRC_ALPHA);
+        GL11::glBindTexture(GL11::GL_TEXTURE_2D, self.renderEngine().getTexture(&kind.m_icon));
+
+        match kind.m_index
+        {
+            Some(index) =>
+            {
+                let (u, v): (i32, i32) = (index % COLUMNS * ICON, SHEET_TOP + index / COLUMNS * ICON);
+                self.m_gui.drawTexturedModalRect(x, y, u, v, ICON, ICON);
+            }
+
+            None =>
+            {
+                GL11::glPushMatrix();
+                GL11::glTranslatef(x as f32, y as f32, 0.0);
+                Self::drawOverlayQuad(ICON, ICON, 0.0, 0.0, 1.0, 1.0);
+                GL11::glPopMatrix();
+            }
+        }
+
+        GL11::glDisable(GL11::GL_BLEND);
     }
 
     fn drawOverlayQuad(width: i32, height: i32, u0: f64, v0: f64, u1: f64, v1: f64)
@@ -660,4 +764,66 @@ impl HeartRows
     }
 
     fn lift(&self, heart: i32) -> i32 { heart / Self::PER_ROW * self.m_rowHeight }
+}
+
+// overlays answer for single points so this probes a 16 pixel grid plus the far edges
+fn columnCovered(covered: &dyn Fn(i32, i32) -> bool, x: i32, y: i32, width: i32, height: i32) -> bool
+{
+    const PROBE: usize = 16;
+
+    let columns: Vec<i32> = (x..x + width).step_by(PROBE).chain([x + width - 1]).collect();
+    let rows: Vec<i32> = (y..y + height).step_by(PROBE).chain([y + height - 1]).collect();
+    columns.iter().any(|px| rows.iter().any(|py| covered(*px, *py)))
+}
+
+// lang key effect.namespace.path or the path in title case without one
+fn effectName(kind: &EffectType) -> String
+{
+    let key: String = format!("effect.{}", kind.m_name.replacen(':', ".", 1));
+    let translated: String = StringTranslate::getInstance().translateKey(&key);
+    if translated != key
+    {
+        return translated;
+    }
+
+    let path: &str = kind.m_name.split_once(':').map_or(kind.m_name.as_str(), |(_, path)| path);
+    path.split('_').map(capitalize).collect::<Vec<String>>().join(" ")
+}
+
+fn capitalize(word: &str) -> String
+{
+    let mut chars: std::str::Chars = word.chars();
+    match chars.next()
+    {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+// later versions name levels two to four in roman numerals and leave the first bare
+fn levelSuffix(level: i32) -> String
+{
+    const NUMERALS: [&str; 4] = ["", " II", " III", " IV"];
+
+    match NUMERALS.get(level.max(0) as usize)
+    {
+        Some(numeral) => (*numeral).to_owned(),
+        None => format!(" {}", level + 1),
+    }
+}
+
+// Potion.getDurationString with its stars for an endless effect
+fn duration(ticks: i32) -> String
+{
+    const ENDLESS: i32 = 32767;
+    const TICKS_PER_SECOND: i32 = 20;
+    const MINUTE: i32 = 60;
+
+    if ticks >= ENDLESS
+    {
+        return "**:**".to_owned();
+    }
+
+    let seconds: i32 = ticks.max(0) / TICKS_PER_SECOND;
+    format!("{}:{:02}", seconds / MINUTE, seconds % MINUTE)
 }
