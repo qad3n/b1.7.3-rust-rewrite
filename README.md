@@ -54,3 +54,7 @@ vendor/
   pudscode/             sound engine (submodule)
   b1.7.3-modding-sdk/   mod SDK (submodule): wire protocol, cargo b173, b173_api, example mods
 ```
+
+## License
+
+Unofficial fan project, not owned by its author. Free for non-commercial use, see [LICENSE](LICENSE).

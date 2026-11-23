@@ -1,42 +1,43 @@
-Beta 1.7.3 Rust Reconstruct
-Non-Commercial, No-Redistribution, No-Claim License
+Beta 1.7.3 Rust Rewrite
+Free Use, Non-Commercial, No-Claim Notice
 
-1. Ownership
+1. This is not mine
 
-The author claims no ownership of Minecraft or of anything derived from it.
-Minecraft, its name, design, game mechanics, file formats, network protocol
-and all original assets are the property of Mojang AB and Microsoft
-Corporation. This project is an unofficial fan project for study and
-personal use. It is not affiliated with, endorsed by or associated with
-Mojang AB or Microsoft Corporation.
+This is an unofficial fan rewrite of Minecraft Beta 1.7.3. I do not own
+Minecraft. Minecraft, its name, design, game mechanics, file formats,
+network protocol, original code and all original assets are the property of
+Mojang AB and Microsoft Corporation. This project is not affiliated with,
+endorsed by or associated with Mojang AB or Microsoft Corporation.
+
+If you want rights to Minecraft itself, ask its real owners, Mojang AB and
+Microsoft Corporation. I cannot grant them.
 
 This repository contains no Minecraft game files, assets, jars or
-decompiled code. Running the software requires game assets obtained by the
-user from an official source.
+decompiled code. Running it needs game assets from a copy of Minecraft you
+obtained from an official source.
 
-2. Permitted use
+The vendored projects in vendor/ are my own non-Minecraft code and carry
+their own licenses.
 
-You may view, read and study the source code, and build and run it on your
-own devices for personal, non-commercial purposes. You may modify it for
-your own private use.
+2. Free use
 
-3. Restrictions
+To the extent I hold any rights in this code, you may use, study, copy,
+modify, share and fork it freely for any non-commercial purpose, without
+asking me. Keep this notice with every copy.
 
-You may not:
+3. No money
 
-  a. use this software, or any part or modified version of it, for any
-     commercial purpose, including selling it, charging for access to it,
-     running it on paid or monetized servers, or using it in any product or
-     service that generates revenue, advertising income or donations in
-     exchange for access;
-  b. redistribute, republish, sublicense or mirror this software, in source
-     or binary form, modified or unmodified, outside of the platform's
-     built-in fork feature where its terms of service require one;
-  c. remove or change this license or the notices in it;
-  d. claim ownership of this software or present it as official Minecraft
-     software.
+Nobody makes money from this project, me included. You may not sell it,
+charge for access to it, run it on paid or monetized servers, or use it in
+any product or service that earns revenue, advertising income or donations
+in exchange for access.
 
-4. No warranty
+4. No claims
+
+Do not claim ownership of this project or present it as official Minecraft
+software.
+
+5. No warranty
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -45,7 +46,7 @@ AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
 ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-5. Takedown
+6. Takedown
 
 If you are a rights holder and object to this project, contact the author
 through the repository and it will be taken down.
